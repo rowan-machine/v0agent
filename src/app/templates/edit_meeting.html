@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Edit Meeting</h2>
+
+{% if meeting['meeting_date'] %}
+<p><strong>Meeting Date:</strong> {{ meeting['meeting_date'] }}</p>
+{% endif %}
+
+<form method="post">
+  <label>
+    Meeting Name<br>
+    <input type="text" name="meeting_name" value="{{ meeting['meeting_name'] }}" style="width: 400px;">
+  </label>
+
+  <br><br>
+
+  <label>
+    Meeting Date<br>
+    <input type="date" name="meeting_date" value="{{ meeting['meeting_date'] }}" style="width: 200px;">
+  </label>
+
+  <br><br>
+
+  <label>
+    Synthesized Notes<br>
+    <textarea name="synthesized_notes" rows="25" cols="100">{{ meeting['synthesized_notes'] }}</textarea>
+  </label>
+
+  <br><br>
+
+  <button type="submit">Update</button>
+</form>
+<form method="post" action="/meetings/{{ meeting['id'] }}/delete">
+  <button type="submit" onclick="return confirm('Delete this meeting?')">
+    Delete Meeting
+  </button>
+</form>
+{% endblock %}

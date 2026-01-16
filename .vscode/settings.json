@@ -1,0 +1,8 @@
+{
+"languageModel.mcpServers": {
+"giga": {
+"type": "sse",
+"url": "https://mcp.gigamind.dev/mcp"
+}
+}
+}

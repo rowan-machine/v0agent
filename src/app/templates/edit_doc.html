@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Edit Document</h2>
+
+{% if doc['document_date'] %}
+<p><strong>Document Date:</strong> {{ doc['document_date'] }}</p>
+{% endif %}
+
+<form method="post">
+  <label>
+    Source<br>
+    <input type="text" name="source" value="{{ doc['source'] }}" style="width: 500px;">
+  </label>
+
+  <br><br>
+
+  <label>
+    Document Date<br>
+    <input type="date" name="document_date" value="{{ doc['document_date'] }}" style="width: 200px;">
+  </label>
+
+  <br><br>
+
+  <label>
+    Content<br>
+    <textarea name="content" rows="25" cols="100">{{ doc['content'] }}</textarea>
+  </label>
+
+  <br><br>
+
+  <button type="submit">Update</button>
+</form>
+<form method="post" action="/documents/{{ doc['id'] }}/delete">
+  <button type="submit" onclick="return confirm('Delete this document?')">
+    Delete Document
+  </button>
+</form>
+{% endblock %}

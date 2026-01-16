@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>New Document</h2>
+
+<form method="post" action="/documents/store">
+  <label>
+    Source
+    <input
+      type="text"
+      name="source"
+      placeholder="Slack thread, transcript, design note, etc."
+      required
+    />
+  </label>
+
+  <label>
+    Document Date
+    <div style="display: flex; gap: 0.5rem; align-items: center;">
+      <input type="date" name="document_date" id="document_date" required />
+      <button type="button" onclick="document.getElementById('document_date').value = new Date().toISOString().split('T')[0]" style="padding: 0.75rem 1rem; white-space: nowrap;">Today</button>
+    </div>
+  </label>
+
+  <label>
+    Document Content
+    <textarea
+      name="content"
+      rows="25"
+      required
+      placeholder="Paste or type document content here..."
+    ></textarea>
+  </label>
+
+  <button type="submit">Save Document</button>
+</form>
+{% endblock %}

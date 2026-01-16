@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Search</h2>
+
+<form method="get" action="/search">
+
+  <input
+    type="text"
+    name="q"
+    value="{{ query }}"
+    placeholder="Search memory..."
+    style="width: 400px;"
+    required
+  />
+
+  <br><br>
+
+  <label>
+    Source:
+    <select name="source_type">
+      <option value="docs" {% if source_type == "docs" %}selected{% endif %}>Documents</option>
+      <option value="meetings" {% if source_type == "meetings" %}selected{% endif %}>Meetings</option>
+      <option value="both" {% if source_type == "both" %}selected{% endif %}>Both</option>
+    </select>
+  </label>
+
+  <br><br>
+
+  <label>
+    From:
+    <input type="date" name="start_date" value="{{ start_date }}">
+  </label>
+
+  <label style="margin-left: 1em;">
+    To:
+    <input type="date" name="end_date" value="{{ end_date }}">
+  </label>
+
+  <br><br>
+
+  <button type="submit">Search</button>
+</form>
+
+<hr />
+
+{% if results %}
+  <h3>Results ({{ results | length }})</h3>
+  <ul>
+    {% for r in results %}
+      <li style="margin-bottom: 1em;">
+        <strong>[{{ r.type | upper }}]</strong> {{ r.title }}<br>
+        <em>{{ r.snippet }}{% if r.snippet|length == 300 %}…{% endif %}</em><br>
+        {% if r.type == "meeting" %}
+          <a href="/meetings/{{ r.id }}/edit">View / Edit</a>
+        {% else %}
+          <a href="/documents/{{ r.id }}/edit">View / Edit</a>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>No results.</p>
+{% endif %}
+
+{% endblock %}

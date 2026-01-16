@@ -1,0 +1,14 @@
+[
+  {
+    "fileName": "main-overview.mdc",
+    "description": "High-level overview of the basic CRUD application for managing meeting notes and documents, including basic architecture and components"
+  },
+  {
+    "fileName": "data-models.mdc",
+    "description": "Documentation of the two main data models (Meetings and Documents) and their relationship structure"
+  },
+  {
+    "fileName": "api-endpoints.mdc",
+    "description": "Documentation of the FastAPI routes implementing basic CRUD operations for meetings and documents"
+  }
+]

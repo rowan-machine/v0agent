@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Query</h2>
+
+<form method="post" action="/query">
+
+  <textarea
+    name="question"
+    rows="3"
+    cols="100"
+    placeholder="Ask a grounded question..."
+    required
+  >{{ question }}</textarea>
+
+  <br><br>
+
+  <label>
+    Source:
+    <select name="source_type">
+      <option value="docs" {% if source_type == "docs" %}selected{% endif %}>Documents</option>
+      <option value="meetings" {% if source_type == "meetings" %}selected{% endif %}>Meetings</option>
+      <option value="both" {% if source_type == "both" %}selected{% endif %}>Both</option>
+    </select>
+  </label>
+
+  <br><br>
+
+  <label>
+    From:
+    <input type="date" name="start_date" value="{{ start_date }}">
+  </label>
+
+  <label style="margin-left: 1em;">
+    To:
+    <input type="date" name="end_date" value="{{ end_date }}">
+  </label>
+
+  <br><br>
+
+  <button type="submit">Ask</button>
+</form>
+
+{% if answer %}
+  <hr>
+  <h3>Answer</h3>
+  <p>{{ answer }}</p>
+
+  {% if sources %}
+    <h4>Sources</h4>
+    <ul>
+      {% for s in sources %}
+        <li>
+          [{{ loop.index }}]
+          {% if s.type == "document" %}
+            <a href="/documents/{{ s.id }}/edit">{{ s.label }}</a>
+          {% else %}
+            <a href="/meetings/{{ s.id }}/edit">{{ s.label }}</a>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endif %}
+
+{% endblock %}
