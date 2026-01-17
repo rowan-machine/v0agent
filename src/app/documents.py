@@ -3,7 +3,10 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
 from .db import connect
+from .memory.embed import embed_text, EMBED_MODEL
+from .memory.vector_store import upsert_embedding
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
@@ -16,10 +19,17 @@ def store_doc(
     document_date: str = Form(...)
 ):
     with connect() as conn:
-        conn.execute(
+        cur = conn.execute(
             "INSERT INTO docs (source, content, document_date) VALUES (?, ?, ?)",
             (source, content, document_date),
         )
+        doc_id = cur.lastrowid
+
+    # ---- VX.2b: embedding on ingest ----
+    text_for_embedding = f"{source}\n{content}"
+    vector = embed_text(text_for_embedding)
+    upsert_embedding("doc", doc_id, EMBED_MODEL, vector)
+
     return RedirectResponse(url="/documents?success=document_created", status_code=303)
 
 
@@ -27,29 +37,31 @@ def store_doc(
 def list_documents(request: Request, success: str = Query(default=None)):
     with connect() as conn:
         rows = conn.execute(
-            "SELECT id, source, document_date, created_at FROM docs ORDER BY COALESCE(document_date, created_at) DESC"
+            """
+            SELECT id, source, document_date, created_at
+            FROM docs
+            ORDER BY COALESCE(document_date, created_at) DESC
+            """
         ).fetchall()
-    
-    # Format dates for display in Central Time
+
     formatted_docs = []
     for row in rows:
         doc = dict(row)
-        date_str = doc['document_date'] or doc['created_at']
+        date_str = doc["document_date"] or doc["created_at"]
         if date_str:
             try:
-                # Parse the date (handles both date-only and datetime formats)
-                if ' ' in date_str:
-                    # Parse as UTC and convert to Central
-                    dt = datetime.strptime(date_str.split('.')[0], '%Y-%m-%d %H:%M:%S')
-                    dt_utc = dt.replace(tzinfo=ZoneInfo('UTC'))
-                    dt_central = dt_utc.astimezone(ZoneInfo('America/Chicago'))
-                    doc['display_date'] = dt_central.strftime('%Y-%m-%d %I:%M %p %Z')
+                if " " in date_str:
+                    dt = datetime.strptime(date_str.split(".")[0], "%Y-%m-%d %H:%M:%S")
+                    dt_utc = dt.replace(tzinfo=ZoneInfo("UTC"))
+                    dt_central = dt_utc.astimezone(ZoneInfo("America/Chicago"))
+                    doc["display_date"] = dt_central.strftime("%Y-%m-%d %I:%M %p %Z")
                 else:
-                    doc['display_date'] = date_str
-            except:
-                doc['display_date'] = date_str
+                    doc["display_date"] = date_str
+            except Exception:
+                doc["display_date"] = date_str
         else:
-            doc['display_date'] = ''
+            doc["display_date"] = ""
+
         formatted_docs.append(doc)
 
     return templates.TemplateResponse(
@@ -89,13 +101,21 @@ def update_document(
             (source, content, document_date, doc_id),
         )
 
+    # ---- VX.2b: embedding on update ----
+    text_for_embedding = f"{source}\n{content}"
+    vector = embed_text(text_for_embedding)
+    upsert_embedding("doc", doc_id, EMBED_MODEL, vector)
+
     return RedirectResponse(url="/documents?success=document_updated", status_code=303)
+
 
 @router.post("/documents/{doc_id}/delete")
 def delete_document(doc_id: int):
     with connect() as conn:
+        conn.execute("DELETE FROM docs WHERE id = ?", (doc_id,))
         conn.execute(
-            "DELETE FROM docs WHERE id = ?",
+            "DELETE FROM embeddings WHERE ref_type = 'doc' AND ref_id = ?",
             (doc_id,),
         )
+
     return RedirectResponse(url="/documents?success=document_deleted", status_code=303)

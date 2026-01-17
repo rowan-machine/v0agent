@@ -8,6 +8,9 @@ from .context import build_context
 from .models import add_message, get_recent_messages
 
 from ..memory.retrieve import retrieve
+from ..memory.semantic import semantic_search
+from ..memory.rank import rank_items
+
 from ..llm import answer as llm_answer
 
 MAX_CONTEXT = 6
@@ -27,7 +30,6 @@ def run_turn(
     Used by /query.
     """
 
-    # Planner (fail hard for /query)
     plan_json = plan(question)
 
     terms = list(set(plan_json["keywords"] + plan_json["concepts"]))
@@ -36,46 +38,87 @@ def run_turn(
 
     effective_source = plan_json["source_preference"] or source_type
 
+    # ---------- Lexical retrieval ----------
     raw = retrieve(
         terms=terms,
         source_type=effective_source,
         start_date=start_date,
         end_date=end_date,
-        limit=MAX_CONTEXT,
+        limit=MAX_CONTEXT * 2,  # pull extra for hybrid merge
     )
 
-    blocks: List[str] = []
-    sources: List[Dict] = []
+    items: List[Dict] = []
 
-    # Documents first
     for d in raw["documents"]:
-        idx = len(blocks) + 1
-        blocks.append(f"[{idx}] (Document: {d['source']})\n{d['content']}")
-        sources.append({
-            "type": "document",
+        items.append({
+            "type": "docs",
             "id": d["id"],
             "label": d["source"],
+            "content": d["content"],
+            "created_at": d["created_at"],
         })
-        if len(blocks) >= MAX_CONTEXT:
-            break
 
-    # Meetings second
-    if len(blocks) < MAX_CONTEXT:
-        for m in raw["meetings"]:
-            idx = len(blocks) + 1
-            blocks.append(
-                f"[{idx}] (Meeting: {m['meeting_name']})\n{m['synthesized_notes']}"
-            )
-            sources.append({
-                "type": "meeting",
+    for m in raw["meetings"]:
+        items.append({
+            "type": "meetings",
+            "id": m["id"],
+            "label": m["meeting_name"],
+            "content": m["synthesized_notes"],
+            "created_at": m["created_at"],
+        })
+
+    # ---------- Semantic retrieval ----------
+    if effective_source in ("docs", "both"):
+        for d in semantic_search(question, "doc"):
+            items.append({
+                "type": "docs",
+                "id": d["id"],
+                "label": d["source"],
+                "content": d["content"],
+                "created_at": d["created_at"],
+            })
+
+    if effective_source in ("meetings", "both"):
+        for m in semantic_search(question, "meeting"):
+            items.append({
+                "type": "meetings",
                 "id": m["id"],
                 "label": m["meeting_name"],
+                "content": m["synthesized_notes"],
+                "created_at": m["created_at"],
             })
-            if len(blocks) >= MAX_CONTEXT:
-                break
 
-    if not blocks:
+    # ---------- De-duplicate ----------
+    seen = set()
+    deduped = []
+    for it in items:
+        key = (it["type"], it["id"])
+        if key not in seen:
+            seen.add(key)
+            deduped.append(it)
+
+    # ---------- Rank (VX.2a logic reused) ----------
+    ranked = rank_items(
+        deduped,
+        terms=terms,
+        source_preference=plan_json["source_preference"],
+        time_hint=plan_json["time_hint"],
+    )
+
+    if not ranked:
         return "I don’t have enough information in the provided sources.", []
+
+    # ---------- Build context ----------
+    blocks = []
+    sources = []
+
+    for idx, it in enumerate(ranked[:MAX_CONTEXT], start=1):
+        blocks.append(f"[{idx}] ({it['type'].capitalize()}: {it['label']})\n{it['content']}")
+        sources.append({
+            "type": it["type"][:-1],
+            "id": it["id"],
+            "label": it["label"],
+        })
 
     answer_text = llm_answer(question, blocks)
     return answer_text, sources
@@ -93,10 +136,8 @@ def run_chat_turn(
     Used by /chat.
     """
 
-    # Store user message
     add_message(conversation_id, "user", question)
 
-    # Planner with safe fallback (VX.1d)
     try:
         plan_json = plan(question)
     except Exception:
@@ -104,36 +145,79 @@ def run_chat_turn(
 
     terms = list(set(plan_json["keywords"] + plan_json["concepts"]))
 
+    # ---------- Lexical retrieval ----------
     raw = retrieve(
         terms=terms,
         source_type=plan_json["source_preference"] or "both",
-        limit=MAX_CONTEXT,
+        limit=MAX_CONTEXT * 2,
     )
 
-    memory_blocks: List[str] = []
+    items: List[Dict] = []
 
-    # Documents
     for d in raw["documents"]:
-        memory_blocks.append(
-            f"(Document: {d['source']})\n{d['content']}"
-        )
+        items.append({
+            "type": "docs",
+            "id": d["id"],
+            "label": d["source"],
+            "content": d["content"],
+            "created_at": d["created_at"],
+        })
 
-    # Meetings
     for m in raw["meetings"]:
+        items.append({
+            "type": "meetings",
+            "id": m["id"],
+            "label": m["meeting_name"],
+            "content": m["synthesized_notes"],
+            "created_at": m["created_at"],
+        })
+
+    # ---------- Semantic retrieval ----------
+    for d in semantic_search(question, "doc"):
+        items.append({
+            "type": "docs",
+            "id": d["id"],
+            "label": d["source"],
+            "content": d["content"],
+            "created_at": d["created_at"],
+        })
+
+    for m in semantic_search(question, "meeting"):
+        items.append({
+            "type": "meetings",
+            "id": m["id"],
+            "label": m["meeting_name"],
+            "content": m["synthesized_notes"],
+            "created_at": m["created_at"],
+        })
+
+    # ---------- De-duplicate ----------
+    seen = set()
+    deduped = []
+    for it in items:
+        key = (it["type"], it["id"])
+        if key not in seen:
+            seen.add(key)
+            deduped.append(it)
+
+    # ---------- Rank ----------
+    ranked = rank_items(
+        deduped,
+        terms=terms,
+        source_preference=plan_json["source_preference"],
+        time_hint=plan_json["time_hint"],
+    )
+
+    memory_blocks = []
+    for it in ranked[:MAX_CONTEXT]:
         memory_blocks.append(
-            f"(Meeting: {m['meeting_name']})\n{m['synthesized_notes']}"
+            f"({it['type'].capitalize()}: {it['label']})\n{it['content']}"
         )
 
-    # Conversation context
     conversation = get_recent_messages(conversation_id)
-
-    # Build final context window
     context = build_context(conversation, memory_blocks)
 
-    # Answer
     answer = llm_answer(question, context)
 
-    # Store assistant message
     add_message(conversation_id, "assistant", answer)
-
     return answer
