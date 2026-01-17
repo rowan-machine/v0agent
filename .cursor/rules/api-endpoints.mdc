@@ -1,42 +1,38 @@
 ---
-description: Specification for FastAPI routes implementing meeting and document CRUD operations and search endpoints
+description: Documents FastAPI route implementations for meetings and document management operations
 ---
 
 
 # api-endpoints
 
-The API endpoints implement specialized knowledge management functionality focused on meetings and documents through these key routes:
+Based on the provided specification, there are minimal direct details about API endpoints. However, the system architecture implies the following key route groups:
 
-## Search and Retrieval Endpoints
-- Multi-source search capabilities across meetings and documents with temporal filtering
-- Date-range bounded queries for institutional knowledge
-- Source-type filtering for targeted content retrieval
+## Query Planning Routes
+File: src/app/chat/planner.py
+- Endpoint(s) for submitting user questions and receiving structured search plans
+- Integration with AI-driven planning system for query parameter generation
+Importance Score: 85/100
 
-## Meeting Management Endpoints
-- Meeting synthesis and storage with timezone-aware handling
-- Date-aware content organization
-- Integration with central/UTC timezone system for global consistency
+## Conversation Management Routes
+File: src/app/chat/turn.py
+- Routes for managing conversation turns and context
+- Endpoints handling multi-stage query processing workflow
+- Integration points for document/meeting context mixing
+Importance Score: 80/100
 
-## Document Processing Endpoints
-- Document storage with synthesis capabilities
-- Parallel tracking alongside meeting content
-- Temporal organization aligned with meeting data
-
-## Question-Answer Endpoints
-- Context-aware retrieval with source prioritization
-- Multi-source context assembly (up to 6 sources)
-- Structured response generation with source attribution
-- Meeting-focused response constraints
-
-## Common Features
-- Domain-specific system prompts for meeting retrieval
-- Source citation requirements and formatting
-- Hybrid search implementation across content types
-- Time-bounded search functionality
-- Source-specific result formatting and prioritization
-
+## Memory Retrieval Routes
+File: src/app/memory/retrieve.py
+- Search endpoints supporting hybrid source type retrieval
+- Routes for temporal-filtered content access
+- Meeting and document retrieval endpoints
 Importance Score: 75/100
-The endpoints represent critical business functionality for knowledge management but utilize standard REST patterns for implementation.
+
+Key API Features:
+- Source attribution enforcement
+- Context size management (MAX_CONTEXT = 6)
+- Temporal filtering capabilities
+- Hybrid document/meeting access patterns
+- Business context validation
 
 $END$
 
