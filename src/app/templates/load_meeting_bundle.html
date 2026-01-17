@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>Load Meeting Bundle (Agent / MCP)</h2>
+
+<p class="muted">
+Use this to load a full meeting summary + transcript in one step.
+This calls the MCP tool directly.
+</p>
+
+<form method="post" action="/meetings/load">
+  <label>Meeting Name</label>
+  <input type="text" name="meeting_name" required>
+
+  <label>Meeting Date</label>
+  <input type="date" name="meeting_date">
+
+  <label>Summarized Notes (structured)</label>
+  <textarea name="summary_text" rows="14" required></textarea>
+
+  <label>Transcript (optional)</label>
+  <textarea name="transcript_text" rows="10"></textarea>
+
+  <button type="submit">Load via MCP</button>
+</form>
+
+{% endblock %}
