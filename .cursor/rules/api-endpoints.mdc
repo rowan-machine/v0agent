@@ -1,39 +1,50 @@
 ---
-description: API endpoint and route documentation for CRUD operations on meetings and documents
+description: API endpoint documentation for enterprise memory and knowledge retrieval system
 ---
 
 
 # api-endpoints
 
-Based on the provided specification, there is limited direct information about specific API endpoints. However, the system architecture implies the following high-level REST API structure related to the core business functionality:
+Based on the provided specification, the API endpoints focus on integrating multiple knowledge management systems through a unified interface:
 
-Primary Resource Endpoints:
-- Meeting management endpoints
-- Document management endpoints 
+## Memory Integration Routes
 
-These endpoints integrate with the following key business components:
+Key integration points for the hybrid storage system:
+- Document creation/update endpoints synchronize with vector embeddings store
+- Meeting routes handle automatic embedding generation
+- Combined SQL and vector storage operations for knowledge persistence
 
-1. Query Planning Integration
-- Endpoints must interface with the specialized query planning logic (src/app/chat/planner.py)
-- Routes handle conversation context and query transformation parameters
+## Retrieval Endpoints
 
-2. Memory Retrieval Integration
-- Search endpoints leverage the custom ranking algorithm
-- Results combine both meeting and document sources
-- Support for temporal filtering parameters
+Sophisticated search endpoints implementing:
+- Hybrid semantic + traditional search capabilities  
+- Source-aware document retrieval with custom prioritization
+- Temporal-based filtering (recent vs historical content)
 
-3. Conversation Context Management
-- Stateful conversation endpoint support
-- Context window management endpoints
-- History merging capabilities
+## Context-Aware Chat Endpoints
 
-4. Chat Turn Processing
-- QA workflow orchestration endpoints
-- Fallback handling routes
-- Support for both stateful/stateless modes
+Chat interaction routes featuring:
+- Dynamic context building and management
+- Question analysis and routing
+- Source attribution tracking
+- Evidence collection from multiple knowledge sources
 
-Importance Score: 75/100
-The API endpoints serve as critical integration points for the core business logic around document/meeting management and intelligent query processing.
+## Ranking Routes
+
+Custom ranking endpoints implementing:
+- Multi-factor document scoring
+- Source type weighting
+- Temporal relevance calculations
+- Term density analysis
+- Recent content prioritization (30/90 day windows)
+
+## Memory Management 
+
+Routes for managing the conversational memory system:
+- Stateful conversation tracking
+- Context window management
+- Fallback query handling
+- Retrieval augmented generation integration
 
 $END$
 
