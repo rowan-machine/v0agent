@@ -1,24 +1,38 @@
 ---
-description: Specification for standard meeting/document data models without specialized business logic
+description: Documentation for the core data models representing Meetings and Documents, their relationships and business rules
 ---
 
 
 # data-models
 
-The data model structure consists of two basic entities:
+The system is built around two primary data models that manage institutional knowledge:
 
-1. Meetings
-2. Documents
+## Meeting Model
+Core entity representing organizational meetings with:
+- Temporal organization with UTC timezone normalization
+- Synthesis capabilities for content aggregation
+- Date-aware content organization structure
 
-These models implement standard storage and retrieval patterns without any specialized business rules or domain-specific constraints.
+## Document Model
+Secondary entity for document management:
+- Integration with meeting-centric data flow
+- Date-based content classification
+- Relationship mappings to associated meetings
 
-Relationship Structure:
-- One-to-many relationship between Meetings and Documents
-- Basic foreign key associations
-- No custom validation or business logic constraints
+## Relationship Structure
+The models implement a dual-track information storage system:
+- Meetings serve as the primary organizational unit
+- Documents attach to meetings as supporting content
+- Both models support temporal filtering and content synthesis
+- Cross-model relationships enable multi-source context assembly
 
-Importance Score: 5/100
-The models represent simple data storage patterns without any unique business requirements.
+## Content Organization
+- Central/UTC timezone handling ensures global consistency
+- Date-based hierarchical structure for both models
+- Synthesis capabilities merge content across related entities
+- Meeting-document associations enable contextual retrieval
+
+The data model architecture emphasizes temporal organization and meeting-centric knowledge management, implementing specialized synthesis capabilities for institutional knowledge retention.
 
 $END$
 
