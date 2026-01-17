@@ -3,10 +3,14 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime
 from zoneinfo import ZoneInfo
+import json
 
 from .db import connect
 from .memory.embed import embed_text, EMBED_MODEL
 from .memory.vector_store import upsert_embedding
+from .mcp.parser import parse_meeting_summary
+from .mcp.extract import extract_structured_signals
+from .mcp.cleaner import clean_meeting_text
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
@@ -18,13 +22,20 @@ def store_meeting(
     synthesized_notes: str = Form(...),
     meeting_date: str = Form(...)
 ):
+    # Clean the text (remove aside tags and markdown headers)
+    cleaned_notes = clean_meeting_text(synthesized_notes)
+    
+    # Parse and extract structured signals
+    parsed_sections = parse_meeting_summary(cleaned_notes)
+    signals = extract_structured_signals(parsed_sections)
+    
     with connect() as conn:
         cur = conn.execute(
             """
-            INSERT INTO meeting_summaries (meeting_name, synthesized_notes, meeting_date)
-            VALUES (?, ?, ?)
+            INSERT INTO meeting_summaries (meeting_name, synthesized_notes, meeting_date, signals_json)
+            VALUES (?, ?, ?, ?)
             """,
-            (meeting_name, synthesized_notes, meeting_date),
+            (meeting_name, cleaned_notes, meeting_date, json.dumps(signals)),
         )
         meeting_id = cur.lastrowid
 
@@ -94,14 +105,21 @@ def update_meeting(
     synthesized_notes: str = Form(...),
     meeting_date: str = Form(...)
 ):
+    # Clean the text (remove aside tags and markdown headers)
+    cleaned_notes = clean_meeting_text(synthesized_notes)
+    
+    # Parse and extract structured signals
+    parsed_sections = parse_meeting_summary(cleaned_notes)
+    signals = extract_structured_signals(parsed_sections)
+    
     with connect() as conn:
         conn.execute(
             """
             UPDATE meeting_summaries
-            SET meeting_name = ?, synthesized_notes = ?, meeting_date = ?
+            SET meeting_name = ?, synthesized_notes = ?, meeting_date = ?, signals_json = ?
             WHERE id = ?
             """,
-            (meeting_name, synthesized_notes, meeting_date, meeting_id),
+            (meeting_name, cleaned_notes, meeting_date, json.dumps(signals), meeting_id),
         )
 
     # ---- VX.2b: embedding on update ----
