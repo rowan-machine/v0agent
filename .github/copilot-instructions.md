@@ -13,38 +13,46 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-Knowledge management platform specializing in meeting information and document synthesis with temporal organization and context-aware retrieval capabilities.
+Enterprise knowledge management system orchestrating AI-powered retrieval across meetings and documents with structured planning and context preservation.
 
-## Core Architecture
+## Core Components
 
-### Memory Management and Retrieval (src/app/memory/retrieve.py)
-- Document and meeting retrieval with temporal filtering
-- Multi-source search implementation combining meetings and documents
-- Term-based content matching with source type filtering
-- Hybrid search capabilities with date range constraints
+### Query Planning System
+Location: src/app/chat/planner.py
+- AI-driven conversion of user questions into structured search parameters
+- Planning schema with keywords, concepts, and temporal hints
+- Business rule validation for planner outputs
+Importance Score: 85
 
-### Question-Answer Processing (src/app/chat/turn.py)
-- Context-aware question processing with source prioritization 
-- Document/meeting mixing with 6-source context limit
-- Structured responses with source attribution
-- Domain-specific system prompts for meeting content
+### Conversation Processing Engine
+Location: src/app/chat/turn.py
+- Multi-stage workflow combining planning, extraction, and generation
+- Document and meeting context mixing with configurable depth limits
+- Context assembly with source attribution requirements
+Importance Score: 80
 
-## Information Organization
+### Memory Retrieval Layer
+Location: src/app/memory/retrieve.py
+- Recall-oriented search across hybrid knowledge sources
+- Temporal-aware document and meeting retrieval
+- Source type filtering (meetings/documents/combined)
+Importance Score: 75
 
-### Meeting/Document Synthesis
-- Dual storage tracks for meetings and document content
-- Date-aware content organization model
-- UTC-based temporal consistency
-- Source-specific formatting and prioritization
-- Structured attribution system for knowledge sources
+### Answer Generation System
+Location: src/app/llm.py
+- Domain-specific prompt engineering for meeting context
+- Standardized source citation formatting
+- Context synthesis rules for mixed source types
+Importance Score: 70
+
+## Domain Patterns
 
 ### Knowledge Integration
-- Meeting-centric data modeling
-- Temporal organization of institutional knowledge
-- Multi-source context assembly
-- Context-aware response generation with citation requirements
-
-Importance Score: 75/100
+- Hybrid document/meeting knowledge base
+- Temporal context preservation
+- Structured information retrieval
+- Source attribution enforcement
+- Context size management
 
 $END$
 
