@@ -24,7 +24,11 @@ def run_turn(
     Used by /query.
     """
 
-    plan_json = plan(question)
+    try:
+        plan_json = plan(question)
+    except Exception as e:
+        # Explicit fallback (VX.1d)
+        plan_json = fallback_plan(question)
 
     terms = list(set(plan_json["keywords"] + plan_json["concepts"]))
     if not terms:
