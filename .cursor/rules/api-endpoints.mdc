@@ -1,41 +1,39 @@
 ---
-description: Documentation for FastAPI endpoints handling meeting and document querying and retrieval operations
+description: API endpoint and route documentation for CRUD operations on meetings and documents
 ---
 
 
 # api-endpoints
 
-Based on the specification, the API endpoints are primarily focused on providing interfaces for the core business query and retrieval systems:
+Based on the provided specification, there is limited direct information about specific API endpoints. However, the system architecture implies the following high-level REST API structure related to the core business functionality:
 
-Query Planning Endpoints:
-- Importance Score: 85/100
-- Translates natural language queries into structured search parameters
-- Determines source preferences between meetings and documents
-- Extracts search concepts and temporal hints
+Primary Resource Endpoints:
+- Meeting management endpoints
+- Document management endpoints 
 
-Memory Retrieval Endpoints:
-- Importance Score: 80/100
-- Handles hybrid queries across meetings and documents
-- Implements domain-specific document and meeting retrieval
-- Returns temporally ordered content based on relevance scoring
+These endpoints integrate with the following key business components:
 
-Context Management Endpoints:
-- Importance Score: 75/100
-- Manages conversation state persistence
-- Assembles contextual memory blocks
-- Enforces context window limitations
+1. Query Planning Integration
+- Endpoints must interface with the specialized query planning logic (src/app/chat/planner.py)
+- Routes handle conversation context and query transformation parameters
 
-Chat Flow Endpoints:
-- Importance Score: 70/100
-- Orchestrates conversation turns between user and memory system
-- Manages conversation state persistence
-- Implements query planning fallback mechanisms
+2. Memory Retrieval Integration
+- Search endpoints leverage the custom ranking algorithm
+- Results combine both meeting and document sources
+- Support for temporal filtering parameters
 
-The endpoints implement a multi-stage pipeline for:
-1. Query planning and translation
-2. Memory retrieval across hybrid sources
-3. Context assembly and management
-4. Conversational flow orchestration
+3. Conversation Context Management
+- Stateful conversation endpoint support
+- Context window management endpoints
+- History merging capabilities
+
+4. Chat Turn Processing
+- QA workflow orchestration endpoints
+- Fallback handling routes
+- Support for both stateful/stateless modes
+
+Importance Score: 75/100
+The API endpoints serve as critical integration points for the core business logic around document/meeting management and intelligent query processing.
 
 $END$
 

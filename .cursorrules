@@ -10,46 +10,34 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The system implements an organizational knowledge management platform centered around intelligent querying of meetings and documents through a conversational interface.
+Importance Score: 75/100
 
-## Core Components
+The system implements specialized organizational knowledge retrieval through four core business components:
 
-### Meeting and Document Query System (85/100)
-Location: src/app/chat/planner.py
-- Translates natural language into structured search parameters
-- Determines optimal source selection between meetings and documents
-- Extracts key concepts for contextual searching
-- Processes temporal hints for time-based queries
-- Enforces query planning validation rules
+1. Query Planning (src/app/chat/planner.py)
+- Specialized document and meeting search planning
+- Query transformation with conversation context 
+- Schema validation for query plans
+- Source preference rules and time-based filtering
 
-### Memory Retrieval Engine (80/100)
-Location: src/app/memory/retrieve.py
-- Executes hybrid queries across meetings and documents
-- Implements domain-specific relevance scoring
-- Maintains temporal ordering of retrieved content
-- Handles multi-source information synthesis
+2. Memory Management (src/app/memory/retrieve.py, src/app/memory/rank.py)
+- Unified ranking algorithm for documents and meetings
+- Document recency scoring using 30/90 day thresholds
+- Term matching with source type preferences
+- Temporal relevance adjustments
 
-### Context Building System (75/100)
-Location: src/app/chat/context.py
-- Assembles conversational memory context
-- Manages context window limitations
-- Preserves conversation coherence
-- Combines historical context with memory blocks
+3. Context Building (src/app/chat/context.py)
+- Conversation history and memory block merging
+- Context window management
+- Preservation of conversation coherence within limits
 
-### Chat Turn Management (70/100)
-Location: src/app/chat/turn.py
-- Orchestrates conversation flow
-- Manages conversation state persistence
-- Implements query planning fallbacks
-- Integrates retrieval with active context
+4. Chat Workflow (src/app/chat/turn.py)
+- End-to-end QA process orchestration
+- Fallback handling for failed query plans
+- Stateful and stateless conversation modes
+- Integration of planning, retrieval and generation
 
-## System Architecture
-
-The platform operates on a hybrid document/meeting memory model with:
-- Multi-stage query planning and execution pipeline
-- Temporal-aware information retrieval
-- Conversational access to organizational knowledge
-- Context-aware memory integration
+The architecture centers around unified document and meeting search with temporal awareness. Key differentiators include dual-source searching, time-based ranking, and flexible conversation modes with fallback mechanisms.
 
 $END$
 

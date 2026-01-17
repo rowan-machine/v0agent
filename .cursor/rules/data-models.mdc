@@ -1,46 +1,43 @@
 ---
-description: Specification for data model documentation covering meeting and document entities and their relationships
+description: Rules and documentation for data model design focusing on Meetings and Documents relationships
 ---
 
 
 # data-models
 
-## Core Data Models (Importance Score: 90/100)
+Importance Score: 75/100
 
-The system is built on two primary domain entities:
+The system implements a dual-model architecture centered around Meetings and Documents as primary data entities:
 
-1. Meetings
-- Core organizational memory unit representing discussions and interactions
-- Contains temporal metadata for time-based querying
-- Links to related documents and context
+## Core Models
 
-2. Documents  
-- Represents organizational knowledge artifacts
-- Associated with meetings and conversations
-- Contains searchable content and metadata
+### Memory Sources
+Two primary memory source types are implemented:
+- Meetings: Time-bounded discussion records
+- Documents: General knowledge artifacts
 
-## Relationship Structure (Importance Score: 85/100)
+### Unified Search Model
+The memory retrieval system implements a unified search interface across both models:
+- Common ranking attributes for both sources
+- Temporal metadata integration
+- Source type preferences
+- Unified relevance scoring
 
-The data models implement a hybrid memory architecture:
+### Relationship Structure
+Memory blocks maintain relationships through:
+- Cross-referencing between meetings and related documents
+- Temporal alignment for context building
+- Source preference weighting in unified search results
 
-- Meetings and documents maintain bidirectional relationships
-- Content is organized with temporal context preservation
-- Query planning system traverses relationships for context building
-- Memory retrieval engine handles hybrid source type queries across both models
+### Context Management
+The conversation context model integrates:
+- Memory blocks from both source types
+- Temporal metadata for relevance calculations
+- Source type preferences during retrieval
 
-## Integration Points (Importance Score: 80/100)
-
-Key model integration occurs in:
-
-src/app/memory/retrieve.py:
-- Implements domain-specific retrieval across both models
-- Maintains temporal ordering of retrieved content
-- Handles hybrid queries spanning meetings and documents
-
-src/app/chat/context.py:
-- Assembles conversation context from both models
-- Combines conversation history with relevant memory blocks
-- Preserves relationships during context assembly
+Key files:
+- src/app/memory/retrieve.py
+- src/app/memory/rank.py
 
 $END$
 
