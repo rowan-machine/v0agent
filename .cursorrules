@@ -10,20 +10,38 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-Basic CRUD application for managing meeting notes and documents, implementing standard data operations without specialized business logic.
+Knowledge management platform specializing in meeting information and document synthesis with temporal organization and context-aware retrieval capabilities.
 
-## Core Functionality
-Simple document storage and retrieval system using standard database operations and web application patterns. No custom business rules or domain-specific processing is implemented.
+## Core Architecture
 
-## Business Logic Score: 5/100
-Very low business complexity score due to:
-- Absence of custom validation rules
-- No specialized data transformations
-- No unique business workflows
-- Standard CRUD operations only
-- No domain-specific requirements
+### Memory Management and Retrieval (src/app/memory/retrieve.py)
+- Document and meeting retrieval with temporal filtering
+- Multi-source search implementation combining meetings and documents
+- Term-based content matching with source type filtering
+- Hybrid search capabilities with date range constraints
 
-The application serves as a basic content management system without any distinguishing business features or specialized processing requirements.
+### Question-Answer Processing (src/app/chat/turn.py)
+- Context-aware question processing with source prioritization 
+- Document/meeting mixing with 6-source context limit
+- Structured responses with source attribution
+- Domain-specific system prompts for meeting content
+
+## Information Organization
+
+### Meeting/Document Synthesis
+- Dual storage tracks for meetings and document content
+- Date-aware content organization model
+- UTC-based temporal consistency
+- Source-specific formatting and prioritization
+- Structured attribution system for knowledge sources
+
+### Knowledge Integration
+- Meeting-centric data modeling
+- Temporal organization of institutional knowledge
+- Multi-source context assembly
+- Context-aware response generation with citation requirements
+
+Importance Score: 75/100
 
 $END$
 
