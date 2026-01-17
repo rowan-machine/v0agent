@@ -1,50 +1,32 @@
 ---
-description: API endpoint documentation for enterprise memory and knowledge retrieval system
+description: Guidance for implementing FastAPI routes for meeting and document CRUD operations with domain-specific business logic
 ---
 
 
 # api-endpoints
 
-Based on the provided specification, the API endpoints focus on integrating multiple knowledge management systems through a unified interface:
+The API routes specification focuses on meeting and document management with domain-specific implementation. Based on the provided information about the Meeting Processing Pipeline and Signal Extraction System, the following business logic patterns should be implemented in the endpoints:
 
-## Memory Integration Routes
+## Meeting Endpoints (Importance: 85/100)
+- Support specialized handling for meeting bundles containing summaries, transcripts and structured signals
+- Enable processing of domain-specific sections like Decisions, Action Items, Blockers, Risks, Ideas
+- Facilitate extraction and persistence of synthesized authoritative signals
+- Implement organizational formatting standards for meeting summaries
+- Support document hierarchy specific to meetings and transcripts
 
-Key integration points for the hybrid storage system:
-- Document creation/update endpoints synchronize with vector embeddings store
-- Meeting routes handle automatic embedding generation
-- Combined SQL and vector storage operations for knowledge persistence
+## Knowledge Retrieval Endpoints (Importance: 75/100) 
+- Expose custom ranking functionality incorporating source type preferences
+- Support time-based relevance querying
+- Enable term matching with business context
+- Implement hybrid scoring for documents and meetings
+- Support domain-specific query planning with time context understanding
 
-## Retrieval Endpoints
-
-Sophisticated search endpoints implementing:
-- Hybrid semantic + traditional search capabilities  
-- Source-aware document retrieval with custom prioritization
-- Temporal-based filtering (recent vs historical content)
-
-## Context-Aware Chat Endpoints
-
-Chat interaction routes featuring:
-- Dynamic context building and management
-- Question analysis and routing
-- Source attribution tracking
-- Evidence collection from multiple knowledge sources
-
-## Ranking Routes
-
-Custom ranking endpoints implementing:
-- Multi-factor document scoring
-- Source type weighting
-- Temporal relevance calculations
-- Term density analysis
-- Recent content prioritization (30/90 day windows)
-
-## Memory Management 
-
-Routes for managing the conversational memory system:
-- Stateful conversation tracking
-- Context window management
-- Fallback query handling
-- Retrieval augmented generation integration
+## Document Processing Endpoints (Importance: 70/100)
+- Handle organization-specific document transformation
+- Support business-specific JSON data structures
+- Enable signal categorization and extraction pipeline operations
+- Support organizational knowledge base querying requirements
+- Implement response formatting per organizational standards
 
 $END$
 

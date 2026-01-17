@@ -13,53 +13,35 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-Enterprise knowledge management system integrating semantic search, document processing, and conversational AI capabilities. Core importance score: 85/100.
+A specialized organizational knowledge processing system focused on extracting structured insights from meetings and managing organizational knowledge. The system operates through four main business components:
 
-## Core System Architecture
+## Meeting Processing Pipeline (85/100)
+Located in src/app/mcp/extract.py and src/app/mcp/parser.py, this component:
+- Extracts structured signals from unstructured meeting notes
+- Identifies domain-specific sections including Decisions, Action Items, Blockers, Risks, and Ideas
+- Prioritizes extraction from "Synthesized Signals (Authoritative)" sections
+- Normalizes meeting summaries according to organizational standards
 
-The system implements a hybrid enterprise memory management approach through four primary components:
+## Signal Extraction System (80/100)
+Located in src/app/mcp/tools.py, handles:
+- Processing of meeting bundles containing summaries, transcripts, and signals
+- Domain-specific signal categorization and extraction
+- Organization-specific document hierarchy management
+- Business-specific JSON transformation for signal persistence
 
-1. Semantic Search Engine (src/app/memory/semantic.py)
-- Hybrid search combining semantic embeddings with traditional keyword matching
-- Business-specific document prioritization rules
-- Custom vector similarity scoring system
+## Memory and Retrieval System (75/100)
+Located in src/app/memory/rank.py, provides:
+- Organizational knowledge retrieval with custom ranking
+- Source type preference handling between meetings and documents
+- Time-based relevance scoring
+- Business context-aware term matching
 
-2. Query Planning System (src/app/chat/planner.py)
-- Extracts keywords, concepts, and source preferences
-- Analyzes temporal requirements for retrieval
-- Builds optimized search context based on conversation state
-
-3. Multi-factor Ranking Engine (src/app/memory/rank.py)
-- Weights source types based on business rules
-- Applies temporal relevance scoring
-- Calculates term match density
-- Custom 30/90 day recency scoring windows
-
-4. Memory Integration Layer
-- Unified embedding generation pipeline
-- Synchronized vector store updates
-- Hybrid storage combining SQL and vector data
-- Conversation state management with source attribution
-
-## Business Logic Flow
-
-1. Document/Meeting Processing
-- Automatic embedding generation on content changes
-- Synchronization with vector storage
-- Integration with conversation history
-
-2. Query Resolution
-- Context-aware retrieval based on conversation state
-- Source preference application
-- Temporal relevance filtering
-- Evidence tracking and attribution
-
-3. Response Generation
-- Dynamic context building
-- Retrieved memory block integration
-- Fallback handling for failed queries
-
-The system's primary value proposition lies in its enterprise-specific ranking algorithms and context-aware retrieval system, creating a unified knowledge management solution that adapts to business-specific information access patterns.
+## Question-Answer Processing (70/100)
+Located in src/app/chat/planner.py, manages:
+- Organizational knowledge base query planning
+- Source preference handling for different content types
+- Temporal context understanding for queries
+- Organization-specific response formatting
 
 $END$
 
