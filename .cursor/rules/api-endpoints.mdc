@@ -1,38 +1,41 @@
 ---
-description: Documents FastAPI route implementations for meetings and document management operations
+description: Documentation for FastAPI endpoints handling meeting and document querying and retrieval operations
 ---
 
 
 # api-endpoints
 
-Based on the provided specification, there are minimal direct details about API endpoints. However, the system architecture implies the following key route groups:
+Based on the specification, the API endpoints are primarily focused on providing interfaces for the core business query and retrieval systems:
 
-## Query Planning Routes
-File: src/app/chat/planner.py
-- Endpoint(s) for submitting user questions and receiving structured search plans
-- Integration with AI-driven planning system for query parameter generation
-Importance Score: 85/100
+Query Planning Endpoints:
+- Importance Score: 85/100
+- Translates natural language queries into structured search parameters
+- Determines source preferences between meetings and documents
+- Extracts search concepts and temporal hints
 
-## Conversation Management Routes
-File: src/app/chat/turn.py
-- Routes for managing conversation turns and context
-- Endpoints handling multi-stage query processing workflow
-- Integration points for document/meeting context mixing
-Importance Score: 80/100
+Memory Retrieval Endpoints:
+- Importance Score: 80/100
+- Handles hybrid queries across meetings and documents
+- Implements domain-specific document and meeting retrieval
+- Returns temporally ordered content based on relevance scoring
 
-## Memory Retrieval Routes
-File: src/app/memory/retrieve.py
-- Search endpoints supporting hybrid source type retrieval
-- Routes for temporal-filtered content access
-- Meeting and document retrieval endpoints
-Importance Score: 75/100
+Context Management Endpoints:
+- Importance Score: 75/100
+- Manages conversation state persistence
+- Assembles contextual memory blocks
+- Enforces context window limitations
 
-Key API Features:
-- Source attribution enforcement
-- Context size management (MAX_CONTEXT = 6)
-- Temporal filtering capabilities
-- Hybrid document/meeting access patterns
-- Business context validation
+Chat Flow Endpoints:
+- Importance Score: 70/100
+- Orchestrates conversation turns between user and memory system
+- Manages conversation state persistence
+- Implements query planning fallback mechanisms
+
+The endpoints implement a multi-stage pipeline for:
+1. Query planning and translation
+2. Memory retrieval across hybrid sources
+3. Context assembly and management
+4. Conversational flow orchestration
 
 $END$
 

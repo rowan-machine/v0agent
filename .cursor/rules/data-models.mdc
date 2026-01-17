@@ -1,45 +1,46 @@
 ---
-description: Defines core data model structure for meetings and documents with hybrid knowledge base relationships
+description: Specification for data model documentation covering meeting and document entities and their relationships
 ---
 
 
 # data-models
 
-The system implements a hybrid knowledge base structure centered around two primary data models:
+## Core Data Models (Importance Score: 90/100)
 
-## Meeting Model
-- Primary model for temporal-based information storage
-- Contains structured conversation data with attribution
-- Linked to temporal context for date-based retrieval
-Importance Score: 85/100
+The system is built on two primary domain entities:
 
-## Document Model 
-- Represents static knowledge base content
-- Integrates with meeting context for hybrid information retrieval
-Importance Score: 80/100
+1. Meetings
+- Core organizational memory unit representing discussions and interactions
+- Contains temporal metadata for time-based querying
+- Links to related documents and context
 
-## Relationship Structure
-- Bidirectional linking between meetings and documents
-- Temporal awareness through meeting-document context mixing
-- Hybrid retrieval capabilities combining both source types
-- Context assembly with configurable size limits (MAX_CONTEXT = 6)
-Importance Score: 90/100
+2. Documents  
+- Represents organizational knowledge artifacts
+- Associated with meetings and conversations
+- Contains searchable content and metadata
 
-## Domain-Specific Features
-1. Source Attribution
-- Required citation formatting ([1], [2])
-- Maintained across model relationships
-- Preserved during context synthesis
+## Relationship Structure (Importance Score: 85/100)
 
-2. Temporal Context
-- Date-based filtering for meetings
-- Historical relationship tracking
-- Time-aware information retrieval
+The data models implement a hybrid memory architecture:
 
-3. Knowledge Base Integration
-- Mixed source type querying
-- Structured planning for source selection
-- Context-aware relationship traversal
+- Meetings and documents maintain bidirectional relationships
+- Content is organized with temporal context preservation
+- Query planning system traverses relationships for context building
+- Memory retrieval engine handles hybrid source type queries across both models
+
+## Integration Points (Importance Score: 80/100)
+
+Key model integration occurs in:
+
+src/app/memory/retrieve.py:
+- Implements domain-specific retrieval across both models
+- Maintains temporal ordering of retrieved content
+- Handles hybrid queries spanning meetings and documents
+
+src/app/chat/context.py:
+- Assembles conversation context from both models
+- Combines conversation history with relevant memory blocks
+- Preserves relationships during context assembly
 
 $END$
 

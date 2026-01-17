@@ -13,46 +13,46 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-Enterprise knowledge management system orchestrating AI-powered retrieval across meetings and documents with structured planning and context preservation.
+The system implements an organizational knowledge management platform centered around intelligent querying of meetings and documents through a conversational interface.
 
 ## Core Components
 
-### Query Planning System
+### Meeting and Document Query System (85/100)
 Location: src/app/chat/planner.py
-- AI-driven conversion of user questions into structured search parameters
-- Planning schema with keywords, concepts, and temporal hints
-- Business rule validation for planner outputs
-Importance Score: 85
+- Translates natural language into structured search parameters
+- Determines optimal source selection between meetings and documents
+- Extracts key concepts for contextual searching
+- Processes temporal hints for time-based queries
+- Enforces query planning validation rules
 
-### Conversation Processing Engine
-Location: src/app/chat/turn.py
-- Multi-stage workflow combining planning, extraction, and generation
-- Document and meeting context mixing with configurable depth limits
-- Context assembly with source attribution requirements
-Importance Score: 80
-
-### Memory Retrieval Layer
+### Memory Retrieval Engine (80/100)
 Location: src/app/memory/retrieve.py
-- Recall-oriented search across hybrid knowledge sources
-- Temporal-aware document and meeting retrieval
-- Source type filtering (meetings/documents/combined)
-Importance Score: 75
+- Executes hybrid queries across meetings and documents
+- Implements domain-specific relevance scoring
+- Maintains temporal ordering of retrieved content
+- Handles multi-source information synthesis
 
-### Answer Generation System
-Location: src/app/llm.py
-- Domain-specific prompt engineering for meeting context
-- Standardized source citation formatting
-- Context synthesis rules for mixed source types
-Importance Score: 70
+### Context Building System (75/100)
+Location: src/app/chat/context.py
+- Assembles conversational memory context
+- Manages context window limitations
+- Preserves conversation coherence
+- Combines historical context with memory blocks
 
-## Domain Patterns
+### Chat Turn Management (70/100)
+Location: src/app/chat/turn.py
+- Orchestrates conversation flow
+- Manages conversation state persistence
+- Implements query planning fallbacks
+- Integrates retrieval with active context
 
-### Knowledge Integration
-- Hybrid document/meeting knowledge base
-- Temporal context preservation
-- Structured information retrieval
-- Source attribution enforcement
-- Context size management
+## System Architecture
+
+The platform operates on a hybrid document/meeting memory model with:
+- Multi-stage query planning and execution pipeline
+- Temporal-aware information retrieval
+- Conversational access to organizational knowledge
+- Context-aware memory integration
 
 $END$
 
