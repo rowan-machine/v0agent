@@ -14,13 +14,16 @@ SECTION_HEADERS = [
     "Screenshots / Photos",
     "Notes (raw)",
     "Commitments / Ideas",
+    "Commitments",
+    "Ideas",
 ]
 
 
 def parse_meeting_summary(text: str) -> Dict[str, str]:
     """
     Parses Rowan-style meeting summaries.
-    Extracts sections and <aside> blocks.
+    Extracts sections with or without markdown headers.
+    Handles both ### prefixed headers and plain text headers.
     """
 
     result = {}
@@ -31,12 +34,27 @@ def parse_meeting_summary(text: str) -> Dict[str, str]:
 
     for line in lines:
         stripped = line.strip()
+        
+        if not stripped:
+            buffer.append(line)
+            continue
 
-        # Section header
-        if any(stripped.startswith(h) for h in SECTION_HEADERS):
+        # Remove markdown prefix, bold markers, and clean up
+        cleaned_header = stripped.lstrip("#").strip().strip("*").strip()
+        
+        # Check if this line is a section header
+        # Match by checking if cleaned_header starts with any known section header
+        matched_header = None
+        for header in SECTION_HEADERS:
+            if cleaned_header.startswith(header):
+                matched_header = cleaned_header
+                break
+        
+        if matched_header:
+            # Save previous section
             if current_section:
                 result[current_section] = "\n".join(buffer).strip()
-            current_section = stripped
+            current_section = matched_header
             buffer = []
             continue
 
@@ -48,6 +66,7 @@ def parse_meeting_summary(text: str) -> Dict[str, str]:
 
         buffer.append(line)
 
+    # Save final section
     if current_section:
         result[current_section] = "\n".join(buffer).strip()
 
