@@ -23,3 +23,10 @@ class QueryMemoryInput(BaseModel):
 class MCPCall(BaseModel):
     name: str
     args: dict
+
+class LoadMeetingBundleInput(BaseModel):
+    meeting_name: str
+    meeting_date: str | None = None
+    summary_text: str
+    transcript_text: str | None = None
+    format: Literal["plain", "json"] = "plain"
