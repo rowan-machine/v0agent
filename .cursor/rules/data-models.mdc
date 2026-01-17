@@ -1,43 +1,45 @@
 ---
-description: Rules and documentation for data model design focusing on Meetings and Documents relationships
+description: Documents data model structures and relationships for enterprise memory management system
 ---
 
 
 # data-models
 
-Importance Score: 75/100
+The system implements two primary data models that form the foundation of the enterprise memory management system:
 
-The system implements a dual-model architecture centered around Meetings and Documents as primary data entities:
+## Meeting Model
+Location: src/app/meetings.py
+- Stores meeting content and metadata
+- Integrated with vector embeddings for semantic search
+- Maintains temporal relationship tracking
 
-## Core Models
+## Document Model
+Location: src/app/documents.py
+- Implements hybrid storage combining SQL and vector embeddings
+- Automatic synchronization between document changes and vector store
+- Managed through unified embedding generation pipeline
 
-### Memory Sources
-Two primary memory source types are implemented:
-- Meetings: Time-bounded discussion records
-- Documents: General knowledge artifacts
+## Model Relationships
+The models are interconnected through:
 
-### Unified Search Model
-The memory retrieval system implements a unified search interface across both models:
-- Common ranking attributes for both sources
-- Temporal metadata integration
-- Source type preferences
-- Unified relevance scoring
+1. Memory Integration Pipeline
+- Unified embedding generation system
+- Synchronized vector store updates
+- Consistent document change tracking
 
-### Relationship Structure
-Memory blocks maintain relationships through:
-- Cross-referencing between meetings and related documents
-- Temporal alignment for context building
-- Source preference weighting in unified search results
+2. Hybrid Storage Architecture
+- Combined SQL database for structured data
+- Vector embeddings for semantic search capabilities
+- Automated synchronization between storage layers
 
-### Context Management
-The conversation context model integrates:
-- Memory blocks from both source types
-- Temporal metadata for relevance calculations
-- Source type preferences during retrieval
+## Business Rules
+- Document updates trigger automatic embedding regeneration
+- Meeting content gets processed through the same vector pipeline as documents
+- Temporal relationships are maintained for both meetings and documents
+- Storage model supports bidirectional updates between SQL and vector stores
 
-Key files:
-- src/app/memory/retrieve.py
-- src/app/memory/rank.py
+IMPORTANCE SCORE: 85/100
+The data models are critical business components as they enable the core functionality of enterprise memory management while supporting advanced semantic search capabilities.
 
 $END$
 
