@@ -5,6 +5,9 @@ from .tools import (
     store_doc,
     query_memory,
     load_meeting_bundle,
+    collect_meeting_signals,
+    get_meeting_signals,
+    update_meeting_signals,
 )
 
 TOOL_REGISTRY: Dict[str, Callable] = {
@@ -12,4 +15,7 @@ TOOL_REGISTRY: Dict[str, Callable] = {
     "store_doc": store_doc,
     "query_memory": query_memory,
     "load_meeting_bundle": load_meeting_bundle,
+    "collect_meeting_signals": collect_meeting_signals,
+    "get_meeting_signals": get_meeting_signals,
+    "update_meeting_signals": update_meeting_signals,
 }

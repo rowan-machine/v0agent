@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS meeting_summaries (
   meeting_name TEXT NOT NULL,
   synthesized_notes TEXT NOT NULL,
   meeting_date TEXT,
-  created_at TEXT DEFAULT (datetime('now'))
+  created_at TEXT DEFAULT (datetime('now')),
+  signals_json TEXT
 );
 
 CREATE TABLE IF NOT EXISTS docs (

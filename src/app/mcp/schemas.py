@@ -20,6 +20,20 @@ class QueryMemoryInput(BaseModel):
     limit: int = 6
 
 
+class CollectSignalsInput(BaseModel):
+    signal_type: Literal["decisions", "action_items", "blockers", "risks", "ideas", "key_signals", "all"] = "all"
+    limit: int = 50
+
+
+class GetMeetingSignalsInput(BaseModel):
+    meeting_id: int
+
+
+class UpdateMeetingSignalsInput(BaseModel):
+    meeting_id: Optional[int] = None
+    force: bool = False
+
+
 class MCPCall(BaseModel):
     name: str
     args: dict

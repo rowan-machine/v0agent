@@ -1,45 +1,36 @@
 ---
-description: Documents data model structures and relationships for enterprise memory management system
+description: Documentation of meeting and document data models with their relationships and business-specific attributes
 ---
 
 
 # data-models
 
-The system implements two primary data models that form the foundation of the enterprise memory management system:
+The system utilizes two primary data models that form the core business structure:
 
-## Meeting Model
-Location: src/app/meetings.py
-- Stores meeting content and metadata
-- Integrated with vector embeddings for semantic search
-- Maintains temporal relationship tracking
+## Meeting Model (Importance: 90/100)
+Location: src/app/mcp/parser.py
 
-## Document Model
-Location: src/app/documents.py
-- Implements hybrid storage combining SQL and vector embeddings
-- Automatic synchronization between document changes and vector store
-- Managed through unified embedding generation pipeline
+Core attributes:
+- Structured signals extraction from unstructured text
+- Domain-specific sections (Decisions, Action Items, Blockers, Risks, Ideas)
+- Special "Synthesized Signals" section with prioritized handling
+- Organization-specific formatting rules
+- Time-based relevance scoring
 
-## Model Relationships
-The models are interconnected through:
+## Document Model (Importance: 85/100)
+Location: src/app/memory/rank.py
 
-1. Memory Integration Pipeline
-- Unified embedding generation system
-- Synchronized vector store updates
-- Consistent document change tracking
+Core attributes:
+- Custom organizational knowledge hierarchy
+- Business-specific JSON transformation structure
+- Source type preferences
+- Time-based context tracking
 
-2. Hybrid Storage Architecture
-- Combined SQL database for structured data
-- Vector embeddings for semantic search capabilities
-- Automated synchronization between storage layers
-
-## Business Rules
-- Document updates trigger automatic embedding regeneration
-- Meeting content gets processed through the same vector pipeline as documents
-- Temporal relationships are maintained for both meetings and documents
-- Storage model supports bidirectional updates between SQL and vector stores
-
-IMPORTANCE SCORE: 85/100
-The data models are critical business components as they enable the core functionality of enterprise memory management while supporting advanced semantic search capabilities.
+## Relationship Structure (Importance: 80/100)
+- Hierarchical organization (meetings > documents > transcripts)
+- Cross-referencing between meetings and related documents
+- Signal categorization with domain context
+- Hybrid scoring system for combined document/meeting queries
 
 $END$
 
