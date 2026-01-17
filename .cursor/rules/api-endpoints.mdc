@@ -1,20 +1,42 @@
 ---
-description: FastAPI route documentation for projects focused on basic CRUD operations without specialized business logic
+description: Specification for FastAPI routes implementing meeting and document CRUD operations and search endpoints
 ---
 
 
 # api-endpoints
 
-The API routes implement standard CRUD operations for meetings and documents without any specialized business logic or domain-specific requirements. The endpoints follow typical REST patterns for basic data storage and retrieval.
+The API endpoints implement specialized knowledge management functionality focused on meetings and documents through these key routes:
 
-Importance Score: 5/100 
+## Search and Retrieval Endpoints
+- Multi-source search capabilities across meetings and documents with temporal filtering
+- Date-range bounded queries for institutional knowledge
+- Source-type filtering for targeted content retrieval
 
-The low score reflects that the API implementation consists entirely of standard web application patterns without any:
-- Custom validation rules
-- Business-specific data processing
-- Unique access patterns  
-- Domain workflows
-- Special handling requirements
+## Meeting Management Endpoints
+- Meeting synthesis and storage with timezone-aware handling
+- Date-aware content organization
+- Integration with central/UTC timezone system for global consistency
+
+## Document Processing Endpoints
+- Document storage with synthesis capabilities
+- Parallel tracking alongside meeting content
+- Temporal organization aligned with meeting data
+
+## Question-Answer Endpoints
+- Context-aware retrieval with source prioritization
+- Multi-source context assembly (up to 6 sources)
+- Structured response generation with source attribution
+- Meeting-focused response constraints
+
+## Common Features
+- Domain-specific system prompts for meeting retrieval
+- Source citation requirements and formatting
+- Hybrid search implementation across content types
+- Time-bounded search functionality
+- Source-specific result formatting and prioritization
+
+Importance Score: 75/100
+The endpoints represent critical business functionality for knowledge management but utilize standard REST patterns for implementation.
 
 $END$
 

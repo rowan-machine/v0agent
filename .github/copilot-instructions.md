@@ -2,7 +2,7 @@
 # main-overview
 
 > **Giga Operational Instructions**
-> Read the relevant Markdown inside `.giga/rules` before citing project context. Reference the exact file you used in your response.
+> Read the relevant Markdown inside `.cursor/rules` before citing project context. Reference the exact file you used in your response.
 
 ## Development Guidelines
 
@@ -13,51 +13,38 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-Meeting and document retrieval system with LLM-powered search capabilities and intelligent context handling.
+Knowledge management platform specializing in meeting information and document synthesis with temporal organization and context-aware retrieval capabilities.
 
-## Core Components
+## Core Architecture
 
-### Query System (src/app/query.py)
-Importance Score: 85/100
-- Hybrid search system across meetings and documents
-- Term extraction with context awareness
-- Maximum context limit enforcement (6 items)
-- Date-based filtering capabilities
-- Source type filtering (meetings/documents/both)
-- Recency-based result ranking
+### Memory Management and Retrieval (src/app/memory/retrieve.py)
+- Document and meeting retrieval with temporal filtering
+- Multi-source search implementation combining meetings and documents
+- Term-based content matching with source type filtering
+- Hybrid search capabilities with date range constraints
 
-### LLM Integration (src/app/llm.py)
-Importance Score: 80/100
-- Domain-specific meeting retrieval agent
-- Context-aware response generation
-- Required source citation system
-- Handles "blocked by" status tracking
-- Meeting-specific system prompts
+### Question-Answer Processing (src/app/chat/turn.py)
+- Context-aware question processing with source prioritization 
+- Document/meeting mixing with 6-source context limit
+- Structured responses with source attribution
+- Domain-specific system prompts for meeting content
 
-### Time Management (src/app/meetings.py, src/app/documents.py)
-Importance Score: 65/100
-- UTC to Central Time (America/Chicago) conversion
-- Meeting record datetime handling
-- Document timestamp processing
-- Flexible date parsing for both date-only and datetime formats
+## Information Organization
 
-## Business Logic Flow
+### Meeting/Document Synthesis
+- Dual storage tracks for meetings and document content
+- Date-aware content organization model
+- UTC-based temporal consistency
+- Source-specific formatting and prioritization
+- Structured attribution system for knowledge sources
 
-1. Query Processing
-   - Document/meeting content search
-   - Context limitation enforcement
-   - Source type filtering
-   - Date-based filtering
+### Knowledge Integration
+- Meeting-centric data modeling
+- Temporal organization of institutional knowledge
+- Multi-source context assembly
+- Context-aware response generation with citation requirements
 
-2. Response Generation
-   - Context-aware LLM processing
-   - Source citation integration
-   - Meeting-specific response formatting
-
-3. Temporal Management
-   - Timezone conversion
-   - Date format standardization
-   - Record timestamp handling
+Importance Score: 75/100
 
 $END$
 
