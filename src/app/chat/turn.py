@@ -2,6 +2,7 @@
 
 import re
 from typing import Tuple, List, Dict
+from .planner import plan
 from ..memory.retrieve import retrieve
 from ..llm import answer as llm_answer
 
@@ -22,38 +23,40 @@ def run_turn(
     end_date: str | None = None,
 ) -> Tuple[str, List[Dict]]:
     """
-    Execute a single grounded Q&A turn.
-    Not conversational. No planner yet.
+    Single grounded Q&A turn with planner (fail-hard).
     """
 
-    terms = extract_terms(question)
+    # ---- 1) Planner (fail hard) ----
+    plan_json = plan(question=question)
+
+    # Merge planner hints (OR semantics)
+    terms = list(set(plan_json["keywords"] + plan_json["concepts"]))
     if not terms:
         return "I don’t have enough information in the provided sources.", []
 
+    # Planner may suggest a preference (soft)
+    effective_source = plan_json["source_preference"] or source_type
+
+    # ---- 2) Retrieve ----
     raw = retrieve(
         terms=terms,
-        source_type=source_type,
+        source_type=effective_source,
         start_date=start_date,
         end_date=end_date,
         limit=MAX_CONTEXT,
     )
 
+    # ---- 3) Assemble context ----
     blocks: List[str] = []
     sources: List[Dict] = []
 
-    # Prefer documents first
     for d in raw["documents"]:
         idx = len(blocks) + 1
-        blocks.append(
-            f"[{idx}] (Document: {d['source']})\n{d['content']}"
-        )
-        sources.append(
-            {"type": "document", "id": d["id"], "label": d["source"]}
-        )
+        blocks.append(f"[{idx}] (Document: {d['source']})\n{d['content']}")
+        sources.append({"type": "document", "id": d["id"], "label": d["source"]})
         if len(blocks) >= MAX_CONTEXT:
             break
 
-    # Then meetings
     if len(blocks) < MAX_CONTEXT:
         for m in raw["meetings"]:
             idx = len(blocks) + 1
@@ -61,11 +64,7 @@ def run_turn(
                 f"[{idx}] (Meeting: {m['meeting_name']})\n{m['synthesized_notes']}"
             )
             sources.append(
-                {
-                    "type": "meeting",
-                    "id": m["id"],
-                    "label": m["meeting_name"],
-                }
+                {"type": "meeting", "id": m["id"], "label": m["meeting_name"]}
             )
             if len(blocks) >= MAX_CONTEXT:
                 break
@@ -73,5 +72,6 @@ def run_turn(
     if not blocks:
         return "I don’t have enough information in the provided sources.", []
 
+    # ---- 4) Answer ----
     answer_text = llm_answer(question, blocks)
     return answer_text, sources
