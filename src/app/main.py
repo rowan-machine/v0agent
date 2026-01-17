@@ -9,6 +9,7 @@ from .search import router as search_router
 from .query import router as query_router
 from .chat.models import init_chat_tables
 from .api.chat import router as chat_router
+from .api.mcp import router as mcp_router
 
 app = FastAPI(title="V2.0 Memory Intake + Search")
 
@@ -55,3 +56,4 @@ app.include_router(documents_router)
 app.include_router(search_router)
 app.include_router(query_router)
 app.include_router(chat_router)
+app.include_router(mcp_router)
