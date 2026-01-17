@@ -46,6 +46,19 @@ User question:
 Return JSON only.
 """
 
+def strip_json_fences(text: str) -> str:
+    """
+    Remove ```json ... ``` or ``` ... ``` fences if present.
+    """
+    text = text.strip()
+    if text.startswith("```"):
+        # Remove first fence line
+        text = text.split("\n", 1)[1]
+        # Remove trailing fence
+        if text.rstrip().endswith("```"):
+            text = text.rsplit("```", 1)[0]
+    return text.strip()
+
 
 def plan(
     question: str,
@@ -71,7 +84,7 @@ def plan(
         ],
     )
 
-    raw_text = resp.output_text.strip()
+    raw_text = strip_json_fences(resp.output_text)
 
     try:
         data = json.loads(raw_text)
