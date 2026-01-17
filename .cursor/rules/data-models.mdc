@@ -1,38 +1,45 @@
 ---
-description: Documentation for the core data models representing Meetings and Documents, their relationships and business rules
+description: Defines core data model structure for meetings and documents with hybrid knowledge base relationships
 ---
 
 
 # data-models
 
-The system is built around two primary data models that manage institutional knowledge:
+The system implements a hybrid knowledge base structure centered around two primary data models:
 
 ## Meeting Model
-Core entity representing organizational meetings with:
-- Temporal organization with UTC timezone normalization
-- Synthesis capabilities for content aggregation
-- Date-aware content organization structure
+- Primary model for temporal-based information storage
+- Contains structured conversation data with attribution
+- Linked to temporal context for date-based retrieval
+Importance Score: 85/100
 
-## Document Model
-Secondary entity for document management:
-- Integration with meeting-centric data flow
-- Date-based content classification
-- Relationship mappings to associated meetings
+## Document Model 
+- Represents static knowledge base content
+- Integrates with meeting context for hybrid information retrieval
+Importance Score: 80/100
 
 ## Relationship Structure
-The models implement a dual-track information storage system:
-- Meetings serve as the primary organizational unit
-- Documents attach to meetings as supporting content
-- Both models support temporal filtering and content synthesis
-- Cross-model relationships enable multi-source context assembly
+- Bidirectional linking between meetings and documents
+- Temporal awareness through meeting-document context mixing
+- Hybrid retrieval capabilities combining both source types
+- Context assembly with configurable size limits (MAX_CONTEXT = 6)
+Importance Score: 90/100
 
-## Content Organization
-- Central/UTC timezone handling ensures global consistency
-- Date-based hierarchical structure for both models
-- Synthesis capabilities merge content across related entities
-- Meeting-document associations enable contextual retrieval
+## Domain-Specific Features
+1. Source Attribution
+- Required citation formatting ([1], [2])
+- Maintained across model relationships
+- Preserved during context synthesis
 
-The data model architecture emphasizes temporal organization and meeting-centric knowledge management, implementing specialized synthesis capabilities for institutional knowledge retention.
+2. Temporal Context
+- Date-based filtering for meetings
+- Historical relationship tracking
+- Time-aware information retrieval
+
+3. Knowledge Base Integration
+- Mixed source type querying
+- Structured planning for source selection
+- Context-aware relationship traversal
 
 $END$
 
