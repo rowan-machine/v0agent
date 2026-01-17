@@ -7,6 +7,8 @@ from .meetings import router as meetings_router
 from .documents import router as documents_router
 from .search import router as search_router
 from .query import router as query_router
+from .chat.models import init_chat_tables
+from .api.chat import router as chat_router
 
 app = FastAPI(title="V2.0 Memory Intake + Search")
 
@@ -16,7 +18,7 @@ templates = Jinja2Templates(directory="src/app/templates")
 @app.on_event("startup")
 def startup():
     init_db()
-
+    init_chat_tables()
 
 # -------------------------
 # Root + Navigation Entrypoints
@@ -52,3 +54,4 @@ app.include_router(meetings_router)
 app.include_router(documents_router)
 app.include_router(search_router)
 app.include_router(query_router)
+app.include_router(chat_router)

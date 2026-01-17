@@ -1,21 +1,18 @@
 # src/app/chat/turn.py
 
-import re
 from typing import Tuple, List, Dict
 from .planner import plan
+from .context import build_context
+from .models import add_message, get_recent_messages
 from ..memory.retrieve import retrieve
 from ..llm import answer as llm_answer
 
 MAX_CONTEXT = 6
 
 
-def extract_terms(text: str) -> List[str]:
-    return [
-        w for w in re.findall(r"[a-zA-Z]+", text.lower())
-        if len(w) > 2
-    ]
-
-
+# -----------------------------
+# Stateless single-turn (QUERY)
+# -----------------------------
 def run_turn(
     question: str,
     source_type: str = "docs",
@@ -23,21 +20,18 @@ def run_turn(
     end_date: str | None = None,
 ) -> Tuple[str, List[Dict]]:
     """
-    Single grounded Q&A turn with planner (fail-hard).
+    Single-turn, stateless Q&A.
+    Used by /query.
     """
 
-    # ---- 1) Planner (fail hard) ----
-    plan_json = plan(question=question)
+    plan_json = plan(question)
 
-    # Merge planner hints (OR semantics)
     terms = list(set(plan_json["keywords"] + plan_json["concepts"]))
     if not terms:
         return "I don’t have enough information in the provided sources.", []
 
-    # Planner may suggest a preference (soft)
     effective_source = plan_json["source_preference"] or source_type
 
-    # ---- 2) Retrieve ----
     raw = retrieve(
         terms=terms,
         source_type=effective_source,
@@ -46,7 +40,6 @@ def run_turn(
         limit=MAX_CONTEXT,
     )
 
-    # ---- 3) Assemble context ----
     blocks: List[str] = []
     sources: List[Dict] = []
 
@@ -72,6 +65,50 @@ def run_turn(
     if not blocks:
         return "I don’t have enough information in the provided sources.", []
 
-    # ---- 4) Answer ----
     answer_text = llm_answer(question, blocks)
     return answer_text, sources
+
+
+# -----------------------------
+# Stateful conversational (CHAT)
+# -----------------------------
+def run_chat_turn(
+    conversation_id: int,
+    question: str,
+) -> str:
+    """
+    Conversational turn with persistence.
+    Used by /chat.
+    """
+
+    add_message(conversation_id, "user", question)
+
+    plan_json = plan(question)
+    terms = list(set(plan_json["keywords"] + plan_json["concepts"]))
+
+    raw = retrieve(
+        terms=terms,
+        source_type=plan_json["source_preference"] or "both",
+        limit=MAX_CONTEXT,
+    )
+
+    memory_blocks = []
+
+    for d in raw["documents"]:
+        memory_blocks.append(f"(Document: {d['source']})\n{d['content']}")
+
+    for m in raw["meetings"]:
+        memory_blocks.append(
+            f"(Meeting: {m['meeting_name']})\n{m['synthesized_notes']}"
+        )
+
+    conversation = get_recent_messages(conversation_id)
+
+    context = build_context(conversation, memory_blocks)
+
+    answer = llm_answer(question, context)
+
+    add_message(conversation_id, "assistant", answer)
+
+    return answer
+
