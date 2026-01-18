@@ -1,0 +1,807 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .graph-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.5rem;
+  }
+
+  .graph-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .graph-header h1 {
+    font-size: 1.75rem;
+    color: #1a1a1a;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .graph-actions {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .graph-btn {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .graph-btn-primary {
+    background: linear-gradient(135deg, #00d4aa 0%, #00a884 100%);
+    color: white;
+  }
+
+  .graph-btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 212, 170, 0.4);
+  }
+
+  .graph-btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+  }
+
+  .graph-btn-danger {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+  }
+
+  .graph-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Stats Cards */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.25rem;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 0.5rem;
+  }
+
+  .stat-card.nodes .stat-value { color: #00d4aa; }
+  .stat-card.relationships .stat-value { color: #8b5cf6; }
+
+  /* Panels */
+  .graph-panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 1000px) {
+    .graph-panels {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .graph-panel {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .panel-header h2 {
+    font-size: 1.1rem;
+    color: #1a1a1a;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .panel-body {
+    padding: 1.25rem;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  /* Node/Relationship Lists */
+  .entity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .entity-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    background: #f9fafb;
+    border-radius: 8px;
+  }
+
+  .entity-name {
+    font-weight: 500;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .entity-badge {
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .entity-badge.Meeting { background: #dbeafe; color: #1e40af; }
+  .entity-badge.Document { background: #d1fae5; color: #065f46; }
+  .entity-badge.Signal { background: #fef3c7; color: #92400e; }
+  .entity-badge.Ticket { background: #ede9fe; color: #5b21b6; }
+  .entity-badge.Person { background: #fce7f3; color: #9d174d; }
+  .entity-badge.DIKWItem { background: #e0f2fe; color: #0369a1; }
+  .entity-badge.Topic { background: #f3f4f6; color: #374151; }
+  .entity-badge.Tag { background: #fee2e2; color: #991b1b; }
+
+  .entity-count {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+
+  /* Search */
+  .search-box {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .search-input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.95rem;
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: #00d4aa;
+    box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.1);
+  }
+
+  /* Query Console */
+  .query-console {
+    background: #1e293b;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .query-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: #e2e8f0;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.9rem;
+    resize: vertical;
+    min-height: 80px;
+    outline: none;
+  }
+
+  .query-input::placeholder {
+    color: #64748b;
+  }
+
+  .query-results {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 1rem;
+    max-height: 300px;
+    overflow: auto;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+  }
+
+  /* Visualization */
+  .graph-viz {
+    width: 100%;
+    height: 500px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    position: relative;
+  }
+
+  .graph-viz-placeholder {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #9ca3af;
+  }
+
+  /* Connection Status */
+  .connection-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .connection-status.connected {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .connection-status.disconnected {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .status-dot.connected { background: #10b981; }
+  .status-dot.disconnected { background: #ef4444; }
+
+  /* Toast */
+  .graph-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #10b981;
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    animation: slideIn 0.3s ease;
+  }
+
+  .graph-toast.error {
+    background: #ef4444;
+  }
+
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* Loading spinner */
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Sync Progress */
+  .sync-progress {
+    display: none;
+    background: #1e293b;
+    color: white;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+  }
+
+  .sync-progress.active {
+    display: block;
+  }
+
+  .sync-step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+    opacity: 0.5;
+  }
+
+  .sync-step.active {
+    opacity: 1;
+  }
+
+  .sync-step.done {
+    opacity: 1;
+    color: #10b981;
+  }
+
+  .sync-step-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+</style>
+
+<div class="graph-container">
+  <div class="graph-header">
+    <h1>🕸️ Neo4j Knowledge Graph</h1>
+    <div class="graph-actions">
+      <div class="connection-status" id="connectionStatus">
+        <span class="status-dot"></span>
+        <span class="status-text">Checking...</span>
+      </div>
+      <button class="graph-btn graph-btn-primary" onclick="syncAll()" id="syncBtn">
+        🔄 Sync All Data
+      </button>
+      <button class="graph-btn graph-btn-secondary" onclick="refreshStats()">
+        📊 Refresh Stats
+      </button>
+    </div>
+  </div>
+
+  <!-- Sync Progress -->
+  <div class="sync-progress" id="syncProgress">
+    <div class="sync-step" data-step="schema">
+      <span class="sync-step-icon">⏳</span>
+      <span>Initializing schema...</span>
+    </div>
+    <div class="sync-step" data-step="meetings">
+      <span class="sync-step-icon">⏳</span>
+      <span>Syncing meetings...</span>
+    </div>
+    <div class="sync-step" data-step="documents">
+      <span class="sync-step-icon">⏳</span>
+      <span>Syncing documents...</span>
+    </div>
+    <div class="sync-step" data-step="tickets">
+      <span class="sync-step-icon">⏳</span>
+      <span>Syncing tickets...</span>
+    </div>
+    <div class="sync-step" data-step="dikw">
+      <span class="sync-step-icon">⏳</span>
+      <span>Syncing DIKW items...</span>
+    </div>
+    <div class="sync-step" data-step="relationships">
+      <span class="sync-step-icon">⏳</span>
+      <span>Creating relationships...</span>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat-card nodes">
+      <div class="stat-value" id="totalNodes">-</div>
+      <div class="stat-label">Total Nodes</div>
+    </div>
+    <div class="stat-card relationships">
+      <div class="stat-value" id="totalRelationships">-</div>
+      <div class="stat-label">Relationships</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="totalMeetings">-</div>
+      <div class="stat-label">Meetings</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="totalSignals">-</div>
+      <div class="stat-label">Signals</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="totalPeople">-</div>
+      <div class="stat-label">People</div>
+    </div>
+  </div>
+
+  <div class="graph-panels">
+    <!-- Node Types Panel -->
+    <div class="graph-panel">
+      <div class="panel-header">
+        <h2>📦 Node Types</h2>
+      </div>
+      <div class="panel-body">
+        <div class="entity-list" id="nodeTypesList">
+          <div style="text-align: center; color: #9ca3af; padding: 2rem;">
+            Loading node types...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Relationship Types Panel -->
+    <div class="graph-panel">
+      <div class="panel-header">
+        <h2>🔗 Relationship Types</h2>
+      </div>
+      <div class="panel-body">
+        <div class="entity-list" id="relTypesList">
+          <div style="text-align: center; color: #9ca3af; padding: 2rem;">
+            Loading relationship types...
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search Panel -->
+    <div class="graph-panel">
+      <div class="panel-header">
+        <h2>🔍 Search Graph</h2>
+      </div>
+      <div class="panel-body">
+        <div class="search-box">
+          <input type="text" class="search-input" id="searchInput" 
+                 placeholder="Search nodes by name, content, or text...">
+          <button class="graph-btn graph-btn-primary" onclick="searchGraph()">Search</button>
+        </div>
+        <div class="entity-list" id="searchResults">
+          <div style="text-align: center; color: #9ca3af; padding: 1rem;">
+            Enter a search term to find nodes
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Query Console -->
+    <div class="graph-panel">
+      <div class="panel-header">
+        <h2>💻 Cypher Query Console</h2>
+        <span style="font-size: 0.8rem; color: #6b7280;">Read-only queries</span>
+      </div>
+      <div class="panel-body">
+        <div class="query-console">
+          <textarea class="query-input" id="cypherInput" 
+                    placeholder="MATCH (n) RETURN n LIMIT 10"></textarea>
+        </div>
+        <button class="graph-btn graph-btn-primary" onclick="runQuery()" style="margin-bottom: 1rem;">
+          ▶️ Run Query
+        </button>
+        <div class="query-results" id="queryResults">
+          Results will appear here...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Danger Zone -->
+  <div class="graph-panel" style="margin-top: 1.5rem; border-color: #fca5a5;">
+    <div class="panel-header" style="background: #fef2f2;">
+      <h2 style="color: #991b1b;">⚠️ Danger Zone</h2>
+    </div>
+    <div class="panel-body">
+      <p style="color: #6b7280; margin-bottom: 1rem;">
+        These actions are destructive and cannot be undone.
+      </p>
+      <button class="graph-btn graph-btn-danger" onclick="clearGraph()">
+        🗑️ Clear Entire Graph
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  checkConnection();
+  refreshStats();
+});
+
+// Enter key to search
+document.getElementById('searchInput').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') searchGraph();
+});
+
+// Check Neo4j connection
+async function checkConnection() {
+  const statusEl = document.getElementById('connectionStatus');
+  const dotEl = statusEl.querySelector('.status-dot');
+  const textEl = statusEl.querySelector('.status-text');
+  
+  try {
+    const response = await fetch('/api/neo4j/stats', { credentials: 'same-origin' });
+    
+    if (response.ok) {
+      statusEl.className = 'connection-status connected';
+      dotEl.className = 'status-dot connected';
+      textEl.textContent = 'Connected';
+    } else {
+      throw new Error('Not connected');
+    }
+  } catch (err) {
+    statusEl.className = 'connection-status disconnected';
+    dotEl.className = 'status-dot disconnected';
+    textEl.textContent = 'Disconnected';
+  }
+}
+
+// Refresh stats
+async function refreshStats() {
+  try {
+    const response = await fetch('/api/neo4j/stats', { credentials: 'same-origin' });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch stats');
+    }
+    
+    const stats = await response.json();
+    
+    // Update totals
+    document.getElementById('totalNodes').textContent = stats.total_nodes || 0;
+    document.getElementById('totalRelationships').textContent = stats.total_relationships || 0;
+    
+    // Update specific counts
+    const nodes = stats.nodes || {};
+    document.getElementById('totalMeetings').textContent = nodes.Meeting || 0;
+    document.getElementById('totalSignals').textContent = nodes.Signal || 0;
+    document.getElementById('totalPeople').textContent = nodes.Person || 0;
+    
+    // Update node types list
+    const nodesList = document.getElementById('nodeTypesList');
+    if (Object.keys(nodes).length > 0) {
+      nodesList.innerHTML = Object.entries(nodes)
+        .sort((a, b) => b[1] - a[1])
+        .map(([type, count]) => `
+          <div class="entity-item">
+            <span class="entity-name">
+              <span class="entity-badge ${type}">${type}</span>
+            </span>
+            <span class="entity-count">${count}</span>
+          </div>
+        `).join('');
+    } else {
+      nodesList.innerHTML = '<div style="text-align: center; color: #9ca3af; padding: 1rem;">No nodes in graph</div>';
+    }
+    
+    // Update relationship types list
+    const relsList = document.getElementById('relTypesList');
+    const rels = stats.relationships || {};
+    if (Object.keys(rels).length > 0) {
+      relsList.innerHTML = Object.entries(rels)
+        .sort((a, b) => b[1] - a[1])
+        .map(([type, count]) => `
+          <div class="entity-item">
+            <span class="entity-name">${type}</span>
+            <span class="entity-count">${count}</span>
+          </div>
+        `).join('');
+    } else {
+      relsList.innerHTML = '<div style="text-align: center; color: #9ca3af; padding: 1rem;">No relationships in graph</div>';
+    }
+    
+  } catch (err) {
+    console.error('Failed to refresh stats:', err);
+  }
+}
+
+// Sync all data
+async function syncAll() {
+  const btn = document.getElementById('syncBtn');
+  const progress = document.getElementById('syncProgress');
+  
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Syncing...';
+  progress.classList.add('active');
+  
+  const steps = ['schema', 'meetings', 'documents', 'tickets', 'dikw', 'relationships'];
+  
+  try {
+    // Schema
+    setStepActive('schema');
+    await fetch('/api/neo4j/init-schema', { method: 'POST', credentials: 'same-origin' });
+    setStepDone('schema');
+    
+    // Meetings
+    setStepActive('meetings');
+    await fetch('/api/neo4j/sync-meetings', { method: 'POST', credentials: 'same-origin' });
+    setStepDone('meetings');
+    
+    // Documents
+    setStepActive('documents');
+    await fetch('/api/neo4j/sync-documents', { method: 'POST', credentials: 'same-origin' });
+    setStepDone('documents');
+    
+    // Tickets
+    setStepActive('tickets');
+    await fetch('/api/neo4j/sync-tickets', { method: 'POST', credentials: 'same-origin' });
+    setStepDone('tickets');
+    
+    // DIKW
+    setStepActive('dikw');
+    await fetch('/api/neo4j/sync-dikw', { method: 'POST', credentials: 'same-origin' });
+    setStepDone('dikw');
+    
+    // Relationships
+    setStepActive('relationships');
+    await fetch('/api/neo4j/create-relationships', { method: 'POST', credentials: 'same-origin' });
+    setStepDone('relationships');
+    
+    showToast('Knowledge graph synced successfully!');
+    refreshStats();
+    
+  } catch (err) {
+    showToast('Sync failed: ' + err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔄 Sync All Data';
+    setTimeout(() => progress.classList.remove('active'), 2000);
+  }
+}
+
+function setStepActive(step) {
+  const stepEl = document.querySelector(`[data-step="${step}"]`);
+  stepEl.classList.add('active');
+  stepEl.querySelector('.sync-step-icon').textContent = '⏳';
+}
+
+function setStepDone(step) {
+  const stepEl = document.querySelector(`[data-step="${step}"]`);
+  stepEl.classList.remove('active');
+  stepEl.classList.add('done');
+  stepEl.querySelector('.sync-step-icon').textContent = '✅';
+}
+
+// Search graph
+async function searchGraph() {
+  const query = document.getElementById('searchInput').value.trim();
+  const resultsEl = document.getElementById('searchResults');
+  
+  if (!query) {
+    resultsEl.innerHTML = '<div style="text-align: center; color: #9ca3af; padding: 1rem;">Enter a search term</div>';
+    return;
+  }
+  
+  resultsEl.innerHTML = '<div style="text-align: center; color: #9ca3af; padding: 1rem;">Searching...</div>';
+  
+  try {
+    const response = await fetch(`/api/neo4j/search?q=${encodeURIComponent(query)}`, {
+      credentials: 'same-origin'
+    });
+    
+    const data = await response.json();
+    
+    if (data.results && data.results.length > 0) {
+      resultsEl.innerHTML = data.results.map(r => `
+        <div class="entity-item">
+          <span class="entity-name">
+            <span class="entity-badge ${r.type}">${r.type}</span>
+            ${escapeHtml(r.name || r.title || r.content?.substring(0, 50) || 'Unnamed')}
+          </span>
+        </div>
+      `).join('');
+    } else {
+      resultsEl.innerHTML = '<div style="text-align: center; color: #9ca3af; padding: 1rem;">No results found</div>';
+    }
+  } catch (err) {
+    resultsEl.innerHTML = `<div style="text-align: center; color: #ef4444; padding: 1rem;">Search failed: ${err.message}</div>`;
+  }
+}
+
+// Run Cypher query
+async function runQuery() {
+  const query = document.getElementById('cypherInput').value.trim();
+  const resultsEl = document.getElementById('queryResults');
+  
+  if (!query) {
+    resultsEl.textContent = 'Enter a Cypher query';
+    return;
+  }
+  
+  resultsEl.textContent = 'Running query...';
+  
+  try {
+    const response = await fetch('/api/neo4j/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ query })
+    });
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      resultsEl.textContent = `Error: ${data.error}`;
+    } else {
+      resultsEl.textContent = JSON.stringify(data.results, null, 2);
+    }
+  } catch (err) {
+    resultsEl.textContent = `Error: ${err.message}`;
+  }
+}
+
+// Clear graph
+async function clearGraph() {
+  if (!confirm('Are you sure you want to delete ALL data from the Neo4j graph? This cannot be undone!')) {
+    return;
+  }
+  
+  if (!confirm('FINAL WARNING: This will permanently delete all nodes and relationships. Continue?')) {
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/neo4j/clear', {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+    
+    if (response.ok) {
+      showToast('Graph cleared');
+      refreshStats();
+    } else {
+      throw new Error('Failed to clear graph');
+    }
+  } catch (err) {
+    showToast('Failed to clear graph: ' + err.message, true);
+  }
+}
+
+// Utilities
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text || '';
+  return div.innerHTML;
+}
+
+function showToast(message, isError = false) {
+  const toast = document.createElement('div');
+  toast.className = `graph-toast ${isError ? 'error' : ''}`;
+  toast.innerHTML = `${isError ? '❌' : '✅'} ${message}`;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(20px)';
+    toast.style.transition = 'all 0.3s';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+</script>
+{% endblock %}

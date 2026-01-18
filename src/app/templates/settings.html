@@ -157,9 +157,22 @@
 
     <div class="setting-item">
       <div class="setting-info">
-        <h3>Current Model</h3>
-        <p id="currentModel">Loading...</p>
+        <h3>AI Model</h3>
+        <p>Select the OpenAI model to use for AI features</p>
       </div>
+      <select id="modelSelect" onchange="changeModel()" style="padding: 0.5rem 1rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; background: white; cursor: pointer; min-width: 180px;">
+        <option value="gpt-4o-mini">GPT-4o Mini (Fast)</option>
+        <option value="gpt-4o">GPT-4o (Balanced)</option>
+        <option value="gpt-4-turbo">GPT-4 Turbo (Advanced)</option>
+        <option value="gpt-4">GPT-4 (Legacy)</option>
+        <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Budget)</option>
+        <option value="o1-mini">o1 Mini (Reasoning)</option>
+        <option value="o1-preview">o1 Preview (Deep Reasoning)</option>
+      </select>
+    </div>
+    
+    <div class="model-info" id="modelInfo" style="margin-top: 0.5rem; padding: 0.75rem; background: #f0f9ff; border-radius: 6px; font-size: 0.85rem; color: #0369a1;">
+      <strong>gpt-4o-mini:</strong> Fast and cost-effective for most tasks
     </div>
   </div>
 
@@ -266,15 +279,60 @@
     }
   }
 
+  // Model descriptions
+  const modelDescriptions = {
+    'gpt-4o-mini': '<strong>gpt-4o-mini:</strong> Fast and cost-effective for most tasks',
+    'gpt-4o': '<strong>gpt-4o:</strong> Best balance of speed, quality, and cost',
+    'gpt-4-turbo': '<strong>gpt-4-turbo:</strong> Advanced capabilities with 128K context window',
+    'gpt-4': '<strong>gpt-4:</strong> Original GPT-4, reliable for complex tasks',
+    'gpt-3.5-turbo': '<strong>gpt-3.5-turbo:</strong> Fastest and most affordable option',
+    'o1-mini': '<strong>o1-mini:</strong> Optimized for reasoning tasks, slower but more thorough',
+    'o1-preview': '<strong>o1-preview:</strong> Advanced reasoning model for complex problems'
+  };
+
   // Load current model
   async function loadCurrentModel() {
     try {
       const response = await fetch('/api/settings/model', { credentials: 'same-origin' });
       const data = await response.json();
-      document.getElementById('currentModel').textContent = data.model || 'gpt-4o-mini';
+      const model = data.model || 'gpt-4o-mini';
+      document.getElementById('modelSelect').value = model;
+      updateModelInfo(model);
     } catch (err) {
-      document.getElementById('currentModel').textContent = 'Error loading model';
+      console.error('Error loading model:', err);
     }
+  }
+
+  // Change model
+  async function changeModel() {
+    const select = document.getElementById('modelSelect');
+    const model = select.value;
+    
+    try {
+      const response = await fetch('/api/settings/model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ model: model })
+      });
+      
+      if (response.ok) {
+        updateModelInfo(model);
+        showToast(`Model changed to ${model}`, 'success');
+      } else {
+        throw new Error('Failed to save');
+      }
+    } catch (err) {
+      console.error('Failed to change model:', err);
+      showToast('Failed to change model', 'error');
+      loadCurrentModel(); // Revert on error
+    }
+  }
+
+  // Update model info display
+  function updateModelInfo(model) {
+    const infoEl = document.getElementById('modelInfo');
+    infoEl.innerHTML = modelDescriptions[model] || `<strong>${model}:</strong> Custom model`;
   }
 
   // Load career profile
