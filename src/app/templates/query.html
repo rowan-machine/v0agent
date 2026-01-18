@@ -1,65 +1,343 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Query</h2>
+<style>
+  .query-page {
+    max-width: 900px;
+    margin: 0 auto;
+  }
 
-<form method="post" action="/query">
+  .query-header {
+    margin-bottom: 2rem;
+  }
 
-  <textarea
-    name="question"
-    rows="3"
-    cols="100"
-    placeholder="Ask a grounded question..."
-    required
-  >{{ question }}</textarea>
+  .query-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.75rem;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+  }
 
-  <br><br>
+  .query-header p {
+    color: #7f8c8d;
+    font-size: 1rem;
+  }
 
-  <label>
-    Source:
-    <select name="source_type">
-      <option value="docs" {% if source_type == "docs" %}selected{% endif %}>Documents</option>
-      <option value="meetings" {% if source_type == "meetings" %}selected{% endif %}>Meetings</option>
-      <option value="both" {% if source_type == "both" %}selected{% endif %}>Both</option>
-    </select>
-  </label>
+  .query-form {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
 
-  <br><br>
+  .question-wrapper {
+    margin-bottom: 1.25rem;
+  }
 
-  <label>
-    From:
-    <input type="date" name="start_date" value="{{ start_date }}">
-  </label>
+  .question-wrapper label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 0.5rem;
+  }
 
-  <label style="margin-left: 1em;">
-    To:
-    <input type="date" name="end_date" value="{{ end_date }}">
-  </label>
+  .question-input {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.05rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    transition: all 0.2s;
+    background: #fafafa;
+    resize: vertical;
+    min-height: 100px;
+    font-family: inherit;
+    line-height: 1.5;
+  }
 
-  <br><br>
+  .question-input:focus {
+    outline: none;
+    border-color: #3498db;
+    background: white;
+    box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.1);
+  }
 
-  <button type="submit">Ask</button>
-</form>
+  .question-input::placeholder {
+    color: #aaa;
+  }
 
-{% if answer %}
-  <hr>
-  <h3>Answer</h3>
-  <p>{{ answer }}</p>
+  .filters-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+  }
 
-  {% if sources %}
-    <h4>Sources</h4>
-    <ul>
-      {% for s in sources %}
-        <li>
-          [{{ loop.index }}]
-          {% if s.type == "document" %}
-            <a href="/documents/{{ s.id }}/edit">{{ s.label }}</a>
-          {% else %}
-            <a href="/meetings/{{ s.id }}/edit">{{ s.label }}</a>
-          {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .filter-group label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #555;
+    margin: 0;
+  }
+
+  .filter-group select,
+  .filter-group input[type="date"] {
+    padding: 0.6rem 0.9rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background: white;
+    color: #333;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    min-width: 140px;
+  }
+
+  .filter-group select:focus,
+  .filter-group input[type="date"]:focus {
+    outline: none;
+    border-color: #3498db;
+  }
+
+  .query-btn {
+    padding: 0.65rem 1.5rem;
+    background: #9b59b6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .query-btn:hover {
+    background: #8e44ad;
+    transform: translateY(-1px);
+  }
+
+  .query-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Answer Section */
+  .answer-section {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+
+  .answer-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .answer-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #2c3e50;
+  }
+
+  .answer-content {
+    padding: 1.5rem;
+    line-height: 1.7;
+    color: #333;
+    font-size: 1.05rem;
+  }
+
+  .sources-section {
+    border-top: 1px solid #eee;
+    padding: 1rem 1.5rem;
+    background: #f8f9fa;
+  }
+
+  .sources-section h4 {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.95rem;
+    color: #666;
+    font-weight: 600;
+  }
+
+  .sources-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    background: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .sources-list li {
+    padding: 0;
+    border: none;
+  }
+
+  .sources-list li:hover {
+    background: none;
+  }
+
+  .source-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    color: #3498db;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+
+  .source-link:hover {
+    border-color: #3498db;
+    background: #e8f4fc;
+  }
+
+  .source-num {
+    background: #3498db;
+    color: white;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .empty-state {
+    padding: 3rem;
+    text-align: center;
+    color: #95a5a6;
+  }
+
+  .empty-state svg {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  .empty-state p {
+    margin: 0;
+    background: none;
+    box-shadow: none;
+  }
+</style>
+
+<div class="query-page">
+  <div class="query-header">
+    <h2>💡 Ask a Question</h2>
+    <p>Get AI-powered answers grounded in your memory</p>
+  </div>
+
+  <form method="post" action="/query" class="query-form">
+    <div class="question-wrapper">
+      <label for="question">Your Question</label>
+      <textarea
+        id="question"
+        name="question"
+        placeholder="Ask anything about your meetings, documents, or notes..."
+        class="question-input"
+        required
+      >{{ question }}</textarea>
+    </div>
+
+    <div class="filters-row">
+      <div class="filter-group">
+        <label>Source</label>
+        <select name="source_type">
+          <option value="both" {% if source_type == "both" %}selected{% endif %}>All Sources</option>
+          <option value="docs" {% if source_type == "docs" %}selected{% endif %}>Documents</option>
+          <option value="meetings" {% if source_type == "meetings" %}selected{% endif %}>Meetings</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label>From</label>
+        <input type="date" name="start_date" value="{{ start_date }}">
+      </div>
+
+      <div class="filter-group">
+        <label>To</label>
+        <input type="date" name="end_date" value="{{ end_date }}">
+      </div>
+
+      <button type="submit" class="query-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        Ask
+      </button>
+    </div>
+  </form>
+
+  {% if answer %}
+  <div class="answer-section">
+    <div class="answer-header">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#27ae60">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <h3>Answer</h3>
+    </div>
+    <div class="answer-content">{{ answer }}</div>
+
+    {% if sources %}
+    <div class="sources-section">
+      <h4>📚 Sources</h4>
+      <ul class="sources-list">
+        {% for s in sources %}
+          <li>
+            {% if s.type == "document" %}
+              <a href="/documents/{{ s.id }}" class="source-link">
+                <span class="source-num">{{ loop.index }}</span>
+                {{ s.label }}
+              </a>
+            {% else %}
+              <a href="/meetings/{{ s.id }}" class="source-link">
+                <span class="source-num">{{ loop.index }}</span>
+                {{ s.label }}
+              </a>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="answer-section">
+    <div class="empty-state">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <p>Ask a question to get started</p>
+    </div>
+  </div>
   {% endif %}
-{% endif %}
+</div>
 
 {% endblock %}

@@ -1,0 +1,402 @@
+<!-- Assistant Chatbot Widget -->
+<style>
+  .assistant-widget {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 2000;
+  }
+
+  .assistant-toggle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    transition: all 0.3s;
+  }
+
+  .assistant-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.6);
+  }
+
+  .assistant-toggle.active {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  }
+
+  .assistant-chat {
+    position: fixed;
+    bottom: 100px;
+    right: 20px;
+    width: 400px;
+    max-height: 600px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 1999;
+  }
+
+  .assistant-chat.active {
+    display: flex;
+  }
+
+  .assistant-header {
+    padding: 1rem 1.25rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .assistant-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .assistant-badge {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.25rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+  }
+
+  .assistant-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 400px;
+  }
+
+  .assistant-message {
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    max-width: 85%;
+    line-height: 1.5;
+    font-size: 0.9rem;
+  }
+
+  .assistant-message.user {
+    background: #667eea;
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+  }
+
+  .assistant-message.assistant {
+    background: #f3f4f6;
+    color: #1f2937;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+
+  .assistant-message.assistant strong {
+    color: #667eea;
+  }
+
+  .assistant-clarifications {
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+  }
+
+  .assistant-clarifications p {
+    margin: 0 0 0.5rem 0;
+    font-weight: 600;
+    color: #92400e;
+  }
+
+  .assistant-clarifications ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: #78350f;
+  }
+
+  .assistant-input-area {
+    padding: 1rem;
+    border-top: 1px solid #e5e7eb;
+    background: #f9fafb;
+  }
+
+  .assistant-input-wrapper {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .assistant-input {
+    flex: 1;
+    padding: 0.7rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    resize: none;
+    min-height: 40px;
+    max-height: 100px;
+  }
+
+  .assistant-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+
+  .assistant-send {
+    padding: 0.7rem 1rem;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+  }
+
+  .assistant-send:hover {
+    background: #5568d3;
+  }
+
+  .assistant-send:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+  }
+
+  .assistant-thinking {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.5rem 1rem;
+  }
+
+  .assistant-thinking span {
+    width: 8px;
+    height: 8px;
+    background: #667eea;
+    border-radius: 50%;
+    animation: bounce 1.4s infinite;
+  }
+
+  .assistant-thinking span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .assistant-thinking span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+    40% { transform: translateY(-8px); opacity: 1; }
+  }
+
+  .assistant-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+  }
+
+  .assistant-suggestion {
+    padding: 0.4rem 0.8rem;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 16px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .assistant-suggestion:hover {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+  }
+</style>
+
+<div class="assistant-widget">
+  <button class="assistant-toggle" id="assistantToggle" onclick="toggleAssistant()">
+    🤖
+  </button>
+
+  <div class="assistant-chat" id="assistantChat">
+    <div class="assistant-header">
+      <h3>🤖 Hare Krishna Assistant</h3>
+      <span class="assistant-badge">AI Agent</span>
+    </div>
+
+    <div class="assistant-messages" id="assistantMessages">
+      <div class="assistant-message assistant">
+        Hi! I can help you:
+        <ul style="margin: 0.5rem 0 0 0; padding-left: 1.25rem;">
+          <li>Create and update tickets/tasks</li>
+          <li>Add accountability items</li>
+          <li>Log activities and decisions</li>
+          <li>Answer questions about your sprint</li>
+        </ul>
+      </div>
+
+      <div class="assistant-suggestions">
+        <button class="assistant-suggestion" onclick="sendQuickMessage('Create a new task for API integration')">Create task</button>
+        <button class="assistant-suggestion" onclick="sendQuickMessage('What tickets are in progress?')">Check progress</button>
+        <button class="assistant-suggestion" onclick="sendQuickMessage('Add waiting for: John to schedule meeting')">Add waiting-for</button>
+      </div>
+    </div>
+
+    <div class="assistant-input-area">
+      <div class="assistant-input-wrapper">
+        <textarea 
+          id="assistantInput" 
+          class="assistant-input" 
+          placeholder="Ask me anything or tell me what to do..."
+          rows="1"
+          onkeydown="handleAssistantKeydown(event)"
+        ></textarea>
+        <button class="assistant-send" onclick="sendAssistantMessage()" id="assistantSendBtn">
+          Send
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let assistantHistory = [];
+
+  function toggleAssistant() {
+    const chat = document.getElementById('assistantChat');
+    const toggle = document.getElementById('assistantToggle');
+    chat.classList.toggle('active');
+    toggle.classList.toggle('active');
+    
+    if (chat.classList.contains('active')) {
+      document.getElementById('assistantInput').focus();
+    }
+  }
+
+  function addAssistantMessage(content, role = 'assistant') {
+    const container = document.getElementById('assistantMessages');
+    const msg = document.createElement('div');
+    msg.className = `assistant-message ${role}`;
+    msg.innerHTML = content;
+    container.appendChild(msg);
+    container.scrollTop = container.scrollHeight;
+    
+    // Remove suggestions after first message
+    const suggestions = container.querySelector('.assistant-suggestions');
+    if (suggestions && role === 'user') {
+      suggestions.remove();
+    }
+  }
+
+  function showThinking() {
+    const container = document.getElementById('assistantMessages');
+    const thinking = document.createElement('div');
+    thinking.className = 'assistant-thinking';
+    thinking.id = 'thinkingIndicator';
+    thinking.innerHTML = '<span></span><span></span><span></span>';
+    container.appendChild(thinking);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function hideThinking() {
+    const thinking = document.getElementById('thinkingIndicator');
+    if (thinking) thinking.remove();
+  }
+
+  async function sendAssistantMessage() {
+    const input = document.getElementById('assistantInput');
+    const sendBtn = document.getElementById('assistantSendBtn');
+    const message = input.value.trim();
+    
+    if (!message) return;
+    
+    // Add user message
+    addAssistantMessage(message, 'user');
+    assistantHistory.push({ role: 'user', content: message });
+    
+    // Clear input and disable
+    input.value = '';
+    sendBtn.disabled = true;
+    
+    // Show thinking
+    showThinking();
+    
+    try {
+      const response = await fetch('/api/assistant/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          message: message,
+          history: assistantHistory
+        })
+      });
+      
+      const data = await response.json();
+      hideThinking();
+      
+      if (data.response) {
+        let responseHtml = data.response.replace(/\n/g, '<br>');
+        
+        // Add clarifications if any
+        if (data.clarifications && data.clarifications.length > 0) {
+          responseHtml += '<div class="assistant-clarifications">';
+          responseHtml += '<p>I need to know:</p><ul>';
+          data.clarifications.forEach(q => {
+            responseHtml += `<li>${q}</li>`;
+          });
+          responseHtml += '</ul></div>';
+        }
+        
+        addAssistantMessage(responseHtml, 'assistant');
+        assistantHistory.push({ role: 'assistant', content: data.response });
+        
+        // If action was taken, show success indicator
+        if (data.action && data.success) {
+          setTimeout(() => {
+            addAssistantMessage(`✓ Action completed: ${data.action}`, 'assistant');
+          }, 300);
+        }
+      }
+    } catch (err) {
+      hideThinking();
+      addAssistantMessage('Sorry, I encountered an error. Please try again.', 'assistant');
+      console.error('Assistant error:', err);
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  function sendQuickMessage(message) {
+    document.getElementById('assistantInput').value = message;
+    sendAssistantMessage();
+  }
+
+  function handleAssistantKeydown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      sendAssistantMessage();
+    }
+  }
+
+  // Auto-resize textarea
+  document.getElementById('assistantInput').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+  });
+</script>

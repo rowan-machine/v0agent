@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .meeting-content {
+    background: white;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 15px;
+    white-space: pre-wrap;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    line-height: 1.6;
+    color: #333;
+  }
+  .meeting-meta {
+    color: #666;
+    margin-bottom: 15px;
+  }
+  .meeting-actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+  }
+  .meeting-actions a {
+    padding: 8px 16px;
+    background: var(--sf-primary, #667eea);
+    color: #fff;
+    text-decoration: none;
+    border-radius: 6px;
+    border: none;
+    transition: all 0.2s;
+  }
+  .meeting-actions a:hover {
+    background: var(--sf-primary-dark, #5568d3);
+    transform: translateY(-1px);
+  }
+  /* Markdown styles */
+  .meeting-content strong { font-weight: bold; color: #1a1a1a; }
+  .meeting-content em { font-style: italic; color: #555; }
+  .meeting-content code {
+    background: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.9em;
+    color: #d63384;
+  }
+  .meeting-content .md-h1 { font-size: 1.5em; font-weight: bold; color: #1a1a1a; margin: 15px 0 10px 0; display: block; }
+  .meeting-content .md-h2 { font-size: 1.3em; font-weight: bold; color: #333; margin: 12px 0 8px 0; display: block; }
+  .meeting-content .md-h3 { font-size: 1.1em; font-weight: bold; color: #555; margin: 10px 0 6px 0; display: block; }
+  
+  /* Screenshot styles */
+  .screenshots-section {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e8e8e8;
+  }
+  .screenshots-section h3 {
+    color: #1a1a1a;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .screenshot-card {
+    background: white;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  .screenshot-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-top: 1px solid #f0f0f0;
+  }
+  .screenshot-filename {
+    font-size: 0.85rem;
+    color: #666;
+  }
+  .screenshot-summary {
+    color: #444;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+</style>
+
+<h2>{{ meeting.meeting_name }}</h2>
+
+<div class="meeting-meta">
+  {% if meeting.meeting_date %}
+  <strong>Date:</strong> {{ meeting.meeting_date }}
+  {% endif %}
+</div>
+
+<div class="meeting-content" id="meeting-content">{{ meeting.synthesized_notes }}</div>
+
+{% if screenshots %}
+<div class="screenshots-section">
+  <h3>📸 Meeting Screenshots</h3>
+  {% for screenshot in screenshots %}
+  <div class="screenshot-card">
+    <div class="screenshot-header">
+      <span class="screenshot-filename">{{ screenshot.filename }}</span>
+    </div>
+    <div class="screenshot-summary">{{ screenshot.image_summary }}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="meeting-actions">
+  <a href="/meetings/{{ meeting.id }}/edit">Edit Meeting</a>
+  <a href="/meetings">← Back to Meetings</a>
+</div>
+
+<script>
+function parseMarkdown(text) {
+  if (!text) return '';
+  
+  // Headers (must come before other processing)
+  text = text.replace(/^### (.+)$/gm, '<span class="md-h3">$1</span>');
+  text = text.replace(/^## (.+)$/gm, '<span class="md-h2">$1</span>');
+  text = text.replace(/^# (.+)$/gm, '<span class="md-h1">$1</span>');
+  
+  // Inline code
+  text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+  
+  // Bold
+  text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  
+  // Italic
+  text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  
+  return text;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const content = document.getElementById('meeting-content');
+  if (content) {
+    content.innerHTML = parseMarkdown(content.textContent);
+  }
+});
+</script>
+{% endblock %}
