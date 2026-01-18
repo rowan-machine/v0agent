@@ -24,6 +24,7 @@ from .api.accountability import router as accountability_router
 from .api.settings import router as settings_router
 from .api.assistant import router as assistant_router
 from .api.career import router as career_router
+from .api.neo4j_graph import router as neo4j_router
 from .mcp.registry import TOOL_REGISTRY
 from .llm import ask as ask_llm
 from .auth import (
@@ -390,6 +391,24 @@ def table_exists(conn, table_name):
 def settings_page(request: Request):
     """Settings page."""
     return templates.TemplateResponse("settings.html", {"request": request})
+
+
+@app.get("/career")
+def career_page(request: Request):
+    """Career development page."""
+    return templates.TemplateResponse("career.html", {"request": request})
+
+
+@app.get("/dikw")
+def dikw_page(request: Request):
+    """DIKW Pyramid page for knowledge management."""
+    return templates.TemplateResponse("dikw.html", {"request": request})
+
+
+@app.get("/knowledge-graph")
+def knowledge_graph_page(request: Request):
+    """Neo4j Knowledge Graph visualization and management page."""
+    return templates.TemplateResponse("knowledge_graph.html", {"request": request})
 
 
 @app.post("/api/signals/feedback")
@@ -1500,6 +1519,195 @@ async def validate_dikw_item(request: Request):
     return JSONResponse({"status": "ok", "action": action})
 
 
+@app.post("/api/dikw")
+async def create_dikw_item(request: Request):
+    """Create a new DIKW item."""
+    data = await request.json()
+    level = data.get("level", "data")
+    content = data.get("content", "").strip()
+    summary = data.get("summary", "").strip()
+    tags = data.get("tags", "")
+    
+    if not content:
+        return JSONResponse({"error": "Content is required"}, status_code=400)
+    
+    with connect() as conn:
+        conn.execute(
+            """INSERT INTO dikw_items (level, content, summary, tags, source_type)
+               VALUES (?, ?, ?, ?, 'manual')""",
+            (level, content, summary or None, tags or None)
+        )
+        conn.commit()
+        item_id = conn.execute("SELECT last_insert_rowid() as id").fetchone()["id"]
+    
+    return JSONResponse({"status": "ok", "id": item_id})
+
+
+@app.put("/api/dikw/{item_id}")
+async def update_dikw_item(item_id: int, request: Request):
+    """Update an existing DIKW item."""
+    data = await request.json()
+    level = data.get("level")
+    content = data.get("content", "").strip()
+    summary = data.get("summary", "").strip()
+    tags = data.get("tags", "")
+    
+    if not content:
+        return JSONResponse({"error": "Content is required"}, status_code=400)
+    
+    with connect() as conn:
+        conn.execute(
+            """UPDATE dikw_items 
+               SET level = ?, content = ?, summary = ?, tags = ?, updated_at = CURRENT_TIMESTAMP
+               WHERE id = ?""",
+            (level, content, summary or None, tags or None, item_id)
+        )
+        conn.commit()
+    
+    return JSONResponse({"status": "ok"})
+
+
+@app.post("/api/dikw/ai-refine")
+async def ai_refine_dikw(request: Request):
+    """Use AI to refine/improve DIKW content."""
+    data = await request.json()
+    content = data.get("content", "")
+    action = data.get("action", "clarify")
+    custom_prompt = data.get("prompt")
+    
+    if not content:
+        return JSONResponse({"error": "Content is required"}, status_code=400)
+    
+    try:
+        prompt = custom_prompt or f"Refine this content ({action}): {content}"
+        refined = ask_llm(prompt)
+        return JSONResponse({"status": "ok", "refined": refined})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/api/dikw/ai-summarize")
+async def ai_summarize_dikw(request: Request):
+    """Generate AI summary for DIKW content."""
+    data = await request.json()
+    content = data.get("content", "")
+    level = data.get("level", "data")
+    
+    if not content:
+        return JSONResponse({"error": "Content is required"}, status_code=400)
+    
+    level_prompts = {
+        'data': f"Briefly describe this raw data point in one clear sentence:\n\n{content}",
+        'information': f"Explain the context and significance of this information:\n\n{content}",
+        'knowledge': f"What actionable insight or pattern does this represent?\n\n{content}",
+        'wisdom': f"What strategic principle or lesson can be derived from this?\n\n{content}"
+    }
+    
+    try:
+        summary = ask_llm(level_prompts.get(level, level_prompts['data']))
+        return JSONResponse({"status": "ok", "summary": summary})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/api/dikw/ai-promote")
+async def ai_promote_dikw(request: Request):
+    """Use AI to promote content to the next DIKW level."""
+    data = await request.json()
+    content = data.get("content", "")
+    from_level = data.get("from_level", "data")
+    to_level = data.get("to_level", "information")
+    
+    if not content:
+        return JSONResponse({"error": "Content is required"}, status_code=400)
+    
+    promotion_prompts = {
+        'information': f"""Transform this raw data into structured information. Explain what it means in context and why it matters.
+
+Data: {content}
+
+Provide the promoted information-level content:""",
+        'knowledge': f"""Extract actionable knowledge from this information. What patterns, insights, or principles emerge that can guide decisions?
+
+Information: {content}
+
+Provide the promoted knowledge-level content:""",
+        'wisdom': f"""Distill strategic wisdom from this knowledge. What fundamental principle or timeless lesson should guide future actions and decisions?
+
+Knowledge: {content}
+
+Provide the promoted wisdom-level content:"""
+    }
+    
+    try:
+        promoted = ask_llm(promotion_prompts.get(to_level, promotion_prompts['information']))
+        
+        # Also generate a summary for the new level
+        summary_prompt = f"Summarize this {to_level}-level insight in one sentence:\n\n{promoted}"
+        summary = ask_llm(summary_prompt)
+        
+        return JSONResponse({
+            "status": "ok",
+            "promoted_content": promoted,
+            "summary": summary,
+            "from_level": from_level,
+            "to_level": to_level
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/signals/unprocessed")
+async def get_unprocessed_signals():
+    """Get signals that haven't been promoted to DIKW yet."""
+    with connect() as conn:
+        # Get all signals from meetings that haven't been processed
+        meetings = conn.execute(
+            """SELECT id, meeting_name, signals_json 
+               FROM meeting_summaries 
+               WHERE signals_json IS NOT NULL
+               ORDER BY COALESCE(meeting_date, created_at) DESC
+               LIMIT 20"""
+        ).fetchall()
+        
+        # Get already processed signals
+        processed = conn.execute(
+            """SELECT meeting_id, signal_type, signal_text 
+               FROM signal_status 
+               WHERE converted_to = 'dikw'"""
+        ).fetchall()
+        
+        processed_set = set(
+            (p['meeting_id'], p['signal_type'], p['signal_text']) 
+            for p in processed
+        )
+        
+        unprocessed = []
+        for meeting in meetings:
+            try:
+                signals = json.loads(meeting['signals_json'])
+                for signal_type in ['decisions', 'action_items', 'blockers', 'risks', 'ideas']:
+                    items = signals.get(signal_type, [])
+                    if isinstance(items, list):
+                        for item in items:
+                            text = item if isinstance(item, str) else item.get('text', str(item))
+                            normalized_type = signal_type.rstrip('s')  # decisions -> decision
+                            if normalized_type == 'action_item':
+                                normalized_type = 'action_item'
+                            
+                            if (meeting['id'], normalized_type, text) not in processed_set:
+                                unprocessed.append({
+                                    'meeting_id': meeting['id'],
+                                    'meeting_name': meeting['meeting_name'],
+                                    'signal_type': normalized_type,
+                                    'text': text
+                                })
+            except:
+                pass
+        
+        return JSONResponse(unprocessed)
+
+
 @app.get("/meetings/new")
 def new_meeting(request: Request):
     return templates.TemplateResponse(
@@ -1570,3 +1778,4 @@ app.include_router(accountability_router)
 app.include_router(settings_router)
 app.include_router(assistant_router)
 app.include_router(career_router)
+app.include_router(neo4j_router)
