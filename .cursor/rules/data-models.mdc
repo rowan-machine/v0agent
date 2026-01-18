@@ -1,36 +1,38 @@
 ---
-description: Documentation of meeting and document data models with their relationships and business-specific attributes
+description: Specifications for meeting and document data model structures, relationships, and business logic
 ---
 
 
 # data-models
 
-The system utilizes two primary data models that form the core business structure:
+Key data model relationships between Meetings and Documents:
 
-## Meeting Model (Importance: 90/100)
-Location: src/app/mcp/parser.py
+## Meeting Data Model
+Importance Score: 90
 
-Core attributes:
-- Structured signals extraction from unstructured text
-- Domain-specific sections (Decisions, Action Items, Blockers, Risks, Ideas)
-- Special "Synthesized Signals" section with prioritized handling
-- Organization-specific formatting rules
-- Time-based relevance scoring
+Core Structure:
+- Sophisticated meeting bundle model that combines:
+  - Raw meeting transcripts
+  - Extracted signals (Decisions, Action Items, Blockers, Risks, Ideas)
+  - Signal status workflow states (approved, rejected, archived)
+  - Accountability tracking integration
+  - Multi-source transcript merging (Pocket, Teams)
 
-## Document Model (Importance: 85/100)
-Location: src/app/memory/rank.py
+## Document Data Model  
+Importance Score: 85
 
-Core attributes:
-- Custom organizational knowledge hierarchy
-- Business-specific JSON transformation structure
-- Source type preferences
-- Time-based context tracking
+Core Structure:
+- Signal extraction and categorization
+- Contextual relationship mappings to meetings
+- Domain-aware conversational system links
+- Sprint-aware context associations
 
-## Relationship Structure (Importance: 80/100)
-- Hierarchical organization (meetings > documents > transcripts)
-- Cross-referencing between meetings and related documents
-- Signal categorization with domain context
-- Hybrid scoring system for combined document/meeting queries
+## Relationship Management
+Importance Score: 85
+
+- Unified meeting data ingestion system links to document artifacts
+- Automated summary generation connects meetings to documents
+- Signal extraction pipeline maintains cross-references
 
 $END$
 

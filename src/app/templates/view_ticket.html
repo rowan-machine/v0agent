@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+{% block title %}{{ ticket.ticket_id }} - {{ ticket.title }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Breadcrumb -->
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-4">
+        <a href="/tickets" class="hover:text-violet-600">Tickets</a>
+        <span>/</span>
+        <span class="font-mono">{{ ticket.ticket_id }}</span>
+    </div>
+
+    {% if request.query_params.get('success') %}
+    <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+        <p class="text-green-800 text-sm font-medium">✓ Ticket updated successfully!</p>
+    </div>
+    {% endif %}
+
+    <!-- Header Card -->
+    <div class="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+        <div class="flex items-start justify-between">
+            <div>
+                <div class="flex items-center gap-3 mb-2">
+                    <span class="px-3 py-1 text-sm font-mono font-medium bg-gray-100 text-gray-700 rounded-lg">
+                        {{ ticket.ticket_id }}
+                    </span>
+                    {% if ticket.status == 'in_progress' %}
+                    <span class="px-3 py-1 text-sm font-medium bg-blue-100 text-blue-700 rounded-lg">In Progress</span>
+                    {% elif ticket.status == 'todo' %}
+                    <span class="px-3 py-1 text-sm font-medium bg-amber-100 text-amber-700 rounded-lg">To Do</span>
+                    {% elif ticket.status == 'done' %}
+                    <span class="px-3 py-1 text-sm font-medium bg-green-100 text-green-700 rounded-lg">Done</span>
+                    {% elif ticket.status == 'in_review' %}
+                    <span class="px-3 py-1 text-sm font-medium bg-purple-100 text-purple-700 rounded-lg">In Review</span>
+                    {% elif ticket.status == 'blocked' %}
+                    <span class="px-3 py-1 text-sm font-medium bg-red-100 text-red-700 rounded-lg">Blocked</span>
+                    {% endif %}
+                    {% if ticket.priority %}
+                    <span class="px-3 py-1 text-sm font-medium
+                          {{ 'bg-red-100 text-red-700' if ticket.priority == 'high' else 
+                             'bg-yellow-100 text-yellow-700' if ticket.priority == 'medium' else 
+                             'bg-gray-100 text-gray-600' }} rounded-lg">
+                        {{ ticket.priority|title }} Priority
+                    </span>
+                    {% endif %}
+                </div>
+                <h1 class="text-2xl font-bold text-gray-900">{{ ticket.title }}</h1>
+                
+                {% if ticket.tags %}
+                <div class="flex flex-wrap gap-2 mt-3">
+                    {% for tag in ticket.tags.split(',') %}
+                    <span class="px-2 py-0.5 text-xs bg-violet-50 text-violet-600 rounded">{{ tag.strip() }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <a href="/tickets/{{ ticket.id }}/edit"
+               class="px-4 py-2 text-sm font-medium text-violet-700 bg-violet-50 rounded-lg
+                      hover:bg-violet-100 transition-colors flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                </svg>
+                Edit
+            </a>
+        </div>
+    </div>
+
+    <!-- Description -->
+    {% if ticket.description %}
+    <div class="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Description</h2>
+        <div class="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">{{ ticket.description }}</div>
+    </div>
+    {% endif %}
+
+    <!-- AI Summary -->
+    <div class="bg-gradient-to-br from-violet-50 to-purple-50 border border-violet-100 rounded-xl p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <svg class="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+                AI Summary
+            </h2>
+            <div class="flex items-center gap-2">
+                {% if ticket.ai_summary %}
+                <button id="regenerate-summary-btn"
+                        class="px-3 py-1.5 text-xs font-medium bg-violet-100 text-violet-700 rounded-lg
+                               hover:bg-violet-200 transition-colors flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    Regenerate
+                </button>
+                {% else %}
+                <button id="generate-summary-btn"
+                        class="px-4 py-2 text-sm font-medium bg-violet-600 text-white rounded-lg
+                               hover:bg-violet-700 transition-colors">
+                    Generate
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Format hint input (collapsed by default) -->
+        <div id="format-hint-container" class="hidden mb-4">
+            <label class="block text-xs text-gray-600 mb-1">Custom formatting hint (optional):</label>
+            <input type="text" id="format-hint-input" 
+                   class="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg focus:ring-2 focus:ring-violet-400"
+                   placeholder="e.g., 'Focus on data pipeline aspects' or 'Keep under 100 words'">
+            <p class="text-xs text-gray-500 mt-1">
+                💡 Tip: Add tags like <code class="bg-violet-100 px-1 rounded">brief</code>, <code class="bg-violet-100 px-1 rounded">detailed</code>, <code class="bg-violet-100 px-1 rounded">technical</code>, <code class="bg-violet-100 px-1 rounded">bullet</code> to the ticket for automatic formatting.
+            </p>
+        </div>
+        
+        {% if ticket.ai_summary %}
+        <div class="prose prose-sm max-w-none ai-summary-rendered" id="ai-summary-content">{{ ticket.ai_summary | safe }}</div>
+        {% else %}
+        <p class="text-gray-500 text-sm" id="no-summary">No AI summary yet. Click Generate to create one.</p>
+        {% endif %}
+    </div>
+    
+    <style>
+        /* AI Summary Markdown Styling */
+        .ai-summary-rendered { line-height: 1.7; color: #374151; }
+        .ai-summary-rendered strong { color: #4c1d95; font-weight: 600; }
+        .ai-summary-rendered ul, .ai-summary-rendered ol { margin: 0.5rem 0; padding-left: 1.25rem; }
+        .ai-summary-rendered li { margin-bottom: 0.25rem; }
+        .ai-summary-rendered li::marker { color: #7c3aed; }
+        .ai-summary-rendered code { background: #ede9fe; padding: 0.125rem 0.375rem; border-radius: 4px; font-size: 0.85em; color: #5b21b6; }
+        .ai-summary-rendered p { margin-bottom: 0.75rem; }
+        .ai-summary-rendered p:last-child { margin-bottom: 0; }
+    </style>
+
+    <!-- Implementation Plan -->
+    <div class="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 rounded-xl p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                </svg>
+                Implementation Plan
+            </h2>
+            {% if not ticket.implementation_plan %}
+            <button id="generate-plan-btn"
+                    class="px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg
+                           hover:bg-green-700 transition-colors">
+                Generate
+            </button>
+            {% endif %}
+        </div>
+        
+        {% if ticket.implementation_plan %}
+        <div class="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap" id="plan-content">{{ ticket.implementation_plan }}</div>
+        {% else %}
+        <p class="text-gray-500 text-sm" id="no-plan">No implementation plan yet. Click Generate to create one.</p>
+        {% endif %}
+    </div>
+
+    <!-- Attachments -->
+    {% if attachments %}
+    <div class="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Attachments ({{ attachments|length }})</h2>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {% for att in attachments %}
+            <div class="border border-gray-200 rounded-lg p-3">
+                {% if att.mime_type and att.mime_type.startswith('image/') %}
+                <img src="/{{ att.file_path }}" alt="{{ att.filename }}" 
+                     class="w-full h-32 object-cover rounded mb-2 cursor-pointer"
+                     onclick="window.open('/{{ att.file_path }}', '_blank')">
+                {% else %}
+                <div class="w-full h-32 bg-gray-100 rounded mb-2 flex items-center justify-center">
+                    <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                </div>
+                {% endif %}
+                <p class="text-sm text-gray-700 truncate">{{ att.filename }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Meta -->
+    <div class="text-center text-sm text-gray-400 mb-8">
+        Created {{ ticket.created_at }} • Last updated {{ ticket.updated_at or ticket.created_at }}
+    </div>
+</div>
+
+<script>
+const ticketId = {{ ticket.id }};
+
+// Simple markdown to HTML renderer for AI summaries
+function renderMarkdown(text) {
+    return text
+        // Bold
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        // Inline code
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // Bullet lists
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        // Wrap consecutive <li> in <ul>
+        .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+        // Line breaks for paragraphs
+        .replace(/\n\n/g, '</p><p>')
+        // Wrap in paragraph if not already
+        .replace(/^(?!<)/, '<p>')
+        .replace(/(?!>)$/, '</p>');
+}
+
+// Generate or regenerate summary
+async function generateSummary(btn, isRegenerate = false) {
+    const formatHint = document.getElementById('format-hint-input')?.value || '';
+    
+    btn.disabled = true;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full"></span> Generating...';
+    
+    try {
+        const resp = await fetch(`/api/tickets/${ticketId}/generate-summary`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format_hint: formatHint })
+        });
+        const data = await resp.json();
+        
+        if (data.summary) {
+            // Update the display
+            let contentEl = document.getElementById('ai-summary-content');
+            const noSummary = document.getElementById('no-summary');
+            
+            if (noSummary) {
+                noSummary.remove();
+            }
+            
+            if (!contentEl) {
+                contentEl = document.createElement('div');
+                contentEl.id = 'ai-summary-content';
+                contentEl.className = 'prose prose-sm max-w-none ai-summary-rendered';
+                document.querySelector('.format-hint-container')?.insertAdjacentElement('afterend', contentEl) ||
+                btn.parentElement.parentElement.appendChild(contentEl);
+            }
+            
+            contentEl.innerHTML = renderMarkdown(data.summary);
+            
+            // Hide format hint container
+            document.getElementById('format-hint-container')?.classList.add('hidden');
+            
+            // If this was generate, convert to regenerate button
+            if (!isRegenerate) {
+                btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg> Regenerate`;
+                btn.id = 'regenerate-summary-btn';
+                btn.className = 'px-3 py-1.5 text-xs font-medium bg-violet-100 text-violet-700 rounded-lg hover:bg-violet-200 transition-colors flex items-center gap-1';
+            } else {
+                btn.innerHTML = originalHtml;
+            }
+            
+            // Show saved indicator
+            const savedBadge = document.createElement('span');
+            savedBadge.className = 'text-xs text-green-600 ml-2';
+            savedBadge.textContent = '✓ Saved';
+            btn.insertAdjacentElement('afterend', savedBadge);
+            setTimeout(() => savedBadge.remove(), 2000);
+        } else {
+            alert(data.error || 'Failed to generate summary');
+            btn.innerHTML = originalHtml;
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+        btn.innerHTML = originalHtml;
+    }
+    btn.disabled = false;
+}
+
+// Attach handlers
+document.getElementById('generate-summary-btn')?.addEventListener('click', function() {
+    document.getElementById('format-hint-container')?.classList.remove('hidden');
+    generateSummary(this, false);
+});
+
+document.getElementById('regenerate-summary-btn')?.addEventListener('click', function() {
+    document.getElementById('format-hint-container')?.classList.toggle('hidden');
+    // Only generate if format hint is visible and user clicks again
+    if (!document.getElementById('format-hint-container')?.classList.contains('hidden')) {
+        return; // Just show the input
+    }
+    generateSummary(this, true);
+});
+
+// Allow regenerate with Enter in format hint input
+document.getElementById('format-hint-input')?.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        const btn = document.getElementById('regenerate-summary-btn') || document.getElementById('generate-summary-btn');
+        if (btn) generateSummary(btn, !!document.getElementById('regenerate-summary-btn'));
+    }
+});
+
+{% if not ticket.implementation_plan %}
+document.getElementById('generate-plan-btn')?.addEventListener('click', async function() {
+    const btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Generating...';
+    
+    try {
+        const resp = await fetch(`/api/tickets/${ticketId}/generate-plan`, { method: 'POST' });
+        const data = await resp.json();
+        
+        if (data.plan) {
+            // Save it
+            await fetch(`/api/tickets/${ticketId}/save-plan`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plan: data.plan })
+            });
+            
+            document.getElementById('no-plan').remove();
+            const content = document.createElement('div');
+            content.className = 'prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap';
+            content.textContent = data.plan;
+            btn.parentElement.parentElement.querySelector('h2').insertAdjacentElement('afterend', content);
+            btn.remove();
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+        btn.disabled = false;
+        btn.textContent = 'Generate';
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

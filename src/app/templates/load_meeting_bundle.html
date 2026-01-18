@@ -1,27 +1,205 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+  .bundle-form {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  
+  .bundle-header {
+    margin-bottom: 1.5rem;
+  }
+  
+  .bundle-header h2 {
+    font-size: 1.75rem;
+    color: var(--sf-text, #2c3e50);
+    margin-bottom: 0.5rem;
+  }
+  
+  .bundle-header p {
+    color: var(--sf-text-muted, #7f8c8d);
+    font-size: 1rem;
+    margin: 0;
+    background: none;
+    box-shadow: none;
+  }
+  
+  .form-section {
+    background: var(--sf-card-bg, white);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  
+  .form-section h3 {
+    font-size: 1.1rem;
+    color: var(--sf-text, #2c3e50);
+    margin: 0 0 1rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .form-group {
+    margin-bottom: 1rem;
+  }
+  
+  .form-group label {
+    display: block;
+    font-weight: 500;
+    color: var(--sf-text, #555);
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .form-group input,
+  .form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid var(--sf-border, #ddd);
+    border-radius: 8px;
+    font-size: 1rem;
+    font-family: inherit;
+    background: var(--sf-surface, #fafafa);
+    color: var(--sf-text, inherit);
+    transition: border-color 0.2s;
+  }
+  
+  .form-group input:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: var(--sf-primary, #3498db);
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+  }
+  
+  .form-group textarea {
+    resize: vertical;
+    min-height: 150px;
+  }
+  
+  .form-group textarea.short {
+    min-height: 120px;
+  }
+  
+  .transcript-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  
+  .transcript-box {
+    background: var(--sf-surface, #f8f9fa);
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid var(--sf-border, #e5e7eb);
+  }
+  
+  .transcript-box h4 {
+    font-size: 0.9rem;
+    color: var(--sf-text, #374151);
+    margin: 0 0 0.75rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .transcript-box textarea {
+    min-height: 200px;
+    background: var(--sf-card-bg, white);
+  }
+  
+  .hint {
+    font-size: 0.8rem;
+    color: var(--sf-text-muted, #9ca3af);
+    margin-top: 0.25rem;
+  }
+  
+  .submit-btn {
+    background: var(--sf-gradient-primary, linear-gradient(135deg, #667eea, #764ba2));
+    color: white;
+    border: none;
+    padding: 0.85rem 2rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .submit-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+  
+  @media (max-width: 768px) {
+    .form-row,
+    .transcript-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
 
-<h2>Load Meeting Bundle (Agent / MCP)</h2>
+<div class="bundle-form">
+  <div class="bundle-header">
+    <h2>📦 Load Meeting Bundle</h2>
+    <p>Load a complete meeting with summary and optional transcripts in one step</p>
+  </div>
 
-<p class="muted">
-Use this to load a full meeting summary + transcript in one step.
-This calls the MCP tool directly.
-</p>
+  <form method="post" action="/meetings/load">
+    <div class="form-section">
+      <h3>📋 Meeting Details</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Meeting Name *</label>
+          <input type="text" name="meeting_name" required placeholder="e.g., Sprint Planning 2026-01">
+        </div>
+        <div class="form-group">
+          <label>Meeting Date</label>
+          <input type="date" name="meeting_date">
+        </div>
+      </div>
+    </div>
+    
+    <div class="form-section">
+      <h3>📝 Summarized Notes *</h3>
+      <div class="form-group">
+        <label>Structured Summary</label>
+        <textarea name="summary_text" rows="12" required placeholder="Paste your structured meeting summary here..."></textarea>
+        <p class="hint">Use your canonical format with sections for decisions, action items, blockers, etc.</p>
+      </div>
+    </div>
+    
+    <div class="form-section">
+      <h3>🎙️ Transcripts (Optional)</h3>
+      <p class="hint" style="margin-bottom: 1rem;">Add one or both transcript sources. They will be merged into a single searchable document.</p>
+      
+      <div class="transcript-grid">
+        <div class="transcript-box">
+          <h4>📱 Pocket Transcript</h4>
+          <div class="form-group" style="margin-bottom: 0;">
+            <textarea name="pocket_transcript" class="short" placeholder="Paste Pocket/mobile transcript here..."></textarea>
+          </div>
+        </div>
+        
+        <div class="transcript-box">
+          <h4>💼 Teams Transcript</h4>
+          <div class="form-group" style="margin-bottom: 0;">
+            <textarea name="teams_transcript" class="short" placeholder="Paste Microsoft Teams transcript here..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
 
-<form method="post" action="/meetings/load">
-  <label>Meeting Name</label>
-  <input type="text" name="meeting_name" required style="margin-bottom: 15px;">
-
-  <label>Meeting Date</label>
-  <input type="date" name="meeting_date" style="margin-bottom: 15px;">
-
-  <label>Summarized Notes (structured)</label>
-  <textarea name="summary_text" rows="14" required style="margin-top: 5px; margin-bottom: 15px;"></textarea>
-
-  <label>Transcript (optional)</label>
-  <textarea name="transcript_text" rows="10" style="margin-top: 5px;"></textarea>
-
-  <button type="submit">Load via MCP</button>
-</form>
+    <button type="submit" class="submit-btn">Load Meeting Bundle</button>
+  </form>
+</div>
 
 {% endblock %}

@@ -91,7 +91,10 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
     Load a full meeting bundle:
     - Structured summary (your canonical format)
     - Optional transcript
-    - Persist authoritative synthesis + structured signals    """
+    - Persist authoritative synthesis + structured signals
+    - Auto-generates embeddings for both meeting and transcript
+    - Idempotent: skips if (meeting_name, meeting_date) already exists
+    """
 
     meeting_name = args["meeting_name"]
     meeting_date = args.get("meeting_date")
@@ -99,22 +102,42 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
     transcript_text = args.get("transcript_text")
 
     # -----------------------------
-    # 0. Clean the text
+    # 0. Idempotency check - skip duplicates
+    # -----------------------------
+    with connect() as conn:
+        existing = conn.execute(
+            """
+            SELECT id FROM meeting_summaries 
+            WHERE meeting_name = ? AND (meeting_date = ? OR (meeting_date IS NULL AND ? IS NULL))
+            """,
+            (meeting_name, meeting_date, meeting_date)
+        ).fetchone()
+        
+        if existing:
+            return {
+                "status": "skipped",
+                "reason": "duplicate",
+                "existing_meeting_id": existing["id"],
+                "message": f"Meeting '{meeting_name}' on {meeting_date or 'no date'} already exists"
+            }
+
+    # -----------------------------
+    # 1. Clean the text
     # -----------------------------
     cleaned_summary = clean_meeting_text(summary_text)
 
     # -----------------------------
-    # 1. Parse summary into sections
+    # 2. Parse summary into sections
     # -----------------------------
     parsed_sections = parse_meeting_summary(cleaned_summary)
 
     # -----------------------------
-    # 2. Extract structured signals
+    # 3. Extract structured signals
     # -----------------------------
     signals = extract_structured_signals(parsed_sections)
 
     # -----------------------------
-    # 3. Determine synthesized notes
+    # 4. Determine synthesized notes
     # -----------------------------
     # Prefer the authoritative synthesized section if present
     synthesized_notes = (
@@ -124,7 +147,7 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     # -----------------------------
-    # 4. Persist to database
+    # 5. Persist to database
     # -----------------------------
     with connect() as conn:
 
@@ -163,12 +186,30 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
             transcript_id = cur.lastrowid
 
     # -----------------------------
-    # 5. Return structured response
+    # 6. Generate embeddings immediately
+    # -----------------------------
+    from ..memory.embed import embed_text, EMBED_MODEL
+    from ..memory.vector_store import upsert_embedding
+    
+    # Embed meeting
+    meeting_embed_text = f"{meeting_name}\n{synthesized_notes}"
+    meeting_vector = embed_text(meeting_embed_text)
+    upsert_embedding("meeting", meeting_id, EMBED_MODEL, meeting_vector)
+    
+    # Embed transcript if provided
+    if transcript_id and transcript_text:
+        transcript_embed_text = f"Transcript: {meeting_name}\n{transcript_text[:8000]}"
+        transcript_vector = embed_text(transcript_embed_text)
+        upsert_embedding("doc", transcript_id, EMBED_MODEL, transcript_vector)
+
+    # -----------------------------
+    # 7. Return structured response
     # -----------------------------
     return {
         "status": "ok",
         "meeting_id": meeting_id,
         "transcript_id": transcript_id,
+        "embedded": True,
         "signals_extracted": {
             "decisions": len(signals.get("decisions", [])),
             "action_items": len(signals.get("action_items", [])),
@@ -337,4 +378,197 @@ def update_meeting_signals(args: Dict[str, Any]) -> Dict[str, Any]:
             "status": "ok",
             "updated": updated_count,
             "message": f"Successfully updated {updated_count} meeting(s)"
+        }
+
+
+def export_meeting_signals(args: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Export meeting signals for a date range or all meetings.
+    Useful for career agents, sprint retros, status summaries.
+    
+    Args:
+        signal_types: List of types to include (default: all)
+        start_date: Filter meetings from this date (YYYY-MM-DD)
+        end_date: Filter meetings until this date (YYYY-MM-DD)
+        limit: Maximum meetings to return (default: 100)
+        format: "full" (all data) or "compact" (signals only)
+    """
+    signal_types = args.get("signal_types", ["decisions", "action_items", "blockers", "risks", "ideas"])
+    start_date = args.get("start_date")
+    end_date = args.get("end_date")
+    limit = args.get("limit", 100)
+    output_format = args.get("format", "full")
+    
+    # Build query with date filters
+    where_clauses = ["signals_json IS NOT NULL", "signals_json != '{}'"]
+    params = []
+    
+    if start_date:
+        where_clauses.append("meeting_date >= ?")
+        params.append(start_date)
+    if end_date:
+        where_clauses.append("meeting_date <= ?")
+        params.append(end_date)
+    
+    params.append(limit)
+    
+    with connect() as conn:
+        meetings = conn.execute(
+            f"""
+            SELECT id, meeting_name, meeting_date, signals_json
+            FROM meeting_summaries
+            WHERE {' AND '.join(where_clauses)}
+            ORDER BY COALESCE(meeting_date, created_at) DESC
+            LIMIT ?
+            """,
+            tuple(params)
+        ).fetchall()
+    
+    # Aggregate signals
+    aggregated = {stype: [] for stype in signal_types}
+    meeting_exports = []
+    
+    for meeting in meetings:
+        if not meeting["signals_json"]:
+            continue
+        
+        try:
+            signals = json.loads(meeting["signals_json"])
+        except:
+            continue
+        
+        meeting_data = {
+            "meeting_id": meeting["id"],
+            "meeting_name": meeting["meeting_name"],
+            "meeting_date": meeting["meeting_date"],
+            "signals": {}
+        }
+        
+        for stype in signal_types:
+            items = signals.get(stype, [])
+            if isinstance(items, str):
+                items = [items] if items.strip() else []
+            
+            if items:
+                meeting_data["signals"][stype] = items
+                # Add to aggregated with meeting context
+                for item in items:
+                    aggregated[stype].append({
+                        "meeting_name": meeting["meeting_name"],
+                        "meeting_date": meeting["meeting_date"],
+                        "text": item
+                    })
+        
+        if meeting_data["signals"]:
+            meeting_exports.append(meeting_data)
+    
+    # Build response
+    response = {
+        "export_date": datetime.now().isoformat(),
+        "filters": {
+            "start_date": start_date,
+            "end_date": end_date,
+            "signal_types": signal_types,
+        },
+        "summary": {
+            "total_meetings": len(meeting_exports),
+            "signal_counts": {stype: len(items) for stype, items in aggregated.items()}
+        }
+    }
+    
+    if output_format == "full":
+        response["meetings"] = meeting_exports
+        response["aggregated"] = aggregated
+    else:
+        # Compact: just aggregated signals
+        response["signals"] = aggregated
+    
+    return response
+
+
+def draft_summary_from_transcript(args: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Generate a draft meeting summary from a transcript using LLM.
+    User reviews/edits before loading via load_meeting_bundle.
+    
+    Args:
+        transcript: The meeting transcript text
+        meeting_name: Name of the meeting
+        focus_areas: Optional list of areas to emphasize
+    """
+    from ..llm import ask
+    
+    transcript = args.get("transcript", "")
+    meeting_name = args.get("meeting_name", "Meeting")
+    focus_areas = args.get("focus_areas", [])
+    
+    if not transcript or len(transcript) < 100:
+        return {"error": "Transcript too short. Provide at least 100 characters."}
+    
+    # Truncate if too long (keep first and last parts for context)
+    max_chars = 12000
+    if len(transcript) > max_chars:
+        half = max_chars // 2
+        transcript = transcript[:half] + "\n\n[... middle section omitted for length ...]\n\n" + transcript[-half:]
+    
+    focus_instruction = ""
+    if focus_areas:
+        focus_instruction = f"\nPay special attention to these areas: {', '.join(focus_areas)}"
+    
+    prompt = f"""Analyze this meeting transcript and generate a structured summary.
+
+Meeting: {meeting_name}
+{focus_instruction}
+
+Generate the summary in this exact format:
+
+### Summarized notes
+[2-3 sentence overview of what was discussed]
+
+### Work Identified
+[List specific work items or tasks mentioned]
+
+### Outcomes
+[Key decisions and agreements reached]
+
+### Context
+[Background information and constraints mentioned]
+
+### Synthesized Signals (Authoritative)
+**Decision:**
+- [List each decision made]
+
+**Action items:**
+- [List who will do what]
+
+**Blocked:**
+- [List any blockers mentioned]
+
+**Risk:**
+- [List any risks identified]
+
+**Idea:**
+- [List any ideas proposed]
+
+### Risks / Open Questions
+[Unresolved items needing follow-up]
+
+---
+TRANSCRIPT:
+{transcript}
+"""
+    
+    try:
+        draft = ask(prompt, model="gpt-4.1-mini")
+        
+        return {
+            "status": "draft_generated",
+            "meeting_name": meeting_name,
+            "draft_summary": draft,
+            "instructions": "Review and edit this draft, then use load_meeting_bundle to save it."
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e)
         }

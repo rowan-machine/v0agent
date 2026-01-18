@@ -1,0 +1,515 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if ticket else 'New' }} Ticket{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center gap-2 text-sm text-gray-500 mb-2">
+            <a href="/tickets" class="hover:text-violet-600">Tickets</a>
+            <span>/</span>
+            <span>{{ ticket.ticket_id if ticket else 'New Ticket' }}</span>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-900">
+            {{ 'Edit Ticket' if ticket else 'Add New Ticket' }}
+        </h1>
+    </div>
+
+    <form method="POST" class="space-y-8">
+        <!-- Basic Info -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
+            <h2 class="text-lg font-semibold text-gray-900">Ticket Details</h2>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Ticket ID <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" name="ticket_id" required
+                           value="{{ ticket.ticket_id if ticket else '' }}"
+                           placeholder="e.g., DATA-1234"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base font-mono
+                                  focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                           style="min-height: 48px;">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <select name="status"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base cursor-pointer
+                                   focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                            style="min-height: 48px;">
+                        <option value="todo" {{ 'selected' if ticket and ticket.status == 'todo' else '' }}>To Do</option>
+                        <option value="in_progress" {{ 'selected' if ticket and ticket.status == 'in_progress' else '' }}>In Progress</option>
+                        <option value="in_review" {{ 'selected' if ticket and ticket.status == 'in_review' else '' }}>In Review</option>
+                        <option value="done" {{ 'selected' if ticket and ticket.status == 'done' else '' }}>Done</option>
+                        <option value="blocked" {{ 'selected' if ticket and ticket.status == 'blocked' else '' }}>Blocked</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Title <span class="text-red-500">*</span>
+                </label>
+                <input type="text" name="title" required
+                       value="{{ ticket.title if ticket else '' }}"
+                       placeholder="Ticket title"
+                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm
+                              focus:ring-2 focus:ring-violet-500 focus:border-violet-500">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea name="description" rows="6"
+                          placeholder="Paste the full ticket description from Jira here..."
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm font-mono
+                                 focus:ring-2 focus:ring-violet-500 focus:border-violet-500">{{ ticket.description if ticket else '' }}</textarea>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                    <select name="priority"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base cursor-pointer
+                                   focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                            style="min-height: 48px;">
+                        <option value="">Not set</option>
+                        <option value="low" {{ 'selected' if ticket and ticket.priority == 'low' else '' }}>Low</option>
+                        <option value="medium" {{ 'selected' if ticket and ticket.priority == 'medium' else '' }}>Medium</option>
+                        <option value="high" {{ 'selected' if ticket and ticket.priority == 'high' else '' }}>High</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+                    <input type="text" name="tags"
+                           value="{{ ticket.tags if ticket else '' }}"
+                           placeholder="e.g., airflow, pipeline, aws"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base
+                                  focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
+                           style="min-height: 48px;">
+                    <p class="text-xs text-gray-500 mt-1">Comma-separated tags</p>
+                </div>
+            </div>
+        </div>
+
+        {% if ticket %}
+        <!-- AI Summary Section -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">AI Summary</h2>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="generate-summary-btn"
+                            class="px-4 py-2 text-sm font-medium bg-violet-50 text-violet-700 rounded-lg
+                                   hover:bg-violet-100 transition-colors flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                        {{ 'Regenerate' if ticket.ai_summary else 'Generate with AI' }}
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Format hint input -->
+            <div class="mb-3 p-3 bg-violet-50 rounded-lg border border-violet-100">
+                <label class="block text-xs font-medium text-violet-700 mb-1">Formatting hint (optional):</label>
+                <input type="text" id="format-hint-input" 
+                       class="w-full px-3 py-2 text-sm border border-violet-200 rounded-lg focus:ring-2 focus:ring-violet-400 bg-white"
+                       placeholder="e.g., 'Focus on data pipeline aspects' or 'Keep under 100 words'">
+                <p class="text-xs text-violet-600 mt-1">
+                    💡 Add tags like <code class="bg-white px-1 rounded border">brief</code>, <code class="bg-white px-1 rounded border">detailed</code>, <code class="bg-white px-1 rounded border">technical</code>, <code class="bg-white px-1 rounded border">bullet</code> for automatic formatting.
+                </p>
+            </div>
+            
+            <textarea name="ai_summary" id="ai-summary" rows="6"
+                      placeholder="Click 'Generate with AI' to create a concise summary, or write your own..."
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm
+                             focus:ring-2 focus:ring-violet-500 focus:border-violet-500">{{ ticket.ai_summary if ticket else '' }}</textarea>
+            <p class="text-xs text-gray-500 mt-1">Supports markdown: **bold**, `code`, - bullet lists</p>
+        </div>
+
+        <!-- Implementation Plan Section -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Implementation Plan</h2>
+                <button type="button" id="generate-plan-btn"
+                        class="px-4 py-2 text-sm font-medium bg-green-50 text-green-700 rounded-lg
+                               hover:bg-green-100 transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                    </svg>
+                    Generate Plan
+                </button>
+            </div>
+            <textarea name="implementation_plan" id="implementation-plan" rows="10"
+                      placeholder="Click 'Generate Plan' to create an implementation plan, or write your own..."
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm font-mono
+                             focus:ring-2 focus:ring-violet-500 focus:border-violet-500">{{ ticket.implementation_plan if ticket else '' }}</textarea>
+        </div>
+
+        <!-- Task Decomposition Section -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Task Breakdown</h2>
+                <button type="button" id="generate-decomposition-btn"
+                        class="px-4 py-2 text-sm font-medium bg-orange-50 text-orange-700 rounded-lg
+                               hover:bg-orange-100 transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
+                    </svg>
+                    Auto-Generate Tasks
+                </button>
+            </div>
+            
+            <!-- Tasks Container -->
+            <div id="tasks-container" class="space-y-3 mb-4">
+                {% if ticket.task_decomposition %}
+                {% set tasks = ticket.task_decomposition | tojson | safe if ticket.task_decomposition else '[]' %}
+                {% else %}
+                <p class="text-gray-500 text-sm py-4 text-center" id="no-tasks-msg">
+                    Click "Auto-Generate Tasks" to break down this ticket into subtasks based on the description.
+                </p>
+                {% endif %}
+            </div>
+            
+            <!-- Hidden input for tasks JSON -->
+            <input type="hidden" name="task_decomposition" id="task-decomposition-input" 
+                   value="{{ ticket.task_decomposition if ticket else '' }}">
+            
+            <!-- Add Task Manually -->
+            <div class="flex gap-2 pt-3 border-t border-gray-100">
+                <input type="text" id="new-task-input" placeholder="Add a task manually..."
+                       class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm
+                              focus:ring-2 focus:ring-violet-500 focus:border-violet-500">
+                <button type="button" onclick="addTask()"
+                        class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
+                    + Add
+                </button>
+            </div>
+        </div>
+
+        <!-- Attachments Section -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Screenshots & Files</h2>
+            
+            <!-- Drop Zone -->
+            <div id="drop-zone" 
+                 class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center
+                        hover:border-violet-400 hover:bg-violet-50/50 transition-colors cursor-pointer">
+                <input type="file" id="file-input" multiple accept="image/*,.pdf,.txt,.md" class="hidden">
+                <svg class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                <p class="text-gray-600 mb-1">Drag & drop screenshots here</p>
+                <p class="text-sm text-gray-500">or click to browse</p>
+            </div>
+
+            <!-- Existing Attachments -->
+            {% if attachments %}
+            <div class="mt-4 space-y-2">
+                <h3 class="text-sm font-medium text-gray-700">Uploaded Files</h3>
+                <div class="grid gap-2" id="attachments-list">
+                    {% for att in attachments %}
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg" data-id="{{ att.id }}">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <span class="text-sm text-gray-700">{{ att.filename }}</span>
+                        </div>
+                        <button type="button" onclick="deleteAttachment({{ att.id }}, this)"
+                                class="text-red-500 hover:text-red-700 text-sm">
+                            Remove
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Upload Progress -->
+            <div id="upload-progress" class="mt-4 hidden">
+                <div class="flex items-center gap-2">
+                    <div class="animate-spin w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full"></div>
+                    <span class="text-sm text-gray-600">Uploading...</span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="flex items-center justify-between">
+            <a href="/tickets" class="text-gray-500 hover:text-gray-700">Cancel</a>
+            <div class="flex items-center gap-3">
+                {% if ticket %}
+                <button type="button" onclick="confirmDelete()"
+                        class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    Delete Ticket
+                </button>
+                {% endif %}
+                <button type="submit"
+                        class="px-6 py-2.5 bg-violet-600 text-white font-medium rounded-lg
+                               hover:bg-violet-700 transition-colors">
+                    {{ 'Save Changes' if ticket else 'Create Ticket' }}
+                </button>
+            </div>
+        </div>
+    </form>
+
+    {% if ticket %}
+    <!-- Hidden delete form -->
+    <form id="delete-form" method="POST" action="/tickets/{{ ticket.id }}/delete" class="hidden"></form>
+    {% endif %}
+</div>
+
+{% if ticket %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+const ticketId = {{ ticket.id }};
+
+// AI Summary Generation
+document.getElementById('generate-summary-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('generate-summary-btn');
+    const textarea = document.getElementById('ai-summary');
+    const formatHint = document.getElementById('format-hint-input')?.value || '';
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="animate-spin w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full"></span> Generating...';
+    
+    try {
+        const resp = await fetch(`/api/tickets/${ticketId}/generate-summary`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ format_hint: formatHint })
+        });
+        const data = await resp.json();
+        
+        if (data.summary) {
+            textarea.value = data.summary;
+            // Show saved indicator if auto-saved
+            if (data.saved) {
+                const savedBadge = document.createElement('span');
+                savedBadge.className = 'text-xs text-green-600 ml-2';
+                savedBadge.textContent = '✓ Auto-saved';
+                btn.insertAdjacentElement('afterend', savedBadge);
+                setTimeout(() => savedBadge.remove(), 2000);
+            }
+        } else {
+            alert(data.error || 'Failed to generate summary');
+        }
+    } catch (err) {
+        alert('Error generating summary: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Regenerate';
+    }
+});
+
+// Implementation Plan Generation
+document.getElementById('generate-plan-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('generate-plan-btn');
+    const textarea = document.getElementById('implementation-plan');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="animate-spin w-4 h-4 border-2 border-green-500 border-t-transparent rounded-full"></span> Generating...';
+    
+    try {
+        const resp = await fetch(`/api/tickets/${ticketId}/generate-plan`, { method: 'POST' });
+        const data = await resp.json();
+        
+        if (data.plan) {
+            textarea.value = data.plan;
+        } else {
+            alert(data.error || 'Failed to generate plan');
+        }
+    } catch (err) {
+        alert('Error generating plan: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg> Generate Plan';
+    }
+});
+
+// Task Decomposition
+let tasks = [];
+try {
+    const saved = document.getElementById('task-decomposition-input').value;
+    if (saved) tasks = JSON.parse(saved);
+} catch (e) {}
+
+function renderTasks() {
+    const container = document.getElementById('tasks-container');
+    const noTasksMsg = document.getElementById('no-tasks-msg');
+    
+    if (tasks.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-sm py-4 text-center" id="no-tasks-msg">Click "Auto-Generate Tasks" to break down this ticket into subtasks based on the description.</p>';
+        return;
+    }
+    
+    container.innerHTML = tasks.map((task, i) => `
+        <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg group" data-idx="${i}">
+            <input type="checkbox" ${task.done ? 'checked' : ''} 
+                   onchange="toggleTask(${i})"
+                   class="mt-1 h-5 w-5 rounded border-gray-300 text-violet-600 cursor-pointer">
+            <div class="flex-1 min-w-0">
+                <p class="text-sm ${task.done ? 'line-through text-gray-400' : 'text-gray-700'}">${task.text}</p>
+                ${task.estimate ? `<span class="text-xs text-gray-400">${task.estimate}</span>` : ''}
+            </div>
+            <button type="button" onclick="removeTask(${i})"
+                    class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    `).join('');
+    
+    updateTasksInput();
+}
+
+function updateTasksInput() {
+    document.getElementById('task-decomposition-input').value = JSON.stringify(tasks);
+}
+
+function toggleTask(idx) {
+    tasks[idx].done = !tasks[idx].done;
+    renderTasks();
+}
+
+function removeTask(idx) {
+    tasks.splice(idx, 1);
+    renderTasks();
+}
+
+function addTask() {
+    const input = document.getElementById('new-task-input');
+    const text = input.value.trim();
+    if (!text) return;
+    
+    tasks.push({ text, done: false });
+    input.value = '';
+    renderTasks();
+}
+
+document.getElementById('new-task-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        addTask();
+    }
+});
+
+document.getElementById('generate-decomposition-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('generate-decomposition-btn');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="animate-spin w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full"></span> Analyzing...';
+    
+    try {
+        const resp = await fetch(`/api/tickets/${ticketId}/generate-decomposition`, { method: 'POST' });
+        const data = await resp.json();
+        
+        if (data.ai_response) {
+            // Display formatted AI response
+            const responseDiv = document.createElement('div');
+            responseDiv.className = 'ai-response-display';
+            responseDiv.style.cssText = 'margin: 1rem 0; padding: 1rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3498db;';
+            responseDiv.innerHTML = marked.parse(data.ai_response);
+            btn.parentElement.appendChild(responseDiv);
+        }
+        
+        if (data.tasks && data.tasks.length > 0) {
+            tasks = data.tasks.map(t => typeof t === 'string' ? { text: t, done: false } : { text: t.text, estimate: t.estimate, done: false });
+            renderTasks();
+        } else {
+            alert(data.error || 'Could not generate task breakdown');
+        }
+    } catch (err) {
+        alert('Error generating decomposition: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg> Auto-Generate Tasks';
+    }
+});
+
+// Initial render
+renderTasks();
+
+// File Upload
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const progressDiv = document.getElementById('upload-progress');
+
+dropZone.addEventListener('click', () => fileInput.click());
+
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('border-violet-500', 'bg-violet-50');
+});
+
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('border-violet-500', 'bg-violet-50');
+});
+
+dropZone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('border-violet-500', 'bg-violet-50');
+    await uploadFiles(e.dataTransfer.files);
+});
+
+fileInput.addEventListener('change', async () => {
+    await uploadFiles(fileInput.files);
+});
+
+async function uploadFiles(files) {
+    if (!files.length) return;
+    
+    progressDiv.classList.remove('hidden');
+    
+    const formData = new FormData();
+    for (const file of files) {
+        formData.append('files', file);
+    }
+    
+    try {
+        const resp = await fetch(`/api/upload/ticket/${ticketId}`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await resp.json();
+        
+        if (data.uploaded) {
+            // Refresh to show new attachments
+            location.reload();
+        } else {
+            alert(data.error || 'Upload failed');
+        }
+    } catch (err) {
+        alert('Error uploading: ' + err.message);
+    } finally {
+        progressDiv.classList.add('hidden');
+    }
+}
+
+async function deleteAttachment(id, btn) {
+    if (!confirm('Delete this attachment?')) return;
+    
+    try {
+        await fetch(`/api/attachments/${id}`, { method: 'DELETE' });
+        btn.closest('[data-id]').remove();
+    } catch (err) {
+        alert('Error deleting: ' + err.message);
+    }
+}
+
+function confirmDelete() {
+    if (confirm('Are you sure you want to delete this ticket? This cannot be undone.')) {
+        document.getElementById('delete-form').submit();
+    }
+}
+</script>
+{% endif %}
+{% endblock %}

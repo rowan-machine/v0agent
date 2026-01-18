@@ -1,0 +1,2562 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  .chat-container {
+    display: flex;
+    position: fixed;
+    top: 56px; /* Below header */
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #f5f5f5;
+  }
+
+  body.drawer-pinned .chat-container {
+    left: 260px;
+  }
+
+  /* Sidebar - Chat History - Docked Left */
+  .chat-sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: white;
+    border-right: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  /* Right Context Panel */
+  .context-panel {
+    width: 300px;
+    min-width: 300px;
+    background: white;
+    border-left: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .context-panel-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .context-panel-header h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .context-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+  }
+
+  .context-section {
+    margin-bottom: 1.25rem;
+  }
+
+  .context-section-title {
+    font-size: 0.7rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+    padding: 0 0.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  /* Sprint Phase Selector */
+  .sprint-phase-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .phase-chip {
+    padding: 0.4rem 0.7rem;
+    background: #f5f5f5;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #666;
+  }
+
+  .phase-chip:hover {
+    background: #e8f4fc;
+    border-color: #3498db;
+    color: #3498db;
+  }
+
+  .phase-chip.active {
+    background: #3498db;
+    border-color: #3498db;
+    color: white;
+  }
+
+  /* Mode Timer */
+  .mode-timer-display {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    font-size: 0.8rem;
+  }
+
+  .timer-time {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.85rem;
+    color: #2c3e50;
+    min-width: 60px;
+  }
+
+  .timer-time.running {
+    color: #27ae60;
+    font-weight: 600;
+  }
+
+  .timer-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .timer-btn.play {
+    background: #27ae60;
+    color: white;
+  }
+
+  .timer-btn.play:hover {
+    background: #219a52;
+  }
+
+  .timer-btn.stop {
+    background: #e74c3c;
+    color: white;
+  }
+
+  .timer-btn.stop:hover {
+    background: #c0392b;
+  }
+
+  .mode-stats-mini {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.7rem;
+    color: #888;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #eee;
+  }
+
+  .mode-stats-mini .stat-item {
+    display: flex;
+    gap: 4px;
+  }
+
+  .mode-stats-mini .stat-item span:last-child {
+    font-weight: 600;
+    color: #555;
+  }
+
+  /* User Status Input */
+  .status-input-container {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 0.5rem;
+  }
+
+  .status-input {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-family: inherit;
+  }
+
+  .status-input:focus {
+    outline: none;
+    border-color: #3498db;
+  }
+
+  .status-update-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: #3498db;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+
+  .status-update-btn:hover {
+    background: #2980b9;
+  }
+
+  .current-status-display {
+    font-size: 0.75rem;
+    color: #666;
+    padding: 0.4rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    display: none;
+  }
+
+  .current-status-display.visible {
+    display: block;
+  }
+
+  .current-status-display strong {
+    color: #27ae60;
+  }
+
+  /* Tech Stack Tags */
+  .tech-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .tech-tag {
+    padding: 0.35rem 0.6rem;
+    background: #f8f9fa;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .tech-tag:hover {
+    border-color: #667eea;
+    background: #f0e8fc;
+  }
+
+  .tech-tag.active {
+    background: #667eea;
+    border-color: #667eea;
+    color: white;
+  }
+
+  .tech-tag .tag-icon {
+    font-size: 0.7rem;
+  }
+
+  /* Quick Prompts */
+  .quick-prompts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .quick-prompt {
+    padding: 0.6rem 0.75rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #f0f4f8 100%);
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #444;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .quick-prompt:hover {
+    background: linear-gradient(135deg, #e8f4fc 0%, #dbeafe 100%);
+    border-color: #3498db;
+    transform: translateX(2px);
+  }
+
+  .quick-prompt .prompt-icon {
+    font-size: 0.9rem;
+    width: 20px;
+    text-align: center;
+  }
+
+  /* Related Signals */
+  .related-signals {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .related-signal {
+    padding: 0.6rem 0.75rem;
+    background: #fafafa;
+    border-left: 3px solid #ddd;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.8rem;
+    line-height: 1.4;
+    color: #555;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .related-signal:hover {
+    background: #f5f5f5;
+  }
+
+  .related-signal.decision { border-left-color: #3498db; }
+  .related-signal.action { border-left-color: #f39c12; }
+  .related-signal.blocker { border-left-color: #e74c3c; }
+  .related-signal.idea { border-left-color: #27ae60; }
+  .related-signal.risk { border-left-color: #9b59b6; }
+
+  .related-signal-type {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #888;
+    margin-bottom: 0.2rem;
+  }
+
+  .related-signal-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .related-signal-source {
+    font-size: 0.7rem;
+    color: #aaa;
+    margin-top: 0.25rem;
+  }
+
+  /* Sprint Stats */
+  .sprint-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .sprint-stat {
+    background: #f8f9fa;
+    padding: 0.6rem;
+    border-radius: 8px;
+    text-align: center;
+  }
+
+  .sprint-stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #2c3e50;
+  }
+
+  .sprint-stat-label {
+    font-size: 0.7rem;
+    color: #888;
+    text-transform: uppercase;
+  }
+
+  .sprint-stat.blockers .sprint-stat-value { color: #e74c3c; }
+  .sprint-stat.actions .sprint-stat-value { color: #f39c12; }
+
+  .sprint-stat.clickable {
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .sprint-stat.clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+
+  /* Modal large variant */
+  .modal.modal-lg {
+    max-width: 600px;
+    max-height: 80vh;
+  }
+
+  .modal.modal-lg .modal-body {
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  /* Signal items list in modals */
+  .signal-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .signal-item-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+    border-left: 3px solid #3498db;
+  }
+
+  .signal-item-card.blocker { border-left-color: #e74c3c; }
+  .signal-item-card.action_items { border-left-color: #f39c12; }
+  .signal-item-card.handled { opacity: 0.5; background: #e9ecef; }
+
+  .signal-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+  }
+
+  .signal-item-source {
+    font-size: 0.75rem;
+    color: #666;
+  }
+
+  .signal-item-date {
+    font-size: 0.7rem;
+    color: #999;
+  }
+
+  .signal-item-text {
+    font-size: 0.9rem;
+    color: #2c3e50;
+    line-height: 1.5;
+    margin-bottom: 10px;
+  }
+
+  .signal-item-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  .signal-action-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .signal-action-btn.approve {
+    background: #27ae60;
+    color: white;
+  }
+
+  .signal-action-btn.approve:hover {
+    background: #219a52;
+  }
+
+  .signal-action-btn.reject {
+    background: #e74c3c;
+    color: white;
+  }
+
+  .signal-action-btn.reject:hover {
+    background: #c0392b;
+  }
+
+  .signal-action-btn.ask {
+    background: #3498db;
+    color: white;
+  }
+
+  .signal-action-btn.ask:hover {
+    background: #2980b9;
+  }
+
+  .loading-state {
+    text-align: center;
+    padding: 2rem;
+    color: #888;
+  }
+
+  .empty-signals {
+    text-align: center;
+    padding: 2rem;
+    color: #888;
+  }
+
+  /* Empty state for context panel */
+  .context-empty {
+    text-align: center;
+    color: #aaa;
+    font-size: 0.85rem;
+    padding: 1rem;
+  }
+
+  /* Collapse button for context panel */
+  .collapse-panel-btn {
+    background: none;
+    border: none;
+    padding: 0.25rem;
+    cursor: pointer;
+    color: #888;
+    transition: color 0.2s;
+  }
+
+  .collapse-panel-btn:hover {
+    color: #333;
+  }
+
+  .context-panel.collapsed {
+    width: 40px;
+    min-width: 40px;
+  }
+
+  .context-panel.collapsed .context-panel-body,
+  .context-panel.collapsed .context-panel-header h3 span {
+    display: none;
+  }
+
+  .context-panel.collapsed .context-panel-header {
+    justify-content: center;
+    padding: 1rem 0.5rem;
+  }
+
+  .sidebar-header {
+    padding: 1.25rem;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .sidebar-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #2c3e50;
+  }
+
+  .new-chat-btn {
+    background: #3498db;
+    color: white;
+    border: none;
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-decoration: none;
+  }
+
+  .new-chat-btn:hover {
+    background: #2980b9;
+    transform: translateY(-1px);
+  }
+
+  .conversation-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+  }
+
+  .conversation-item {
+    padding: 0.9rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 0.4rem;
+    border: 1px solid transparent;
+    position: relative;
+  }
+
+  .conversation-item:hover {
+    background: #f8f9fa;
+  }
+  
+  .conversation-item:hover .conversation-actions {
+    opacity: 1;
+  }
+
+  .conversation-item.active {
+    background: #e8f4fc;
+    border-color: #3498db;
+  }
+
+  .conversation-item a {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+
+  .conversation-actions {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    gap: 0.25rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 10;
+  }
+  
+  .conversation-action-btn {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 0.25rem 0.4rem;
+    cursor: pointer;
+    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    position: relative;
+    z-index: 11;
+  }
+  
+  .conversation-action-btn:hover {
+    background: var(--sf-primary, #667eea);
+    color: white;
+    border-color: var(--sf-primary, #667eea);
+  }
+  
+  .conversation-action-btn.delete:hover {
+    background: #ef4444;
+    border-color: #ef4444;
+  }
+
+  .conversation-title {
+    font-weight: 500;
+    color: #2c3e50;
+    font-size: 0.95rem;
+    margin-bottom: 0.3rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .conversation-meta {
+    font-size: 0.8rem;
+    color: #7f8c8d;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .conversation-preview {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 0.3rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .message-count {
+    background: #ecf0f1;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.75rem;
+  }
+
+  /* Main Chat Area */
+  .chat-main {
+    flex: 1;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+
+  .chat-header {
+    padding: 1.25rem;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .chat-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #2c3e50;
+  }
+
+  .chat-header-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .model-selector {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    background: white;
+    cursor: pointer;
+  }
+
+  .icon-btn {
+    background: none;
+    border: 1px solid #ddd;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #666;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+  }
+
+  .icon-btn:hover {
+    background: #f8f9fa;
+    border-color: #bbb;
+  }
+
+  .icon-btn.danger:hover {
+    background: #fee;
+    border-color: #e74c3c;
+    color: #e74c3c;
+  }
+
+  .messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #95a5a6;
+  }
+
+  .empty-state svg {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  .empty-state p {
+    background: none;
+    box-shadow: none;
+    font-size: 1rem;
+  }
+
+  .message {
+    padding: 1rem;
+    border-radius: 12px;
+    max-width: 80%;
+  }
+
+  .message.user {
+    background: #3498db;
+    color: white;
+    margin-left: auto;
+    border-bottom-right-radius: 4px;
+  }
+
+  .message.assistant {
+    background: #f8f9fa;
+    color: #2c3e50;
+    margin-right: auto;
+    border-bottom-left-radius: 4px;
+    border: 1px solid #eee;
+  }
+
+  .message-role {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.4rem;
+    opacity: 0.7;
+  }
+
+  .message-content {
+    line-height: 1.6;
+    word-wrap: break-word;
+  }
+
+  /* Markdown rendering in assistant messages */
+  .message.assistant .message-content h1,
+  .message.assistant .message-content h2,
+  .message.assistant .message-content h3,
+  .message.assistant .message-content h4 {
+    margin: 0.8rem 0 0.4rem 0;
+    font-weight: 600;
+    color: #2c3e50;
+  }
+
+  .message.assistant .message-content h1:first-child,
+  .message.assistant .message-content h2:first-child,
+  .message.assistant .message-content h3:first-child {
+    margin-top: 0;
+  }
+
+  .message.assistant .message-content h1 { font-size: 1.3rem; }
+  .message.assistant .message-content h2 { font-size: 1.15rem; }
+  .message.assistant .message-content h3 { font-size: 1.05rem; }
+
+  .message.assistant .message-content p {
+    margin: 0.5rem 0;
+    background: none;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .message.assistant .message-content ul,
+  .message.assistant .message-content ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+    list-style-position: outside;
+  }
+
+  .message.assistant .message-content li {
+    margin: 0.3rem 0;
+    padding: 0;
+    border: none;
+    background: none;
+  }
+
+  .message.assistant .message-content ul li {
+    list-style-type: disc;
+  }
+
+  .message.assistant .message-content strong {
+    font-weight: 600;
+    color: #2c3e50;
+  }
+
+  .message.assistant .message-content em {
+    font-style: italic;
+  }
+
+  .message.assistant .message-content code {
+    background: #e8e8e8;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-family: 'SF Mono', Monaco, monospace;
+    font-size: 0.9em;
+  }
+
+  .message.assistant .message-content pre {
+    background: #2c3e50;
+    color: #ecf0f1;
+    padding: 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 0.5rem 0;
+  }
+
+  .message.assistant .message-content pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+  }
+
+  .message.assistant .message-content blockquote {
+    border-left: 3px solid #3498db;
+    padding-left: 1rem;
+    margin: 0.5rem 0;
+    color: #555;
+    font-style: italic;
+  }
+
+  /* Choice Chips - Contextual Suggestions */
+  .choice-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e9ecef;
+  }
+
+  .choice-chip {
+    padding: 0.5rem 0.9rem;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1.5px solid #e1e4e8;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    color: #495057;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 500;
+  }
+
+  .choice-chip:hover {
+    background: linear-gradient(135deg, #e8f4fc 0%, #dbeafe 100%);
+    border-color: #3498db;
+    color: #2980b9;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(52, 152, 219, 0.15);
+  }
+
+  .choice-chip .chip-icon {
+    font-size: 0.85rem;
+  }
+
+  .choice-chip.used {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  /* Choice Chips - Contextual Suggestions */
+  .choice-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e9ecef;
+  }
+
+  .choice-chip {
+    padding: 0.5rem 0.9rem;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1.5px solid #e1e4e8;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    color: #495057;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 500;
+  }
+
+  .choice-chip:hover {
+    background: linear-gradient(135deg, #e8f4fc 0%, #dbeafe 100%);
+    border-color: #3498db;
+    color: #2980b9;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(52, 152, 219, 0.15);
+  }
+
+  .choice-chip .chip-icon {
+    font-size: 0.85rem;
+  }
+
+  .choice-chip.used {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  /* Choice Chips - Contextual Suggestions */
+  .choice-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e9ecef;
+  }
+
+  .choice-chip {
+    padding: 0.5rem 0.9rem;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 1.5px solid #e1e4e8;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    color: #495057;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 500;
+  }
+
+  .choice-chip:hover {
+    background: linear-gradient(135deg, #e8f4fc 0%, #dbeafe 100%);
+    border-color: #3498db;
+    color: #2980b9;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(52, 152, 219, 0.15);
+  }
+
+  .choice-chip .chip-icon {
+    font-size: 0.85rem;
+  }
+
+  .choice-chip.used {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  .chat-input-area {
+    padding: 1.25rem;
+    border-top: 1px solid #eee;
+    background: #fafbfc;
+  }
+
+  .chat-form {
+    display: flex;
+    gap: 0.75rem;
+    background: white;
+    padding: 0;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .chat-textarea {
+    flex: 1;
+    padding: 0.9rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    resize: none;
+    min-height: 48px;
+    max-height: 150px;
+    font-family: inherit;
+  }
+
+  .chat-textarea:focus {
+    outline: none;
+    border-color: #3498db;
+  }
+
+  .send-btn {
+    padding: 0.9rem 1.5rem;
+    background: #3498db;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .send-btn:hover {
+    background: #2980b9;
+  }
+
+  /* Signal Search Button */
+  .signal-search-btn {
+    background: #9b59b6;
+    color: white;
+  }
+
+  .signal-search-btn:hover {
+    background: #8e44ad;
+  }
+
+  /* Modal Styles */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .modal-overlay.active {
+    display: flex;
+  }
+
+  .modal {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 700px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  }
+
+  .modal-header {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .modal-header h3 {
+    margin: 0;
+    color: #2c3e50;
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #7f8c8d;
+    padding: 0;
+    line-height: 1;
+  }
+
+  .modal-close:hover {
+    color: #2c3e50;
+  }
+
+  .modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .signal-search-form {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .signal-search-form input {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .signal-search-form select {
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background: white;
+  }
+
+  .signal-results {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .signal-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    border-left: 4px solid #3498db;
+  }
+
+  .signal-card.decision { border-left-color: #27ae60; }
+  .signal-card.action { border-left-color: #e67e22; }
+  .signal-card.blocker { border-left-color: #e74c3c; }
+  .signal-card.risk { border-left-color: #f39c12; }
+  .signal-card.idea { border-left-color: #9b59b6; }
+
+  .signal-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+  }
+
+  .signal-meeting-name {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.95rem;
+  }
+
+  .signal-date {
+    font-size: 0.8rem;
+    color: #7f8c8d;
+  }
+
+  .signal-items {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 0 0;
+  }
+
+  .signal-items li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e9ecef;
+    font-size: 0.9rem;
+    color: #333;
+  }
+
+  .signal-items li:last-child {
+    border-bottom: none;
+  }
+
+  .signal-type-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: #ecf0f1;
+    color: #7f8c8d;
+    margin-right: 0.5rem;
+  }
+
+  .no-results {
+    text-align: center;
+    color: #7f8c8d;
+    padding: 2rem;
+  }
+
+  /* Floating Action Buttons */
+  .fab-container {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    z-index: 100;
+  }
+
+  .fab {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 1.5rem;
+    text-decoration: none;
+  }
+
+  .fab:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+    text-decoration: none;
+  }
+
+  .fab.primary {
+    background: #3498db;
+    color: white;
+  }
+
+  .fab.secondary {
+    background: #9b59b6;
+    color: white;
+  }
+
+  .fab-tooltip {
+    position: absolute;
+    right: 70px;
+    background: #2c3e50;
+    color: white;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+
+  .fab:hover .fab-tooltip {
+    opacity: 1;
+  }
+
+  @media (max-width: 1200px) {
+    .context-panel {
+      display: none;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .chat-container {
+      flex-direction: column;
+      position: relative;
+      top: auto;
+      left: auto;
+      right: auto;
+      bottom: auto;
+      height: auto;
+    }
+
+    .chat-sidebar {
+      width: 100%;
+      min-width: 100%;
+      max-height: 300px;
+      border-right: none;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .chat-main {
+      margin: 0;
+      border-radius: 0;
+      min-height: calc(100vh - 360px);
+    }
+
+    .context-panel {
+      display: none;
+    }
+
+    .fab-container {
+      bottom: 1rem;
+      right: 1rem;
+    }
+  }
+
+  /* Toast animations */
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  @keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+</style>
+
+<div class="chat-container">
+  <!-- Sidebar - Conversation History -->
+  <div class="chat-sidebar">
+    <div class="sidebar-header">
+      <h3>💬 Conversations</h3>
+      <a href="/chat/new" class="new-chat-btn">
+        <span>+</span> New Chat
+      </a>
+    </div>
+    <div class="conversation-list">
+      {% if conversations %}
+        {% for conv in conversations %}
+          <div class="conversation-item {% if active_conversation and active_conversation.id == conv.id %}active{% endif %}" data-id="{{ conv.id }}">
+            <div class="conversation-actions">
+              <button class="conversation-action-btn archive" onclick="event.preventDefault(); event.stopPropagation(); archiveConversation({{ conv.id }})" title="Archive">
+                📦
+              </button>
+              <button class="conversation-action-btn delete" onclick="event.preventDefault(); event.stopPropagation(); confirmDeleteConversation({{ conv.id }})" title="Delete permanently">
+                🗑️
+              </button>
+            </div>
+            <a href="/chat/{{ conv.id }}">
+              <div class="conversation-title">
+                {{ conv.title or "New conversation" }}
+              </div>
+              <div class="conversation-meta">
+                <span>{{ conv.created_at[:10] if conv.created_at else "Unknown" }}</span>
+                <span class="message-count">{{ conv.message_count or 0 }} msgs</span>
+              </div>
+              {% if conv.first_message %}
+                <div class="conversation-preview">{{ conv.first_message[:60] }}{% if conv.first_message|length > 60 %}...{% endif %}</div>
+              {% endif %}
+            </a>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-state" style="padding: 2rem;">
+          <p>No conversations yet</p>
+          <a href="/chat/new" class="new-chat-btn" style="margin-top: 1rem;">Start your first chat</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Main Chat Area -->
+  <div class="chat-main">
+    {% if active_conversation %}
+      <div class="chat-header">
+        <h3>{{ active_conversation.title or "New conversation" }}</h3>
+        <div class="chat-header-actions">
+          <select id="modelSelector" class="model-selector" onchange="updateModel()">
+            <option value="gpt-4o-mini">GPT-4o Mini</option>
+            <option value="gpt-4o">GPT-4o</option>
+            <option value="o1">o1</option>
+            <option value="o1-mini">o1 Mini</option>
+            <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+          </select>
+          <button class="icon-btn" onclick="openSignalModal()" title="Search Signals">🔍 Signals</button>
+          <button class="icon-btn" onclick="archiveConversation({{ active_conversation.id }})" title="Archive">📦</button>
+          <button class="icon-btn danger" onclick="deleteConversation({{ active_conversation.id }})" title="Delete">🗑️</button>
+        </div>
+      </div>
+
+      <div class="messages-container">
+        {% if messages %}
+          {% for m in messages %}
+            <div class="message {{ m.role }}">
+              <div class="message-role">{{ m.role }}</div>
+              <div class="message-content">{{ m.content }}</div>
+              {% if m.role == 'assistant' and loop.last %}
+                <div class="choice-chips" id="choice-chips">
+                  <!-- Choice chips will be dynamically inserted here -->
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <p>Start the conversation by sending a message</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="chat-input-area">
+        <form method="post" action="/chat/{{ active_conversation.id }}" class="chat-form">
+          <textarea 
+            name="message" 
+            class="chat-textarea" 
+            placeholder="Ask a question about your meetings and documents..."
+            rows="1"
+            onkeydown="handleKeyDown(event)"
+          >{{ prefill_prompt or '' }}</textarea>
+          <button type="submit" class="send-btn">Send</button>
+        </form>
+      </div>
+
+    {% else %}
+      <!-- No conversation selected -->
+      <div class="empty-state" style="height: 100%;">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 80px; height: 80px;">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+        <h3 style="color: #2c3e50; margin: 1rem 0;">Memory Chat</h3>
+        <p>Select a conversation or start a new one</p>
+        <a href="/chat/new" class="new-chat-btn" style="margin-top: 1.5rem;">
+          <span>+</span> New Chat
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Right Context Panel -->
+  <div class="context-panel" id="contextPanel">
+    <div class="context-panel-header">
+      <h3>🎯 <span>Sprint Context</span></h3>
+      <button class="collapse-panel-btn" onclick="toggleContextPanel()" title="Collapse">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+        </svg>
+      </button>
+    </div>
+    <div class="context-panel-body">
+      <!-- User Status (AI-Interpreted) -->
+      <div class="context-section">
+        <div class="context-section-title">What are you working on?</div>
+        <div class="status-input-container">
+          <input 
+            type="text" 
+            id="userStatusInput" 
+            class="status-input" 
+            placeholder="e.g., Refactoring the airflow DAG..."
+            onkeydown="if(event.key==='Enter') updateUserStatus()"
+          />
+          <button class="status-update-btn" onclick="updateUserStatus()" title="Update Status">→</button>
+        </div>
+        <div id="currentStatusDisplay" class="current-status-display"></div>
+      </div>
+
+      <!-- Sprint Phase with Timer -->
+      <div class="context-section">
+        <div class="context-section-title">
+          Sprint Phase
+          <span class="mode-timer-display" id="modeTimerDisplay">
+            <span class="timer-time" id="timerTime">00:00:00</span>
+            <button class="timer-btn play" id="timerPlayBtn" onclick="toggleModeTimer()" title="Start Timer">▶</button>
+          </span>
+        </div>
+        <div class="sprint-phase-selector">
+          <button class="phase-chip" data-phase="grooming" onclick="setPhase('grooming')">📋 Grooming</button>
+          <button class="phase-chip" data-phase="planning" onclick="setPhase('planning')">🎯 Planning</button>
+          <button class="phase-chip" data-phase="standup" onclick="setPhase('standup')">🗣️ Standup</button>
+          <button class="phase-chip active" data-phase="implementation" onclick="setPhase('implementation')">💻 Impl</button>
+        </div>
+        <div class="mode-stats-mini" id="modeStatsMini">
+          <span class="stat-item">Today: <span id="todayTime">-</span></span>
+          <span class="stat-item">Avg: <span id="avgTime">-</span></span>
+        </div>
+      </div>
+
+      <!-- Tech Stack Tags -->
+      <div class="context-section">
+        <div class="context-section-title">
+          Tech Focus
+          <span style="font-size: 0.65rem; color: #aaa;">click to filter</span>
+        </div>
+        <div class="tech-tags">
+          <button class="tech-tag" data-tech="airflow" onclick="toggleTech('airflow')">
+            <span class="tag-icon">🔄</span> Airflow
+          </button>
+          <button class="tech-tag" data-tech="python" onclick="toggleTech('python')">
+            <span class="tag-icon">🐍</span> Python
+          </button>
+          <button class="tech-tag" data-tech="gitlab" onclick="toggleTech('gitlab')">
+            <span class="tag-icon">🦊</span> GitLab
+          </button>
+          <button class="tech-tag" data-tech="aws" onclick="toggleTech('aws')">
+            <span class="tag-icon">☁️</span> AWS
+          </button>
+          <button class="tech-tag" data-tech="jira" onclick="toggleTech('jira')">
+            <span class="tag-icon">📝</span> Jira
+          </button>
+          <button class="tech-tag" data-tech="sql" onclick="toggleTech('sql')">
+            <span class="tag-icon">🗃️</span> SQL
+          </button>
+        </div>
+      </div>
+
+      <!-- Sprint Quick Stats -->
+      <div class="context-section">
+        <div class="context-section-title">This Sprint</div>
+        <div class="sprint-stats">
+          <div class="sprint-stat blockers clickable" onclick="openBlockersModal()">
+            <div class="sprint-stat-value" id="blockerCount">{{ sprint_stats.blockers if sprint_stats else 0 }}</div>
+            <div class="sprint-stat-label">Blockers</div>
+          </div>
+          <div class="sprint-stat actions clickable" onclick="openActionsModal()">
+            <div class="sprint-stat-value" id="actionCount">{{ sprint_stats.actions if sprint_stats else 0 }}</div>
+            <div class="sprint-stat-label">Actions</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Prompts -->
+      <div class="context-section">
+        <div class="context-section-title">Quick Ask</div>
+        <div class="quick-prompts">
+          <button class="quick-prompt" onclick="insertPrompt('For my 1-on-1: What are my top 3 things I am currently working on? Where do I need help? What are my recent observations and feedback I should discuss?')">
+            <span class="prompt-icon">👥</span> 1-on-1 prep
+          </button>
+          <button class="quick-prompt" onclick="insertPrompt('For standup (9:30 AM CST): What did I complete yesterday? What am I working on today? Is anything blocking my progress? Any parking lot items to address after standup?')">
+            <span class="prompt-icon">🗣️</span> Standup prep
+          </button>
+          <button class="quick-prompt" onclick="insertPrompt('What blockers are blocking my tickets this sprint?')">
+            <span class="prompt-icon">🚧</span> What's blocking me?
+          </button>
+          <button class="quick-prompt" onclick="insertPrompt('Summarize decisions made this sprint that affect my work')">
+            <span class="prompt-icon">✅</span> Sprint decisions
+          </button>
+          <button class="quick-prompt" onclick="insertPrompt('What action items are assigned to me or my team?')">
+            <span class="prompt-icon">📋</span> My action items
+          </button>
+          <button class="quick-prompt" onclick="insertPrompt('Create a sprint implementation plan based on my tickets and recent meetings')">
+            <span class="prompt-icon">📝</span> Sprint plan
+          </button>
+        </div>
+      </div>
+
+      <!-- Related Signals -->
+      <div class="context-section">
+        <div class="context-section-title">
+          Recent Signals
+          <a href="/signals" style="font-size: 0.65rem; color: #3498db; text-decoration: none;">View all →</a>
+        </div>
+        <div class="related-signals" id="relatedSignals">
+          {% if recent_signals %}
+            {% for signal in recent_signals[:4] %}
+            <div class="related-signal {{ signal.type }}" onclick="insertPrompt('Tell me more about: {{ signal.text[:50] }}')">
+              <div class="related-signal-type">{{ signal.type_label }}</div>
+              <div class="related-signal-text">{{ signal.text[:80] }}{% if signal.text|length > 80 %}...{% endif %}</div>
+              <div class="related-signal-source">{{ signal.source }}</div>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="context-empty">No recent signals</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Floating Action Buttons -->
+<div class="fab-container">
+  <button class="fab secondary" onclick="openSignalModal()">
+    <span class="fab-tooltip">Search Signals</span>
+    🔍
+  </button>
+  <a href="/chat/new" class="fab primary">
+    <span class="fab-tooltip">New Chat</span>
+    +
+  </a>
+</div>
+
+<!-- Signal Search Modal -->
+<div class="modal-overlay" id="signalModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>🔍 Search Meeting Signals</h3>
+      <button class="modal-close" onclick="closeSignalModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="signal-search-form">
+        <input 
+          type="text" 
+          id="signalSearchQuery" 
+          placeholder='Search signals (e.g., "rx claims", "budget", "deadline")...'
+          onkeydown="if(event.key === 'Enter') searchSignals()"
+        />
+        <select id="signalTypeFilter">
+          <option value="all">All Signals</option>
+          <option value="decisions">Decisions</option>
+          <option value="action_items">Action Items</option>
+          <option value="blockers">Blockers</option>
+          <option value="risks">Risks</option>
+          <option value="ideas">Ideas</option>
+        </select>
+        <button onclick="searchSignals()" class="send-btn">Search</button>
+      </div>
+      <div class="signal-results" id="signalResults">
+        <div class="no-results">
+          <p>Enter a search term to find signals across all meetings</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Blockers Modal -->
+<div class="modal-overlay" id="blockersModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3>🚧 Active Blockers</h3>
+      <button class="modal-close" onclick="closeBlockersModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="signal-items-list" id="blockersList">
+        <div class="loading-state">Loading blockers...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Actions Modal -->
+<div class="modal-overlay" id="actionsModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h3>📋 Action Items</h3>
+      <button class="modal-close" onclick="closeActionsModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="signal-items-list" id="actionsList">
+        <div class="loading-state">Loading action items...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Simple Markdown Parser for assistant messages
+  function parseMarkdown(text) {
+    if (!text) return '';
+    
+    // Escape HTML first
+    let html = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    
+    // Code blocks (must be before other processing)
+    html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+    
+    // Inline code
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    
+    // Headers (### Header)
+    html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+    html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+    html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+    
+    // Bold (**text** or __text__)
+    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+    
+    // Italic (*text* or _text_) - careful not to match already processed bold
+    html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+    html = html.replace(/(?<!_)_([^_]+)_(?!_)/g, '<em>$1</em>');
+    
+    // Blockquotes
+    html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+    
+    // Unordered lists (- item or * item)
+    html = html.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
+    
+    // Ordered lists (1. item)
+    html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+    
+    // Wrap consecutive <li> elements in <ul>
+    html = html.replace(/(<li>.*<\/li>\n?)+/g, function(match) {
+      return '<ul>' + match + '</ul>';
+    });
+    
+    // Convert line breaks to paragraphs for non-list, non-header content
+    // Split by double newlines for paragraphs
+    const blocks = html.split(/\n\n+/);
+    html = blocks.map(block => {
+      block = block.trim();
+      if (!block) return '';
+      // Don't wrap if already wrapped in block element
+      if (block.match(/^<(h[1-6]|ul|ol|pre|blockquote|p)/)) {
+        return block;
+      }
+      // Replace single newlines with <br> within paragraphs
+      block = block.replace(/\n/g, '<br>');
+      return '<p>' + block + '</p>';
+    }).join('\n');
+    
+    // Clean up empty paragraphs
+    html = html.replace(/<p>\s*<\/p>/g, '');
+    
+    // Clean up <br> at start/end of paragraphs
+    html = html.replace(/<p><br>/g, '<p>');
+    html = html.replace(/<br><\/p>/g, '</p>');
+    
+    return html;
+  }
+
+  // Apply markdown parsing to all assistant messages on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.message.assistant .message-content').forEach(function(el) {
+      const rawText = el.textContent;
+      el.innerHTML = parseMarkdown(rawText);
+    });
+  });
+
+  // Auto-resize textarea
+  const textarea = document.querySelector('.chat-textarea');
+  if (textarea) {
+    textarea.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+    });
+    
+    // Auto-focus and resize if pre-filled
+    if (textarea.value.trim()) {
+      textarea.focus();
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+      // Move cursor to end
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    }
+  }
+
+  // Handle Enter key for send
+  function handleKeyDown(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      event.target.form.submit();
+    }
+  }
+
+  // Scroll to bottom of messages
+  const messagesContainer = document.querySelector('.messages-container');
+  if (messagesContainer && messagesContainer.children.length > 0) {
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+
+  // Delete conversation
+  function deleteConversation(id) {
+    if (confirm('Delete this conversation? This cannot be undone.')) {
+      fetch(`/chat/${id}`, { method: 'DELETE', credentials: 'same-origin' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === 'ok') {
+            window.location.href = '/chat';
+          }
+        });
+    }
+  }
+
+  // Confirm delete from sidebar
+  function confirmDeleteConversation(id) {
+    if (confirm('Delete this conversation permanently? This cannot be undone.')) {
+      fetch(`/chat/${id}`, { method: 'DELETE', credentials: 'same-origin' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === 'ok') {
+            showToast('Conversation deleted', 'success');
+            // Remove the conversation item from sidebar
+            const convItem = document.querySelector(`.conversation-item[href="/chat/${id}"]`);
+            if (convItem) {
+              convItem.remove();
+            }
+            // If we deleted the active conversation, redirect
+            if (window.location.pathname === `/chat/${id}`) {
+              window.location.href = '/chat';
+            }
+          } else {
+            showToast('Failed to delete conversation', 'error');
+          }
+        })
+        .catch(err => {
+          console.error('Delete error:', err);
+          showToast('Failed to delete conversation', 'error');
+        });
+    }
+  }
+
+  // Archive conversation
+  function archiveConversation(id) {
+    console.log('archiveConversation called with:', id);
+    fetch(`/chat/${id}/archive`, { method: 'POST', credentials: 'same-origin' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'ok') {
+          showToast('Conversation archived', 'success');
+          // Remove the conversation item from sidebar
+          const convItem = document.querySelector(`.conversation-item[data-id="${id}"]`);
+          if (convItem) {
+            convItem.remove();
+          }
+          // If we archived the active conversation, redirect
+          if (window.location.pathname === `/chat/${id}`) {
+            window.location.href = '/chat';
+          }
+        } else {
+          showToast('Failed to archive conversation', 'error');
+        }
+      })
+      .catch(err => {
+        console.error('Archive error:', err);
+        showToast('Failed to archive conversation', 'error');
+      });
+  }
+
+  // Toast notification helper
+  function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = message;
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 500;
+      z-index: 10000;
+      animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+      background: ${type === 'success' ? 'var(--accent-color)' : type === 'error' ? '#dc3545' : 'var(--secondary-color)'};
+    `;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  // Signal Modal
+  function openSignalModal() {
+    document.getElementById('signalModal').classList.add('active');
+    document.getElementById('signalSearchQuery').focus();
+  }
+
+  function closeSignalModal() {
+    document.getElementById('signalModal').classList.remove('active');
+  }
+
+  // Close modal on overlay click
+  document.getElementById('signalModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeSignalModal();
+  });
+
+  // Close modal on Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeSignalModal();
+      closeBlockersModal();
+      closeActionsModal();
+    }
+  });
+
+  // Blockers Modal
+  function openBlockersModal() {
+    document.getElementById('blockersModal').classList.add('active');
+    loadBlockers();
+  }
+
+  function closeBlockersModal() {
+    document.getElementById('blockersModal').classList.remove('active');
+  }
+
+  async function loadBlockers() {
+    const listDiv = document.getElementById('blockersList');
+    listDiv.innerHTML = '<div class="loading-state">Loading blockers...</div>';
+
+    try {
+      const response = await fetch('/api/sprint-signals/blockers', { credentials: 'same-origin' });
+      const data = await response.json();
+
+      if (data.signals && data.signals.length > 0) {
+        listDiv.innerHTML = data.signals.map(signal => renderSignalCard(signal, 'blocker')).join('');
+      } else {
+        listDiv.innerHTML = '<div class="empty-signals">🎉 No blockers in this sprint!</div>';
+      }
+    } catch (err) {
+      console.error('Error loading blockers:', err);
+      listDiv.innerHTML = '<div class="empty-signals">Failed to load blockers</div>';
+    }
+  }
+
+  // Actions Modal
+  function openActionsModal() {
+    document.getElementById('actionsModal').classList.add('active');
+    loadActions();
+  }
+
+  function closeActionsModal() {
+    document.getElementById('actionsModal').classList.remove('active');
+  }
+
+  async function loadActions() {
+    const listDiv = document.getElementById('actionsList');
+    listDiv.innerHTML = '<div class="loading-state">Loading action items...</div>';
+
+    try {
+      const response = await fetch('/api/sprint-signals/action_items', { credentials: 'same-origin' });
+      const data = await response.json();
+
+      if (data.signals && data.signals.length > 0) {
+        listDiv.innerHTML = data.signals.map(signal => renderSignalCard(signal, 'action_items')).join('');
+      } else {
+        listDiv.innerHTML = '<div class="empty-signals">✨ No pending action items!</div>';
+      }
+    } catch (err) {
+      console.error('Error loading actions:', err);
+      listDiv.innerHTML = '<div class="empty-signals">Failed to load action items</div>';
+    }
+  }
+
+  // Render a signal card with actions
+  function renderSignalCard(signal, type) {
+    const handleClass = localStorage.getItem(`signal-handled-${signal.id}`) ? 'handled' : '';
+    return `
+      <div class="signal-item-card ${type} ${handleClass}" id="signal-${signal.id}">
+        <div class="signal-item-header">
+          <div class="signal-item-source">📄 ${escapeHtml(signal.meeting_name || 'Unknown Meeting')}</div>
+          <div class="signal-item-date">${signal.meeting_date || 'No date'}</div>
+        </div>
+        <div class="signal-item-text">${escapeHtml(signal.text)}</div>
+        <div class="signal-item-actions">
+          <button class="signal-action-btn ask" onclick="askAboutSignal('${escapeHtml(signal.text.substring(0, 100))}')">
+            💬 Ask
+          </button>
+          <button class="signal-action-btn approve" onclick="handleSignal('${signal.id}', 'approve')">
+            ✓ Done
+          </button>
+          <button class="signal-action-btn reject" onclick="handleSignal('${signal.id}', 'reject')">
+            ✗ Not relevant
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  // Handle signal action (approve/reject)
+  async function handleSignal(signalId, action) {
+    const card = document.getElementById(`signal-${signalId}`);
+    
+    try {
+      const formData = new FormData();
+      formData.append('signal_id', signalId);
+      formData.append('action', action);
+      
+      await fetch('/api/signal-action', {
+        method: 'POST',
+        body: formData
+      });
+
+      // Mark as handled locally
+      localStorage.setItem(`signal-handled-${signalId}`, action);
+      
+      if (card) {
+        card.classList.add('handled');
+        const actionText = action === 'approve' ? '✓ Marked as done' : '✗ Marked as not relevant';
+        showToast(actionText, 'success');
+      }
+      
+      // Refresh sprint stats
+      loadSprintStats();
+    } catch (err) {
+      console.error('Error handling signal:', err);
+      showToast('Failed to update signal', 'error');
+    }
+  }
+
+  // Ask about a signal in chat
+  function askAboutSignal(signalText) {
+    closeBlockersModal();
+    closeActionsModal();
+    insertPrompt(`Tell me more about this: "${signalText}..."`);
+  }
+
+  // Close modals on overlay click
+  document.getElementById('blockersModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeBlockersModal();
+  });
+
+  document.getElementById('actionsModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeActionsModal();
+  });
+
+  // Search signals via API
+  async function searchSignals() {
+    const query = document.getElementById('signalSearchQuery').value.trim();
+    const signalType = document.getElementById('signalTypeFilter').value;
+    const resultsDiv = document.getElementById('signalResults');
+
+    if (!query) {
+      resultsDiv.innerHTML = '<div class="no-results"><p>Enter a search term</p></div>';
+      return;
+    }
+
+    resultsDiv.innerHTML = '<div class="no-results"><p>Searching...</p></div>';
+
+    try {
+      const response = await fetch('/api/signals/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, signal_type: signalType })
+      });
+
+      const data = await response.json();
+
+      if (data.results && data.results.length > 0) {
+        resultsDiv.innerHTML = data.results.map(meeting => {
+          const signals = meeting.matching_signals || [];
+          const signalItems = signals.map(s => 
+            `<li><span class="signal-type-badge">${s.type}</span>${escapeHtml(s.text)}</li>`
+          ).join('');
+
+          return `
+            <div class="signal-card ${getSignalClass(signals[0]?.type)}">
+              <div class="signal-card-header">
+                <span class="signal-meeting-name">${escapeHtml(meeting.meeting_name)}</span>
+                <span class="signal-date">${meeting.meeting_date || 'No date'}</span>
+              </div>
+              <ul class="signal-items">${signalItems}</ul>
+            </div>
+          `;
+        }).join('');
+      } else {
+        resultsDiv.innerHTML = `<div class="no-results"><p>No signals found matching "${escapeHtml(query)}"</p></div>`;
+      }
+    } catch (err) {
+      console.error('Search error:', err);
+      resultsDiv.innerHTML = '<div class="no-results"><p>Error searching signals. Try again.</p></div>';
+    }
+  }
+
+  function getSignalClass(type) {
+    const classes = {
+      'decisions': 'decision',
+      'action_items': 'action',
+      'blockers': 'blocker',
+      'risks': 'risk',
+      'ideas': 'idea'
+    };
+    return classes[type] || '';
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Context Panel Functions
+  function toggleContextPanel() {
+    const panel = document.getElementById('contextPanel');
+    panel.classList.toggle('collapsed');
+    localStorage.setItem('contextPanelCollapsed', panel.classList.contains('collapsed'));
+  }
+
+  // Restore collapsed state
+  if (localStorage.getItem('contextPanelCollapsed') === 'true') {
+    document.getElementById('contextPanel')?.classList.add('collapsed');
+  }
+
+  // Sprint Phase
+  let currentPhase = localStorage.getItem('sprintPhase') || 'implementation';
+  function setPhase(phase) {
+    console.log('setPhase called with:', phase);
+    currentPhase = phase;
+    localStorage.setItem('sprintPhase', phase);
+    document.querySelectorAll('.phase-chip').forEach(chip => {
+      chip.classList.toggle('active', chip.dataset.phase === phase);
+    });
+    updateQuickPrompts();
+  }
+
+  window.setPhase = setPhase;
+
+  // Initialize phase on load
+  document.querySelectorAll('.phase-chip').forEach(chip => {
+    chip.classList.toggle('active', chip.dataset.phase === currentPhase);
+  });
+
+  // Mode Timer
+  let timerInterval = null;
+  let timerStartTime = null;
+  let isTimerRunning = false;
+
+  async function toggleModeTimer() {
+    const btn = document.getElementById('timerPlayBtn');
+    const timeDisplay = document.getElementById('timerTime');
+    
+    if (isTimerRunning) {
+      // Stop timer
+      try {
+        await fetch('/api/mode-timer/stop', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ mode: currentPhase })
+        });
+        clearInterval(timerInterval);
+        timerInterval = null;
+        isTimerRunning = false;
+        btn.textContent = '▶';
+        btn.classList.remove('stop');
+        btn.classList.add('play');
+        btn.title = 'Start Timer';
+        timeDisplay.classList.remove('running');
+        loadModeStats();
+      } catch (e) {
+        console.error('Error stopping timer:', e);
+      }
+    } else {
+      // Start timer
+      try {
+        await fetch('/api/mode-timer/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ mode: currentPhase })
+        });
+        timerStartTime = Date.now();
+        isTimerRunning = true;
+        btn.textContent = '⏹';
+        btn.classList.remove('play');
+        btn.classList.add('stop');
+        btn.title = 'Stop Timer';
+        timeDisplay.classList.add('running');
+        
+        timerInterval = setInterval(updateTimerDisplay, 1000);
+        updateTimerDisplay();
+      } catch (e) {
+        console.error('Error starting timer:', e);
+      }
+    }
+  }
+
+  function updateTimerDisplay() {
+    if (!timerStartTime) return;
+    const elapsed = Math.floor((Date.now() - timerStartTime) / 1000);
+    const h = Math.floor(elapsed / 3600);
+    const m = Math.floor((elapsed % 3600) / 60);
+    const s = elapsed % 60;
+    const timeStr = h > 0 
+      ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+      : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    document.getElementById('timerTime').textContent = timeStr;
+  }
+
+  async function loadModeStats() {
+    try {
+      const resp = await fetch('/api/mode-timer/stats', { credentials: 'same-origin' });
+      const data = await resp.json();
+      
+      // Get today's stats for current mode
+      const todayStats = data.today?.[currentPhase];
+      const modeStats = data.modes?.[currentPhase];
+      
+      if (todayStats) {
+        document.getElementById('todayTime').textContent = todayStats.total_formatted || '-';
+      } else {
+        document.getElementById('todayTime').textContent = '0m';
+      }
+      
+      if (modeStats) {
+        document.getElementById('avgTime').textContent = modeStats.avg_formatted || '-';
+      } else {
+        document.getElementById('avgTime').textContent = '-';
+      }
+    } catch (e) {
+      console.error('Error loading mode stats:', e);
+      document.getElementById('todayTime').textContent = '-';
+      document.getElementById('avgTime').textContent = '-';
+    }
+  }
+
+  async function checkActiveTimer() {
+    try {
+      const resp = await fetch('/api/mode-timer/status', { credentials: 'same-origin' });
+      const data = await resp.json();
+      
+      // Check if there's an active session for current phase
+      const activeSessions = data.active_sessions || {};
+      const activeSession = activeSessions[currentPhase];
+      
+      if (activeSession) {
+        timerStartTime = Date.now() - (activeSession.elapsed_seconds * 1000);
+        isTimerRunning = true;
+        const btn = document.getElementById('timerPlayBtn');
+        btn.textContent = '⏹';
+        btn.classList.remove('play');
+        btn.classList.add('stop');
+        btn.title = 'Stop Timer';
+        document.getElementById('timerTime').classList.add('running');
+        timerInterval = setInterval(updateTimerDisplay, 1000);
+        updateTimerDisplay();
+      }
+    } catch (e) {
+      console.error('Error checking active timer:', e);
+    }
+  }
+
+  // Initialize timer state on load
+  checkActiveTimer();
+  loadModeStats();
+  loadCurrentStatus();
+
+  // Update timer when phase changes
+  const originalSetPhase = setPhase;
+  setPhase = function(phase) {
+    // If timer running for old phase, stop it
+    if (isTimerRunning) {
+      toggleModeTimer().then(() => {
+        originalSetPhase(phase);
+        loadModeStats();
+      });
+    } else {
+      originalSetPhase(phase);
+      loadModeStats();
+    }
+  };
+
+  // User Status Management
+  async function updateUserStatus() {
+    const input = document.getElementById('userStatusInput');
+    const statusText = input.value.trim();
+    
+    if (!statusText) return;
+    
+    try {
+      const resp = await fetch('/api/user-status/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ status: statusText })
+      });
+      
+      const data = await resp.json();
+      
+      if (data.status === 'ok') {
+        const interpreted = data.interpreted;
+        
+        // Update display
+        const display = document.getElementById('currentStatusDisplay');
+        display.innerHTML = `<strong>${interpreted.mode}</strong>: ${interpreted.activity}`;
+        display.classList.add('visible');
+        
+        // Clear input
+        input.value = '';
+        
+        // Update phase selector
+        currentPhase = interpreted.mode;
+        document.querySelectorAll('.phase-chip').forEach(chip => {
+          chip.classList.toggle('active', chip.dataset.phase === interpreted.mode);
+        });
+        
+        // Refresh timer display
+        checkActiveTimer();
+        loadModeStats();
+        
+        showToast(`Status updated: ${interpreted.activity}`, 'success');
+      }
+    } catch (e) {
+      console.error('Error updating status:', e);
+      showToast('Failed to update status', 'error');
+    }
+  }
+
+  async function loadCurrentStatus() {
+    try {
+      const resp = await fetch('/api/user-status/current', {
+        credentials: 'same-origin'
+      });
+      const data = await resp.json();
+      
+      if (data.status) {
+        const display = document.getElementById('currentStatusDisplay');
+        display.innerHTML = `<strong>${data.status.mode}</strong>: ${data.status.activity}`;
+        display.classList.add('visible');
+        
+        // Sync phase
+        currentPhase = data.status.mode;
+        document.querySelectorAll('.phase-chip').forEach(chip => {
+          chip.classList.toggle('active', chip.dataset.phase === data.status.mode);
+        });
+      }
+    } catch (e) {
+      console.error('Error loading status:', e);
+    }
+  }
+
+  // Tech Stack Tags
+  let activeTechs = JSON.parse(localStorage.getItem('activeTechs') || '[]');
+  function toggleTech(tech) {
+    console.log('toggleTech called with:', tech);
+    const idx = activeTechs.indexOf(tech);
+    if (idx > -1) {
+      activeTechs.splice(idx, 1);
+    } else {
+      activeTechs.push(tech);
+    }
+    localStorage.setItem('activeTechs', JSON.stringify(activeTechs));
+    updateTechTags();
+  }
+
+  function updateTechTags() {
+    document.querySelectorAll('.tech-tag').forEach(tag => {
+      tag.classList.toggle('active', activeTechs.includes(tag.dataset.tech));
+    });
+  }
+  updateTechTags();
+
+  // Model selector
+  async function updateModel() {
+    const model = document.getElementById('modelSelector').value;
+    try {
+      const response = await fetch('/api/settings/model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ model: model })
+      });
+      if (response.ok) {
+        showToast('Model updated to ' + model, 'success');
+      }
+    } catch (err) {
+      console.error('Failed to update model:', err);
+    }
+  }
+
+  // Load current model setting
+  async function loadCurrentModel() {
+    try {
+      const response = await fetch('/api/settings/model', { credentials: 'same-origin' });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.model) {
+          document.getElementById('modelSelector').value = data.model;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load model:', err);
+    }
+  }
+
+  // Load model on page load
+  loadCurrentModel();
+
+  // Insert prompt into chat textarea
+  function insertPrompt(prompt) {
+    const textarea = document.querySelector('.chat-textarea');
+    if (textarea) {
+      // Add tech context if any tags are active
+      let contextPrefix = '';
+      if (activeTechs.length > 0) {
+        contextPrefix = `[Focus: ${activeTechs.join(', ')}] `;
+      }
+      textarea.value = contextPrefix + prompt;
+      textarea.focus();
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+    } else {
+      // No active conversation - redirect to new chat with prompt
+      const encoded = encodeURIComponent(prompt);
+      window.location.href = `/chat/new?prompt=${encoded}`;
+    }
+  }
+
+  // Update quick prompts based on phase
+  function updateQuickPrompts() {
+    const prompts = {
+      grooming: [
+        { icon: '📋', text: 'What's blocking me?', prompt: 'What blockers were mentioned in backlog grooming?' },
+        { icon: '🎯', text: 'Ticket priorities', prompt: 'What are the priority tickets discussed in grooming?' },
+        { icon: '📊', text: 'Estimates needed', prompt: 'What tickets need estimation from grooming?' },
+      ],
+      planning: [
+        { icon: '🎯', text: 'Sprint goals', prompt: 'What are the sprint goals from planning?' },
+        { icon: '📋', text: 'My assignments', prompt: 'What tickets are assigned to me this sprint?' },
+        { icon: '⚡', text: 'Dependencies', prompt: 'What dependencies were identified in sprint planning?' },
+      ],
+      standup: [
+        { icon: '🚧', text: 'What's blocking me?', prompt: 'What blockers were mentioned in recent standups?' },
+        { icon: '📝', text: 'Yesterday updates', prompt: 'Summarize what was completed yesterday from standups' },
+        { icon: '🎯', text: 'Today focus', prompt: 'What did the team commit to doing today?' },
+      ],
+      implementation: [
+        { icon: '🚧', text: 'What's blocking me?', prompt: 'What blockers are blocking my tickets this sprint?' },
+        { icon: '✅', text: 'Sprint decisions', prompt: 'Summarize decisions made this sprint that affect my work' },
+        { icon: '📋', text: 'My action items', prompt: 'What action items are assigned to me or my team?' },
+        { icon: '📝', text: 'Sprint plan', prompt: 'Create a sprint implementation plan based on my tickets and recent meetings' },
+        { icon: '🗣️', text: 'Standup updates', prompt: 'What was discussed in recent standups that I should know about?' },
+      ],
+    };
+    // Could dynamically update the quick prompts section here if needed
+  }
+
+  // Load sprint stats
+  async function loadSprintStats() {
+    try {
+      const response = await fetch('/api/sprint-stats', { credentials: 'same-origin' });
+      const data = await response.json();
+      if (data.blockers !== undefined) {
+        document.getElementById('blockerCount').textContent = data.blockers;
+      }
+      if (data.actions !== undefined) {
+        document.getElementById('actionCount').textContent = data.actions;
+      }
+    } catch (err) {
+      console.log('Could not load sprint stats');
+    }
+  }
+  loadSprintStats();
+
+  // ===== CHOICE CHIPS - Contextual Follow-up Suggestions =====
+  
+  function generateChoiceChips(assistantMessage, userMessage) {
+    const chips = [];
+    const msg = assistantMessage.toLowerCase();
+    const userMsg = userMessage.toLowerCase();
+
+    // Analyze response content to suggest relevant follow-ups
+    if (msg.includes('blocker') || msg.includes('blocked') || msg.includes('issue')) {
+      chips.push({ icon: '🔍', text: 'Tell me more', prompt: 'Can you provide more details about the blockers mentioned?' });
+      chips.push({ icon: '💡', text: 'How to resolve?', prompt: 'What are some ways to resolve these blockers?' });
+    }
+
+    if (msg.includes('action item') || msg.includes('task') || msg.includes('to-do') || msg.includes('todo')) {
+      chips.push({ icon: '📋', text: 'Prioritize these', prompt: 'Can you prioritize these action items by urgency?' });
+      chips.push({ icon: '👥', text: 'Who owns what?', prompt: 'Who should be responsible for each of these action items?' });
+    }
+
+    if (msg.includes('decision') || msg.includes('decided')) {
+      chips.push({ icon: '🤔', text: 'Rationale?', prompt: 'What was the reasoning behind these decisions?' });
+      chips.push({ icon: '📊', text: 'Impact analysis', prompt: 'How do these decisions impact my current work?' });
+    }
+
+    if (msg.includes('meeting') || msg.includes('standup') || msg.includes('discussed')) {
+      chips.push({ icon: '📝', text: 'Stakeholder summary', prompt: 'Create a summary of this for stakeholders' });
+      chips.push({ icon: '⏭️', text: 'Next steps', prompt: 'What are the next steps based on this discussion?' });
+    }
+
+    if (msg.includes('ticket') || msg.includes('jira') || msg.includes('sprint')) {
+      chips.push({ icon: '🎯', text: 'Implementation plan', prompt: 'Create an implementation plan for this ticket' });
+      chips.push({ icon: '⏱️', text: 'Estimate effort', prompt: 'What is a realistic time estimate for this work?' });
+    }
+
+    if (msg.includes('data') || msg.includes('pipeline') || msg.includes('airflow')) {
+      chips.push({ icon: '🔄', text: 'DAG structure', prompt: 'What should the DAG structure look like for this?' });
+      chips.push({ icon: '🧪', text: 'Testing strategy', prompt: 'How should I test this data pipeline?' });
+    }
+
+    if (msg.includes('aws') || msg.includes('cloud') || msg.includes('infrastructure')) {
+      chips.push({ icon: '☁️', text: 'Cost analysis', prompt: 'What are the cost implications of this AWS setup?' });
+      chips.push({ icon: '🔒', text: 'Security review', prompt: 'What security considerations should I keep in mind?' });
+    }
+
+    if (msg.includes('error') || msg.includes('bug') || msg.includes('failure') || msg.includes('failed')) {
+      chips.push({ icon: '🐛', text: 'Root cause', prompt: 'What might be the root cause of this error?' });
+      chips.push({ icon: '🛠️', text: 'Debug steps', prompt: 'What debugging steps should I take?' });
+    }
+
+    // Generic follow-ups if no specific context detected
+    if (chips.length === 0) {
+      chips.push({ icon: '💬', text: 'Explain further', prompt: 'Can you explain that in more detail?' });
+      chips.push({ icon: '📌', text: 'Give examples', prompt: 'Can you give me specific examples?' });
+      chips.push({ icon: '🎯', text: 'Action items', prompt: 'What action items should I take based on this?' });
+    }
+
+    // Always add a "What else" option if not already asked
+    if (!userMsg.includes('what else') && chips.length < 4) {
+      chips.push({ icon: '🪷', text: 'What else?', prompt: 'What else should I know about this topic?' });
+    }
+
+    return chips.slice(0, 4); // Limit to 4 chips
+  }
+
+  function displayChoiceChips() {
+    const container = document.getElementById('choice-chips');
+    if (!container) return;
+
+    const messagesData = {{ messages | tojson | safe if messages else '[]' }};
+    if (messagesData.length < 2) return;
+
+    const lastAssistant = messagesData[messagesData.length - 1];
+    const lastUser = messagesData.length > 1 ? messagesData[messagesData.length - 2] : null;
+
+    if (lastAssistant.role !== 'assistant' || !lastUser) return;
+
+    const chips = generateChoiceChips(lastAssistant.content, lastUser.content);
+    
+    container.innerHTML = '';
+    chips.forEach(chip => {
+      const button = document.createElement('button');
+      button.className = 'choice-chip';
+      button.innerHTML = `<span class="chip-icon">${chip.icon}</span> ${chip.text}`;
+      button.onclick = () => {
+        insertPrompt(chip.prompt);
+        button.classList.add('used');
+      };
+      container.appendChild(button);
+    });
+  }
+
+  // Initialize choice chips on page load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', displayChoiceChips);
+  } else {
+    displayChoiceChips();
+  }
+</script>
+
+{% endblock %}

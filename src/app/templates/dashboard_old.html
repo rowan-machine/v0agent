@@ -1,0 +1,727 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .dashboard {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .dashboard-header {
+    margin-bottom: 2rem;
+  }
+
+  .dashboard-header h1 {
+    font-size: 1.75rem;
+    color: #2c3e50;
+    margin-bottom: 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .dashboard-header p {
+    color: #7f8c8d;
+    font-size: 1rem;
+    background: none;
+    padding: 0;
+    box-shadow: none;
+    margin: 0;
+  }
+
+  /* AI Quick Actions */
+  .quick-actions {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    color: white;
+  }
+
+  .quick-actions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .quick-actions-header h2 {
+    font-size: 1.1rem;
+    color: white;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .chips-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .chip {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .chip:hover {
+    background: rgba(255,255,255,0.3);
+    transform: translateY(-1px);
+  }
+
+  .chip.active {
+    background: white;
+    color: #667eea;
+  }
+
+  .chip svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .custom-query {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .custom-query input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    background: rgba(255,255,255,0.95);
+  }
+
+  .custom-query input:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.3);
+  }
+
+  .custom-query button {
+    padding: 0.75rem 1.25rem;
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .custom-query button:hover {
+    background: rgba(255,255,255,0.3);
+  }
+
+  /* AI Response Card */
+  .ai-response {
+    background: white;
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-top: 1rem;
+    display: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+
+  .ai-response.visible {
+    display: block;
+    animation: fadeIn 0.3s ease;
+  }
+
+  .ai-response-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .ai-response-header h4 {
+    color: #667eea;
+    font-size: 0.9rem;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .ai-response-close {
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    padding: 0.25rem;
+  }
+
+  .ai-response-content {
+    color: #333;
+    line-height: 1.6;
+    font-size: 0.95rem;
+  }
+
+  .ai-response-loading {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #666;
+  }
+
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #eee;
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Stats Grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    text-align: center;
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 0.75rem;
+    font-size: 1.25rem;
+  }
+
+  .stat-icon.blue { background: #e8f4fc; }
+  .stat-icon.green { background: #e8f8f0; }
+  .stat-icon.purple { background: #f0e8fc; }
+  .stat-icon.orange { background: #fef3e8; }
+
+  .stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #2c3e50;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+  }
+
+  .stat-label {
+    font-size: 0.85rem;
+    color: #7f8c8d;
+  }
+
+  /* Today's Focus */
+  .section-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .section-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+
+  .section-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .section-header h3 {
+    font-size: 1rem;
+    color: #2c3e50;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .section-header a {
+    font-size: 0.85rem;
+    color: #3498db;
+    text-decoration: none;
+  }
+
+  .section-header a:hover {
+    text-decoration: underline;
+  }
+
+  .section-content {
+    padding: 0.5rem;
+  }
+
+  .signal-item {
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 0.25rem;
+    transition: background 0.2s;
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .signal-item:hover {
+    background: #f8f9fa;
+  }
+
+  .signal-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+
+  .signal-icon.decision { background: #e8f4fc; }
+  .signal-icon.action { background: #fef3e8; }
+  .signal-icon.blocker { background: #fee8e8; }
+  .signal-icon.idea { background: #e8f8f0; }
+
+  .signal-text {
+    flex: 1;
+    font-size: 0.9rem;
+    color: #444;
+    line-height: 1.4;
+  }
+
+  .signal-source {
+    font-size: 0.75rem;
+    color: #999;
+    margin-top: 0.25rem;
+  }
+
+  .empty-section {
+    padding: 2rem;
+    text-align: center;
+    color: #aaa;
+    font-size: 0.9rem;
+  }
+
+  /* Recent Activity */
+  .activity-item {
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid #f5f5f5;
+    transition: background 0.2s;
+  }
+
+  .activity-item:last-child {
+    border-bottom: none;
+  }
+
+  .activity-item:hover {
+    background: #f8f9fa;
+  }
+
+  .activity-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .activity-icon.meeting { background: #e8f4fc; }
+  .activity-icon.doc { background: #e8f8f0; }
+
+  .activity-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .activity-title {
+    font-size: 0.9rem;
+    color: #333;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .activity-meta {
+    font-size: 0.8rem;
+    color: #999;
+  }
+
+  .activity-link {
+    color: #3498db;
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+
+  .activity-link:hover {
+    text-decoration: underline;
+  }
+
+  @media (max-width: 900px) {
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .section-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+    .chips-container {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      padding-bottom: 0.5rem;
+    }
+    .chip {
+      flex-shrink: 0;
+    }
+  }
+</style>
+
+<div class="dashboard">
+  <div class="dashboard-header">
+    <h1>👋 Good {{ time_of_day }}, ready to dive in?</h1>
+    <p>{{ today_formatted }}</p>
+  </div>
+
+  {% if sprint %}
+  <!-- Sprint Progress Banner -->
+  <div class="sprint-banner" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); border-radius: 16px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; color: white; display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <div style="background: rgba(255,255,255,0.2); border-radius: 12px; padding: 0.75rem 1rem; text-align: center;">
+        <div style="font-size: 1.75rem; font-weight: 700; line-height: 1;">{{ sprint.day }}</div>
+        <div style="font-size: 0.7rem; opacity: 0.9;">Day</div>
+      </div>
+      <div>
+        <div style="font-weight: 600; font-size: 1rem;">{{ sprint.name or 'Current Sprint' }}</div>
+        <div style="font-size: 0.85rem; opacity: 0.9;">{{ sprint.remaining }} days remaining</div>
+      </div>
+    </div>
+    <div style="flex: 1; max-width: 300px; margin: 0 1.5rem;">
+      <div style="background: rgba(255,255,255,0.2); border-radius: 4px; height: 8px; overflow: hidden;">
+        <div style="background: white; height: 100%; width: {{ sprint.progress }}%; transition: width 0.5s;"></div>
+      </div>
+    </div>
+    <a href="/settings/sprint" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 0.5rem 1rem; border-radius: 8px; text-decoration: none; font-size: 0.85rem; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+      Settings
+    </a>
+  </div>
+  {% else %}
+  <!-- No Sprint Set Banner -->
+  <a href="/settings/sprint" class="sprint-banner" style="background: linear-gradient(135deg, #64748b 0%, #475569 100%); border-radius: 16px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; color: white; display: flex; align-items: center; justify-content: space-between; text-decoration: none; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <span style="font-size: 1.5rem;">📅</span>
+      <div>
+        <div style="font-weight: 600;">Set up your sprint</div>
+        <div style="font-size: 0.85rem; opacity: 0.9;">Track your sprint progress and know what day you're on</div>
+      </div>
+    </div>
+    <span style="background: rgba(255,255,255,0.2); padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.85rem;">Configure →</span>
+  </a>
+  {% endif %}
+
+  <!-- AI Quick Actions -->
+  <div class="quick-actions">
+    <div class="quick-actions-header">
+      <h2>✨ Quick AI Updates</h2>
+    </div>
+    <div class="chips-container">
+      <button class="chip" onclick="askAI('blockers')">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        Blockers
+      </button>
+      <button class="chip" onclick="askAI('decisions')">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Decisions
+      </button>
+      <button class="chip" onclick="askAI('action_items')">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+        Action Items
+      </button>
+      <button class="chip" onclick="askAI('ideas')">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+        Ideas
+      </button>
+      <button class="chip" onclick="askAI('risks')">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+        Risks
+      </button>
+      <button class="chip" onclick="askAI('this_week')">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        This Week
+      </button>
+    </div>
+    <div class="custom-query">
+      <input type="text" id="customQuery" placeholder="Ask anything about your memory..." onkeypress="if(event.key==='Enter')askCustom()">
+      <button onclick="askCustom()">Ask AI</button>
+    </div>
+    <div class="ai-response" id="aiResponse">
+      <div class="ai-response-header">
+        <h4>✨ AI Response</h4>
+        <button class="ai-response-close" onclick="closeAIResponse()">✕</button>
+      </div>
+      <div class="ai-response-content" id="aiResponseContent">
+        <!-- Response content here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="stats-grid" style="grid-template-columns: repeat(5, 1fr);">
+    <a href="/meetings" class="stat-card">
+      <div class="stat-icon blue">📅</div>
+      <div class="stat-value">{{ stats.meetings }}</div>
+      <div class="stat-label">Meetings</div>
+    </a>
+    <a href="/documents" class="stat-card">
+      <div class="stat-icon green">📄</div>
+      <div class="stat-value">{{ stats.documents }}</div>
+      <div class="stat-label">Documents</div>
+    </a>
+    <a href="/tickets" class="stat-card">
+      <div class="stat-icon" style="background: #fef3e8;">🎫</div>
+      <div class="stat-value">{{ stats.tickets or 0 }}</div>
+      <div class="stat-label">Active Tickets</div>
+    </a>
+    <a href="/signals" class="stat-card">
+      <div class="stat-icon purple">📊</div>
+      <div class="stat-value">{{ stats.signals }}</div>
+      <div class="stat-label">Signals</div>
+    </a>
+    <a href="/chat" class="stat-card">
+      <div class="stat-icon orange">💬</div>
+      <div class="stat-value">{{ stats.conversations }}</div>
+      <div class="stat-label">Chats</div>
+    </a>
+  </div>
+
+  <!-- Two Column Layout -->
+  <div class="section-grid">
+    <!-- Recent Signals -->
+    <div class="section-card">
+      <div class="section-header">
+        <h3>🎯 Recent Signals</h3>
+        <a href="/signals">View all →</a>
+      </div>
+      <div class="section-content">
+        {% if recent_signals %}
+          {% for signal in recent_signals[:5] %}
+          <div class="signal-item">
+            <div class="signal-icon {{ signal.type }}">
+              {% if signal.type == 'decision' %}✓{% elif signal.type == 'action' %}☐{% elif signal.type == 'blocker' %}⚠{% else %}💡{% endif %}
+            </div>
+            <div>
+              <div class="signal-text">{{ signal.text[:100] }}{% if signal.text|length > 100 %}...{% endif %}</div>
+              <div class="signal-source">{{ signal.source }}</div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-section">No signals yet. Add a meeting to extract signals.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="section-card">
+      <div class="section-header">
+        <h3>📝 Recent Activity</h3>
+        <a href="/meetings">View all →</a>
+      </div>
+      <div class="section-content" style="padding: 0;">
+        {% if recent_items %}
+          {% for item in recent_items[:5] %}
+          <div class="activity-item">
+            <div class="activity-icon {{ item.type }}">
+              {% if item.type == 'meeting' %}📅{% else %}📄{% endif %}
+            </div>
+            <div class="activity-info">
+              <div class="activity-title">{{ item.title }}</div>
+              <div class="activity-meta">{{ item.date or 'No date' }}</div>
+            </div>
+            <a href="{{ item.url }}" class="activity-link">View</a>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-section">No recent activity</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Tickets Section -->
+  <div class="section-card" style="margin-bottom: 1.5rem;">
+    <div class="section-header">
+      <h3>🎫 Active Tickets</h3>
+      <a href="/tickets">View all →</a>
+    </div>
+    <div class="section-content" style="padding: 0;">
+      {% if active_tickets %}
+        {% for ticket in active_tickets %}
+        <div class="activity-item" style="padding: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;">
+            <span style="font-family: monospace; font-size: 0.8rem; background: #f3f4f6; padding: 0.25rem 0.5rem; border-radius: 4px; color: #374151;">{{ ticket.ticket_id }}</span>
+            {% if ticket.status == 'in_progress' %}
+            <span style="width: 8px; height: 8px; background: #3b82f6; border-radius: 50%;"></span>
+            {% elif ticket.status == 'blocked' %}
+            <span style="width: 8px; height: 8px; background: #ef4444; border-radius: 50%;"></span>
+            {% elif ticket.status == 'in_review' %}
+            <span style="width: 8px; height: 8px; background: #8b5cf6; border-radius: 50%;"></span>
+            {% else %}
+            <span style="width: 8px; height: 8px; background: #f59e0b; border-radius: 50%;"></span>
+            {% endif %}
+          </div>
+          <div class="activity-info">
+            <div class="activity-title">{{ ticket.title }}</div>
+            {% if ticket.ai_summary %}
+            <div class="activity-meta" style="color: #6b7280;">{{ ticket.ai_summary[:80] }}{% if ticket.ai_summary|length > 80 %}...{% endif %}</div>
+            {% endif %}
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            {% if ticket.ai_summary %}
+            <span style="width: 6px; height: 6px; background: #10b981; border-radius: 50%;" title="Has AI Summary"></span>
+            {% endif %}
+            <a href="/tickets/{{ ticket.id }}" class="activity-link">View</a>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="empty-section">
+          <p style="margin-bottom: 0.75rem;">No active tickets</p>
+          <a href="/tickets/new" style="color: #6366f1; text-decoration: none; font-weight: 500;">Add a ticket →</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+const chips = document.querySelectorAll('.chip');
+const aiResponse = document.getElementById('aiResponse');
+const aiResponseContent = document.getElementById('aiResponseContent');
+
+function askAI(topic) {
+  // Clear active state
+  chips.forEach(c => c.classList.remove('active'));
+  event.target.closest('.chip').classList.add('active');
+  
+  // Show loading
+  aiResponse.classList.add('visible');
+  aiResponseContent.innerHTML = '<div class="ai-response-loading"><div class="spinner"></div>Thinking...</div>';
+  
+  // Call API
+  fetch('/api/dashboard/quick-ask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ topic: topic })
+  })
+  .then(res => res.json())
+  .then(data => {
+    aiResponseContent.innerHTML = formatResponse(data.response);
+  })
+  .catch(err => {
+    aiResponseContent.innerHTML = '<span style="color: #e74c3c;">Error getting response. Please try again.</span>';
+  });
+}
+
+function askCustom() {
+  const query = document.getElementById('customQuery').value.trim();
+  if (!query) return;
+  
+  chips.forEach(c => c.classList.remove('active'));
+  
+  aiResponse.classList.add('visible');
+  aiResponseContent.innerHTML = '<div class="ai-response-loading"><div class="spinner"></div>Thinking...</div>';
+  
+  fetch('/api/dashboard/quick-ask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: query })
+  })
+  .then(res => res.json())
+  .then(data => {
+    aiResponseContent.innerHTML = formatResponse(data.response);
+  })
+  .catch(err => {
+    aiResponseContent.innerHTML = '<span style="color: #e74c3c;">Error getting response. Please try again.</span>';
+  });
+}
+
+function formatResponse(text) {
+  if (!text) return 'No results found.';
+  // Basic markdown-like formatting
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+    .replace(/\n/g, '<br>');
+}
+
+function closeAIResponse() {
+  aiResponse.classList.remove('visible');
+  chips.forEach(c => c.classList.remove('active'));
+}
+</script>
+
+{% endblock %}

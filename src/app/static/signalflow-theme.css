@@ -1,0 +1,291 @@
+/* Krishna Theme System */
+/* Burnt Sienna + Light Red + Yellow + Black */
+
+:root {
+  /* Brand Colors - Burnt Sienna & Yellow */
+  --sf-primary: #a0522d;
+  --sf-primary-dark: #8b4513;
+  --sf-secondary: #cd5c5c;
+  --sf-accent: #daa520;
+  
+  /* Light Mode - Cream/Light background, dark text */
+  --sf-bg: #faf6f1;
+  --sf-surface: #ffffff;
+  --sf-card-bg: #ffffff;
+  --sf-nav-bg: #1a1a1a;
+  --sf-border: #d4c4b0;
+  --sf-text: #1a1a1a;
+  --sf-text-muted: #5c4a3a;
+  
+  /* Links */
+  --sf-link: #a0522d;
+  --sf-link-hover: #8b4513;
+  
+  /* Status */
+  --sf-success: #6b8e23;
+  --sf-warning: #daa520;
+  --sf-error: #cd5c5c;
+  --sf-info: #a0522d;
+  
+  /* Gradients */
+  --sf-gradient-primary: linear-gradient(135deg, #a0522d 0%, #cd5c5c 100%);
+  --sf-gradient-dark: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  
+  /* Shadows */
+  --sf-shadow-sm: 0 1px 2px rgba(26, 26, 26, 0.08);
+  --sf-shadow: 0 4px 6px -1px rgba(26, 26, 26, 0.12);
+  --sf-shadow-lg: 0 10px 15px -3px rgba(26, 26, 26, 0.15);
+  --sf-shadow-xl: 0 25px 50px -12px rgba(26, 26, 26, 0.25);
+  
+  /* Radius */
+  --sf-radius-sm: 6px;
+  --sf-radius: 12px;
+  --sf-radius-lg: 16px;
+  --sf-radius-xl: 24px;
+  
+  /* Transitions */
+  --sf-transition: 0.2s ease;
+}
+
+/* Dark Mode - Swapped bg/fg */
+[data-theme="dark"] {
+  --sf-bg: #1a1a1a;
+  --sf-surface: #2d2d2d;
+  --sf-card-bg: #2d2d2d;
+  --sf-nav-bg: #0d0d0d;
+  --sf-border: #4a4a4a;
+  --sf-text: #faf6f1;
+  --sf-text-muted: #c9b99a;
+  --sf-link: #daa520;
+  --sf-link-hover: #f0c040;
+}
+
+/* Apply theme to body */
+body {
+  background: var(--sf-bg) !important;
+  color: var(--sf-text) !important;
+  transition: background var(--sf-transition), color var(--sf-transition);
+}
+
+/* Enhanced Cards */
+.stat-card,
+.section-card,
+.bg-white {
+  background: var(--sf-surface) !important;
+  border-color: var(--sf-border) !important;
+  box-shadow: var(--sf-shadow) !important;
+  transition: all var(--sf-transition);
+}
+
+.stat-card:hover,
+.section-card:hover {
+  box-shadow: var(--sf-shadow-lg) !important;
+  transform: translateY(-2px);
+}
+
+/* Header Enhancement */
+.top-header {
+  background: var(--sf-gradient-primary) !important;
+  box-shadow: var(--sf-shadow-lg) !important;
+}
+
+/* Drawer Enhancement */
+.drawer {
+  background: var(--sf-surface) !important;
+  border-color: var(--sf-border) !important;
+}
+
+.drawer a {
+  color: var(--sf-text) !important;
+}
+
+.drawer a:hover {
+  background: var(--sf-primary) !important;
+  color: white !important;
+}
+
+/* Form Inputs */
+input, textarea, select {
+  background: var(--sf-surface) !important;
+  border-color: var(--sf-border) !important;
+  color: var(--sf-text) !important;
+  transition: all var(--sf-transition);
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--sf-primary) !important;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15) !important;
+}
+
+/* Buttons */
+.btn-primary,
+button[type="submit"],
+.header-btn {
+  background: var(--sf-gradient-primary) !important;
+  border: none !important;
+  transition: all var(--sf-transition);
+}
+
+.btn-primary:hover,
+button[type="submit"]:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--sf-shadow-lg) !important;
+}
+
+/* Quick Actions */
+.quick-actions {
+  background: var(--sf-gradient-primary) !important;
+  border-radius: var(--sf-radius-lg) !important;
+}
+
+/* Text Colors */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--sf-text) !important;
+}
+
+p, span, label {
+  color: var(--sf-text-muted);
+}
+
+/* Section Headers */
+.section-header {
+  border-color: var(--sf-border) !important;
+}
+
+.section-header h3 {
+  color: var(--sf-text) !important;
+}
+
+/* Activity Items */
+.activity-item {
+  border-color: var(--sf-border) !important;
+}
+
+.activity-item:hover {
+  background: rgba(160, 82, 45, 0.08) !important;
+}
+
+/* Signals */
+.signal-item:hover {
+  background: rgba(160, 82, 45, 0.08) !important;
+  border-color: var(--sf-border) !important;
+}
+
+/* Toast Enhancements */
+.toast {
+  background: var(--sf-surface) !important;
+  box-shadow: var(--sf-shadow-xl) !important;
+}
+
+/* Sprint Banner */
+.sprint-banner {
+  background: var(--sf-gradient-primary) !important;
+  border-radius: var(--sf-radius-lg) !important;
+}
+
+/* Highlight Items */
+.highlight-item {
+  border-radius: var(--sf-radius) !important;
+}
+
+/* Tables */
+table {
+  background: var(--sf-surface) !important;
+}
+
+th, td {
+  border-color: var(--sf-border) !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--sf-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--sf-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sf-text-muted);
+}
+
+/* Loading Animation */
+@keyframes sf-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.sf-loading {
+  animation: sf-pulse 2s ease-in-out infinite;
+}
+
+/* Theme Toggle Styles */
+.theme-switcher {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  z-index: 1000;
+}
+
+.theme-switcher-toggle {
+  background: var(--sf-surface);
+  border: 2px solid var(--sf-primary);
+  border-radius: var(--sf-radius);
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  box-shadow: var(--sf-shadow);
+  transition: all var(--sf-transition);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--sf-text);
+}
+
+.theme-switcher-toggle:hover {
+  box-shadow: var(--sf-shadow-lg);
+  transform: translateY(-2px);
+  background: var(--sf-primary);
+  color: #fff;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .theme-switcher {
+    bottom: 1rem;
+    left: 1rem;
+  }
+}
+
+/* Focus States for Accessibility */
+*:focus-visible {
+  outline: 2px solid var(--sf-primary);
+  outline-offset: 2px;
+}
+
+/* Print Styles */
+@media print {
+  .theme-switcher,
+  .layout-controls {
+    display: none !important;
+  }
+}

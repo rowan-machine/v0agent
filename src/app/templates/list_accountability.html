@@ -1,0 +1,450 @@
+{% extends "base.html" %}
+
+{% block title %}Accountability Items{% endblock %}
+
+{% block content %}
+<style>
+  .accountability-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  .accountability-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+
+  .accountability-header h1 {
+    margin: 0;
+    color: var(--sf-text-dark, #1a1a1a);
+  }
+
+  .add-item-btn {
+    background: var(--sf-primary, #667eea);
+    color: white;
+    border: none;
+    padding: 0.7rem 1.2rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+  }
+
+  .add-item-btn:hover {
+    background: var(--sf-primary-dark, #5568d3);
+    transform: translateY(-1px);
+  }
+
+  .accountability-grid {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .accountability-item {
+    background: white;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 1.2rem;
+    transition: all 0.2s;
+  }
+
+  .accountability-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .accountability-item.completed {
+    opacity: 0.6;
+    background: #f8f9fa;
+  }
+
+  .accountability-item.completed .item-description {
+    text-decoration: line-through;
+  }
+
+  .item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.8rem;
+  }
+
+  .item-description {
+    font-size: 1rem;
+    color: var(--sf-text-dark, #1a1a1a);
+    font-weight: 500;
+    flex: 1;
+  }
+
+  .item-actions {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .item-action-btn {
+    background: transparent;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+
+  .item-action-btn:hover {
+    background: #f0f4f8;
+  }
+
+  .item-action-btn.complete {
+    color: #10b981;
+    border-color: #10b981;
+  }
+
+  .item-action-btn.complete:hover {
+    background: #d1fae5;
+  }
+
+  .item-action-btn.delete {
+    color: #ef4444;
+    border-color: #ef4444;
+  }
+
+  .item-action-btn.delete:hover {
+    background: #fee2e2;
+  }
+
+  .item-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+  }
+
+  .item-responsible {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .item-context {
+    font-size: 0.9rem;
+    color: #555;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #f0f0f0;
+  }
+
+  .item-context h1, .item-context h2, .item-context h3 {
+    font-size: 0.95rem;
+    margin: 0.5rem 0 0.25rem;
+  }
+
+  .item-context p {
+    margin: 0.35rem 0;
+  }
+
+  .item-context ul, .item-context ol {
+    margin: 0.35rem 0 0.35rem 1.25rem;
+  }
+
+  .item-context code {
+    background: #f3f4f6;
+    padding: 0.1rem 0.3rem;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.85em;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: #999;
+  }
+
+  /* Modal Styles */
+  .modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal.active {
+    display: flex;
+  }
+
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .modal-header h2 {
+    margin: 0;
+    color: var(--sf-text-dark, #1a1a1a);
+  }
+
+  .close-modal {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #999;
+  }
+
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 0.4rem;
+    font-weight: 500;
+    color: #444;
+  }
+
+  .form-group input,
+  .form-group textarea {
+    width: 100%;
+    padding: 0.7rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 0.95rem;
+  }
+
+  .form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 0.8rem;
+    margin-top: 1.5rem;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 0.8rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: var(--sf-primary, #667eea);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: var(--sf-primary-dark, #5568d3);
+  }
+
+  .btn-secondary {
+    background: #e8e8e8;
+    color: #444;
+  }
+
+  .btn-secondary:hover {
+    background: #d8d8d8;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .status-waiting {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .status-completed {
+    background: #d1fae5;
+    color: #065f46;
+  }
+</style>
+
+<div class="accountability-container">
+  <div class="accountability-header">
+    <h1>⏳ Accountability Items</h1>
+    <button class="add-item-btn" onclick="openAddModal()">+ Add Item</button>
+  </div>
+
+  <div class="accountability-grid">
+    {% if items %}
+      {% for item in items %}
+        <div class="accountability-item {% if item.status == 'completed' %}completed{% endif %}" data-id="{{ item.id }}">
+          <div class="item-header">
+            <div class="item-description">{{ item.description }}</div>
+            <div class="item-actions">
+              {% if item.status != 'completed' %}
+                <button class="item-action-btn complete" onclick="markComplete({{ item.id }})" title="Mark as completed">
+                  ✓
+                </button>
+              {% endif %}
+              <button class="item-action-btn delete" onclick="deleteItem({{ item.id }})" title="Delete">
+                🗑️
+              </button>
+            </div>
+          </div>
+          
+          <div class="item-meta">
+            {% if item.responsible_party %}
+              <div class="item-responsible">
+                <span>👤</span>
+                <span>{{ item.responsible_party }}</span>
+              </div>
+            {% endif %}
+            <span class="status-badge status-{{ item.status }}">{{ item.status }}</span>
+            <span>{{ item.created_at[:10] if item.created_at else '' }}</span>
+          </div>
+          
+          {% if item.context %}
+            <div class="item-context">{{ item.context }}</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state">
+        <p>No accountability items yet.</p>
+        <p>Add items when someone else needs to schedule a follow-up or take action.</p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Add Item Modal -->
+<div class="modal" id="addModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Add Accountability Item</h2>
+      <button class="close-modal" onclick="closeAddModal()">×</button>
+    </div>
+    
+    <form id="addItemForm">
+      <div class="form-group">
+        <label for="description">What are you waiting for?*</label>
+        <textarea id="description" name="description" required placeholder="e.g., John needs to schedule a follow-up meeting about the API design"></textarea>
+      </div>
+      
+      <div class="form-group">
+        <label for="responsible_party">Who is responsible?</label>
+        <input type="text" id="responsible_party" name="responsible_party" placeholder="e.g., John, Marketing team">
+      </div>
+      
+      <div class="form-group">
+        <label for="context">Additional context</label>
+        <textarea id="context" name="context" placeholder="Optional: Add any relevant context or notes"></textarea>
+      </div>
+      
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Item</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+  function openAddModal() {
+    document.getElementById('addModal').classList.add('active');
+  }
+
+  function closeAddModal() {
+    document.getElementById('addModal').classList.remove('active');
+    document.getElementById('addItemForm').reset();
+  }
+
+  document.getElementById('addItemForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    
+    const response = await fetch('/api/accountability/create', {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: formData
+    });
+    
+    if (response.ok) {
+      window.location.reload();
+    } else {
+      alert('Failed to create accountability item');
+    }
+  });
+
+  async function markComplete(id) {
+    const formData = new FormData();
+    formData.append('status', 'completed');
+    
+    const response = await fetch(`/api/accountability/${id}/status`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: formData
+    });
+    
+    if (response.ok) {
+      window.location.reload();
+    } else {
+      alert('Failed to update status');
+    }
+  }
+
+  async function deleteItem(id) {
+    if (!confirm('Delete this accountability item?')) return;
+    
+    const response = await fetch(`/api/accountability/${id}/delete`, {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+    
+    if (response.ok) {
+      window.location.reload();
+    } else {
+      alert('Failed to delete item');
+    }
+  }
+
+  // Close modal when clicking outside
+  document.getElementById('addModal').addEventListener('click', (e) => {
+    if (e.target.id === 'addModal') {
+      closeAddModal();
+    }
+  });
+
+  // Render markdown in accountability context
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.item-context').forEach((el) => {
+      const raw = el.textContent;
+      el.innerHTML = marked.parse(raw);
+    });
+  });
+</script>
+{% endblock %}
