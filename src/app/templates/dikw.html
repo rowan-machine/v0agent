@@ -1,0 +1,1230 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .dikw-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.5rem;
+  }
+
+  .dikw-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .dikw-header h1 {
+    font-size: 1.75rem;
+    color: #1a1a1a;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .dikw-header-actions {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .dikw-btn {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .dikw-btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+
+  .dikw-btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+
+  .dikw-btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+  }
+
+  .dikw-btn-secondary:hover {
+    background: #e5e7eb;
+  }
+
+  /* Pyramid Layout */
+  .dikw-pyramid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .dikw-level {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dikw-level-header {
+    padding: 1rem;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid;
+  }
+
+  .dikw-level[data-level="data"] .dikw-level-header {
+    background: #fef3c7;
+    border-color: #f59e0b;
+    color: #92400e;
+  }
+
+  .dikw-level[data-level="information"] .dikw-level-header {
+    background: #dbeafe;
+    border-color: #3b82f6;
+    color: #1e40af;
+  }
+
+  .dikw-level[data-level="knowledge"] .dikw-level-header {
+    background: #d1fae5;
+    border-color: #10b981;
+    color: #065f46;
+  }
+
+  .dikw-level[data-level="wisdom"] .dikw-level-header {
+    background: #ede9fe;
+    border-color: #8b5cf6;
+    color: #5b21b6;
+  }
+
+  .dikw-level-count {
+    background: rgba(0,0,0,0.1);
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+  }
+
+  .dikw-level-items {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+  }
+
+  .dikw-item {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .dikw-item:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .dikw-item.selected {
+    border-color: #667eea;
+    background: #f0f0ff;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+  }
+
+  .dikw-item-content {
+    font-size: 0.85rem;
+    color: #374151;
+    line-height: 1.5;
+    margin-bottom: 0.5rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .dikw-item-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #6b7280;
+  }
+
+  .dikw-item-confidence {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .confidence-bar {
+    width: 40px;
+    height: 4px;
+    background: #e5e7eb;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .confidence-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #f59e0b, #10b981);
+    transition: width 0.3s;
+  }
+
+  .dikw-item-type {
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .dikw-item-type.decision { background: #dbeafe; color: #1e40af; }
+  .dikw-item-type.action_item { background: #fef3c7; color: #92400e; }
+  .dikw-item-type.blocker { background: #fee2e2; color: #991b1b; }
+  .dikw-item-type.risk { background: #fce7f3; color: #9d174d; }
+  .dikw-item-type.idea { background: #d1fae5; color: #065f46; }
+
+  /* Signals Panel */
+  .signals-panel {
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 1.5rem;
+  }
+
+  .signals-panel-header {
+    padding: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .signals-panel-header h2 {
+    font-size: 1.1rem;
+    color: #1a1a1a;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+  }
+
+  .signals-filters {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .signal-filter {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: white;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .signal-filter:hover, .signal-filter.active {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+  }
+
+  .signals-list {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 0.75rem;
+  }
+
+  .signal-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s;
+  }
+
+  .signal-item:hover {
+    border-color: #667eea;
+    background: #f9fafb;
+  }
+
+  .signal-checkbox {
+    margin-top: 0.25rem;
+  }
+
+  .signal-content {
+    flex: 1;
+  }
+
+  .signal-text {
+    font-size: 0.9rem;
+    color: #374151;
+    margin-bottom: 0.25rem;
+  }
+
+  .signal-source {
+    font-size: 0.75rem;
+    color: #6b7280;
+  }
+
+  .signal-promote-btn {
+    padding: 0.4rem 0.8rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .signal-promote-btn:hover {
+    transform: scale(1.05);
+  }
+
+  /* Editor Modal */
+  .dikw-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dikw-modal.active {
+    display: flex;
+  }
+
+  .dikw-modal-content {
+    background: white;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 700px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .dikw-modal-header {
+    padding: 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .dikw-modal-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #1a1a1a;
+  }
+
+  .dikw-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #6b7280;
+    cursor: pointer;
+  }
+
+  .dikw-modal-body {
+    padding: 1.25rem;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .dikw-editor-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .dikw-editor-section label {
+    display: block;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  .dikw-editor-textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    resize: vertical;
+  }
+
+  .dikw-editor-textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+
+  .dikw-level-select {
+    width: 100%;
+    padding: 0.6rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    background: white;
+  }
+
+  .dikw-ai-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+  }
+
+  .dikw-ai-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: white;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .dikw-ai-btn:hover {
+    background: #f3f4f6;
+    border-color: #667eea;
+  }
+
+  .dikw-ai-btn.loading {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  .dikw-ai-btn .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #e5e7eb;
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .dikw-modal-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .dikw-modal-footer-left {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .dikw-modal-footer-right {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .dikw-delete-btn {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+  }
+
+  .dikw-delete-btn:hover {
+    background: #fca5a5;
+  }
+
+  /* Toast */
+  .dikw-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #10b981;
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    animation: slideIn 0.3s ease;
+  }
+
+  .dikw-toast.error {
+    background: #ef4444;
+  }
+
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* Empty state */
+  .dikw-empty {
+    text-align: center;
+    padding: 2rem;
+    color: #9ca3af;
+  }
+
+  .dikw-empty svg {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 0.5rem;
+    opacity: 0.5;
+  }
+
+  /* Bulk Actions Bar */
+  .bulk-actions-bar {
+    display: none;
+    background: #1e293b;
+    color: white;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .bulk-actions-bar.active {
+    display: flex;
+  }
+
+  .bulk-count {
+    font-weight: 600;
+  }
+
+  .bulk-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+  }
+
+  .bulk-btn {
+    padding: 0.4rem 0.8rem;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 6px;
+    background: transparent;
+    color: white;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .bulk-btn:hover {
+    background: rgba(255,255,255,0.1);
+  }
+
+  .bulk-btn.merge {
+    background: #8b5cf6;
+    border-color: #8b5cf6;
+  }
+</style>
+
+<div class="dikw-container">
+  <div class="dikw-header">
+    <h1>🔺 DIKW Pyramid</h1>
+    <div class="dikw-header-actions">
+      <button class="dikw-btn dikw-btn-secondary" onclick="toggleSignalsPanel()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+        </svg>
+        Import Signals
+      </button>
+      <button class="dikw-btn dikw-btn-primary" onclick="openAddModal()">
+        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Add Nugget
+      </button>
+    </div>
+  </div>
+
+  <!-- Signals Import Panel (collapsible) -->
+  <div class="signals-panel" id="signalsPanel" style="display: none;">
+    <div class="signals-panel-header">
+      <h2>📡 Unprocessed Signals</h2>
+      <div class="signals-filters">
+        <button class="signal-filter active" data-type="all" onclick="filterSignals('all')">All</button>
+        <button class="signal-filter" data-type="decision" onclick="filterSignals('decision')">Decisions</button>
+        <button class="signal-filter" data-type="action_item" onclick="filterSignals('action_item')">Actions</button>
+        <button class="signal-filter" data-type="blocker" onclick="filterSignals('blocker')">Blockers</button>
+        <button class="signal-filter" data-type="risk" onclick="filterSignals('risk')">Risks</button>
+        <button class="signal-filter" data-type="idea" onclick="filterSignals('idea')">Ideas</button>
+      </div>
+    </div>
+    <div class="signals-list" id="signalsList">
+      <div class="dikw-empty">Loading signals...</div>
+    </div>
+  </div>
+
+  <!-- Bulk Actions Bar -->
+  <div class="bulk-actions-bar" id="bulkActionsBar">
+    <span class="bulk-count"><span id="selectedCount">0</span> items selected</span>
+    <div class="bulk-actions">
+      <button class="bulk-btn merge" onclick="mergeSelected()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+        </svg>
+        Merge & Promote
+      </button>
+      <button class="bulk-btn" onclick="clearSelection()">Clear</button>
+    </div>
+  </div>
+
+  <!-- DIKW Pyramid Grid -->
+  <div class="dikw-pyramid">
+    <div class="dikw-level" data-level="data">
+      <div class="dikw-level-header">
+        <span>📊 Data</span>
+        <span class="dikw-level-count" id="dataCount">0</span>
+      </div>
+      <div class="dikw-level-items" id="dataItems">
+        <div class="dikw-empty">No data items</div>
+      </div>
+    </div>
+
+    <div class="dikw-level" data-level="information">
+      <div class="dikw-level-header">
+        <span>ℹ️ Information</span>
+        <span class="dikw-level-count" id="informationCount">0</span>
+      </div>
+      <div class="dikw-level-items" id="informationItems">
+        <div class="dikw-empty">No information items</div>
+      </div>
+    </div>
+
+    <div class="dikw-level" data-level="knowledge">
+      <div class="dikw-level-header">
+        <span>💡 Knowledge</span>
+        <span class="dikw-level-count" id="knowledgeCount">0</span>
+      </div>
+      <div class="dikw-level-items" id="knowledgeItems">
+        <div class="dikw-empty">No knowledge items</div>
+      </div>
+    </div>
+
+    <div class="dikw-level" data-level="wisdom">
+      <div class="dikw-level-header">
+        <span>🌟 Wisdom</span>
+        <span class="dikw-level-count" id="wisdomCount">0</span>
+      </div>
+      <div class="dikw-level-items" id="wisdomItems">
+        <div class="dikw-empty">No wisdom items</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit/Add Modal -->
+<div class="dikw-modal" id="dikwModal">
+  <div class="dikw-modal-content">
+    <div class="dikw-modal-header">
+      <h3 id="modalTitle">Edit Nugget</h3>
+      <button class="dikw-modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="dikw-modal-body">
+      <input type="hidden" id="editItemId">
+      
+      <div class="dikw-editor-section">
+        <label>Level</label>
+        <select class="dikw-level-select" id="editLevel">
+          <option value="data">📊 Data - Raw facts and observations</option>
+          <option value="information">ℹ️ Information - Contextualized data</option>
+          <option value="knowledge">💡 Knowledge - Actionable insights</option>
+          <option value="wisdom">🌟 Wisdom - Strategic principles</option>
+        </select>
+      </div>
+
+      <div class="dikw-editor-section">
+        <label>Content (The Nugget)</label>
+        <textarea class="dikw-editor-textarea" id="editContent" placeholder="Enter the core content or insight..."></textarea>
+        <div class="dikw-ai-actions">
+          <button class="dikw-ai-btn" onclick="aiRefine('clarify')">
+            <span class="btn-text">✨ Clarify</span>
+          </button>
+          <button class="dikw-ai-btn" onclick="aiRefine('expand')">
+            <span class="btn-text">📝 Expand</span>
+          </button>
+          <button class="dikw-ai-btn" onclick="aiRefine('simplify')">
+            <span class="btn-text">🎯 Simplify</span>
+          </button>
+          <button class="dikw-ai-btn" onclick="aiRefine('actionable')">
+            <span class="btn-text">⚡ Make Actionable</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="dikw-editor-section">
+        <label>Summary / Synthesis</label>
+        <textarea class="dikw-editor-textarea" id="editSummary" placeholder="AI-generated or manual summary..." style="min-height: 80px;"></textarea>
+        <div class="dikw-ai-actions">
+          <button class="dikw-ai-btn" onclick="aiGenerateSummary()">
+            <span class="btn-text">🤖 Generate Summary</span>
+          </button>
+          <button class="dikw-ai-btn" onclick="aiPromoteLevel()">
+            <span class="btn-text">⬆️ AI Promote to Next Level</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="dikw-editor-section">
+        <label>Tags (comma-separated)</label>
+        <input type="text" class="dikw-editor-textarea" id="editTags" placeholder="e.g., architecture, decision, sprint-42" style="min-height: auto; height: 40px;">
+      </div>
+    </div>
+    <div class="dikw-modal-footer">
+      <div class="dikw-modal-footer-left">
+        <button class="dikw-btn dikw-delete-btn" id="deleteBtn" onclick="deleteItem()" style="display: none;">
+          🗑️ Delete
+        </button>
+      </div>
+      <div class="dikw-modal-footer-right">
+        <button class="dikw-btn dikw-btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="dikw-btn dikw-btn-primary" onclick="saveItem()">💾 Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let dikwData = { data: [], information: [], knowledge: [], wisdom: [] };
+let selectedItems = new Set();
+let currentFilter = 'all';
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  loadDIKWItems();
+});
+
+// Load DIKW items from API
+async function loadDIKWItems() {
+  try {
+    const response = await fetch('/api/dikw', { credentials: 'same-origin' });
+    const data = await response.json();
+    dikwData = data.pyramid;
+    
+    renderPyramid();
+  } catch (err) {
+    console.error('Failed to load DIKW items:', err);
+    showToast('Failed to load items', true);
+  }
+}
+
+// Render the pyramid
+function renderPyramid() {
+  const levels = ['data', 'information', 'knowledge', 'wisdom'];
+  
+  levels.forEach(level => {
+    const container = document.getElementById(`${level}Items`);
+    const countEl = document.getElementById(`${level}Count`);
+    const items = dikwData[level] || [];
+    
+    countEl.textContent = items.length;
+    
+    if (items.length === 0) {
+      container.innerHTML = '<div class="dikw-empty">No items yet</div>';
+      return;
+    }
+    
+    container.innerHTML = items.map(item => `
+      <div class="dikw-item ${selectedItems.has(item.id) ? 'selected' : ''}" 
+           data-id="${item.id}" 
+           data-level="${level}"
+           onclick="handleItemClick(event, ${item.id})">
+        <div class="dikw-item-content">${escapeHtml(item.summary || item.content)}</div>
+        <div class="dikw-item-meta">
+          <div class="dikw-item-confidence">
+            <div class="confidence-bar">
+              <div class="confidence-fill" style="width: ${(item.confidence || 0.5) * 100}%"></div>
+            </div>
+            <span>${Math.round((item.confidence || 0.5) * 100)}%</span>
+          </div>
+          ${item.original_signal_type ? `<span class="dikw-item-type ${item.original_signal_type}">${item.original_signal_type.replace('_', ' ')}</span>` : ''}
+        </div>
+      </div>
+    `).join('');
+  });
+}
+
+// Handle item click (select or edit)
+function handleItemClick(event, itemId) {
+  if (event.ctrlKey || event.metaKey) {
+    // Multi-select mode
+    toggleItemSelection(itemId);
+  } else {
+    // Edit mode
+    openEditModal(itemId);
+  }
+}
+
+// Toggle item selection
+function toggleItemSelection(itemId) {
+  if (selectedItems.has(itemId)) {
+    selectedItems.delete(itemId);
+  } else {
+    selectedItems.add(itemId);
+  }
+  updateBulkActionsBar();
+  renderPyramid();
+}
+
+// Update bulk actions bar
+function updateBulkActionsBar() {
+  const bar = document.getElementById('bulkActionsBar');
+  const countEl = document.getElementById('selectedCount');
+  
+  if (selectedItems.size > 0) {
+    bar.classList.add('active');
+    countEl.textContent = selectedItems.size;
+  } else {
+    bar.classList.remove('active');
+  }
+}
+
+// Clear selection
+function clearSelection() {
+  selectedItems.clear();
+  updateBulkActionsBar();
+  renderPyramid();
+}
+
+// Merge selected items
+async function mergeSelected() {
+  if (selectedItems.size < 2) {
+    showToast('Select at least 2 items to merge', true);
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/dikw/merge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ item_ids: Array.from(selectedItems) })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      showToast(`Merged ${data.merged_count} items into ${data.to_level}`);
+      selectedItems.clear();
+      updateBulkActionsBar();
+      loadDIKWItems();
+    } else {
+      showToast(data.error || 'Failed to merge', true);
+    }
+  } catch (err) {
+    showToast('Failed to merge items', true);
+  }
+}
+
+// Open add modal
+function openAddModal() {
+  document.getElementById('modalTitle').textContent = 'Add New Nugget';
+  document.getElementById('editItemId').value = '';
+  document.getElementById('editLevel').value = 'data';
+  document.getElementById('editContent').value = '';
+  document.getElementById('editSummary').value = '';
+  document.getElementById('editTags').value = '';
+  document.getElementById('deleteBtn').style.display = 'none';
+  document.getElementById('dikwModal').classList.add('active');
+}
+
+// Open edit modal
+function openEditModal(itemId) {
+  // Find the item
+  let item = null;
+  for (const level of ['data', 'information', 'knowledge', 'wisdom']) {
+    item = dikwData[level].find(i => i.id === itemId);
+    if (item) break;
+  }
+  
+  if (!item) return;
+  
+  document.getElementById('modalTitle').textContent = 'Edit Nugget';
+  document.getElementById('editItemId').value = item.id;
+  document.getElementById('editLevel').value = item.level;
+  document.getElementById('editContent').value = item.content || '';
+  document.getElementById('editSummary').value = item.summary || '';
+  document.getElementById('editTags').value = item.tags || '';
+  document.getElementById('deleteBtn').style.display = 'block';
+  document.getElementById('dikwModal').classList.add('active');
+}
+
+// Close modal
+function closeModal() {
+  document.getElementById('dikwModal').classList.remove('active');
+}
+
+// Save item
+async function saveItem() {
+  const itemId = document.getElementById('editItemId').value;
+  const level = document.getElementById('editLevel').value;
+  const content = document.getElementById('editContent').value.trim();
+  const summary = document.getElementById('editSummary').value.trim();
+  const tags = document.getElementById('editTags').value.trim();
+  
+  if (!content) {
+    showToast('Content is required', true);
+    return;
+  }
+  
+  try {
+    const endpoint = itemId ? `/api/dikw/${itemId}` : '/api/dikw';
+    const method = itemId ? 'PUT' : 'POST';
+    
+    const response = await fetch(endpoint, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ level, content, summary, tags })
+    });
+    
+    if (response.ok) {
+      showToast(itemId ? 'Item updated' : 'Item created');
+      closeModal();
+      loadDIKWItems();
+    } else {
+      const data = await response.json();
+      showToast(data.error || 'Failed to save', true);
+    }
+  } catch (err) {
+    showToast('Failed to save item', true);
+  }
+}
+
+// Delete item
+async function deleteItem() {
+  const itemId = document.getElementById('editItemId').value;
+  if (!itemId) return;
+  
+  if (!confirm('Are you sure you want to delete this item?')) return;
+  
+  try {
+    const response = await fetch(`/api/dikw/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ item_id: parseInt(itemId), action: 'archive' })
+    });
+    
+    if (response.ok) {
+      showToast('Item archived');
+      closeModal();
+      loadDIKWItems();
+    }
+  } catch (err) {
+    showToast('Failed to delete item', true);
+  }
+}
+
+// AI Refine content
+async function aiRefine(action) {
+  const contentEl = document.getElementById('editContent');
+  const content = contentEl.value.trim();
+  
+  if (!content) {
+    showToast('Enter content first', true);
+    return;
+  }
+  
+  const btn = event.target.closest('.dikw-ai-btn');
+  const btnText = btn.querySelector('.btn-text');
+  const originalText = btnText.textContent;
+  btnText.innerHTML = '<span class="spinner"></span>';
+  btn.classList.add('loading');
+  
+  try {
+    const prompts = {
+      clarify: `Clarify and make this statement more precise and unambiguous. Keep it concise:\n\n"${content}"`,
+      expand: `Expand on this with relevant context and details, but keep it focused:\n\n"${content}"`,
+      simplify: `Simplify this to its core essence in one clear sentence:\n\n"${content}"`,
+      actionable: `Rewrite this as an actionable insight or recommendation:\n\n"${content}"`
+    };
+    
+    const response = await fetch('/api/dikw/ai-refine', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ content, action, prompt: prompts[action] })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok && data.refined) {
+      contentEl.value = data.refined;
+      showToast('Content refined');
+    } else {
+      showToast(data.error || 'AI refinement failed', true);
+    }
+  } catch (err) {
+    showToast('Failed to refine content', true);
+  } finally {
+    btnText.textContent = originalText;
+    btn.classList.remove('loading');
+  }
+}
+
+// AI Generate Summary
+async function aiGenerateSummary() {
+  const content = document.getElementById('editContent').value.trim();
+  const level = document.getElementById('editLevel').value;
+  const summaryEl = document.getElementById('editSummary');
+  
+  if (!content) {
+    showToast('Enter content first', true);
+    return;
+  }
+  
+  const btn = event.target.closest('.dikw-ai-btn');
+  const btnText = btn.querySelector('.btn-text');
+  const originalText = btnText.textContent;
+  btnText.innerHTML = '<span class="spinner"></span>';
+  btn.classList.add('loading');
+  
+  try {
+    const response = await fetch('/api/dikw/ai-summarize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ content, level })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok && data.summary) {
+      summaryEl.value = data.summary;
+      showToast('Summary generated');
+    } else {
+      showToast(data.error || 'Failed to generate summary', true);
+    }
+  } catch (err) {
+    showToast('Failed to generate summary', true);
+  } finally {
+    btnText.textContent = originalText;
+    btn.classList.remove('loading');
+  }
+}
+
+// AI Promote to next level
+async function aiPromoteLevel() {
+  const itemId = document.getElementById('editItemId').value;
+  const content = document.getElementById('editContent').value.trim();
+  const currentLevel = document.getElementById('editLevel').value;
+  
+  if (currentLevel === 'wisdom') {
+    showToast('Already at highest level', true);
+    return;
+  }
+  
+  if (!content) {
+    showToast('Enter content first', true);
+    return;
+  }
+  
+  const btn = event.target.closest('.dikw-ai-btn');
+  const btnText = btn.querySelector('.btn-text');
+  const originalText = btnText.textContent;
+  btnText.innerHTML = '<span class="spinner"></span>';
+  btn.classList.add('loading');
+  
+  const nextLevel = { data: 'information', information: 'knowledge', knowledge: 'wisdom' };
+  
+  try {
+    const response = await fetch('/api/dikw/ai-promote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ content, from_level: currentLevel, to_level: nextLevel[currentLevel] })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok && data.promoted_content) {
+      document.getElementById('editLevel').value = nextLevel[currentLevel];
+      document.getElementById('editContent').value = data.promoted_content;
+      document.getElementById('editSummary').value = data.summary || '';
+      showToast(`Promoted to ${nextLevel[currentLevel]}`);
+    } else {
+      showToast(data.error || 'Failed to promote', true);
+    }
+  } catch (err) {
+    showToast('Failed to promote item', true);
+  } finally {
+    btnText.textContent = originalText;
+    btn.classList.remove('loading');
+  }
+}
+
+// Toggle signals panel
+function toggleSignalsPanel() {
+  const panel = document.getElementById('signalsPanel');
+  const isVisible = panel.style.display !== 'none';
+  panel.style.display = isVisible ? 'none' : 'block';
+  
+  if (!isVisible) {
+    loadSignals();
+  }
+}
+
+// Load unprocessed signals
+async function loadSignals() {
+  const container = document.getElementById('signalsList');
+  container.innerHTML = '<div class="dikw-empty">Loading signals...</div>';
+  
+  try {
+    const response = await fetch('/api/signals/unprocessed', { credentials: 'same-origin' });
+    const signals = await response.json();
+    
+    if (signals.length === 0) {
+      container.innerHTML = '<div class="dikw-empty">No unprocessed signals found</div>';
+      return;
+    }
+    
+    window.allSignals = signals;
+    renderSignals(signals);
+  } catch (err) {
+    container.innerHTML = '<div class="dikw-empty">Failed to load signals</div>';
+  }
+}
+
+// Render signals
+function renderSignals(signals) {
+  const container = document.getElementById('signalsList');
+  
+  const filtered = currentFilter === 'all' 
+    ? signals 
+    : signals.filter(s => s.signal_type === currentFilter);
+  
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="dikw-empty">No signals match this filter</div>';
+    return;
+  }
+  
+  container.innerHTML = filtered.map(signal => `
+    <div class="signal-item" data-type="${signal.signal_type}">
+      <input type="checkbox" class="signal-checkbox" data-signal='${JSON.stringify(signal).replace(/'/g, "\\'")}'>
+      <div class="signal-content">
+        <div class="signal-text">${escapeHtml(signal.text)}</div>
+        <div class="signal-source">
+          <span class="dikw-item-type ${signal.signal_type}">${signal.signal_type.replace('_', ' ')}</span>
+          from ${escapeHtml(signal.meeting_name || 'Unknown meeting')}
+        </div>
+      </div>
+      <button class="signal-promote-btn" onclick="promoteSignal(${signal.meeting_id}, '${signal.signal_type}', '${escapeJs(signal.text)}')">
+        ⬆️ Promote
+      </button>
+    </div>
+  `).join('');
+}
+
+// Filter signals
+function filterSignals(type) {
+  currentFilter = type;
+  document.querySelectorAll('.signal-filter').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.type === type);
+  });
+  
+  if (window.allSignals) {
+    renderSignals(window.allSignals);
+  }
+}
+
+// Promote a signal to DIKW
+async function promoteSignal(meetingId, signalType, signalText) {
+  try {
+    const response = await fetch('/api/dikw/promote-signal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        meeting_id: meetingId,
+        signal_type: signalType,
+        signal_text: signalText,
+        level: 'data'
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      showToast(`Signal promoted to ${data.level}`);
+      loadSignals();
+      loadDIKWItems();
+    } else {
+      showToast(data.error || 'Failed to promote signal', true);
+    }
+  } catch (err) {
+    showToast('Failed to promote signal', true);
+  }
+}
+
+// Utility functions
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text || '';
+  return div.innerHTML;
+}
+
+function escapeJs(text) {
+  return (text || '').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
+}
+
+function showToast(message, isError = false) {
+  const toast = document.createElement('div');
+  toast.className = `dikw-toast ${isError ? 'error' : ''}`;
+  toast.innerHTML = `${isError ? '❌' : '✅'} ${message}`;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(20px)';
+    toast.style.transition = 'all 0.3s';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+// Close modal on outside click
+document.getElementById('dikwModal').addEventListener('click', (e) => {
+  if (e.target.classList.contains('dikw-modal')) {
+    closeModal();
+  }
+});
+</script>
+{% endblock %}

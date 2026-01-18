@@ -1,0 +1,568 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .career-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1.5rem;
+  }
+
+  .career-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .career-header h1 {
+    font-size: 1.75rem;
+    color: #1a1a1a;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .career-actions {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .career-btn {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .career-btn-primary {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    color: white;
+  }
+
+  .career-btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+  }
+
+  .career-btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+  }
+
+  .career-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Grid layout */
+  .career-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 900px) {
+    .career-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Cards */
+  .career-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .card-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .card-header h2 {
+    font-size: 1.1rem;
+    color: #1a1a1a;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .card-body {
+    padding: 1.25rem;
+  }
+
+  /* Suggestions list */
+  .suggestion-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .suggestion-item {
+    padding: 1rem;
+    background: #f9fafb;
+    border-radius: 8px;
+    border-left: 3px solid #8b5cf6;
+  }
+
+  .suggestion-item.dismissed {
+    opacity: 0.5;
+    border-left-color: #9ca3af;
+  }
+
+  .suggestion-title {
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-bottom: 0.5rem;
+  }
+
+  .suggestion-content {
+    font-size: 0.9rem;
+    color: #4b5563;
+    line-height: 1.5;
+  }
+
+  .suggestion-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
+  .suggestion-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .suggestion-btn.accept {
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .suggestion-btn.dismiss {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+
+  .suggestion-btn.convert {
+    background: #ede9fe;
+    color: #5b21b6;
+  }
+
+  /* Profile section */
+  .profile-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-group label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #374151;
+  }
+
+  .form-group input,
+  .form-group textarea {
+    padding: 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.95rem;
+  }
+
+  .form-group textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+
+  .form-group input:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+  }
+
+  /* Skills tags */
+  .skills-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .skill-tag {
+    padding: 0.35rem 0.75rem;
+    background: #ede9fe;
+    color: #5b21b6;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .skill-tag .remove {
+    cursor: pointer;
+    opacity: 0.7;
+  }
+
+  .skill-tag .remove:hover {
+    opacity: 1;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: #9ca3af;
+  }
+
+  .empty-state svg {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  /* Toast */
+  .career-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #10b981;
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 9999;
+    animation: slideIn 0.3s ease;
+  }
+
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* Loading */
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+
+<div class="career-container">
+  <div class="career-header">
+    <h1>🚀 Career Development</h1>
+    <div class="career-actions">
+      <button class="career-btn career-btn-secondary" onclick="loadSuggestions()">
+        🔄 Refresh
+      </button>
+      <button class="career-btn career-btn-primary" onclick="generateSuggestions()" id="generateBtn">
+        ✨ Generate AI Suggestions
+      </button>
+    </div>
+  </div>
+
+  <div class="career-grid">
+    <!-- Profile Card -->
+    <div class="career-card">
+      <div class="card-header">
+        <h2>👤 Your Profile</h2>
+        <button class="career-btn career-btn-secondary" onclick="saveProfile()">Save</button>
+      </div>
+      <div class="card-body">
+        <div class="profile-form">
+          <div class="form-group">
+            <label>Current Role</label>
+            <input type="text" id="currentRole" placeholder="e.g., Senior Software Engineer">
+          </div>
+          <div class="form-group">
+            <label>Career Goals</label>
+            <textarea id="careerGoals" placeholder="Where do you want to be in 2-5 years?"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Skills</label>
+            <div class="skills-container" id="skillsContainer"></div>
+            <input type="text" id="skillInput" placeholder="Type a skill and press Enter">
+          </div>
+          <div class="form-group">
+            <label>Areas for Growth</label>
+            <textarea id="growthAreas" placeholder="What skills or experiences do you want to develop?"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Suggestions Card -->
+    <div class="career-card">
+      <div class="card-header">
+        <h2>💡 AI Suggestions</h2>
+        <span id="suggestionCount" style="font-size: 0.85rem; color: #6b7280;">0 suggestions</span>
+      </div>
+      <div class="card-body">
+        <div class="suggestion-list" id="suggestionList">
+          <div class="empty-state">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            <p>No suggestions yet</p>
+            <p style="font-size: 0.85rem;">Click "Generate AI Suggestions" to get personalized career advice</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Development Tracker -->
+    <div class="career-card" style="grid-column: 1 / -1;">
+      <div class="card-header">
+        <h2>📈 Development Tracker</h2>
+      </div>
+      <div class="card-body">
+        <div id="trackerContent">
+          <div class="empty-state">
+            <p>Track your career development progress here.</p>
+            <p style="font-size: 0.85rem;">Accept suggestions and convert them to tickets to start tracking.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let skills = [];
+let suggestions = [];
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  loadProfile();
+  loadSuggestions();
+  setupSkillInput();
+});
+
+// Skill input handling
+function setupSkillInput() {
+  const input = document.getElementById('skillInput');
+  input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter' && input.value.trim()) {
+      e.preventDefault();
+      addSkill(input.value.trim());
+      input.value = '';
+    }
+  });
+}
+
+function addSkill(skill) {
+  if (!skills.includes(skill)) {
+    skills.push(skill);
+    renderSkills();
+  }
+}
+
+function removeSkill(skill) {
+  skills = skills.filter(s => s !== skill);
+  renderSkills();
+}
+
+function renderSkills() {
+  const container = document.getElementById('skillsContainer');
+  container.innerHTML = skills.map(skill => `
+    <span class="skill-tag">
+      ${escapeHtml(skill)}
+      <span class="remove" onclick="removeSkill('${escapeHtml(skill)}')">&times;</span>
+    </span>
+  `).join('');
+}
+
+// Profile management
+async function loadProfile() {
+  try {
+    const response = await fetch('/api/career/profile', { credentials: 'same-origin' });
+    if (response.ok) {
+      const profile = await response.json();
+      document.getElementById('currentRole').value = profile.current_role || '';
+      document.getElementById('careerGoals').value = profile.career_goals || '';
+      document.getElementById('growthAreas').value = profile.growth_areas || '';
+      skills = profile.skills || [];
+      renderSkills();
+    }
+  } catch (err) {
+    console.error('Failed to load profile:', err);
+  }
+}
+
+async function saveProfile() {
+  const profile = {
+    current_role: document.getElementById('currentRole').value,
+    career_goals: document.getElementById('careerGoals').value,
+    growth_areas: document.getElementById('growthAreas').value,
+    skills: skills
+  };
+
+  try {
+    const response = await fetch('/api/career/profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(profile)
+    });
+
+    if (response.ok) {
+      showToast('Profile saved!');
+    }
+  } catch (err) {
+    console.error('Failed to save profile:', err);
+  }
+}
+
+// Suggestions
+async function loadSuggestions() {
+  try {
+    const response = await fetch('/api/career/suggestions', { credentials: 'same-origin' });
+    if (response.ok) {
+      suggestions = await response.json();
+      renderSuggestions();
+    }
+  } catch (err) {
+    console.error('Failed to load suggestions:', err);
+  }
+}
+
+async function generateSuggestions() {
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Generating...';
+
+  try {
+    const response = await fetch('/api/career/suggestions/generate', {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+
+    if (response.ok) {
+      await loadSuggestions();
+      showToast('New suggestions generated!');
+    }
+  } catch (err) {
+    console.error('Failed to generate suggestions:', err);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✨ Generate AI Suggestions';
+  }
+}
+
+function renderSuggestions() {
+  const list = document.getElementById('suggestionList');
+  const count = document.getElementById('suggestionCount');
+  
+  const activeSuggestions = suggestions.filter(s => s.status !== 'dismissed');
+  count.textContent = `${activeSuggestions.length} suggestions`;
+
+  if (activeSuggestions.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+        <p>No suggestions yet</p>
+        <p style="font-size: 0.85rem;">Click "Generate AI Suggestions" to get personalized career advice</p>
+      </div>
+    `;
+    return;
+  }
+
+  list.innerHTML = activeSuggestions.map(s => `
+    <div class="suggestion-item ${s.status === 'dismissed' ? 'dismissed' : ''}">
+      <div class="suggestion-title">${escapeHtml(s.title || 'Suggestion')}</div>
+      <div class="suggestion-content">${escapeHtml(s.content)}</div>
+      <div class="suggestion-actions">
+        <button class="suggestion-btn convert" onclick="convertToTicket(${s.id})">📋 Create Ticket</button>
+        <button class="suggestion-btn dismiss" onclick="dismissSuggestion(${s.id})">✕ Dismiss</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function dismissSuggestion(id) {
+  try {
+    await fetch(`/api/career/suggestions/${id}/dismiss`, {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+    
+    // Remove from local list immediately
+    suggestions = suggestions.filter(s => s.id !== id);
+    renderSuggestions();
+  } catch (err) {
+    console.error('Failed to dismiss suggestion:', err);
+  }
+}
+
+async function convertToTicket(id) {
+  try {
+    const response = await fetch(`/api/career/suggestions/${id}/convert`, {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+
+    if (response.ok) {
+      showToast('Ticket created!');
+      await loadSuggestions();
+    }
+  } catch (err) {
+    console.error('Failed to convert to ticket:', err);
+  }
+}
+
+// Utilities
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text || '';
+  return div.innerHTML;
+}
+
+function showToast(message) {
+  const toast = document.createElement('div');
+  toast.className = 'career-toast';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(20px)';
+    toast.style.transition = 'all 0.3s';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+</script>
+{% endblock %}
