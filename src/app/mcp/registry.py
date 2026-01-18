@@ -8,6 +8,8 @@ from .tools import (
     collect_meeting_signals,
     get_meeting_signals,
     update_meeting_signals,
+    export_meeting_signals,
+    draft_summary_from_transcript,
 )
 
 TOOL_REGISTRY: Dict[str, Callable] = {
@@ -18,4 +20,6 @@ TOOL_REGISTRY: Dict[str, Callable] = {
     "collect_meeting_signals": collect_meeting_signals,
     "get_meeting_signals": get_meeting_signals,
     "update_meeting_signals": update_meeting_signals,
+    "export_meeting_signals": export_meeting_signals,
+    "draft_summary_from_transcript": draft_summary_from_transcript,
 }

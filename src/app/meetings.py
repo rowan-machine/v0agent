@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Form, Request, Query
+from fastapi import APIRouter, Form, Request, Query, UploadFile, File
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from typing import List, Optional
 import json
+import base64
 
 from .db import connect
 from .memory.embed import embed_text, EMBED_MODEL
@@ -11,16 +13,66 @@ from .memory.vector_store import upsert_embedding
 from .mcp.parser import parse_meeting_summary
 from .mcp.extract import extract_structured_signals
 from .mcp.cleaner import clean_meeting_text
+from .llm import analyze_image
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
 
 
+def process_screenshots(meeting_id: int, screenshots: List[UploadFile]) -> List[str]:
+    """Process uploaded screenshots with vision API and store summaries."""
+    summaries = []
+    
+    for screenshot in screenshots:
+        if not screenshot.filename or screenshot.size == 0:
+            continue
+            
+        try:
+            # Read image data
+            image_data = screenshot.file.read()
+            image_base64 = base64.b64encode(image_data).decode('utf-8')
+            
+            # Analyze with vision API
+            summary = analyze_image(image_base64)
+            summaries.append(summary)
+            
+            # Store in database
+            with connect() as conn:
+                conn.execute(
+                    """
+                    INSERT INTO meeting_screenshots (meeting_id, filename, content_type, image_summary)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (meeting_id, screenshot.filename, screenshot.content_type, summary)
+                )
+        except Exception as e:
+            print(f"Error processing screenshot {screenshot.filename}: {e}")
+            continue
+    
+    return summaries
+
+
+def get_meeting_screenshots(meeting_id: int) -> List[dict]:
+    """Get all screenshot summaries for a meeting."""
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, filename, image_summary, created_at
+            FROM meeting_screenshots
+            WHERE meeting_id = ?
+            ORDER BY created_at
+            """,
+            (meeting_id,)
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
 @router.post("/meetings/synthesize")
-def store_meeting(
+async def store_meeting(
     meeting_name: str = Form(...),
     synthesized_notes: str = Form(...),
-    meeting_date: str = Form(...)
+    meeting_date: str = Form(...),
+    screenshots: List[UploadFile] = File(default=[])
 ):
     # Clean the text (remove aside tags and markdown headers)
     cleaned_notes = clean_meeting_text(synthesized_notes)
@@ -39,8 +91,15 @@ def store_meeting(
         )
         meeting_id = cur.lastrowid
 
+    # Process screenshots with vision API
+    screenshot_summaries = []
+    if screenshots:
+        screenshot_summaries = process_screenshots(meeting_id, screenshots)
+    
     # ---- VX.2b: embedding on ingest ----
-    text_for_embedding = f"{meeting_name}\n{synthesized_notes}"
+    # Include screenshot summaries in embedding for searchability
+    screenshot_text = "\n\n".join([f"[Screenshot]: {s}" for s in screenshot_summaries]) if screenshot_summaries else ""
+    text_for_embedding = f"{meeting_name}\n{synthesized_notes}\n{screenshot_text}"
     vector = embed_text(text_for_embedding)
     upsert_embedding("meeting", meeting_id, EMBED_MODEL, vector)
 
@@ -81,6 +140,22 @@ def list_meetings(request: Request, success: str = Query(default=None)):
     return templates.TemplateResponse(
         "list_meetings.html",
         {"request": request, "meetings": formatted, "success": success},
+    )
+
+
+@router.get("/meetings/{meeting_id}")
+def view_meeting(meeting_id: int, request: Request):
+    with connect() as conn:
+        meeting = conn.execute(
+            "SELECT * FROM meeting_summaries WHERE id = ?",
+            (meeting_id,),
+        ).fetchone()
+    
+    screenshots = get_meeting_screenshots(meeting_id)
+
+    return templates.TemplateResponse(
+        "view_meeting.html",
+        {"request": request, "meeting": meeting, "screenshots": screenshots},
     )
 
 

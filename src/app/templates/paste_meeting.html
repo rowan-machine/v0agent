@@ -1,8 +1,89 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+  .screenshot-upload {
+    border: 2px dashed var(--border-color, #ddd);
+    border-radius: 8px;
+    padding: 1.5rem;
+    text-align: center;
+    margin-bottom: 1rem;
+    transition: all 0.3s;
+    background: var(--card-bg, #f9f9f9);
+  }
+  
+  .screenshot-upload:hover, .screenshot-upload.dragover {
+    border-color: var(--accent-color, #a0522d);
+    background: var(--accent-color-light, rgba(160, 82, 45, 0.05));
+  }
+  
+  .screenshot-upload input[type="file"] {
+    display: none;
+  }
+  
+  .screenshot-upload label {
+    cursor: pointer;
+    display: block;
+  }
+  
+  .screenshot-upload .upload-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .screenshot-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+  
+  .preview-item {
+    position: relative;
+    width: 120px;
+  }
+  
+  .preview-item img {
+    width: 120px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+  }
+  
+  .preview-item .remove-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #e74c3c;
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+  }
+  
+  .preview-item .filename {
+    font-size: 0.7rem;
+    color: #666;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    margin-top: 4px;
+  }
+  
+  .upload-note {
+    font-size: 0.8rem;
+    color: #888;
+    margin-top: 0.5rem;
+  }
+</style>
+
 <h2>New Meeting</h2>
 
-<form method="post" action="/meetings/synthesize">
+<form method="post" action="/meetings/synthesize" enctype="multipart/form-data">
   <label>
     Meeting Name
     <input type="text" name="meeting_name" required placeholder="Enter meeting name...">
@@ -13,6 +94,19 @@
     <div style="display: flex; gap: 0.5rem; align-items: center;">
       <input type="date" name="meeting_date" id="meeting_date" required>
       <button type="button" onclick="document.getElementById('meeting_date').value = new Date().toISOString().split('T')[0]" style="padding: 0.75rem 1rem; white-space: nowrap;">Today</button>
+    </div>
+  </label>
+
+  <label>
+    Screenshots (optional)
+    <div class="screenshot-upload" id="dropZone">
+      <input type="file" id="screenshots" name="screenshots" multiple accept="image/*">
+      <label for="screenshots">
+        <div class="upload-icon">📸</div>
+        <div>Drop images here or click to upload</div>
+        <div class="upload-note">Screenshots will be analyzed by AI and included in meeting context</div>
+      </label>
+      <div class="screenshot-preview" id="previewContainer"></div>
     </div>
   </label>
 
@@ -28,4 +122,77 @@
 
   <button type="submit">Save Meeting</button>
 </form>
+
+<script>
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('screenshots');
+  const previewContainer = document.getElementById('previewContainer');
+  
+  // Track selected files
+  let selectedFiles = [];
+  
+  // Drag and drop handlers
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+  });
+  
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+  });
+  
+  fileInput.addEventListener('change', (e) => {
+    handleFiles(e.target.files);
+  });
+  
+  function handleFiles(files) {
+    for (const file of files) {
+      if (file.type.startsWith('image/')) {
+        selectedFiles.push(file);
+        addPreview(file, selectedFiles.length - 1);
+      }
+    }
+    updateFileInput();
+  }
+  
+  function addPreview(file, index) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const div = document.createElement('div');
+      div.className = 'preview-item';
+      div.dataset.index = index;
+      div.innerHTML = `
+        <img src="${e.target.result}" alt="${file.name}">
+        <button type="button" class="remove-btn" onclick="removeFile(${index})">×</button>
+        <div class="filename">${file.name}</div>
+      `;
+      previewContainer.appendChild(div);
+    };
+    reader.readAsDataURL(file);
+  }
+  
+  function removeFile(index) {
+    selectedFiles = selectedFiles.filter((_, i) => i !== index);
+    refreshPreviews();
+    updateFileInput();
+  }
+  
+  function refreshPreviews() {
+    previewContainer.innerHTML = '';
+    selectedFiles.forEach((file, i) => addPreview(file, i));
+  }
+  
+  function updateFileInput() {
+    // Create a new DataTransfer to update the file input
+    const dt = new DataTransfer();
+    selectedFiles.forEach(file => dt.items.add(file));
+    fileInput.files = dt.files;
+  }
+</script>
 {% endblock %}

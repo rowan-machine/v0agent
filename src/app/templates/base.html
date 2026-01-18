@@ -1,9 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Memory Intake & Search</title>
+  <title>Hare Krishna</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪷</text></svg>">
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            violet: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+              700: '#6d28d9',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <!-- SignalFlow Theme System -->
+  <link rel="stylesheet" href="/static/signalflow-theme.css">
+  <!-- SignalFlow Workflow Modes -->
+  <link rel="stylesheet" href="/static/signalflow-modes.css">
   <style>
     * {
       margin: 0;
@@ -14,28 +38,238 @@
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
       line-height: 1.6;
-      color: #333;
-      background: #f5f5f5;
+      color: var(--sf-text, #333);
+      background: var(--sf-bg, #f5f5f5);
     }
-    
-    nav {
-      background: #2c3e50;
-      padding: 1rem 2rem;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+    /* Top Header Bar - Minimal */
+    .top-header {
+      background: var(--sf-nav-bg, #2c3e50);
+      height: 56px;
+      display: flex;
+      align-items: center;
+      padding: 0 1rem;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     }
-    
-    nav a {
-      color: #ecf0f1;
+
+    .menu-toggle {
+      background: none;
+      border: none;
+      color: white;
+      cursor: pointer;
+      padding: 0.5rem;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .menu-toggle:hover {
+      background: rgba(255,255,255,0.1);
+    }
+
+    .menu-toggle svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .header-brand {
+      color: white;
+      font-weight: 600;
+      font-size: 1.1rem;
+      margin-left: 1rem;
       text-decoration: none;
-      padding: 0.5rem 1rem;
-      margin-right: 0.5rem;
-      border-radius: 4px;
-      transition: background 0.3s;
-      display: inline-block;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
-    
-    nav a:hover {
-      background: #34495e;
+
+    .header-brand:hover {
+      opacity: 0.9;
+    }
+
+    .header-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .header-btn {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: background 0.2s;
+    }
+
+    .header-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
+
+    /* Sliding Drawer */
+    .drawer-overlay {
+      position: fixed;
+      top: 56px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.4);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s;
+      z-index: 90;
+    }
+
+    .drawer-overlay.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .drawer {
+      position: fixed;
+      top: 56px;
+      left: 0;
+      bottom: 0;
+      width: 260px;
+      background: var(--sf-card-bg, white);
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      z-index: 95;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 2px 0 12px rgba(0,0,0,0.1);
+    }
+
+    .drawer.open {
+      transform: translateX(0);
+    }
+
+    .drawer.pinned {
+      transform: translateX(0);
+    }
+
+    body.drawer-pinned .drawer {
+      transform: translateX(0);
+    }
+
+    body.drawer-pinned .drawer-overlay {
+      display: none;
+    }
+
+    body.drawer-pinned .main-content {
+      margin-left: 260px;
+    }
+
+    .drawer-header {
+      padding: 1rem;
+      border-bottom: 1px solid var(--sf-border, #eee);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .drawer-header h3 {
+      font-size: 0.85rem;
+      color: var(--sf-text-muted, #888);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .pin-btn {
+      background: none;
+      border: 1px solid var(--sf-border, #ddd);
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      color: var(--sf-text-muted, #666);
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      transition: all 0.2s;
+    }
+
+    .pin-btn:hover {
+      background: var(--sf-surface, #f5f5f5);
+      border-color: var(--sf-border, #bbb);
+    }
+
+    .pin-btn.pinned {
+      background: #3498db;
+      color: white;
+      border-color: #3498db;
+    }
+
+    .drawer-nav {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5rem;
+    }
+
+    .nav-section {
+      margin-bottom: 1rem;
+    }
+
+    .nav-section-title {
+      font-size: 0.7rem;
+      color: var(--sf-text-muted, #aaa);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 0.5rem 0.75rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.7rem 0.75rem;
+      color: var(--sf-text, #444);
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+    }
+
+    .nav-link:hover {
+      background: var(--sf-surface, #f0f4f8);
+      color: var(--sf-text, #2c3e50);
+    }
+
+    .nav-link.active {
+      background: #e8f4fc;
+      color: #3498db;
+      font-weight: 500;
+    }
+
+    .nav-link svg {
+      width: 18px;
+      height: 18px;
+      opacity: 0.7;
+    }
+
+    .nav-link:hover svg {
+      opacity: 1;
+    }
+
+    /* Main Content */
+    .main-content {
+      margin-top: 56px;
+      min-height: calc(100vh - 56px);
+      transition: margin-left 0.3s ease;
     }
     
     .container {
@@ -45,13 +279,13 @@
     }
     
     h2 {
-      color: #2c3e50;
+      color: var(--sf-text, #2c3e50);
       margin-bottom: 1.5rem;
       font-size: 2rem;
     }
     
     form {
-      background: white;
+      background: var(--sf-card-bg, white);
       padding: 2rem;
       border-radius: 8px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -61,7 +295,7 @@
       display: block;
       margin-bottom: 1.5rem;
       font-weight: 500;
-      color: #555;
+      color: var(--sf-text-muted, #555);
     }
     
     input[type="text"],
@@ -69,19 +303,21 @@
     textarea {
       width: 100%;
       padding: 0.75rem;
-      border: 1px solid #ddd;
+      border: 1px solid var(--sf-border, #ddd);
       border-radius: 4px;
       font-size: 1rem;
       margin-top: 0.5rem;
       font-family: inherit;
       transition: border-color 0.3s;
+      background: var(--sf-surface, white);
+      color: var(--sf-text, inherit);
     }
     
     input[type="text"]:focus,
     input[type="date"]:focus,
     textarea:focus {
       outline: none;
-      border-color: #3498db;
+      border-color: var(--sf-primary, #3498db);
     }
     
     button {
@@ -128,24 +364,24 @@
     }
     
     li:hover {
-      background: #f8f9fa;
+      background: var(--sf-surface, #f8f9fa);
     }
     
     li strong {
-      color: #7f8c8d;
+      color: var(--sf-text-muted, #7f8c8d);
       font-size: 0.9rem;
       margin-right: 0.75rem;
     }
     
     li a {
-      color: #3498db;
+      color: var(--sf-link, #3498db);
       text-decoration: none;
       font-weight: 500;
       transition: color 0.3s;
     }
     
     li a:hover {
-      color: #2980b9;
+      color: var(--sf-link-hover, #2980b9);
       text-decoration: underline;
     }
     
@@ -166,7 +402,7 @@
     }
     
     p {
-      background: white;
+      background: var(--sf-card-bg, white);
       padding: 1rem;
       border-radius: 8px;
       margin-bottom: 1.5rem;
@@ -174,12 +410,12 @@
     }
     
     p strong {
-      color: #2c3e50;
+      color: var(--sf-text, #2c3e50);
     }
     
     .toast {
       position: fixed;
-      top: 20px;
+      top: 76px;
       right: 20px;
       background: #27ae60;
       color: white;
@@ -201,27 +437,526 @@
         opacity: 1;
       }
     }
+
+    /* Global Toast Notifications */
+    .toast-container {
+      position: fixed;
+      top: 70px;
+      right: 1rem;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    .toast {
+      background: var(--sf-card-bg, white);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 300px;
+      max-width: 450px;
+      animation: toastSlideIn 0.3s ease;
+      border-left: 4px solid var(--sf-primary, #667eea);
+    }
+    
+    .toast.success { border-left-color: var(--sf-success, #10b981); }
+    .toast.error { border-left-color: var(--sf-error, #ef4444); }
+    .toast.warning { border-left-color: var(--sf-warning, #f59e0b); }
+    
+    .toast-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 0.9rem;
+    }
+    
+    .toast.success .toast-icon { background: #d1fae5; }
+    .toast.error .toast-icon { background: #fee2e2; }
+    .toast.warning .toast-icon { background: #fef3c7; }
+    
+    .toast-content { flex: 1; }
+    .toast-title { font-weight: 600; font-size: 0.9rem; color: var(--sf-text, #1f2937); }
+    .toast-message { font-size: 0.85rem; color: var(--sf-text-muted, #6b7280); margin-top: 0.125rem; }
+    
+    .toast-close {
+      background: none;
+      border: none;
+      color: var(--sf-text-muted, #9ca3af);
+      cursor: pointer;
+      padding: 0.25rem;
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+    
+    @keyframes toastSlideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes toastSlideOut {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(100%); opacity: 0; }
+    }
+
+    /* Larger form selects globally */
+    select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 0.75rem center;
+      background-repeat: no-repeat;
+      background-size: 1.25em 1.25em;
+      padding-right: 2.5rem;
+      min-height: 44px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
 
-  <!-- Global Navigation -->
-  <nav>
-    <a href="/meetings/new">New Meeting</a>
-    <a href="/documents/new">New Document</a>
-    <a href="/meetings">View Meetings</a>
-    <a href="/meetings/load">Load Meeting (MCP)</a>
-    <a href="/documents">View Documents</a>
-    <a href="/search?q=">Search</a>
-    <a href="/query">Query</a>
-    <a href="/chat/new">Chat</a>
+  <!-- Global Toast Container -->
+  <div class="toast-container" id="globalToastContainer"></div>
+
+  <!-- Top Header Bar -->
+  <header class="top-header">
+    <button class="menu-toggle" onclick="toggleDrawer()" title="Menu">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
+    <a href="/" class="header-brand">
+      <span>🪷</span> Hare Krishna
+    </a>
+    <div class="header-actions">
+      <a href="/search" class="header-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        Search
+      </a>
+      <a href="/chat" class="header-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+        Chat
+      </a>
+    </div>
+  </header>
+
+  <!-- Drawer Overlay -->
+  <div class="drawer-overlay" onclick="toggleDrawer()"></div>
+
+  <!-- Sliding Drawer Navigation -->
+  <nav class="drawer">
+    <div class="drawer-header">
+      <h3>Navigation</h3>
+      <button class="pin-btn" onclick="togglePin()" title="Pin sidebar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+        </svg>
+        <span id="pin-text">Pin</span>
+      </button>
+    </div>
+    <div class="drawer-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">Home</div>
+        <a href="/" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+          </svg>
+          Dashboard
+        </a>
+        <a href="/chat" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+          Chat
+        </a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Add</div>
+        <a href="/meetings/new" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Meeting
+        </a>
+        <a href="/documents/new" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Document
+        </a>
+        <a href="/meetings/load" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          </svg>
+          Load Bundle
+        </a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Browse</div>
+        <a href="/meetings" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          Meetings
+        </a>
+        <a href="/documents" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          Documents
+        </a>
+        <a href="/signals" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Signals
+        </a>
+        <a href="/tickets" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          Tickets
+        </a>
+        <a href="/accountability" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Waiting For
+        </a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Sprint</div>
+        <a href="/tickets/new" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          Add Ticket
+        </a>
+        <a href="/settings/sprint" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Sprint Settings
+        </a>
+        <a href="/settings" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+          </svg>
+          Settings
+        </a>
+      </div>
+
+      <div class="nav-section">
+        <div class="nav-section-title">Discover</div>
+        <a href="/search" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          Search
+        </a>
+        <a href="/query" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Query
+        </a>
+      </div>
+
+      <div class="nav-section" style="margin-top: auto; border-top: 1px solid #e5e7eb; padding-top: 1rem;">
+        <a href="/logout" class="nav-link" style="color: #ef4444;">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          Sign Out
+        </a>
+      </div>
+    </div>
   </nav>
 
-  <!-- Page Content -->
-  <div class="container">
-    {% block content %}
-    {% endblock %}
+  <!-- Theme Switcher -->
+  <div class="theme-switcher">
+    <button class="theme-switcher-toggle" onclick="toggleTheme()">
+      <span id="currentThemeIcon">☀️</span>
+      <span id="currentThemeLabel">Light</span>
+    </button>
   </div>
+
+  <!-- Workflow Mode Indicator -->
+  <div class="mode-indicator" id="modeIndicator">
+    <div class="mode-badge" onclick="toggleModeSelector()">
+      <div class="mode-badge-dot"></div>
+      <span class="mode-badge-text" id="currentModeName">Mode A</span>
+      <span class="mode-badge-time" id="currentTime">--:--</span>
+    </div>
+    <div class="mode-selector" id="modeSelector">
+      <div class="mode-selector-header">
+        <h4>📍 Personal Laptop (Offline)</h4>
+      </div>
+      <button class="mode-option offline" data-mode="mode-a" onclick="setMode('mode-a')">
+        <div class="mode-option-dot mode-a"></div>
+        <div class="mode-option-content">
+          <div class="mode-option-title">A: Context Distillation</div>
+          <div class="mode-option-desc">Select files, zip context, seed agents, load neurons</div>
+          <span class="mode-option-tag offline">Offline • Non-Executing</span>
+        </div>
+      </button>
+      <button class="mode-option offline" data-mode="mode-b" onclick="setMode('mode-b')">
+        <div class="mode-option-dot mode-b"></div>
+        <div class="mode-option-content">
+          <div class="mode-option-title">B: Implementation Planning</div>
+          <div class="mode-option-desc">Plan from canonical context only, no assumptions</div>
+          <span class="mode-option-tag offline">Offline • No Commits</span>
+        </div>
+      </button>
+      <button class="mode-option offline" data-mode="mode-c" onclick="setMode('mode-c')">
+        <div class="mode-option-dot mode-c"></div>
+        <div class="mode-option-content">
+          <div class="mode-option-title">C: Assisted Draft Intake</div>
+          <div class="mode-option-desc">Junior/architect AI produces code, docs, walkthroughs</div>
+          <span class="mode-option-tag offline">Offline • Trello Buffer</span>
+        </div>
+      </button>
+      <button class="mode-option offline" data-mode="mode-d" onclick="setMode('mode-d')">
+        <div class="mode-option-dot mode-d"></div>
+        <div class="mode-option-content">
+          <div class="mode-option-title">D: Deep Review & Validation</div>
+          <div class="mode-option-desc">Line-by-line review, smoke test, break & fix</div>
+          <span class="mode-option-tag offline">Offline • Learning Loops</span>
+        </div>
+      </button>
+      <button class="mode-option offline" data-mode="mode-e" onclick="setMode('mode-e')">
+        <div class="mode-option-dot mode-e"></div>
+        <div class="mode-option-content">
+          <div class="mode-option-title">E: Promotion Readiness</div>
+          <div class="mode-option-desc">Checklist, code locker, transfer packet</div>
+          <span class="mode-option-tag offline">Offline • Pre-Delivery</span>
+        </div>
+      </button>
+      
+      <div class="mode-divider"></div>
+      <div class="mode-divider-label">📍 Work Machine (Online)</div>
+      
+      <button class="mode-option" data-mode="mode-f" onclick="setMode('mode-f')">
+        <div class="mode-option-dot mode-f"></div>
+        <div class="mode-option-content">
+          <div class="mode-option-title">F: Controlled Ingress/Egress</div>
+          <div class="mode-option-desc">Push/pull, commit, PR, merge — execution only</div>
+          <span class="mode-option-tag online">Online • No Thinking</span>
+        </div>
+      </button>
+      <button class="mode-option" data-mode="mode-g" onclick="setMode('mode-g')">
+        <div class="mode-option-dot mode-g"></div>
+        <div class="mode-option-content">
+          <div class="mode-option-title">G: Execution (Writing Code)</div>
+          <div class="mode-option-desc">Implement tasks from the decomposition checklist</div>
+          <span class="mode-option-tag online">Online • Writing Code</span>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <!-- Page Content -->
+  <main class="main-content">
+    <div class="container">
+      {% block content %}
+      {% endblock %}
+    </div>
+  </main>
+
+  <script>
+    // ===== THEME SYSTEM (Light/Dark Toggle) =====
+    function setTheme(theme) {
+      localStorage.setItem('harekrishna-theme', theme);
+      document.documentElement.setAttribute('data-theme', theme);
+      document.getElementById('currentThemeIcon').textContent = theme === 'dark' ? '🌙' : '☀️';
+      document.getElementById('currentThemeLabel').textContent = theme === 'dark' ? 'Dark' : 'Light';
+    }
+    
+    function toggleTheme() {
+      const current = localStorage.getItem('harekrishna-theme') || 'light';
+      setTheme(current === 'light' ? 'dark' : 'light');
+    }
+    
+    // Initialize theme
+    const savedTheme = localStorage.getItem('harekrishna-theme') || 'light';
+    setTheme(savedTheme);
+    
+    // ===== WORKFLOW MODE SYSTEM =====
+    const modeNames = {
+      'mode-a': 'A: Context',
+      'mode-b': 'B: Planning',
+      'mode-c': 'C: Drafting',
+      'mode-d': 'D: Review',
+      'mode-e': 'E: Promote',
+      'mode-f': 'F: Sync',
+      'mode-g': 'G: Execute'
+    };
+    
+    function setMode(mode, persist = true) {
+      document.documentElement.setAttribute('data-mode', mode);
+      localStorage.setItem('signalflow-mode', mode);
+      document.getElementById('currentModeName').textContent = modeNames[mode] || mode;
+      
+      // Update active state
+      document.querySelectorAll('.mode-option').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+      });
+      
+      // Close selector
+      document.getElementById('modeSelector').classList.remove('open');
+      
+      // Dispatch custom event for other components (like dashboard workflow panel)
+      document.dispatchEvent(new CustomEvent('modeChanged', { detail: { mode: mode } }));
+      
+      // Save mode change to server for tracking
+      if (persist) {
+        fetch('/api/settings/mode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ mode: mode })
+        }).catch(() => {}); // Silently fail if endpoint doesn't exist
+      }
+    }
+    
+    // Expose for other scripts
+    window.updateModeDisplay = function() {
+      const mode = localStorage.getItem('signalflow-mode') || 'mode-a';
+      document.getElementById('currentModeName').textContent = modeNames[mode] || mode;
+      document.querySelectorAll('.mode-option').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+      });
+    };
+    
+    function toggleModeSelector() {
+      document.getElementById('modeSelector').classList.toggle('open');
+    }
+    
+    // Initialize mode
+    async function initMode() {
+      const savedMode = localStorage.getItem('signalflow-mode') || 'mode-a';
+      try {
+        const response = await fetch('/api/settings/mode', { credentials: 'same-origin' });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.mode) {
+            setMode(data.mode, false);
+            return;
+          }
+        }
+      } catch (err) {}
+      setMode(savedMode);
+    }
+    initMode();
+    
+    // Update current time display
+    function updateTimeDisplay() {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      const timeEl = document.getElementById('currentTime');
+      if (timeEl) timeEl.textContent = timeStr;
+    }
+    updateTimeDisplay();
+    setInterval(updateTimeDisplay, 60000);
+    
+    // Close menus on outside click
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.mode-indicator')) {
+        document.getElementById('modeSelector').classList.remove('open');
+      }
+    });
+
+    // ===== GLOBAL TOAST SYSTEM =====
+    function showToast(title, message, type = 'info') {
+      const container = document.getElementById('globalToastContainer');
+      if (!container) return;
+      
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      
+      const icons = {
+        success: '✓',
+        error: '✕',
+        warning: '⚠',
+        info: 'ℹ'
+      };
+      
+      toast.innerHTML = `
+        <div class="toast-icon">${icons[type] || icons.info}</div>
+        <div class="toast-content">
+          <div class="toast-title">${title}</div>
+          ${message ? `<div class="toast-message">${message}</div>` : ''}
+        </div>
+        <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+      `;
+      
+      container.appendChild(toast);
+      
+      setTimeout(() => {
+        toast.style.animation = 'toastSlideOut 0.3s ease forwards';
+        setTimeout(() => toast.remove(), 300);
+      }, 5000);
+    }
+    
+    // Check for URL params for success/error messages
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('success')) {
+      const msg = urlParams.get('success').replace(/_/g, ' ');
+      showToast('Success', msg.charAt(0).toUpperCase() + msg.slice(1), 'success');
+    }
+    if (urlParams.get('error')) {
+      showToast('Error', urlParams.get('error'), 'error');
+    }
+
+    // ===== DRAWER NAVIGATION =====
+    const drawer = document.querySelector('.drawer');
+    const overlay = document.querySelector('.drawer-overlay');
+    const body = document.body;
+    const pinText = document.getElementById('pin-text');
+    const pinBtn = document.querySelector('.pin-btn');
+
+    // Check localStorage for pinned state
+    if (localStorage.getItem('drawerPinned') === 'true') {
+      body.classList.add('drawer-pinned');
+      pinBtn.classList.add('pinned');
+      pinText.textContent = 'Unpin';
+    }
+
+    function toggleDrawer() {
+      if (body.classList.contains('drawer-pinned')) return;
+      drawer.classList.toggle('open');
+      overlay.classList.toggle('open');
+    }
+
+    function togglePin() {
+      const isPinned = body.classList.toggle('drawer-pinned');
+      pinBtn.classList.toggle('pinned', isPinned);
+      pinText.textContent = isPinned ? 'Unpin' : 'Pin';
+      localStorage.setItem('drawerPinned', isPinned);
+      
+      // Close drawer overlay when pinning
+      if (isPinned) {
+        drawer.classList.remove('open');
+        overlay.classList.remove('open');
+      }
+    }
+  </script>
+
+  <!-- Include assistant chatbot widget -->
 
 </body>
 </html>

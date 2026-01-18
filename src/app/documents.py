@@ -70,6 +70,20 @@ def list_documents(request: Request, success: str = Query(default=None)):
     )
 
 
+@router.get("/documents/{doc_id}")
+def view_document(doc_id: int, request: Request):
+    with connect() as conn:
+        doc = conn.execute(
+            "SELECT * FROM docs WHERE id = ?",
+            (doc_id,),
+        ).fetchone()
+
+    return templates.TemplateResponse(
+        "view_doc.html",
+        {"request": request, "doc": doc},
+    )
+
+
 @router.get("/documents/{doc_id}/edit")
 def edit_document(doc_id: int, request: Request):
     with connect() as conn:
