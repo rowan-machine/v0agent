@@ -1,38 +1,189 @@
 {% extends "base.html" %}
+{% block title %}Edit Meeting - {{ meeting['meeting_name'] }}{% endblock %}
+
 {% block content %}
-<h2>Edit Meeting</h2>
+<div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center gap-2 text-sm text-gray-500 mb-2">
+            <a href="/meetings" class="hover:text-violet-600">Meetings</a>
+            <span>/</span>
+            <span>Edit</span>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-900">Edit Meeting</h1>
+    </div>
 
-{% if meeting['meeting_date'] %}
-<p><strong>Meeting Date:</strong> {{ meeting['meeting_date'] }}</p>
-{% endif %}
+    <form method="POST" class="space-y-6">
+        <!-- Basic Info -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
+            <h2 class="text-lg font-semibold text-gray-900">Meeting Details</h2>
 
-<form method="post">
-  <label>
-    Meeting Name<br>
-    <input type="text" name="meeting_name" value="{{ meeting['meeting_name'] }}" style="width: 400px;">
-  </label>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Meeting Name</label>
+                    <input type="text" name="meeting_name" 
+                           value="{{ meeting['meeting_name'] }}"
+                           class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm
+                                  focus:ring-2 focus:ring-violet-500 focus:border-violet-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Meeting Date</label>
+                    <input type="date" name="meeting_date" 
+                           value="{{ meeting['meeting_date'] }}"
+                           class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm
+                                  focus:ring-2 focus:ring-violet-500 focus:border-violet-500">
+                </div>
+            </div>
 
-  <br><br>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Synthesized Notes</label>
+                <textarea name="synthesized_notes" rows="20"
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm font-mono
+                                 focus:ring-2 focus:ring-violet-500 focus:border-violet-500">{{ meeting['synthesized_notes'] }}</textarea>
+            </div>
+        </div>
 
-  <label>
-    Meeting Date<br>
-    <input type="date" name="meeting_date" value="{{ meeting['meeting_date'] }}" style="width: 200px;">
-  </label>
+        <!-- Attachments Section -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Screenshots & Files</h2>
+            
+            <!-- Drop Zone -->
+            <div id="drop-zone" 
+                 class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center
+                        hover:border-violet-400 hover:bg-violet-50/50 transition-colors cursor-pointer">
+                <input type="file" id="file-input" multiple accept="image/*,.pdf,.txt,.md" class="hidden">
+                <svg class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                <p class="text-gray-600 mb-1">Drag & drop screenshots here</p>
+                <p class="text-sm text-gray-500">or click to browse</p>
+            </div>
 
-  <br><br>
+            <!-- Existing Attachments -->
+            <div class="mt-4 space-y-2" id="attachments-container">
+                <h3 class="text-sm font-medium text-gray-700">Uploaded Files</h3>
+                <div class="grid gap-2" id="attachments-list"></div>
+            </div>
 
-  <label>
-    Synthesized Notes<br>
-    <textarea name="synthesized_notes" rows="25" cols="100" style="margin-top: 5px;">{{ meeting['synthesized_notes'] }}</textarea>
-  </label>
+            <!-- Upload Progress -->
+            <div id="upload-progress" class="mt-4 hidden">
+                <div class="flex items-center gap-2">
+                    <div class="animate-spin w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full"></div>
+                    <span class="text-sm text-gray-600">Uploading...</span>
+                </div>
+            </div>
+        </div>
 
-  <br><br>
+        <!-- Actions -->
+        <div class="flex items-center justify-between">
+            <a href="/meetings/{{ meeting['id'] }}" class="text-gray-500 hover:text-gray-700">Cancel</a>
+            <div class="flex items-center gap-3">
+                <button type="button" onclick="confirmDelete()"
+                        class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    Delete Meeting
+                </button>
+                <button type="submit"
+                        class="px-6 py-2.5 bg-violet-600 text-white font-medium rounded-lg
+                               hover:bg-violet-700 transition-colors">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </form>
 
-  <button type="submit">Update</button>
-</form>
-<form method="post" action="/meetings/{{ meeting['id'] }}/delete">
-  <button type="submit" onclick="return confirm('Delete this meeting?')">
-    Delete Meeting
-  </button>
-</form>
+    <!-- Hidden delete form -->
+    <form id="delete-form" method="POST" action="/meetings/{{ meeting['id'] }}/delete" class="hidden"></form>
+</div>
+
+<script>
+const meetingId = {{ meeting['id'] }};
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const progressDiv = document.getElementById('upload-progress');
+const attachmentsList = document.getElementById('attachments-list');
+const attachmentsContainer = document.getElementById('attachments-container');
+
+async function loadAttachments() {
+    try {
+        const resp = await fetch(`/api/attachments/meeting/${meetingId}`);
+        const data = await resp.json();
+        
+        if (data.attachments && data.attachments.length > 0) {
+            attachmentsContainer.classList.remove('hidden');
+            attachmentsList.innerHTML = data.attachments.map(att => `
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg" data-id="${att.id}">
+                    <div class="flex items-center gap-3">
+                        ${att.mime_type && att.mime_type.startsWith('image/') ? 
+                            `<img src="/uploads/${att.file_path.split('/').pop()}" class="w-10 h-10 object-cover rounded">` :
+                            `<svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>`
+                        }
+                        <span class="text-sm text-gray-700">${att.filename}</span>
+                    </div>
+                    <button type="button" onclick="deleteAttachment(${att.id}, this)"
+                            class="text-red-500 hover:text-red-700 text-sm">Remove</button>
+                </div>
+            `).join('');
+        } else {
+            attachmentsContainer.classList.add('hidden');
+        }
+    } catch (err) {
+        console.error('Error loading attachments:', err);
+    }
+}
+
+loadAttachments();
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('border-violet-500', 'bg-violet-50');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-violet-500', 'bg-violet-50'));
+dropZone.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('border-violet-500', 'bg-violet-50');
+    await uploadFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', async () => await uploadFiles(fileInput.files));
+
+async function uploadFiles(files) {
+    if (!files.length) return;
+    progressDiv.classList.remove('hidden');
+    const formData = new FormData();
+    for (const file of files) formData.append('files', file);
+    
+    try {
+        const resp = await fetch(`/api/upload/meeting/${meetingId}`, { method: 'POST', body: formData });
+        const data = await resp.json();
+        if (data.uploaded) loadAttachments();
+        else alert(data.error || 'Upload failed');
+    } catch (err) {
+        alert('Error uploading: ' + err.message);
+    } finally {
+        progressDiv.classList.add('hidden');
+        fileInput.value = '';
+    }
+}
+
+async function deleteAttachment(id, btn) {
+    if (!confirm('Delete this attachment?')) return;
+    try {
+        await fetch(`/api/attachments/${id}`, { method: 'DELETE' });
+        btn.closest('[data-id]').remove();
+        if (!attachmentsList.children.length) attachmentsContainer.classList.add('hidden');
+    } catch (err) {
+        alert('Error deleting: ' + err.message);
+    }
+}
+
+function confirmDelete() {
+    if (confirm('Are you sure you want to delete this meeting? This cannot be undone.')) {
+        document.getElementById('delete-form').submit();
+    }
+}
+</script>
 {% endblock %}

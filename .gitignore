@@ -4,3 +4,8 @@ agent.db-wal
 .env
 __pycache__/
 .venv
+# Environment variables (contains secrets)
+.env
+.env.local
+*.db
+agent.db

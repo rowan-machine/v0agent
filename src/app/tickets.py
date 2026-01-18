@@ -1,0 +1,541 @@
+# src/app/tickets.py
+"""Ticket management for sprint planning and tracking."""
+
+from fastapi import APIRouter, Request, Form, UploadFile, File
+from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
+from datetime import datetime, timedelta
+import json
+import os
+import uuid
+
+from .db import connect
+from .llm import ask
+from .memory.embed import embed_text, EMBED_MODEL
+from .memory.vector_store import upsert_embedding
+
+router = APIRouter()
+templates = Jinja2Templates(directory="src/app/templates")
+
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+
+# ----- Sprint Settings -----
+
+def get_sprint_settings():
+    """Get current sprint settings."""
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM sprint_settings WHERE id = 1").fetchone()
+    return dict(row) if row else None
+
+
+def get_sprint_day():
+    """Calculate current day of sprint."""
+    settings = get_sprint_settings()
+    if not settings:
+        return None, None, None
+    
+    start = datetime.strptime(settings["sprint_start_date"], "%Y-%m-%d")
+    today = datetime.now()
+    delta = (today - start).days + 1  # Day 1 is the first day
+    
+    sprint_length = settings.get("sprint_length_days", 14)
+    if delta < 1:
+        sprint_day = 0
+    elif delta > sprint_length:
+        sprint_day = sprint_length
+    else:
+        sprint_day = delta
+    
+    # Calculate working days remaining (exclude weekends)
+    remaining_total = max(0, sprint_length - sprint_day)
+    working_days_remaining = 0
+    
+    for i in range(1, remaining_total + 1):
+        future_date = today + timedelta(days=i)
+        if future_date.weekday() < 5:  # Mon-Fri
+            working_days_remaining += 1
+    
+    return sprint_day, sprint_length, working_days_remaining
+
+
+@router.get("/settings/sprint")
+def sprint_settings_page(request: Request):
+    """Sprint settings page."""
+    settings = get_sprint_settings()
+    sprint_day, sprint_length, working_days_remaining = get_sprint_day() if settings else (None, None, None)
+    
+    return templates.TemplateResponse(
+        "sprint_settings.html",
+        {
+            "request": request,
+            "settings": settings,
+            "sprint_day": sprint_day,
+            "sprint_length": sprint_length,
+            "working_days_remaining": working_days_remaining,
+        },
+    )
+
+
+@router.post("/settings/sprint")
+def save_sprint_settings(
+    sprint_start_date: str = Form(...),
+    sprint_length_days: int = Form(14),
+    sprint_name: str = Form(None),
+):
+    """Save sprint settings."""
+    with connect() as conn:
+        conn.execute(
+            """INSERT INTO sprint_settings (id, sprint_start_date, sprint_length_days, sprint_name, updated_at)
+               VALUES (1, ?, ?, ?, datetime('now'))
+               ON CONFLICT(id) DO UPDATE SET
+               sprint_start_date = excluded.sprint_start_date,
+               sprint_length_days = excluded.sprint_length_days,
+               sprint_name = excluded.sprint_name,
+               updated_at = datetime('now')""",
+            (sprint_start_date, sprint_length_days, sprint_name),
+        )
+    return RedirectResponse(url="/settings/sprint?success=saved", status_code=303)
+
+
+# ----- Tickets -----
+
+@router.get("/tickets")
+def list_tickets(request: Request, status: str = None):
+    """List all tickets."""
+    with connect() as conn:
+        if status:
+            tickets = conn.execute(
+                "SELECT * FROM tickets WHERE status = ? ORDER BY created_at DESC",
+                (status,)
+            ).fetchall()
+        else:
+            tickets = conn.execute(
+                "SELECT * FROM tickets ORDER BY CASE status WHEN 'in_progress' THEN 1 WHEN 'todo' THEN 2 ELSE 3 END, created_at DESC"
+            ).fetchall()
+    
+    sprint_day, sprint_length, _ = get_sprint_day()
+    
+    return templates.TemplateResponse(
+        "list_tickets.html",
+        {
+            "request": request,
+            "tickets": tickets,
+            "sprint_day": sprint_day,
+            "sprint_length": sprint_length,
+            "filter_status": status,
+        },
+    )
+
+
+@router.get("/tickets/new")
+def new_ticket_page(request: Request):
+    """New ticket form."""
+    return templates.TemplateResponse(
+        "edit_ticket.html",
+        {"request": request, "ticket": None},
+    )
+
+
+@router.post("/tickets/new")
+def create_ticket(
+    ticket_id: str = Form(...),
+    title: str = Form(...),
+    description: str = Form(None),
+    status: str = Form("todo"),
+    priority: str = Form(None),
+    tags: str = Form(None),
+):
+    """Create a new ticket."""
+    with connect() as conn:
+        cursor = conn.execute(
+            """INSERT INTO tickets (ticket_id, title, description, status, priority, tags)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (ticket_id.strip(), title, description, status, priority, tags),
+        )
+        new_id = cursor.lastrowid
+    
+    # Create embedding
+    text_for_embedding = f"{ticket_id} {title}\n{description or ''}"
+    vector = embed_text(text_for_embedding)
+    upsert_embedding("ticket", new_id, EMBED_MODEL, vector)
+    
+    return RedirectResponse(url=f"/tickets/{new_id}", status_code=303)
+
+
+@router.get("/tickets/{ticket_pk}")
+def view_ticket(request: Request, ticket_pk: int):
+    """View a ticket."""
+    with connect() as conn:
+        ticket = conn.execute(
+            "SELECT * FROM tickets WHERE id = ?", (ticket_pk,)
+        ).fetchone()
+        
+        # Get attachments
+        attachments = conn.execute(
+            "SELECT * FROM attachments WHERE ref_type = 'ticket' AND ref_id = ?",
+            (ticket_pk,)
+        ).fetchall()
+    
+    if not ticket:
+        return RedirectResponse(url="/tickets", status_code=303)
+    
+    return templates.TemplateResponse(
+        "view_ticket.html",
+        {"request": request, "ticket": ticket, "attachments": attachments},
+    )
+
+
+@router.get("/tickets/{ticket_pk}/edit")
+def edit_ticket_page(request: Request, ticket_pk: int):
+    """Edit ticket form."""
+    with connect() as conn:
+        ticket = conn.execute(
+            "SELECT * FROM tickets WHERE id = ?", (ticket_pk,)
+        ).fetchone()
+        
+        attachments = conn.execute(
+            "SELECT * FROM attachments WHERE ref_type = 'ticket' AND ref_id = ?",
+            (ticket_pk,)
+        ).fetchall()
+    
+    return templates.TemplateResponse(
+        "edit_ticket.html",
+        {"request": request, "ticket": ticket, "attachments": attachments},
+    )
+
+
+@router.post("/tickets/{ticket_pk}/edit")
+def update_ticket(
+    ticket_pk: int,
+    ticket_id: str = Form(...),
+    title: str = Form(...),
+    description: str = Form(None),
+    status: str = Form("todo"),
+    priority: str = Form(None),
+    tags: str = Form(None),
+    ai_summary: str = Form(None),
+    implementation_plan: str = Form(None),
+    task_decomposition: str = Form(None),
+):
+    """Update a ticket."""
+    with connect() as conn:
+        conn.execute(
+            """UPDATE tickets SET
+               ticket_id = ?, title = ?, description = ?, status = ?,
+               priority = ?, tags = ?, ai_summary = ?, implementation_plan = ?,
+               task_decomposition = ?, updated_at = datetime('now')
+               WHERE id = ?""",
+            (ticket_id, title, description, status, priority, tags, 
+             ai_summary, implementation_plan, task_decomposition, ticket_pk),
+        )
+    
+    # Update embedding
+    text_for_embedding = f"{ticket_id} {title}\n{description or ''}\n{ai_summary or ''}\n{implementation_plan or ''}"
+    vector = embed_text(text_for_embedding)
+    upsert_embedding("ticket", ticket_pk, EMBED_MODEL, vector)
+    
+    return RedirectResponse(url=f"/tickets/{ticket_pk}?success=updated", status_code=303)
+
+
+@router.post("/tickets/{ticket_pk}/delete")
+def delete_ticket(ticket_pk: int):
+    """Delete a ticket."""
+    with connect() as conn:
+        conn.execute("DELETE FROM tickets WHERE id = ?", (ticket_pk,))
+        conn.execute(
+            "DELETE FROM embeddings WHERE ref_type = 'ticket' AND ref_id = ?",
+            (ticket_pk,)
+        )
+        conn.execute(
+            "DELETE FROM attachments WHERE ref_type = 'ticket' AND ref_id = ?",
+            (ticket_pk,)
+        )
+    return RedirectResponse(url="/tickets?success=deleted", status_code=303)
+
+
+# ----- AI Summary Generation -----
+
+@router.post("/api/tickets/{ticket_pk}/generate-summary")
+async def generate_ticket_summary(ticket_pk: int, request: Request):
+    """Generate AI summary for a ticket.
+    
+    Accepts optional JSON body with:
+    - format_hint: Custom formatting instructions
+    """
+    with connect() as conn:
+        ticket = conn.execute(
+            "SELECT * FROM tickets WHERE id = ?", (ticket_pk,)
+        ).fetchone()
+    
+    if not ticket:
+        return JSONResponse({"error": "Ticket not found"}, status_code=404)
+    
+    # Parse optional format hints from request body
+    format_hint = ""
+    try:
+        body = await request.json()
+        format_hint = body.get("format_hint", "")
+    except:
+        pass
+    
+    # Extract formatting hints from tags
+    tags = ticket['tags'] or ""
+    tag_list = [t.strip().lower() for t in tags.split(',') if t.strip()]
+    
+    # Build format guidance from tags
+    tag_hints = []
+    if 'brief' in tag_list or 'short' in tag_list:
+        tag_hints.append("Keep it very brief - 2-3 sentences max.")
+    if 'detailed' in tag_list or 'verbose' in tag_list:
+        tag_hints.append("Provide detailed coverage of all aspects.")
+    if 'technical' in tag_list or 'tech' in tag_list:
+        tag_hints.append("Focus on technical implementation details.")
+    if 'business' in tag_list or 'stakeholder' in tag_list:
+        tag_hints.append("Frame in business/stakeholder terms, not technical.")
+    if 'bullet' in tag_list or 'bullets' in tag_list:
+        tag_hints.append("Use bullet points for key items.")
+    if 'checklist' in tag_list:
+        tag_hints.append("Format as a checklist with checkboxes.")
+    
+    tag_guidance = "\n".join(tag_hints) if tag_hints else ""
+    custom_guidance = format_hint if format_hint else ""
+    
+    # Build optional sections
+    tag_section = f"**Format guidance from tags:**\n{tag_guidance}\n\n" if tag_guidance else ""
+    custom_section = f"**Custom formatting instructions:**\n{custom_guidance}\n\n" if custom_guidance else ""
+    
+    prompt = f"""Summarize this ticket for a senior data engineer.
+
+**Ticket:** {ticket['ticket_id']} - {ticket['title']}
+
+**Description:**
+{ticket['description'] or 'No description provided'}
+
+**Tags:** {tags or 'None'}
+
+{tag_section}{custom_section}**Output format:**
+- **Goal:** What needs to be done (1-2 sentences)
+- **Key Details:** Technical specifics, affected systems, or data flows
+- **Dependencies:** Any blockers, prerequisites, or related work
+- **Complexity:** Low/Medium/High with brief rationale
+
+Be concise and actionable. Use markdown formatting."""
+
+    try:
+        summary = ask(prompt)
+        
+        # Auto-save the generated summary
+        with connect() as conn:
+            conn.execute(
+                "UPDATE tickets SET ai_summary = ?, updated_at = datetime('now') WHERE id = ?",
+                (summary, ticket_pk)
+            )
+        
+        return JSONResponse({"summary": summary, "saved": True})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.post("/api/tickets/{ticket_pk}/generate-plan")
+async def generate_implementation_plan(ticket_pk: int):
+    """Generate AI implementation plan for a ticket."""
+    with connect() as conn:
+        ticket = conn.execute(
+            "SELECT * FROM tickets WHERE id = ?", (ticket_pk,)
+        ).fetchone()
+    
+    if not ticket:
+        return JSONResponse({"error": "Ticket not found"}, status_code=404)
+    
+    prompt = f"""Create a sprint implementation plan for this ticket. You're helping a senior data engineer working with Airflow, Python, GitLab, and AWS.
+
+Ticket: {ticket['ticket_id']} - {ticket['title']}
+
+Description:
+{ticket['description'] or 'No description provided'}
+
+{f"AI Summary: {ticket['ai_summary']}" if ticket['ai_summary'] else ""}
+
+Create a practical implementation plan with:
+1. **Approach** - High-level strategy (2-3 sentences)
+2. **Steps** - Numbered list of implementation steps
+3. **Files to modify** - Key files/DAGs/modules likely affected
+4. **Testing** - How to validate the work
+5. **Risks** - Potential issues to watch for
+
+Be specific and actionable. Assume access to local development environment."""
+
+    try:
+        plan = ask(prompt)
+        return JSONResponse({"plan": plan})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.post("/api/tickets/{ticket_pk}/save-summary")
+async def save_ticket_summary(request: Request, ticket_pk: int):
+    """Save AI summary to ticket."""
+    data = await request.json()
+    summary = data.get("summary", "")
+    
+    with connect() as conn:
+        conn.execute(
+            "UPDATE tickets SET ai_summary = ?, updated_at = datetime('now') WHERE id = ?",
+            (summary, ticket_pk)
+        )
+    
+    return JSONResponse({"status": "ok"})
+
+
+@router.post("/api/tickets/{ticket_pk}/save-plan")
+async def save_implementation_plan(request: Request, ticket_pk: int):
+    """Save implementation plan to ticket."""
+    data = await request.json()
+    plan = data.get("plan", "")
+    
+    with connect() as conn:
+        conn.execute(
+            "UPDATE tickets SET implementation_plan = ?, updated_at = datetime('now') WHERE id = ?",
+            (plan, ticket_pk)
+        )
+    
+    return JSONResponse({"status": "ok"})
+
+
+@router.post("/api/tickets/{ticket_pk}/generate-decomposition")
+async def generate_task_decomposition(ticket_pk: int):
+    """Generate AI task breakdown for a ticket."""
+    with connect() as conn:
+        ticket = conn.execute(
+            "SELECT * FROM tickets WHERE id = ?", (ticket_pk,)
+        ).fetchone()
+    
+    if not ticket:
+        return JSONResponse({"error": "Ticket not found"}, status_code=404)
+    
+    prompt = f"""Break down this ticket into specific, actionable subtasks. You're helping a senior data engineer working with Airflow, Python, GitLab, and AWS.
+
+Ticket: {ticket['ticket_id']} - {ticket['title']}
+
+Description:
+{ticket['description'] or 'No description provided'}
+
+{f"AI Summary: {ticket['ai_summary']}" if ticket['ai_summary'] else ""}
+{f"Implementation Plan: {ticket['implementation_plan']}" if ticket['implementation_plan'] else ""}
+
+Generate 4-8 specific, atomic tasks that would complete this ticket.
+Return ONLY a JSON array of objects with "text" (task description) and "estimate" (time estimate like "1h", "2h", "30m").
+
+Example format:
+[
+  {{"text": "Create new DAG file for data pipeline", "estimate": "2h"}},
+  {{"text": "Add unit tests for transformer function", "estimate": "1h"}}
+]
+
+Return ONLY the JSON array, no markdown or explanation."""
+
+    try:
+        result = ask(prompt)
+        # Parse the JSON response
+        import re
+        # Extract JSON from response (handles markdown code blocks)
+        json_match = re.search(r'\[[\s\S]*\]', result)
+        if json_match:
+            tasks = json.loads(json_match.group())
+            return JSONResponse({"tasks": tasks, "ai_response": result})
+        else:
+            return JSONResponse({"error": "Could not parse task breakdown"}, status_code=500)
+    except json.JSONDecodeError:
+        return JSONResponse({"error": "Invalid JSON in AI response"}, status_code=500)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+# ----- File Uploads -----
+
+@router.post("/api/upload/{ref_type}/{ref_id}")
+async def upload_files(
+    ref_type: str,
+    ref_id: int,
+    files: list[UploadFile] = File(...),
+):
+    """Upload multiple files (screenshots, etc.) for a meeting, doc, or ticket."""
+    if ref_type not in ["meeting", "doc", "ticket"]:
+        return JSONResponse({"error": "Invalid ref_type"}, status_code=400)
+    
+    uploaded = []
+    
+    for file in files:
+        # Generate unique filename
+        ext = os.path.splitext(file.filename)[1]
+        unique_name = f"{ref_type}_{ref_id}_{uuid.uuid4().hex[:8]}{ext}"
+        file_path = os.path.join(UPLOAD_DIR, unique_name)
+        
+        # Save file
+        content = await file.read()
+        with open(file_path, "wb") as f:
+            f.write(content)
+        
+        # Generate AI description for images
+        ai_description = None
+        if file.content_type and file.content_type.startswith("image/"):
+            ai_description = f"Screenshot uploaded for {ref_type} {ref_id}: {file.filename}"
+        
+        # Save to database
+        with connect() as conn:
+            cursor = conn.execute(
+                """INSERT INTO attachments (ref_type, ref_id, filename, file_path, mime_type, file_size, ai_description)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (ref_type, ref_id, file.filename, file_path, file.content_type, len(content), ai_description)
+            )
+            attach_id = cursor.lastrowid
+        
+        # Create embedding for the attachment
+        embed_text_content = f"Attachment: {file.filename} for {ref_type}. {ai_description or ''}"
+        vector = embed_text(embed_text_content)
+        upsert_embedding("attachment", attach_id, EMBED_MODEL, vector)
+        
+        uploaded.append({
+            "id": attach_id,
+            "filename": file.filename,
+            "path": file_path,
+        })
+    
+    return JSONResponse({"uploaded": uploaded, "count": len(uploaded)})
+
+
+@router.delete("/api/attachments/{attachment_id}")
+async def delete_attachment(attachment_id: int):
+    """Delete an attachment."""
+    with connect() as conn:
+        # Get file path first
+        attach = conn.execute(
+            "SELECT file_path FROM attachments WHERE id = ?", (attachment_id,)
+        ).fetchone()
+        
+        if attach and os.path.exists(attach["file_path"]):
+            os.remove(attach["file_path"])
+        
+        conn.execute("DELETE FROM attachments WHERE id = ?", (attachment_id,))
+        conn.execute(
+            "DELETE FROM embeddings WHERE ref_type = 'attachment' AND ref_id = ?",
+            (attachment_id,)
+        )
+    
+    return JSONResponse({"status": "ok"})
+
+
+@router.get("/api/attachments/{ref_type}/{ref_id}")
+async def list_attachments(ref_type: str, ref_id: int):
+    """List attachments for a reference."""
+    with connect() as conn:
+        attachments = conn.execute(
+            "SELECT * FROM attachments WHERE ref_type = ? AND ref_id = ?",
+            (ref_type, ref_id)
+        ).fetchall()
+    
+    return JSONResponse({
+        "attachments": [dict(a) for a in attachments]
+    })

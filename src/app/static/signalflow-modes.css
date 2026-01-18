@@ -1,0 +1,834 @@
+/* SignalFlow Workflow Modes & Time-Aware Themes */
+/* Sprint-aligned modes with time-of-day awareness */
+
+:root {
+  /* Mode Colors - Each mode has a signature color */
+  --mode-a-color: #8b5cf6; /* Context Distillation - Violet/Purple - Thoughtful */
+  --mode-b-color: #3b82f6; /* Implementation Planning - Blue - Strategic */
+  --mode-c-color: #10b981; /* Assisted Draft - Green - Creative/Growth */
+  --mode-d-color: #f59e0b; /* Deep Review - Amber - Careful/Warning */
+  --mode-e-color: #ef4444; /* Promotion/Delivery - Red - Action/Urgent */
+  --mode-f-color: #06b6d4; /* Controlled Ingress - Cyan - Sync/Transfer */
+  --mode-g-color: #6366f1; /* Execution Writing Code - Indigo - Focus */
+  
+  /* Current mode tracking */
+  --current-mode-color: var(--sf-primary);
+  --current-mode-glow: rgba(102, 126, 234, 0.3);
+}
+
+/* ===== TIME-AWARE THEMES ===== */
+/* These auto-apply based on time of day */
+
+/* Dawn (5am-8am) - Soft, warm awakening */
+[data-time="dawn"] {
+  --sf-bg: #fef7ed;
+  --sf-surface: #fffbf5;
+  --sf-card-bg: #fffbf5;
+  --sf-nav-bg: #7c2d12;
+  --sf-border: #fed7aa;
+  --sf-text: #451a03;
+  --sf-text-muted: #78350f;
+  --sf-primary: #f97316;
+  --sf-secondary: #fb923c;
+  --sf-link: #ea580c;
+  --sf-link-hover: #c2410c;
+  --sf-gradient-primary: linear-gradient(135deg, #fdba74 0%, #fb923c 50%, #f97316 100%);
+}
+
+/* Morning (8am-12pm) - Bright, energized, clear */
+[data-time="morning"] {
+  --sf-bg: #f0fdf4;
+  --sf-surface: #ffffff;
+  --sf-card-bg: #ffffff;
+  --sf-nav-bg: #14532d;
+  --sf-border: #bbf7d0;
+  --sf-text: #1a2e1a;
+  --sf-text-muted: #3f6b3f;
+  --sf-primary: #22c55e;
+  --sf-secondary: #10b981;
+  --sf-link: #16a34a;
+  --sf-link-hover: #15803d;
+  --sf-gradient-primary: linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%);
+}
+
+/* Afternoon (12pm-5pm) - Focused, productive blue */
+[data-time="afternoon"] {
+  --sf-bg: #eff6ff;
+  --sf-surface: #ffffff;
+  --sf-card-bg: #ffffff;
+  --sf-nav-bg: #1e3a5f;
+  --sf-border: #bfdbfe;
+  --sf-text: #1e293b;
+  --sf-text-muted: #475569;
+  --sf-primary: #3b82f6;
+  --sf-secondary: #6366f1;
+  --sf-link: #2563eb;
+  --sf-link-hover: #1d4ed8;
+  --sf-gradient-primary: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+}
+
+/* Evening (5pm-8pm) - Winding down, warm purple */
+[data-time="evening"] {
+  --sf-bg: #faf5ff;
+  --sf-surface: #ffffff;
+  --sf-card-bg: #ffffff;
+  --sf-nav-bg: #3b0764;
+  --sf-border: #e9d5ff;
+  --sf-text: #2e1a47;
+  --sf-text-muted: #5b4178;
+  --sf-primary: #8b5cf6;
+  --sf-secondary: #a855f7;
+  --sf-link: #7c3aed;
+  --sf-link-hover: #6d28d9;
+  --sf-gradient-primary: linear-gradient(135deg, #c084fc 0%, #8b5cf6 50%, #7c3aed 100%);
+}
+
+/* Night (8pm-12am) - Deep, restful, low contrast */
+[data-time="night"] {
+  --sf-bg: #0f172a;
+  --sf-surface: #1e293b;
+  --sf-card-bg: #1e293b;
+  --sf-nav-bg: #0f172a;
+  --sf-border: #334155;
+  --sf-text: #e2e8f0;
+  --sf-text-muted: #94a3b8;
+  --sf-primary: #818cf8;
+  --sf-secondary: #a78bfa;
+  --sf-link: #a5b4fc;
+  --sf-link-hover: #c7d2fe;
+  --sf-gradient-primary: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #818cf8 100%);
+}
+
+/* Late Night (12am-5am) - Minimal, zen, dark */
+[data-time="latenight"] {
+  --sf-bg: #030712;
+  --sf-surface: #0f172a;
+  --sf-card-bg: #0f172a;
+  --sf-nav-bg: #030712;
+  --sf-border: #1e293b;
+  --sf-text: #94a3b8;
+  --sf-text-muted: #64748b;
+  --sf-primary: #475569;
+  --sf-secondary: #64748b;
+  --sf-link: #64748b;
+  --sf-link-hover: #94a3b8;
+  --sf-gradient-primary: linear-gradient(135deg, #334155 0%, #475569 50%, #64748b 100%);
+}
+
+/* ===== WORKFLOW MODE THEMES ===== */
+
+/* Mode A - Context Distillation & Canonicalization */
+[data-mode="mode-a"] {
+  --sf-primary: var(--mode-a-color);
+  --sf-secondary: #a78bfa;
+  --sf-gradient-primary: linear-gradient(135deg, #c4b5fd 0%, #8b5cf6 50%, #7c3aed 100%);
+  --current-mode-color: var(--mode-a-color);
+  --current-mode-glow: rgba(139, 92, 246, 0.3);
+}
+
+/* Mode B - Implementation Planning */
+[data-mode="mode-b"] {
+  --sf-primary: var(--mode-b-color);
+  --sf-secondary: #60a5fa;
+  --sf-gradient-primary: linear-gradient(135deg, #93c5fd 0%, #3b82f6 50%, #2563eb 100%);
+  --current-mode-color: var(--mode-b-color);
+  --current-mode-glow: rgba(59, 130, 246, 0.3);
+}
+
+/* Mode C - Assisted Draft Intake */
+[data-mode="mode-c"] {
+  --sf-primary: var(--mode-c-color);
+  --sf-secondary: #34d399;
+  --sf-gradient-primary: linear-gradient(135deg, #6ee7b7 0%, #10b981 50%, #059669 100%);
+  --current-mode-color: var(--mode-c-color);
+  --current-mode-glow: rgba(16, 185, 129, 0.3);
+}
+
+/* Mode D - Assisted Deep Review & Validation */
+[data-mode="mode-d"] {
+  --sf-primary: var(--mode-d-color);
+  --sf-secondary: #fbbf24;
+  --sf-gradient-primary: linear-gradient(135deg, #fcd34d 0%, #f59e0b 50%, #d97706 100%);
+  --current-mode-color: var(--mode-d-color);
+  --current-mode-glow: rgba(245, 158, 11, 0.3);
+}
+
+/* Mode E - Promotion, Delivery & Narrative */
+[data-mode="mode-e"] {
+  --sf-primary: var(--mode-e-color);
+  --sf-secondary: #f87171;
+  --sf-gradient-primary: linear-gradient(135deg, #fca5a5 0%, #ef4444 50%, #dc2626 100%);
+  --current-mode-color: var(--mode-e-color);
+  --current-mode-glow: rgba(239, 68, 68, 0.3);
+}
+
+/* Mode F - Controlled Ingress/Egress (Work Machine) */
+[data-mode="mode-f"] {
+  --sf-primary: var(--mode-f-color);
+  --sf-secondary: #22d3ee;
+  --sf-gradient-primary: linear-gradient(135deg, #67e8f9 0%, #06b6d4 50%, #0891b2 100%);
+  --current-mode-color: var(--mode-f-color);
+  --current-mode-glow: rgba(6, 182, 212, 0.3);
+}
+
+/* Mode G - Execution Writing Code */
+[data-mode="mode-g"] {
+  --sf-primary: var(--mode-g-color);
+  --sf-secondary: #818cf8;
+  --sf-gradient-primary: linear-gradient(135deg, #c7d2fe 0%, #6366f1 50%, #4f46e5 100%);
+  --current-mode-color: var(--mode-g-color);
+  --current-mode-glow: rgba(99, 102, 241, 0.3);
+}
+
+/* ===== MODE INDICATOR ===== */
+
+.mode-indicator {
+  position: fixed;
+  top: 70px;
+  right: 1rem;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.mode-badge {
+  background: var(--sf-surface);
+  border: 2px solid var(--current-mode-color);
+  border-radius: 12px;
+  padding: 0.6rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  box-shadow: 0 4px 12px var(--current-mode-glow), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.mode-badge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px var(--current-mode-glow), 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+.mode-badge-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--current-mode-color);
+  animation: mode-pulse 2s ease-in-out infinite;
+}
+
+@keyframes mode-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+}
+
+.mode-badge-text {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--sf-text);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.mode-badge-time {
+  font-size: 0.7rem;
+  color: var(--sf-text-muted);
+  margin-left: auto;
+}
+
+/* Dark mode specific overrides for mode badge */
+[data-theme="dark"] .mode-badge {
+  background: #3d3d3d;
+  border-color: var(--current-mode-color);
+}
+
+[data-theme="dark"] .mode-badge-text {
+  color: #ffffff;
+}
+
+/* Mode Selector Dropdown */
+.mode-selector {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 0.5rem;
+  background: var(--sf-surface);
+  border: 1px solid var(--sf-border);
+  border-radius: 12px;
+  padding: 0.5rem;
+  min-width: 280px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+  display: none;
+  z-index: 110;
+}
+
+.mode-selector.open {
+  display: block;
+  animation: fadeSlideDown 0.2s ease;
+}
+
+@keyframes fadeSlideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mode-selector-header {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--sf-border);
+  margin-bottom: 0.5rem;
+}
+
+.mode-selector-header h4 {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--sf-text-muted);
+  margin: 0;
+}
+
+.mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.mode-option:hover {
+  background: rgba(102, 126, 234, 0.08);
+}
+
+.mode-option.active {
+  background: rgba(102, 126, 234, 0.12);
+  border-left: 3px solid var(--sf-primary);
+}
+
+.mode-option.offline {
+  border-left: 3px solid transparent;
+}
+
+.mode-option.offline.active {
+  border-left-color: var(--sf-primary);
+}
+
+.mode-option-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.mode-option-dot.mode-a { background: var(--mode-a-color); }
+.mode-option-dot.mode-b { background: var(--mode-b-color); }
+.mode-option-dot.mode-c { background: var(--mode-c-color); }
+.mode-option-dot.mode-d { background: var(--mode-d-color); }
+.mode-option-dot.mode-e { background: var(--mode-e-color); }
+.mode-option-dot.mode-f { background: var(--mode-f-color); }
+.mode-option-dot.mode-g { background: var(--mode-g-color); }
+
+.mode-option-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.mode-option-title {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--sf-text);
+  margin-bottom: 0.15rem;
+}
+
+.mode-option-desc {
+  font-size: 0.75rem;
+  color: var(--sf-text-muted);
+  line-height: 1.4;
+}
+
+.mode-option-tag {
+  font-size: 0.6rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: var(--sf-border);
+  color: var(--sf-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-top: 0.3rem;
+  display: inline-block;
+}
+
+.mode-option-tag.offline {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.mode-option-tag.online {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+/* Mode Divider */
+.mode-divider {
+  height: 1px;
+  background: var(--sf-border);
+  margin: 0.5rem 0;
+}
+
+.mode-divider-label {
+  font-size: 0.65rem;
+  color: var(--sf-text-muted);
+  text-transform: uppercase;
+  padding: 0.25rem 0.75rem;
+  letter-spacing: 0.5px;
+}
+
+/* ===== WORKFLOW PANEL ===== */
+
+.workflow-panel {
+  background: var(--sf-surface);
+  border: 1px solid var(--sf-border);
+  border-radius: 16px;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.workflow-panel-header {
+  background: var(--sf-gradient-primary);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.workflow-panel-title {
+  color: white;
+  font-weight: 600;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.workflow-panel-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.workflow-btn {
+  background: rgba(255,255,255,0.2);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.workflow-btn:hover {
+  background: rgba(255,255,255,0.3);
+}
+
+.workflow-btn.primary {
+  background: white;
+  color: var(--sf-primary);
+  font-weight: 500;
+}
+
+.workflow-panel-content {
+  padding: 1.25rem;
+}
+
+/* Workflow Checklist */
+.workflow-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.workflow-checklist-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--sf-border);
+}
+
+.workflow-checklist-item:last-child {
+  border-bottom: none;
+}
+
+.workflow-checkbox {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  border: 2px solid var(--sf-border);
+  border-radius: 4px;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  margin-top: 2px;
+}
+
+.workflow-checkbox:hover {
+  border-color: var(--sf-primary);
+}
+
+.workflow-checkbox.checked {
+  background: var(--sf-primary);
+  border-color: var(--sf-primary);
+}
+
+.workflow-checkbox.checked::after {
+  content: '✓';
+  color: white;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.workflow-checklist-content {
+  flex: 1;
+}
+
+.workflow-checklist-title {
+  font-weight: 500;
+  color: var(--sf-text);
+  font-size: 0.9rem;
+  margin-bottom: 0.15rem;
+}
+
+.workflow-checklist-desc {
+  font-size: 0.8rem;
+  color: var(--sf-text-muted);
+  line-height: 1.4;
+}
+
+.workflow-checklist-item.completed .workflow-checklist-title {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+/* Workflow Progress */
+.workflow-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--sf-border);
+}
+
+.workflow-progress-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--sf-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.workflow-progress-fill {
+  height: 100%;
+  background: var(--sf-gradient-primary);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.workflow-progress-text {
+  font-size: 0.8rem;
+  color: var(--sf-text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ===== SPRINT PHASE INDICATOR ===== */
+
+.sprint-phase {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--sf-surface);
+  border: 1px solid var(--sf-border);
+  border-radius: 20px;
+  font-size: 0.8rem;
+}
+
+.sprint-phase-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Sprint day-based phases */
+.sprint-phase.planning { /* Days 1-2 */
+  border-color: var(--mode-b-color);
+}
+.sprint-phase.planning .sprint-phase-dot {
+  background: var(--mode-b-color);
+}
+
+.sprint-phase.building { /* Days 3-8 */
+  border-color: var(--mode-c-color);
+}
+.sprint-phase.building .sprint-phase-dot {
+  background: var(--mode-c-color);
+}
+
+.sprint-phase.review { /* Days 9-12 */
+  border-color: var(--mode-d-color);
+}
+.sprint-phase.review .sprint-phase-dot {
+  background: var(--mode-d-color);
+}
+
+.sprint-phase.delivery { /* Days 13-14 */
+  border-color: var(--mode-e-color);
+}
+.sprint-phase.delivery .sprint-phase-dot {
+  background: var(--mode-e-color);
+}
+
+/* ===== TIME INDICATOR ===== */
+
+.time-indicator {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  z-index: 100;
+}
+
+.time-badge {
+  background: var(--sf-surface);
+  border: 1px solid var(--sf-border);
+  border-radius: 20px;
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--sf-text-muted);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.time-badge:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.time-badge-icon {
+  font-size: 1rem;
+}
+
+/* Time Period Icons */
+[data-time="dawn"] .time-badge-icon::before { content: '🌅'; }
+[data-time="morning"] .time-badge-icon::before { content: '☀️'; }
+[data-time="afternoon"] .time-badge-icon::before { content: '🌤️'; }
+[data-time="evening"] .time-badge-icon::before { content: '🌆'; }
+[data-time="night"] .time-badge-icon::before { content: '🌙'; }
+[data-time="latenight"] .time-badge-icon::before { content: '🌑'; }
+
+/* Time Settings Panel */
+.time-settings {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 0.5rem;
+  background: var(--sf-surface);
+  border: 1px solid var(--sf-border);
+  border-radius: 12px;
+  padding: 0.75rem;
+  min-width: 200px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+  display: none;
+}
+
+.time-settings.open {
+  display: block;
+  animation: fadeSlideUp 0.2s ease;
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.time-settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.time-settings-label {
+  color: var(--sf-text);
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: var(--sf-border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.toggle-switch.active {
+  background: var(--sf-primary);
+}
+
+.toggle-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.toggle-switch.active::after {
+  transform: translateX(20px);
+}
+
+/* ===== RESPONSIVE ===== */
+
+@media (max-width: 768px) {
+  .mode-indicator {
+    top: auto;
+    bottom: 70px;
+    right: 1rem;
+  }
+  
+  .mode-selector {
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 100%;
+    top: auto;
+    margin-bottom: 0.5rem;
+    margin-top: 0;
+  }
+  
+  .time-indicator {
+    bottom: auto;
+    top: 70px;
+    left: 1rem;
+  }
+  
+  .workflow-panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  
+  .workflow-panel-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* ===== MODE-SPECIFIC WORKFLOW PANEL STYLES ===== */
+
+/* Mode A: Context Distillation - Violet */
+.workflow-panel.mode-a .workflow-panel-header {
+  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+}
+.workflow-panel.mode-a .workflow-checkbox.checked {
+  background: #8b5cf6;
+  border-color: #8b5cf6;
+}
+.workflow-panel.mode-a .workflow-progress-fill {
+  background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+}
+
+/* Mode B: Implementation Planning - Blue */
+.workflow-panel.mode-b .workflow-panel-header {
+  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+}
+.workflow-panel.mode-b .workflow-checkbox.checked {
+  background: #3b82f6;
+  border-color: #3b82f6;
+}
+.workflow-panel.mode-b .workflow-progress-fill {
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+/* Mode C: Assisted Draft Intake - Green */
+.workflow-panel.mode-c .workflow-panel-header {
+  background: linear-gradient(135deg, #22c55e 0%, #4ade80 100%);
+}
+.workflow-panel.mode-c .workflow-checkbox.checked {
+  background: #22c55e;
+  border-color: #22c55e;
+}
+.workflow-panel.mode-c .workflow-progress-fill {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+
+/* Mode D: Deep Review - Amber/Orange */
+.workflow-panel.mode-d .workflow-panel-header {
+  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+}
+.workflow-panel.mode-d .workflow-checkbox.checked {
+  background: #f59e0b;
+  border-color: #f59e0b;
+}
+.workflow-panel.mode-d .workflow-progress-fill {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+/* Mode E: Promotion Readiness - Red/Rose */
+.workflow-panel.mode-e .workflow-panel-header {
+  background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+}
+.workflow-panel.mode-e .workflow-checkbox.checked {
+  background: #ef4444;
+  border-color: #ef4444;
+}
+.workflow-panel.mode-e .workflow-progress-fill {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+/* Mode F: Controlled Ingress/Egress - Cyan */
+.workflow-panel.mode-f .workflow-panel-header {
+  background: linear-gradient(135deg, #06b6d4 0%, #22d3ee 100%);
+}
+.workflow-panel.mode-f .workflow-checkbox.checked {
+  background: #06b6d4;
+  border-color: #06b6d4;
+}
+.workflow-panel.mode-f .workflow-progress-fill {
+  background: linear-gradient(90deg, #06b6d4, #22d3ee);
+}
+
+/* Mode G: Execution Writing Code - Indigo */
+.workflow-panel.mode-g .workflow-panel-header {
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+}
+.workflow-panel.mode-g .workflow-checkbox.checked {
+  background: #6366f1;
+  border-color: #6366f1;
+}
+.workflow-panel.mode-g .workflow-progress-fill {
+  background: linear-gradient(90deg, #6366f1, #818cf8);
+}

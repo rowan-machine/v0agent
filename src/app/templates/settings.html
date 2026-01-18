@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<style>
+  .settings-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  .settings-section {
+    background: white;
+    border: 1px solid #e8e8e8;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .settings-section h2 {
+    margin: 0 0 1rem 0;
+    font-size: 1.3rem;
+    color: var(--sf-text-dark, #1a1a1a);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .settings-section p {
+    color: #666;
+    margin: 0 0 1rem 0;
+    font-size: 0.9rem;
+  }
+
+  .setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #f9fafb;
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+  }
+
+  .setting-info {
+    flex: 1;
+  }
+
+  .setting-info h3 {
+    margin: 0 0 0.25rem 0;
+    font-size: 1rem;
+    color: #1a1a1a;
+  }
+
+  .setting-info p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #666;
+  }
+
+  .toggle-switch {
+    position: relative;
+    width: 60px;
+    height: 32px;
+    flex-shrink: 0;
+  }
+
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.3s;
+    border-radius: 34px;
+  }
+
+  .toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 24px;
+    width: 24px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+  }
+
+  .toggle-switch input:checked + .toggle-slider {
+    background-color: #667eea;
+  }
+
+  .toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(28px);
+  }
+
+  .warning-banner {
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+    display: none;
+  }
+
+  .warning-banner.show {
+    display: block;
+  }
+
+  .warning-banner strong {
+    color: #92400e;
+  }
+
+  .warning-banner p {
+    margin: 0.5rem 0 0 0;
+    color: #78350f;
+  }
+</style>
+
+<div class="settings-container">
+  <h1>⚙️ Settings</h1>
+
+  <div class="settings-section">
+    <h2>🔒 Security</h2>
+    <p>Control access to your Hare Krishna workspace</p>
+
+    <div class="setting-item">
+      <div class="setting-info">
+        <h3>Require Access Code</h3>
+        <p>When enabled, users must enter an access code to use the application</p>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="authToggle" onchange="toggleAuth()">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <div class="warning-banner" id="authWarning">
+      <strong>⚠️ Authentication Disabled</strong>
+      <p>Anyone with access to this URL can view and modify your data. Only disable authentication in secure, private environments.</p>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h2>🤖 AI Settings</h2>
+    <p>Configure AI model and behavior</p>
+
+    <div class="setting-item">
+      <div class="setting-info">
+        <h3>Current Model</h3>
+        <p id="currentModel">Loading...</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h2>🎯 Sprint Configuration</h2>
+    <p>Manage sprint settings and timelines</p>
+
+    <div class="setting-item">
+      <a href="/settings/sprint" style="text-decoration: none; color: inherit; display: block; width: 100%;">
+        <div class="setting-info">
+          <h3>Sprint Settings →</h3>
+          <p>Configure sprint duration, start date, and name</p>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <div class="settings-section">
+    <h2>🌱 Career Development Profile</h2>
+    <p>Define your career goals to get personalized growth suggestions</p>
+
+    <div style="display: grid; gap: 1rem;">
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Current Role</label>
+        <input type="text" id="currentRole" placeholder="e.g., Senior Data Engineer" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem;">
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Target Role / Goal</label>
+        <input type="text" id="targetRole" placeholder="e.g., Knowledge Engineer" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem;">
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Strengths</label>
+        <textarea id="strengths" rows="2" placeholder="e.g., Systems thinking, data architecture" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Areas to Develop</label>
+        <textarea id="weaknesses" rows="2" placeholder="e.g., Knowledge graphs, semantic web technologies" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Interests & Technologies</label>
+        <textarea id="interests" rows="2" placeholder="e.g., Data lineage, data catalog, enterprise solutions" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Career Goals</label>
+        <textarea id="goals" rows="3" placeholder="Describe your career aspirations and what you want to achieve" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <button onclick="saveCareerProfile()" 
+        style="background: #26a69a; color: white; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+        💾 Save Career Profile
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Load current auth status
+  async function loadAuthStatus() {
+    try {
+      const response = await fetch('/api/settings/auth', { credentials: 'same-origin' });
+      const data = await response.json();
+      
+      document.getElementById('authToggle').checked = data.enabled;
+      document.getElementById('authWarning').classList.toggle('show', !data.enabled);
+    } catch (err) {
+      console.error('Failed to load auth status:', err);
+    }
+  }
+
+  // Toggle authentication
+  async function toggleAuth() {
+    const enabled = document.getElementById('authToggle').checked;
+    
+    try {
+      const response = await fetch('/api/settings/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ enabled: enabled })
+      });
+      
+      if (response.ok) {
+        document.getElementById('authWarning').classList.toggle('show', !enabled);
+        showToast(
+          enabled ? 'Authentication enabled' : 'Authentication disabled',
+          enabled ? 'success' : 'warning'
+        );
+      }
+    } catch (err) {
+      console.error('Failed to toggle auth:', err);
+      // Revert toggle on error
+      document.getElementById('authToggle').checked = !enabled;
+    }
+  }
+
+  // Load current model
+  async function loadCurrentModel() {
+    try {
+      const response = await fetch('/api/settings/model', { credentials: 'same-origin' });
+      const data = await response.json();
+      document.getElementById('currentModel').textContent = data.model || 'gpt-4o-mini';
+    } catch (err) {
+      document.getElementById('currentModel').textContent = 'Error loading model';
+    }
+  }
+
+  // Load career profile
+  async function loadCareerProfile() {
+    try {
+      const response = await fetch('/api/career/profile', { credentials: 'same-origin' });
+      if (response.ok) {
+        const profile = await response.json();
+        document.getElementById('currentRole').value = profile.current_role || '';
+        document.getElementById('targetRole').value = profile.target_role || '';
+        document.getElementById('strengths').value = profile.strengths || '';
+        document.getElementById('weaknesses').value = profile.weaknesses || '';
+        document.getElementById('interests').value = profile.interests || '';
+        document.getElementById('goals').value = profile.goals || '';
+      }
+    } catch (err) {
+      console.error('Failed to load career profile:', err);
+    }
+  }
+
+  // Save career profile
+  async function saveCareerProfile() {
+    const profile = {
+      current_role: document.getElementById('currentRole').value,
+      target_role: document.getElementById('targetRole').value,
+      strengths: document.getElementById('strengths').value,
+      weaknesses: document.getElementById('weaknesses').value,
+      interests: document.getElementById('interests').value,
+      goals: document.getElementById('goals').value
+    };
+
+    try {
+      const response = await fetch('/api/career/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(profile)
+      });
+
+      if (response.ok) {
+        showToast('Career profile saved successfully!', 'success');
+      } else {
+        throw new Error('Failed to save');
+      }
+    } catch (err) {
+      console.error('Failed to save career profile:', err);
+      showToast('Failed to save career profile', 'error');
+    }
+  }
+
+  // Toast notification
+  function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: ${type === 'success' ? '#10b981' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
+      color: white;
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 9999;
+      font-weight: 500;
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(20px)';
+      toast.style.transition = 'all 0.3s';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  // Load on page load
+  loadAuthStatus();
+  loadCurrentModel();
+  loadCareerProfile();
+</script>
+{% endblock %}

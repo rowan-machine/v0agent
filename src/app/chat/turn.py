@@ -10,10 +10,33 @@ from .models import add_message, get_recent_messages
 from ..memory.retrieve import retrieve
 from ..memory.semantic import semantic_search
 from ..memory.rank import rank_items
+from ..db import connect
 
 from ..llm import answer as llm_answer
 
 MAX_CONTEXT = 6
+
+
+def get_meeting_content_with_screenshots(meeting_id: int, base_content: str) -> str:
+    """Append screenshot summaries to meeting content if available."""
+    try:
+        with connect() as conn:
+            screenshots = conn.execute(
+                """
+                SELECT image_summary FROM meeting_screenshots
+                WHERE meeting_id = ? AND image_summary IS NOT NULL
+                """,
+                (meeting_id,)
+            ).fetchall()
+        
+        if screenshots:
+            screenshot_text = "\n\n[Meeting Screenshots]:\n" + "\n".join(
+                [f"- {s['image_summary']}" for s in screenshots]
+            )
+            return base_content + screenshot_text
+    except:
+        pass
+    return base_content
 
 
 # ============================================================
@@ -59,11 +82,12 @@ def run_turn(
         })
 
     for m in raw["meetings"]:
+        content = get_meeting_content_with_screenshots(m["id"], m["synthesized_notes"])
         items.append({
             "type": "meetings",
             "id": m["id"],
             "label": m["meeting_name"],
-            "content": m["synthesized_notes"],
+            "content": content,
             "created_at": m["created_at"],
         })
 
@@ -80,11 +104,12 @@ def run_turn(
 
     if effective_source in ("meetings", "both"):
         for m in semantic_search(question, "meeting"):
+            content = get_meeting_content_with_screenshots(m["id"], m["synthesized_notes"])
             items.append({
                 "type": "meetings",
                 "id": m["id"],
                 "label": m["meeting_name"],
-                "content": m["synthesized_notes"],
+                "content": content,
                 "created_at": m["created_at"],
             })
 
@@ -164,11 +189,12 @@ def run_chat_turn(
         })
 
     for m in raw["meetings"]:
+        content = get_meeting_content_with_screenshots(m["id"], m["synthesized_notes"])
         items.append({
             "type": "meetings",
             "id": m["id"],
             "label": m["meeting_name"],
-            "content": m["synthesized_notes"],
+            "content": content,
             "created_at": m["created_at"],
         })
 
@@ -183,11 +209,12 @@ def run_chat_turn(
         })
 
     for m in semantic_search(question, "meeting"):
+        content = get_meeting_content_with_screenshots(m["id"], m["synthesized_notes"])
         items.append({
             "type": "meetings",
             "id": m["id"],
             "label": m["meeting_name"],
-            "content": m["synthesized_notes"],
+            "content": content,
             "created_at": m["created_at"],
         })
 

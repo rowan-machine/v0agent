@@ -1,32 +1,46 @@
 ---
-description: Guidance for implementing FastAPI routes for meeting and document CRUD operations with domain-specific business logic
+description: Documentation for FastAPI routes implementing CRUD operations for meetings and document management endpoints
 ---
 
 
 # api-endpoints
 
-The API routes specification focuses on meeting and document management with domain-specific implementation. Based on the provided information about the Meeting Processing Pipeline and Signal Extraction System, the following business logic patterns should be implemented in the endpoints:
+The API endpoints implement specialized meeting management and signal processing workflows:
 
-## Meeting Endpoints (Importance: 85/100)
-- Support specialized handling for meeting bundles containing summaries, transcripts and structured signals
-- Enable processing of domain-specific sections like Decisions, Action Items, Blockers, Risks, Ideas
-- Facilitate extraction and persistence of synthesized authoritative signals
-- Implement organizational formatting standards for meeting summaries
-- Support document hierarchy specific to meetings and transcripts
+## Meeting Bundle Processing
+Path: src/app/api/assistant.py
+Importance Score: 90
+- Sophisticated context building for AI assistance with multiple data sources
+- Business-specific intent parsing for ticket creation and accountability tracking
+- Integration of sprint information, recent meetings, and accountability items
+- Custom execution logic for business intents (create_ticket, update_ticket, create_accountability)
 
-## Knowledge Retrieval Endpoints (Importance: 75/100) 
-- Expose custom ranking functionality incorporating source type preferences
-- Support time-based relevance querying
-- Enable term matching with business context
-- Implement hybrid scoring for documents and meetings
-- Support domain-specific query planning with time context understanding
+## Career Development Endpoints
+Path: src/app/api/career.py 
+Importance Score: 80
+- Advanced career suggestion generation via profile matching
+- Work history and skills integration with career development paths
+- Custom conversion between career suggestions and actionable tickets
+- Profile-based career development tracking endpoints
 
-## Document Processing Endpoints (Importance: 70/100)
-- Handle organization-specific document transformation
-- Support business-specific JSON data structures
-- Enable signal categorization and extraction pipeline operations
-- Support organizational knowledge base querying requirements
-- Implement response formatting per organizational standards
+## Accountability Management
+Path: src/app/api/accountability.py
+Importance Score: 75
+- Organization-wide accountability item tracking
+- Business-specific status workflow (waiting, completed, cancelled)
+- Source reference tracking for accountability items
+- Organizational context integration endpoints
+
+## Meeting Signal Processing
+Importance Score: 85
+- Domain-specific signal extraction from meeting summaries
+- Structured signal processing for:
+  - Decisions
+  - Action Items
+  - Blockers
+  - Risks
+- Hierarchical parsing of meeting outcomes with fallback mechanisms
+- Domain-aware categorization of business context signals
 
 $END$
 
