@@ -10,56 +10,48 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The project implements a sophisticated business workflow and meeting management system with several interconnected core components:
+The system implements an intelligent knowledge management and meeting analytics platform with four core business domains:
 
-## Workflow Mode Management (Importance: 85)
-Six distinct operational modes control system behavior and data flow:
-- Context Distillation: Offline analysis phase
-- Implementation Planning: Pre-execution strategy
-- Assisted Draft Intake: Trello-integrated content processing
-- Deep Review & Validation: Learning loop analysis
-- Promotion Readiness: Pre-delivery validation
-- Controlled Ingress/Egress: Online execution phase
+1. Knowledge Management System (Importance: 85/100)
+- DIKW pyramid implementation for organizational knowledge
+- 4-tier knowledge classification hierarchy
+- Real-time AI knowledge refinement
+- Knowledge promotion workflow with confidence scoring
 
-## Signal Processing System (Importance: 90)
-Specialized pipeline for extracting and categorizing business signals:
-1. Signal Types:
-   - Decisions
-   - Action Items 
-   - Blockers
-   - Risks
-   - Ideas
-2. Workflow States: Approved, Rejected, Archived
-3. Automated ticket generation from processed signals
+2. Knowledge Graph Intelligence (Importance: 90/100)
+- Neo4j-based knowledge construction from meetings/documents
+- Custom relationship inference engine
+- Automated node classification
+- Signal-based knowledge mapping
+- Graph-based insight extraction
 
-## Meeting Bundle Processing (Importance: 85)
-Unified system for processing organizational meeting data:
-- Multi-source transcript merging (Pocket, Teams)
-- Domain-specific signal extraction
-- Automated summary generation
-- Screenshot and visual content integration
-- Meeting context relationship mapping
+3. Meeting Intelligence Pipeline (Importance: 85/100)
+- Structured signal extraction (decisions, actions, blockers, risks)
+- Multi-category signal classification system
+- State management with approval workflows
+- Screenshot analysis with AI vision integration
+- Vector embedding generation for search
 
-## AI Assistant Integration (Importance: 80)
-Domain-aware system for meeting support:
-- Sprint-context query processing
-- Multi-step clarification workflows
-- Task creation/management automation
-- Action execution confirmation
+4. Career Development Platform (Importance: 75/100)
+- AI-driven career tracking
+- Personalized suggestion generation
+- Career memory context building
+- Automated task decomposition
+- Dynamic career path recommendations
 
-## Career Development System (Importance: 80)
-Advanced career progression tracking:
-- Profile-based suggestion generation
-- Skills-to-career path mapping
-- Development tracking integration
-- Actionable ticket conversion
+Key Integration Points:
+- Signal extraction feeds knowledge graph construction
+- Meeting intelligence populates career development context
+- Knowledge classification drives career recommendations
+- Graph relationships enhance signal categorization
 
-## Accountability Management (Importance: 75)
-Organizational accountability tracking:
-- Business-specific status workflows
-- Source reference tracking
-- Cross-organizational context integration
-- Follow-up item management
+Core Business Value Centers:
+1. Automated knowledge extraction and classification
+2. Intelligent meeting signal processing
+3. Career development through knowledge mapping
+4. Sprint-aligned workflow management
+
+The system uniquely combines meeting intelligence, knowledge management, and career development through an integrated signal processing and knowledge graph architecture.
 
 $END$
 

@@ -2,10 +2,12 @@
 """Signal views for browsing extracted meeting signals."""
 
 from fastapi import APIRouter, Request, Query
+from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta
 import json
 from .db import connect
+from .llm import ask as ask_llm
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
@@ -194,3 +196,123 @@ def signals_risks(request: Request, days: str = Query(default="all")):
 @router.get("/signals/ideas")
 def signals_ideas(request: Request, days: str = Query(default="all")):
     return signals_response(request, "ideas", days)
+
+
+@router.post("/api/signals/extract-from-document")
+async def extract_signals_from_document(request: Request):
+    """Extract signals from a document (transcript) using LLM.
+    
+    This is useful for finding signals that weren't captured during the initial
+    meeting summarization process.
+    """
+    data = await request.json()
+    doc_id = data.get("document_id")
+    meeting_id = data.get("meeting_id")  # Optional: associate with existing meeting
+    
+    if not doc_id:
+        return JSONResponse({"error": "document_id is required"}, status_code=400)
+    
+    with connect() as conn:
+        doc = conn.execute(
+            "SELECT id, source, content FROM docs WHERE id = ?",
+            (doc_id,)
+        ).fetchone()
+        
+        if not doc:
+            return JSONResponse({"error": "Document not found"}, status_code=404)
+        
+        content = doc["content"]
+        source = doc["source"]
+        
+        # Truncate if too long
+        if len(content) > 15000:
+            content = content[:15000] + "\n\n[... truncated for processing ...]"
+        
+        # Extract signals using LLM
+        prompt = f"""Analyze this transcript/document and extract important signals. Look for items that may have been missed during initial meeting summarization.
+
+Document: {source}
+
+Content:
+{content}
+
+Extract and categorize signals into these types:
+1. **Decisions** - Any decisions made or agreed upon
+2. **Action Items** - Tasks, commitments, follow-ups assigned to people
+3. **Blockers** - Issues blocking progress, dependencies
+4. **Risks** - Potential problems, concerns, uncertainties
+5. **Ideas** - Suggestions, proposals, future possibilities
+
+Return as JSON with this exact structure:
+{{
+  "decisions": ["decision 1", "decision 2"],
+  "action_items": ["action 1 @person", "action 2"],
+  "blockers": ["blocker 1", "blocker 2"],
+  "risks": ["risk 1", "risk 2"],
+  "ideas": ["idea 1", "idea 2"]
+}}
+
+Only include signals that are clearly stated or strongly implied. Be specific and include @mentions where people are assigned tasks. Return empty arrays for categories with no signals."""
+
+        try:
+            response = ask_llm(prompt, model="gpt-4o-mini")
+            
+            # Parse the JSON response
+            json_start = response.find('{')
+            json_end = response.rfind('}') + 1
+            if json_start >= 0 and json_end > json_start:
+                signals = json.loads(response[json_start:json_end])
+            else:
+                signals = json.loads(response)
+            
+            # Count extracted signals
+            total_extracted = sum(len(signals.get(k, [])) for k in ["decisions", "action_items", "blockers", "risks", "ideas"])
+            
+            # If meeting_id provided, merge with existing signals
+            if meeting_id:
+                meeting = conn.execute(
+                    "SELECT signals_json FROM meeting_summaries WHERE id = ?",
+                    (meeting_id,)
+                ).fetchone()
+                
+                if meeting and meeting["signals_json"]:
+                    existing = json.loads(meeting["signals_json"])
+                    # Merge new signals (avoiding duplicates)
+                    for key in ["decisions", "action_items", "blockers", "risks", "ideas"]:
+                        existing_items = existing.get(key, [])
+                        new_items = signals.get(key, [])
+                        for item in new_items:
+                            if item not in existing_items:
+                                existing_items.append(item)
+                        existing[key] = existing_items
+                    
+                    # Update meeting with merged signals
+                    conn.execute(
+                        "UPDATE meeting_summaries SET signals_json = ? WHERE id = ?",
+                        (json.dumps(existing), meeting_id)
+                    )
+                    conn.commit()
+                    
+                    return JSONResponse({
+                        "status": "ok",
+                        "action": "merged",
+                        "meeting_id": meeting_id,
+                        "new_signals": total_extracted,
+                        "signals": signals
+                    })
+            
+            return JSONResponse({
+                "status": "ok",
+                "action": "extracted",
+                "document_id": doc_id,
+                "total_signals": total_extracted,
+                "signals": signals
+            })
+            
+        except json.JSONDecodeError:
+            return JSONResponse({
+                "error": "Failed to parse AI response",
+                "raw_response": response
+            }, status_code=500)
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)

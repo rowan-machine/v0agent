@@ -1,0 +1,783 @@
+{% extends "base.html" %}
+
+{% block title %}Sprint Reports{% endblock %}
+
+{% block content %}
+<style>
+  .reports-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  .reports-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+
+  .reports-header h1 {
+    font-size: 1.75rem;
+    color: var(--sf-text-dark, #1a1a1a);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .sprint-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .sprint-selector label {
+    font-weight: 500;
+    color: var(--sf-text, #374151);
+  }
+
+  .sprint-selector select {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--sf-border, #d1d5db);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background: white;
+  }
+
+  .reports-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .report-card {
+    background: white;
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+
+  .report-card h3 {
+    font-size: 0.9rem;
+    color: var(--sf-text-muted, #6b7280);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 0.75rem 0;
+  }
+
+  .report-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--sf-text-dark, #1a1a1a);
+    margin-bottom: 0.5rem;
+  }
+
+  .report-subtitle {
+    font-size: 0.85rem;
+    color: var(--sf-text-muted, #9ca3af);
+  }
+
+  .report-section {
+    background: white;
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .report-section h2 {
+    font-size: 1.2rem;
+    color: var(--sf-text-dark, #1a1a1a);
+    margin: 0 0 1rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* Mode Time Breakdown */
+  .mode-time-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .mode-time-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .mode-time-icon {
+    font-size: 1.5rem;
+    width: 40px;
+    text-align: center;
+  }
+
+  .mode-time-info {
+    flex: 1;
+  }
+
+  .mode-time-name {
+    font-weight: 500;
+    color: var(--sf-text-dark, #1a1a1a);
+    margin-bottom: 0.25rem;
+  }
+
+  .mode-time-bar-container {
+    height: 8px;
+    background: var(--sf-surface, #f3f4f6);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .mode-time-bar {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s;
+  }
+
+  .mode-time-value {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--sf-text, #374151);
+    min-width: 80px;
+    text-align: right;
+  }
+
+  /* Signal Summary */
+  .signal-summary {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .signal-item {
+    padding: 1rem;
+    background: var(--sf-surface, #f9fafb);
+    border-radius: 8px;
+  }
+
+  .signal-item .count {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--sf-text-dark, #1a1a1a);
+  }
+
+  .signal-item .label {
+    font-size: 0.8rem;
+    color: var(--sf-text-muted, #6b7280);
+    margin-top: 0.25rem;
+  }
+
+  /* Workflow Progress */
+  .workflow-progress-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+  }
+
+  .workflow-item {
+    background: var(--sf-surface, #f9fafb);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .workflow-icon {
+    font-size: 1.5rem;
+  }
+
+  .workflow-info {
+    flex: 1;
+  }
+
+  .workflow-name {
+    font-weight: 500;
+    color: var(--sf-text-dark, #1a1a1a);
+    margin-bottom: 0.25rem;
+  }
+
+  .workflow-progress-bar {
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .workflow-progress-fill {
+    height: 100%;
+    background: #10b981;
+    border-radius: 3px;
+  }
+
+  .workflow-percent {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #10b981;
+  }
+
+  /* Daily breakdown */
+  .daily-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .daily-table th,
+  .daily-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--sf-border, #e5e7eb);
+  }
+
+  .daily-table th {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--sf-text-muted, #6b7280);
+    font-weight: 500;
+  }
+
+  .daily-table td {
+    color: var(--sf-text, #374151);
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--sf-text-muted, #9ca3af);
+  }
+
+  @media (max-width: 768px) {
+    .reports-header {
+      flex-direction: column;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+    
+    .signal-summary {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  
+  /* Sprint Burndown Chart */
+  .burndown-chart-container {
+    position: relative;
+    height: 250px;
+    margin: 1.5rem 0;
+  }
+  
+  .burndown-chart {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    padding: 1rem 0;
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.02) 0%, rgba(16, 185, 129, 0.05) 100%);
+    border-radius: 8px;
+  }
+  
+  .burndown-bar-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  
+  .burndown-bar {
+    width: 100%;
+    max-width: 60px;
+    display: flex;
+    flex-direction: column;
+    border-radius: 4px 4px 0 0;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+  
+  .burndown-bar:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  
+  .burndown-segment {
+    width: 100%;
+    transition: height 0.5s ease;
+  }
+  
+  .burndown-segment.completed {
+    background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  }
+  
+  .burndown-segment.in-progress {
+    background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  }
+  
+  .burndown-segment.remaining {
+    background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+  }
+  
+  .burndown-label {
+    font-size: 0.65rem;
+    font-family: monospace;
+    color: var(--sf-text-muted, #6b7280);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 70px;
+  }
+  
+  .burndown-legend {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--sf-text, #374151);
+  }
+  
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+  }
+  
+  .legend-dot.completed { background: #10b981; }
+  .legend-dot.in-progress { background: #3b82f6; }
+  .legend-dot.remaining { background: #f59e0b; }
+  
+  .burndown-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .burndown-stat-card {
+    text-align: center;
+    padding: 1rem;
+    background: var(--sf-surface, #f9fafb);
+    border-radius: 8px;
+  }
+  
+  .burndown-stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+  }
+  
+  .burndown-stat-label {
+    font-size: 0.75rem;
+    color: var(--sf-text-muted, #6b7280);
+    text-transform: uppercase;
+    margin-top: 0.25rem;
+  }
+  
+  .burndown-stat-card.total .burndown-stat-value { color: #6366f1; }
+  .burndown-stat-card.completed .burndown-stat-value { color: #10b981; }
+  .burndown-stat-card.in-progress .burndown-stat-value { color: #3b82f6; }
+  .burndown-stat-card.remaining .burndown-stat-value { color: #f59e0b; }
+</style>
+
+<div class="reports-container">
+  <div class="reports-header">
+    <h1>📊 Sprint Reports</h1>
+    <div class="sprint-selector">
+      <label>Sprint Period:</label>
+      <select id="sprintPeriod" onchange="loadReports()">
+        <option value="7">Last 7 days</option>
+        <option value="14" selected>This Sprint (14 days)</option>
+        <option value="30">Last 30 days</option>
+        <option value="42">Last 3 Sprints</option>
+        <option value="90">Last Quarter</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="reports-grid">
+    <div class="report-card">
+      <h3>Total Time Tracked</h3>
+      <div class="report-value" id="totalTimeTracked">--</div>
+      <div class="report-subtitle" id="totalSessions">Loading...</div>
+    </div>
+    <div class="report-card">
+      <h3>Meetings Processed</h3>
+      <div class="report-value" id="meetingsProcessed">--</div>
+      <div class="report-subtitle" id="meetingsSubtitle">Loading...</div>
+    </div>
+    <div class="report-card">
+      <h3>Signals Captured</h3>
+      <div class="report-value" id="signalsCaptured">--</div>
+      <div class="report-subtitle" id="signalsSubtitle">Loading...</div>
+    </div>
+    <div class="report-card">
+      <h3>Tickets Created</h3>
+      <div class="report-value" id="ticketsCreated">--</div>
+      <div class="report-subtitle" id="ticketsSubtitle">Loading...</div>
+    </div>
+  </div>
+
+  <!-- Sprint Burndown Section -->
+  <div class="report-section">
+    <h2>🔥 Sprint Points Burndown</h2>
+    <div class="burndown-summary-grid">
+      <div class="burndown-stat-card total">
+        <div class="burndown-stat-value" id="burndownTotalPoints">--</div>
+        <div class="burndown-stat-label">Total Points</div>
+      </div>
+      <div class="burndown-stat-card completed">
+        <div class="burndown-stat-value" id="burndownCompletedPoints">--</div>
+        <div class="burndown-stat-label">Completed</div>
+      </div>
+      <div class="burndown-stat-card in-progress">
+        <div class="burndown-stat-value" id="burndownInProgressPoints">--</div>
+        <div class="burndown-stat-label">In Progress</div>
+      </div>
+      <div class="burndown-stat-card remaining">
+        <div class="burndown-stat-value" id="burndownRemainingPoints">--</div>
+        <div class="burndown-stat-label">Remaining</div>
+      </div>
+    </div>
+    <div class="burndown-chart-container">
+      <div class="burndown-chart" id="burndownChart">
+        <div class="empty-state">Loading sprint burndown...</div>
+      </div>
+    </div>
+    <div class="burndown-legend">
+      <div class="legend-item"><span class="legend-dot completed"></span> Completed</div>
+      <div class="legend-item"><span class="legend-dot in-progress"></span> In Progress</div>
+      <div class="legend-item"><span class="legend-dot remaining"></span> Remaining</div>
+    </div>
+  </div>
+
+  <!-- Mode Time Breakdown -->
+  <div class="report-section">
+    <h2>⏱️ Time by Mode/Phase</h2>
+    <div class="mode-time-list" id="modeTimeList">
+      <div class="empty-state">Loading mode time data...</div>
+    </div>
+  </div>
+
+  <!-- Signal Breakdown -->
+  <div class="report-section">
+    <h2>📡 Signal Breakdown</h2>
+    <div class="signal-summary" id="signalSummary">
+      <div class="signal-item">
+        <div class="count" id="decisionCount">-</div>
+        <div class="label">Decisions</div>
+      </div>
+      <div class="signal-item">
+        <div class="count" id="actionCount">-</div>
+        <div class="label">Actions</div>
+      </div>
+      <div class="signal-item">
+        <div class="count" id="blockerCount">-</div>
+        <div class="label">Blockers</div>
+      </div>
+      <div class="signal-item">
+        <div class="count" id="riskCount">-</div>
+        <div class="label">Risks</div>
+      </div>
+      <div class="signal-item">
+        <div class="count" id="ideaCount">-</div>
+        <div class="label">Ideas</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Workflow Mode Progress -->
+  <div class="report-section">
+    <h2>🔄 Workflow Mode Progress</h2>
+    <div class="workflow-progress-list" id="workflowProgressList">
+      <div class="empty-state">Loading workflow progress...</div>
+    </div>
+  </div>
+
+  <!-- Daily Breakdown -->
+  <div class="report-section">
+    <h2>📅 Daily Activity</h2>
+    <table class="daily-table" id="dailyTable">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Time Tracked</th>
+          <th>Sessions</th>
+          <th>Signals</th>
+        </tr>
+      </thead>
+      <tbody id="dailyTableBody">
+        <tr>
+          <td colspan="4" class="empty-state">Loading daily data...</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const modeColors = {
+  grooming: '#8b5cf6',
+  planning: '#3b82f6',
+  standup: '#f59e0b',
+  implementation: '#10b981',
+  review: '#ef4444',
+  'mode-a': '#8b5cf6',
+  'mode-b': '#3b82f6',
+  'mode-c': '#14b8a6',
+  'mode-d': '#f59e0b',
+  'mode-e': '#ef4444',
+  'mode-f': '#ec4899',
+  'mode-g': '#10b981'
+};
+
+document.addEventListener('DOMContentLoaded', loadReports);
+
+async function loadReports() {
+  const days = parseInt(document.getElementById('sprintPeriod').value);
+  
+  try {
+    // Load mode timer stats
+    const timerResponse = await fetch(`/api/mode-timer/stats?days=${days}`, { credentials: 'same-origin' });
+    const timerData = await timerResponse.json();
+    
+    // Load signals stats
+    const signalsResponse = await fetch(`/api/reports/signals?days=${days}`, { credentials: 'same-origin' });
+    const signalsData = await signalsResponse.json();
+    
+    // Load workflow progress
+    const workflowResponse = await fetch('/api/reports/workflow-progress', { credentials: 'same-origin' });
+    const workflowData = await workflowResponse.json();
+    
+    // Load daily breakdown
+    const dailyResponse = await fetch(`/api/reports/daily?days=${days}`, { credentials: 'same-origin' });
+    const dailyData = await dailyResponse.json();
+    
+    // Load sprint burndown
+    const burndownResponse = await fetch('/api/reports/sprint-burndown', { credentials: 'same-origin' });
+    const burndownData = await burndownResponse.json();
+    
+    renderSummaryCards(timerData, signalsData);
+    renderModeTimeList(timerData.modes || {});
+    renderSignalSummary(signalsData);
+    renderBurndownChart(burndownData);
+    renderWorkflowProgress(workflowData.modes || []);
+    renderDailyTable(dailyData.daily || []);
+    
+  } catch (err) {
+    console.error('Failed to load reports:', err);
+  }
+}
+
+function formatDuration(seconds) {
+  if (!seconds) return '0m';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+}
+
+function renderSummaryCards(timerData, signalsData) {
+  // Total time
+  const totalSeconds = Object.values(timerData.modes || {}).reduce((sum, m) => sum + (m.total_seconds || 0), 0);
+  const totalSessions = Object.values(timerData.modes || {}).reduce((sum, m) => sum + (m.session_count || 0), 0);
+  
+  document.getElementById('totalTimeTracked').textContent = formatDuration(totalSeconds);
+  document.getElementById('totalSessions').textContent = `${totalSessions} sessions`;
+  
+  // Meetings
+  document.getElementById('meetingsProcessed').textContent = signalsData.meetings_count || 0;
+  document.getElementById('meetingsSubtitle').textContent = 'with signals extracted';
+  
+  // Total signals
+  const totalSignals = (signalsData.decisions || 0) + (signalsData.actions || 0) + 
+                       (signalsData.blockers || 0) + (signalsData.risks || 0) + (signalsData.ideas || 0);
+  document.getElementById('signalsCaptured').textContent = totalSignals;
+  document.getElementById('signalsSubtitle').textContent = 'across all categories';
+  
+  // Tickets
+  document.getElementById('ticketsCreated').textContent = signalsData.tickets_created || 0;
+  document.getElementById('ticketsSubtitle').textContent = 'from signals';
+}
+
+function renderModeTimeList(modes) {
+  const container = document.getElementById('modeTimeList');
+  
+  const modeEntries = Object.entries(modes).sort((a, b) => (b[1].total_seconds || 0) - (a[1].total_seconds || 0));
+  
+  if (modeEntries.length === 0) {
+    container.innerHTML = '<div class="empty-state">No time tracked yet. Start a timer to begin tracking.</div>';
+    return;
+  }
+  
+  const maxSeconds = Math.max(...modeEntries.map(([_, m]) => m.total_seconds || 0));
+  
+  container.innerHTML = modeEntries.map(([mode, data]) => {
+    const percent = maxSeconds > 0 ? ((data.total_seconds || 0) / maxSeconds) * 100 : 0;
+    const color = modeColors[mode] || '#6b7280';
+    const icon = getPhaseIcon(mode);
+    
+    return `
+      <div class="mode-time-item">
+        <div class="mode-time-icon">${icon}</div>
+        <div class="mode-time-info">
+          <div class="mode-time-name">${capitalize(mode.replace('-', ' '))}</div>
+          <div class="mode-time-bar-container">
+            <div class="mode-time-bar" style="width: ${percent}%; background: ${color};"></div>
+          </div>
+        </div>
+        <div class="mode-time-value">${formatDuration(data.total_seconds || 0)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderSignalSummary(data) {
+  document.getElementById('decisionCount').textContent = data.decisions || 0;
+  document.getElementById('actionCount').textContent = data.actions || 0;
+  document.getElementById('blockerCount').textContent = data.blockers || 0;
+  document.getElementById('riskCount').textContent = data.risks || 0;
+  document.getElementById('ideaCount').textContent = data.ideas || 0;
+}
+
+function renderWorkflowProgress(modes) {
+  const container = document.getElementById('workflowProgressList');
+  
+  if (modes.length === 0) {
+    container.innerHTML = '<div class="empty-state">No workflow modes configured.</div>';
+    return;
+  }
+  
+  container.innerHTML = modes.map(mode => {
+    const progress = mode.progress || 0;
+    const total = mode.total_steps || 1;
+    const percent = Math.round((progress / total) * 100);
+    
+    return `
+      <div class="workflow-item">
+        <div class="workflow-icon">${mode.icon || '🎯'}</div>
+        <div class="workflow-info">
+          <div class="workflow-name">${mode.name}</div>
+          <div class="workflow-progress-bar">
+            <div class="workflow-progress-fill" style="width: ${percent}%;"></div>
+          </div>
+        </div>
+        <div class="workflow-percent">${progress}/${total}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderBurndownChart(data) {
+  // Update summary stats
+  document.getElementById('burndownTotalPoints').textContent = data.total_points || 0;
+  document.getElementById('burndownCompletedPoints').textContent = Math.round(data.completed_points || 0);
+  document.getElementById('burndownInProgressPoints').textContent = Math.round(data.in_progress_points || 0);
+  document.getElementById('burndownRemainingPoints').textContent = Math.round(data.remaining_points || 0);
+  
+  const container = document.getElementById('burndownChart');
+  const tickets = data.tickets || [];
+  
+  if (tickets.length === 0) {
+    container.innerHTML = '<div class="empty-state">No active tickets with sprint points. Add points to tickets to see the burndown chart.</div>';
+    return;
+  }
+  
+  // Find max points for scaling
+  const maxPoints = Math.max(...tickets.map(t => t.sprint_points || 0), 1);
+  const chartHeight = 180; // pixels
+  
+  let html = '';
+  for (const ticket of tickets) {
+    const points = ticket.sprint_points || 0;
+    if (points === 0) continue; // Skip tickets without points
+    
+    const totalTasks = ticket.total_tasks || 1;
+    const completedTasks = ticket.completed_tasks || 0;
+    const progressPct = ticket.progress_pct || 0;
+    
+    // Calculate heights based on progress
+    const totalHeight = (points / maxPoints) * chartHeight;
+    const completedHeight = totalHeight * (progressPct / 100);
+    const remainingHeight = totalHeight - completedHeight;
+    
+    // Determine if in-progress based on partial completion
+    const isInProgress = progressPct > 0 && progressPct < 100;
+    const inProgressHeight = isInProgress ? Math.min(remainingHeight, 20) : 0;
+    const trueRemainingHeight = remainingHeight - inProgressHeight;
+    
+    html += `
+      <div class="burndown-bar-group" title="${ticket.title}">
+        <div class="burndown-bar" style="height: ${totalHeight}px;">
+          <div class="burndown-segment remaining" style="height: ${trueRemainingHeight}px;"></div>
+          ${inProgressHeight > 0 ? `<div class="burndown-segment in-progress" style="height: ${inProgressHeight}px;"></div>` : ''}
+          <div class="burndown-segment completed" style="height: ${completedHeight}px;"></div>
+        </div>
+        <div class="burndown-label" title="${ticket.ticket_id}: ${ticket.title}">${ticket.ticket_id}</div>
+      </div>
+    `;
+  }
+  
+  if (!html) {
+    container.innerHTML = '<div class="empty-state">No tickets have sprint points assigned. Edit your tickets to add points.</div>';
+    return;
+  }
+  
+  container.innerHTML = html;
+}
+
+function renderDailyTable(daily) {
+  const tbody = document.getElementById('dailyTableBody');
+  
+  if (daily.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No activity data available.</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = daily.map(day => `
+    <tr>
+      <td>${day.date}</td>
+      <td>${formatDuration(day.total_seconds || 0)}</td>
+      <td>${day.sessions || 0}</td>
+      <td>${day.signals || 0}</td>
+    </tr>
+  `).join('');
+}
+
+function getPhaseIcon(mode) {
+  const icons = {
+    grooming: '📋',
+    planning: '🎯',
+    standup: '🗣️',
+    implementation: '💻',
+    review: '👀',
+    'mode-a': '🎯',
+    'mode-b': '📋',
+    'mode-c': '🔧',
+    'mode-d': '📊',
+    'mode-e': '🚀',
+    'mode-f': '🔍',
+    'mode-g': '💻'
+  };
+  return icons[mode] || '⏱️';
+}
+
+function capitalize(str) {
+  return str.replace(/\b\w/g, l => l.toUpperCase());
+}
+</script>
+{% endblock %}

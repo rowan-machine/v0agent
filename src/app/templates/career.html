@@ -278,6 +278,267 @@
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
+
+  /* Career Chat Section */
+  .career-chat-section {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 1100px) {
+    .career-chat-section {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .career-chat-container {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    height: 500px;
+  }
+
+  .career-chat-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .career-chat-header h2 {
+    font-size: 1.1rem;
+    color: #1a1a1a;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .career-chat-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .career-chat-message {
+    max-width: 85%;
+    padding: 0.875rem 1rem;
+    border-radius: 12px;
+    line-height: 1.5;
+    font-size: 0.95rem;
+  }
+
+  .career-chat-message.user {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    color: white;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+  }
+
+  .career-chat-message.assistant {
+    background: #f3f4f6;
+    color: #1a1a1a;
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+
+  .career-chat-message.assistant p {
+    margin: 0 0 0.5rem 0;
+  }
+
+  .career-chat-message.assistant p:last-child {
+    margin-bottom: 0;
+  }
+
+  .career-chat-message.assistant ul,
+  .career-chat-message.assistant ol {
+    margin: 0.5rem 0;
+    padding-left: 1.25rem;
+  }
+
+  .career-chat-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .career-chat-input-row {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .career-chat-input {
+    flex: 1;
+    padding: 0.875rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    resize: none;
+    min-height: 44px;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+
+  .career-chat-input:focus {
+    outline: none;
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+  }
+
+  .career-chat-send {
+    padding: 0.875rem 1.5rem;
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .career-chat-send:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+  }
+
+  .career-chat-send:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .career-chat-options {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: #6b7280;
+  }
+
+  .career-chat-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .career-chat-toggle input[type="checkbox"] {
+    accent-color: #8b5cf6;
+  }
+
+  /* Quick prompts */
+  .career-quick-prompts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .quick-prompt-btn {
+    padding: 0.4rem 0.75rem;
+    background: #ede9fe;
+    color: #5b21b6;
+    border: none;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .quick-prompt-btn:hover {
+    background: #ddd6fe;
+  }
+
+  /* Memory/Summary sidebar */
+  .career-memory-sidebar {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    height: 500px;
+  }
+
+  .memory-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .memory-header h3 {
+    font-size: 1rem;
+    color: #1a1a1a;
+    margin: 0 0 0.25rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .memory-header p {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin: 0;
+  }
+
+  .memory-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 1.25rem;
+  }
+
+  .memory-content {
+    font-size: 0.9rem;
+    color: #374151;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+
+  .memory-content p {
+    margin: 0 0 0.75rem 0;
+  }
+
+  .memory-empty {
+    text-align: center;
+    color: #9ca3af;
+    padding: 2rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .memory-footer {
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .memory-timestamp {
+    font-size: 0.75rem;
+    color: #9ca3af;
+  }
+
+  .memory-refresh {
+    padding: 0.4rem 0.8rem;
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+
+  .memory-refresh:hover {
+    background: #e5e7eb;
+  }
 </style>
 
 <div class="career-container">
@@ -294,31 +555,15 @@
   </div>
 
   <div class="career-grid">
-    <!-- Profile Card -->
+    <!-- Profile Summary Card -->
     <div class="career-card">
       <div class="card-header">
         <h2>👤 Your Profile</h2>
-        <button class="career-btn career-btn-secondary" onclick="saveProfile()">Save</button>
+        <a href="/settings" class="career-btn career-btn-secondary" style="text-decoration: none;">✏️ Edit in Settings</a>
       </div>
       <div class="card-body">
-        <div class="profile-form">
-          <div class="form-group">
-            <label>Current Role</label>
-            <input type="text" id="currentRole" placeholder="e.g., Senior Software Engineer">
-          </div>
-          <div class="form-group">
-            <label>Career Goals</label>
-            <textarea id="careerGoals" placeholder="Where do you want to be in 2-5 years?"></textarea>
-          </div>
-          <div class="form-group">
-            <label>Skills</label>
-            <div class="skills-container" id="skillsContainer"></div>
-            <input type="text" id="skillInput" placeholder="Type a skill and press Enter">
-          </div>
-          <div class="form-group">
-            <label>Areas for Growth</label>
-            <textarea id="growthAreas" placeholder="What skills or experiences do you want to develop?"></textarea>
-          </div>
+        <div id="profileSummary" style="color: #6b7280; font-size: 0.9rem;">
+          Loading profile...
         </div>
       </div>
     </div>
@@ -356,53 +601,86 @@
         </div>
       </div>
     </div>
+
+    <!-- Career Chat Section -->
+    <div class="career-chat-section">
+      <!-- Chat Interface -->
+      <div class="career-chat-container">
+        <div class="career-chat-header">
+          <h2>💬 Career Assistant</h2>
+          <span style="font-size: 0.8rem; color: #6b7280;">Updates save to memory</span>
+        </div>
+        <div class="career-chat-body" id="careerChatBody">
+          <div class="career-chat-message assistant">
+            <p>👋 Hi! I'm your career assistant. Share your career updates, challenges, or questions with me.</p>
+            <p>I'll help you track progress, provide suggestions, and remember important details for future reference.</p>
+          </div>
+        </div>
+        <div class="career-chat-footer">
+          <div class="career-quick-prompts">
+            <button class="quick-prompt-btn" onclick="insertCareerPrompt('I completed a project on')">✅ Completed project</button>
+            <button class="quick-prompt-btn" onclick="insertCareerPrompt('I learned about')">📚 Learned something</button>
+            <button class="quick-prompt-btn" onclick="insertCareerPrompt('I\'m struggling with')">🤔 Need help with</button>
+            <button class="quick-prompt-btn" onclick="insertCareerPrompt('My goals for this week are')">🎯 Weekly goals</button>
+          </div>
+          <div class="career-chat-input-row">
+            <textarea 
+              class="career-chat-input" 
+              id="careerChatInput" 
+              placeholder="Share a career update, ask for advice, or track your progress..."
+              rows="1"
+              onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendCareerMessage(); }"
+            ></textarea>
+            <button class="career-chat-send" onclick="sendCareerMessage()" id="careerSendBtn">
+              Send
+            </button>
+          </div>
+          <div class="career-chat-options">
+            <label class="career-chat-toggle">
+              <input type="checkbox" id="includeProfileContext" checked>
+              Include profile context
+            </label>
+            <label class="career-chat-toggle">
+              <input type="checkbox" id="saveToMemory" checked>
+              Save to memory
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Memory Sidebar -->
+      <div class="career-memory-sidebar">
+        <div class="memory-header">
+          <h3>🧠 Career Memory</h3>
+          <p>AI-summarized career context</p>
+        </div>
+        <div class="memory-body">
+          <div class="memory-content" id="careerMemoryContent">
+            <div class="memory-empty">
+              No career memory yet.<br>
+              Start chatting to build your career context.
+            </div>
+          </div>
+        </div>
+        <div class="memory-footer">
+          <span class="memory-timestamp" id="memoryTimestamp"></span>
+          <button class="memory-refresh" onclick="loadCareerMemory()">🔄 Refresh</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
-let skills = [];
 let suggestions = [];
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   loadProfile();
   loadSuggestions();
-  setupSkillInput();
+  loadCareerChatHistory();
+  loadCareerMemory();
 });
-
-// Skill input handling
-function setupSkillInput() {
-  const input = document.getElementById('skillInput');
-  input.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter' && input.value.trim()) {
-      e.preventDefault();
-      addSkill(input.value.trim());
-      input.value = '';
-    }
-  });
-}
-
-function addSkill(skill) {
-  if (!skills.includes(skill)) {
-    skills.push(skill);
-    renderSkills();
-  }
-}
-
-function removeSkill(skill) {
-  skills = skills.filter(s => s !== skill);
-  renderSkills();
-}
-
-function renderSkills() {
-  const container = document.getElementById('skillsContainer');
-  container.innerHTML = skills.map(skill => `
-    <span class="skill-tag">
-      ${escapeHtml(skill)}
-      <span class="remove" onclick="removeSkill('${escapeHtml(skill)}')">&times;</span>
-    </span>
-  `).join('');
-}
 
 // Profile management
 async function loadProfile() {
@@ -410,38 +688,35 @@ async function loadProfile() {
     const response = await fetch('/api/career/profile', { credentials: 'same-origin' });
     if (response.ok) {
       const profile = await response.json();
-      document.getElementById('currentRole').value = profile.current_role || '';
-      document.getElementById('careerGoals').value = profile.career_goals || '';
-      document.getElementById('growthAreas').value = profile.growth_areas || '';
-      skills = profile.skills || [];
-      renderSkills();
+      // Display profile summary
+      const summaryDiv = document.getElementById('profileSummary');
+      if (summaryDiv) {
+        const role = profile.current_role || 'Not set';
+        const target = profile.target_role || 'Not set';
+        const goals = profile.goals || profile.career_goals || 'Not set';
+        const strengths = profile.strengths || 'Not set';
+        
+        summaryDiv.innerHTML = `
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <div><strong>Current Role:</strong> ${escapeHtml(role)}</div>
+            <div><strong>Target Role:</strong> ${escapeHtml(target)}</div>
+            <div><strong>Goals:</strong> ${escapeHtml(goals)}</div>
+            <div><strong>Strengths:</strong> ${escapeHtml(strengths)}</div>
+          </div>
+        `;
+      }
+    } else {
+      const summaryDiv = document.getElementById('profileSummary');
+      if (summaryDiv) {
+        summaryDiv.innerHTML = '<p>No profile set. <a href="/settings">Set up your profile in Settings</a></p>';
+      }
     }
   } catch (err) {
     console.error('Failed to load profile:', err);
-  }
-}
-
-async function saveProfile() {
-  const profile = {
-    current_role: document.getElementById('currentRole').value,
-    career_goals: document.getElementById('careerGoals').value,
-    growth_areas: document.getElementById('growthAreas').value,
-    skills: skills
-  };
-
-  try {
-    const response = await fetch('/api/career/profile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify(profile)
-    });
-
-    if (response.ok) {
-      showToast('Profile saved!');
+    const summaryDiv = document.getElementById('profileSummary');
+    if (summaryDiv) {
+      summaryDiv.innerHTML = '<p style="color: #ef4444;">Failed to load profile</p>';
     }
-  } catch (err) {
-    console.error('Failed to save profile:', err);
   }
 }
 
@@ -530,7 +805,7 @@ async function dismissSuggestion(id) {
 
 async function convertToTicket(id) {
   try {
-    const response = await fetch(`/api/career/suggestions/${id}/convert`, {
+    const response = await fetch(`/api/career/suggestions/${id}/to-ticket`, {
       method: 'POST',
       credentials: 'same-origin'
     });
@@ -563,6 +838,139 @@ function showToast(message) {
     toast.style.transition = 'all 0.3s';
     setTimeout(() => toast.remove(), 300);
   }, 3000);
+}
+
+// ============================================
+// Career Chat Functions
+// ============================================
+
+async function loadCareerChatHistory() {
+  const body = document.getElementById('careerChatBody');
+  if (!body) return;
+
+  try {
+    const response = await fetch('/api/career/chat/history?limit=30', { credentials: 'same-origin' });
+    if (!response.ok) return;
+    
+    const history = await response.json();
+    if (history.length === 0) return; // Keep the welcome message
+    
+    // Clear and rebuild with history
+    body.innerHTML = history.map(item => `
+      <div class="career-chat-message user">${marked ? marked.parse(item.message) : escapeHtml(item.message)}</div>
+      <div class="career-chat-message assistant">${marked ? marked.parse(item.response) : escapeHtml(item.response)}</div>
+    `).join('');
+    
+    body.scrollTop = body.scrollHeight;
+  } catch (err) {
+    console.error('Failed to load career chat history:', err);
+  }
+}
+
+async function loadCareerMemory() {
+  const content = document.getElementById('careerMemoryContent');
+  const timestamp = document.getElementById('memoryTimestamp');
+  if (!content) return;
+
+  try {
+    const response = await fetch('/api/career/chat/summary', { credentials: 'same-origin' });
+    if (!response.ok) throw new Error('Failed to load');
+    
+    const data = await response.json();
+    
+    if (data.summary) {
+      content.innerHTML = marked ? marked.parse(data.summary) : `<p>${escapeHtml(data.summary)}</p>`;
+      if (timestamp && data.updated_at) {
+        timestamp.textContent = `Updated: ${new Date(data.updated_at).toLocaleDateString()}`;
+      }
+    } else {
+      content.innerHTML = `
+        <div class="memory-empty">
+          No career memory yet.<br>
+          Start chatting to build your career context.
+        </div>
+      `;
+    }
+  } catch (err) {
+    console.error('Failed to load career memory:', err);
+  }
+}
+
+function insertCareerPrompt(prompt) {
+  const input = document.getElementById('careerChatInput');
+  if (input) {
+    input.value = prompt + ' ';
+    input.focus();
+    // Move cursor to end
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
+}
+
+async function sendCareerMessage() {
+  const input = document.getElementById('careerChatInput');
+  const body = document.getElementById('careerChatBody');
+  const sendBtn = document.getElementById('careerSendBtn');
+  const includeContext = document.getElementById('includeProfileContext')?.checked !== false;
+  const saveToMemory = document.getElementById('saveToMemory')?.checked !== false;
+  
+  if (!input || !body) return;
+
+  const message = input.value.trim();
+  if (!message) return;
+  
+  input.value = '';
+  sendBtn.disabled = true;
+  sendBtn.textContent = '...';
+
+  // Add user message
+  const userMsg = document.createElement('div');
+  userMsg.className = 'career-chat-message user';
+  userMsg.innerHTML = marked ? marked.parse(message) : escapeHtml(message);
+  body.appendChild(userMsg);
+
+  // Add pending assistant message
+  const assistantMsg = document.createElement('div');
+  assistantMsg.className = 'career-chat-message assistant';
+  assistantMsg.textContent = 'Thinking...';
+  body.appendChild(assistantMsg);
+  body.scrollTop = body.scrollHeight;
+
+  try {
+    const response = await fetch('/api/career/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ 
+        message, 
+        include_context: includeContext,
+        save_to_memory: saveToMemory
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to send');
+    
+    const data = await response.json();
+    assistantMsg.innerHTML = marked ? marked.parse(data.response || '') : escapeHtml(data.response || '');
+    body.scrollTop = body.scrollHeight;
+    
+    // Refresh memory after sending
+    if (saveToMemory) {
+      setTimeout(loadCareerMemory, 500);
+    }
+  } catch (err) {
+    assistantMsg.textContent = 'Sorry, I encountered an error. Please try again.';
+    console.error('Career chat error:', err);
+  } finally {
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Send';
+  }
+}
+
+// Load marked.js for markdown rendering if not already loaded
+if (typeof marked === 'undefined') {
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
+  document.head.appendChild(script);
 }
 </script>
 {% endblock %}

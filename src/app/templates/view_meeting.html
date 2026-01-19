@@ -115,7 +115,132 @@
 <div class="meeting-actions">
   <a href="/meetings/{{ meeting.id }}/edit">Edit Meeting</a>
   <a href="/meetings">← Back to Meetings</a>
+  {% if linked_transcript %}
+  <button onclick="extractSignalsFromTranscript({{ linked_transcript.id }}, {{ meeting.id }})" class="extract-signals-btn" id="extractBtn">
+    🔍 Extract Missing Signals from Transcript
+  </button>
+  {% endif %}
 </div>
+
+<!-- Signal extraction result modal -->
+<div id="signalModal" class="signal-modal" style="display: none;">
+  <div class="signal-modal-content">
+    <div class="signal-modal-header">
+      <h3>📊 Extracted Signals</h3>
+      <button onclick="closeSignalModal()" class="close-btn">&times;</button>
+    </div>
+    <div class="signal-modal-body" id="signalModalBody">
+      <!-- Results will be populated here -->
+    </div>
+    <div class="signal-modal-footer">
+      <button onclick="closeSignalModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .extract-signals-btn {
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    text-decoration: none;
+  }
+  .extract-signals-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+  .extract-signals-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .signal-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  .signal-modal-content {
+    background: var(--sf-card-bg, white);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .signal-modal-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--sf-border, #e5e7eb);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .signal-modal-header h3 {
+    margin: 0;
+    color: var(--sf-text, #1a1a1a);
+  }
+  .signal-modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+    color: var(--sf-text, #333);
+  }
+  .signal-modal-footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--sf-border, #e5e7eb);
+    text-align: right;
+  }
+  .signal-modal-footer button {
+    padding: 0.5rem 1.5rem;
+    background: var(--sf-primary, #667eea);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: var(--sf-text-muted, #666);
+  }
+  
+  .signal-category {
+    margin-bottom: 1rem;
+  }
+  .signal-category h4 {
+    font-size: 0.9rem;
+    color: var(--sf-text-muted, #666);
+    margin: 0 0 0.5rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .signal-category ul {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+  .signal-category li {
+    margin-bottom: 0.35rem;
+    line-height: 1.5;
+  }
+  .no-signals {
+    color: var(--sf-text-muted, #999);
+    font-style: italic;
+  }
+</style>
 
 <script>
 function parseMarkdown(text) {
@@ -144,5 +269,96 @@ document.addEventListener('DOMContentLoaded', function() {
     content.innerHTML = parseMarkdown(content.textContent);
   }
 });
+
+async function extractSignalsFromTranscript(docId, meetingId) {
+  const btn = document.getElementById('extractBtn');
+  if (!btn) return;
+  
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Extracting signals...';
+  
+  try {
+    const response = await fetch('/api/signals/extract-from-document', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ 
+        document_id: docId,
+        meeting_id: meetingId  // This will merge signals into the meeting
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      alert('Error: ' + (data.error || 'Failed to extract signals'));
+      return;
+    }
+    
+    // Show results in modal
+    showSignalResults(data.signals, data.new_signals || data.total_signals, data.action === 'merged');
+    
+  } catch (err) {
+    console.error('Failed to extract signals:', err);
+    alert('Failed to extract signals. Please try again.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔍 Extract Missing Signals from Transcript';
+  }
+}
+
+function showSignalResults(signals, total, wasMerged) {
+  const body = document.getElementById('signalModalBody');
+  
+  if (total === 0) {
+    body.innerHTML = '<p class="no-signals">No additional signals found in this transcript.</p>';
+  } else {
+    let html = `<p style="margin-bottom: 1rem;"><strong>${total}</strong> signals extracted`;
+    if (wasMerged) {
+      html += ` and <span style="color: #10b981;">merged into this meeting</span>`;
+    }
+    html += `:</p>`;
+    
+    const categories = [
+      { key: 'decisions', label: '🎯 Decisions', color: '#10b981' },
+      { key: 'action_items', label: '✅ Action Items', color: '#3b82f6' },
+      { key: 'blockers', label: '🚧 Blockers', color: '#ef4444' },
+      { key: 'risks', label: '⚠️ Risks', color: '#f59e0b' },
+      { key: 'ideas', label: '💡 Ideas', color: '#8b5cf6' }
+    ];
+    
+    for (const cat of categories) {
+      const items = signals[cat.key] || [];
+      if (items.length > 0) {
+        html += `<div class="signal-category">
+          <h4 style="color: ${cat.color};">${cat.label} (${items.length})</h4>
+          <ul>
+            ${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+          </ul>
+        </div>`;
+      }
+    }
+    
+    if (wasMerged) {
+      html += `<p style="margin-top: 1rem; color: #6b7280; font-size: 0.9rem;">
+        ✓ These signals have been added to the meeting. Refresh the signals page to see them.
+      </p>`;
+    }
+    
+    body.innerHTML = html;
+  }
+  
+  document.getElementById('signalModal').style.display = 'flex';
+}
+
+function closeSignalModal() {
+  document.getElementById('signalModal').style.display = 'none';
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text || '';
+  return div.innerHTML;
+}
 </script>
 {% endblock %}

@@ -1,38 +1,54 @@
 ---
-description: Specifications for meeting and document data model structures, relationships, and business logic
+description: Data models specification for meeting and document management with knowledge graph integration
 ---
 
 
 # data-models
 
-Key data model relationships between Meetings and Documents:
+Two primary data models drive the system's knowledge management capabilities:
 
-## Meeting Data Model
+## Meetings Model
 Importance Score: 90
+- Structured representation of meeting intelligence:
+  - Core meeting metadata (title, date, duration)
+  - Extracted signals categorized as:
+    - Decisions
+    - Action items
+    - Blockers
+    - Risks
+    - Ideas
+  - Signal status tracking (approved, rejected, waiting, archived)
+  - Knowledge graph relationships to related documents and other meetings
+  - Vector embeddings for semantic search
 
-Core Structure:
-- Sophisticated meeting bundle model that combines:
-  - Raw meeting transcripts
-  - Extracted signals (Decisions, Action Items, Blockers, Risks, Ideas)
-  - Signal status workflow states (approved, rejected, archived)
-  - Accountability tracking integration
-  - Multi-source transcript merging (Pocket, Teams)
-
-## Document Data Model  
+## Documents Model 
 Importance Score: 85
+- Knowledge artifact representation:
+  - Document classification within DIKW hierarchy
+    - Data tier
+    - Information tier
+    - Knowledge tier
+    - Wisdom tier
+  - Confidence scoring for knowledge promotion
+  - Automated signal extraction
+  - Relationship mappings to meetings and other documents
+  - Classification tags for domain organization
 
-Core Structure:
-- Signal extraction and categorization
-- Contextual relationship mappings to meetings
-- Domain-aware conversational system links
-- Sprint-aware context associations
+## Model Relationships
+- Meetings and Documents are connected through:
+  - Signal references
+  - Knowledge graph edges
+  - Temporal proximity
+  - Content similarity scores
+  - Shared context tags
 
-## Relationship Management
-Importance Score: 85
-
-- Unified meeting data ingestion system links to document artifacts
-- Automated summary generation connects meetings to documents
-- Signal extraction pipeline maintains cross-references
+## Signal Classification System
+- Standardized signal types across both models:
+  - Decision signals (meeting outcomes, document conclusions)
+  - Action signals (tasks, next steps)
+  - Risk signals (identified issues, potential problems)
+  - Blocker signals (impediments, dependencies)
+  - Idea signals (proposals, suggestions)
 
 $END$
 

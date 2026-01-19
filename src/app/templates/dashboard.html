@@ -159,6 +159,251 @@
     display: none !important;
   }
   
+  /* Mode G Task Styles */
+  .mode-g-expand-btn {
+    background: none;
+    border: none;
+    padding: 0.15rem;
+    cursor: pointer;
+    color: #9ca3af;
+    border-radius: 4px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+  }
+  
+  .mode-g-expand-btn:hover {
+    background: #f3f4f6;
+    color: #6366f1;
+  }
+  
+  .mode-g-expand-btn.expanded svg {
+    transform: rotate(180deg);
+  }
+  
+  .mode-g-task.completed .workflow-checklist-title span {
+    text-decoration: line-through;
+    opacity: 0.6;
+  }
+  
+  .mode-g-tasks .workflow-checklist-item {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  
+  .mode-g-tasks .workflow-checklist-item:last-child {
+    border-bottom: none;
+  }
+  
+  /* Mode G Sprint Ticket Cards */
+  .mode-g-ticket-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    transition: all 0.2s;
+  }
+  
+  .mode-g-ticket-card:hover {
+    border-color: #6366f1;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+  }
+  
+  .mode-g-ticket-header {
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s;
+  }
+  
+  .mode-g-ticket-header:hover {
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  }
+  
+  .mode-g-ticket-header.expanded {
+    border-bottom-color: #e5e7eb;
+  }
+  
+  .mode-g-ticket-toggle {
+    width: 20px;
+    height: 20px;
+    color: #6366f1;
+    transition: transform 0.2s;
+  }
+  
+  .mode-g-ticket-header.expanded .mode-g-ticket-toggle {
+    transform: rotate(180deg);
+  }
+  
+  .mode-g-ticket-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .mode-g-ticket-id {
+    font-size: 0.75rem;
+    font-family: monospace;
+    color: #6366f1;
+    font-weight: 600;
+  }
+  
+  .mode-g-ticket-title {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #1f2937;
+  }
+  
+  .mode-g-ticket-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
+  
+  .mode-g-points-badge {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+    min-width: 24px;
+    text-align: center;
+  }
+  
+  .mode-g-progress-mini {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: #6b7280;
+  }
+  
+  .mode-g-progress-bar-mini {
+    width: 60px;
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  
+  .mode-g-progress-fill-mini {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+  
+  .mode-g-ticket-body {
+    display: none;
+    padding: 0.75rem 1rem;
+    background: #fff;
+  }
+  
+  .mode-g-ticket-card.expanded .mode-g-ticket-body {
+    display: block;
+  }
+  
+  .mode-g-status-badge {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  
+  .mode-g-status-badge.in_progress {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+  
+  .mode-g-status-badge.todo {
+    background: #f3f4f6;
+    color: #6b7280;
+  }
+  
+  .mode-g-status-badge.in_review {
+    background: #fef3c7;
+    color: #d97706;
+  }
+  
+  .mode-g-status-badge.blocked {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+  
+  .mode-g-edit-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: #f3f4f6;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  
+  .mode-g-edit-link:hover {
+    background: #6366f1;
+    color: white;
+    transform: scale(1.1);
+  }
+  
+  .mode-g-global-task:hover .remove-global-task {
+    opacity: 1 !important;
+  }
+  
+  /* Sprint Burndown Summary */
+  .sprint-burndown-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+  }
+  
+  .burndown-stat {
+    text-align: center;
+    padding: 0.5rem;
+  }
+  
+  .burndown-stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1f2937;
+  }
+  
+  .burndown-stat-label {
+    font-size: 0.7rem;
+    color: #6b7280;
+    text-transform: uppercase;
+  }
+  
+  .burndown-stat.completed .burndown-stat-value {
+    color: #10b981;
+  }
+  
+  .burndown-stat.in-progress .burndown-stat-value {
+    color: #3b82f6;
+  }
+  
+  .burndown-stat.remaining .burndown-stat-value {
+    color: #f59e0b;
+  }
+
   .highlight-header {
     display: flex;
     justify-content: space-between;
@@ -1511,32 +1756,51 @@
 
       <!-- Mode G: Execution (Writing Code) -->
       <div class="workflow-mode-content" data-mode="mode-g" style="display: none;">
-        {% if execution_ticket and execution_tasks %}
-        <div style="margin-bottom: 0.75rem; font-weight: 600;">
-          Working on <a href="/tickets/{{ execution_ticket.id }}/edit" style="text-decoration: none; color: inherit;">{{ execution_ticket.ticket_id }} — {{ execution_ticket.title }}</a>
+        <!-- Global Tasks (Fixed above sprint) -->
+        <div class="mode-g-global-tasks" style="margin-bottom: 1rem; padding: 0.75rem; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #bbf7d0; border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h4 style="margin: 0; font-size: 0.85rem; color: #166534;">📌 Global Tasks</h4>
+            <button onclick="toggleGlobalTasksEdit()" style="background: none; border: none; color: #166534; cursor: pointer; font-size: 0.75rem;">✏️ Edit</button>
+          </div>
+          <ul class="workflow-checklist" id="modeGGlobalTasks" style="margin: 0; padding-left: 0; list-style: none;">
+            <!-- Loaded dynamically -->
+          </ul>
+          <div id="globalTasksEditor" style="display: none; margin-top: 0.5rem;">
+            <input type="text" id="newGlobalTaskInput" placeholder="Add a global task..." style="width: 100%; padding: 0.5rem; border: 1px solid #bbf7d0; border-radius: 6px; font-size: 0.85rem;" onkeypress="if(event.key==='Enter') addGlobalTask()">
+          </div>
         </div>
-        <ul class="workflow-checklist">
-          {% for task in execution_tasks %}
-          <li class="workflow-checklist-item">
-            <div class="workflow-checkbox" onclick="toggleCheckbox(this)"></div>
-            <div class="workflow-checklist-content">
-              <div class="workflow-checklist-title">{{ task.title }}</div>
-              {% if task.description %}
-              <div class="workflow-checklist-desc">{{ task.description }}</div>
-              {% endif %}
-            </div>
-          </li>
-          {% endfor %}
-        </ul>
-        <div class="workflow-progress">
-          <div class="workflow-progress-bar"><div class="workflow-progress-fill" style="width: 0%;"></div></div>
-          <span class="workflow-progress-text">0 of {{ execution_tasks|length }} complete</span>
+        
+        <!-- Sprint Jeopardy Warning -->
+        <div id="modeGJeopardyWarning" style="display: none; margin-bottom: 0.75rem; padding: 0.75rem; border-radius: 8px; font-size: 0.9rem;">
         </div>
-        {% else %}
-        <div style="padding: 0.75rem; background: #eef2ff; border-radius: 8px; color: #4338ca; font-size: 0.9rem;">
-          No decomposed ticket tasks yet. Open a ticket and generate the Task Breakdown to see it here.
+        
+        <!-- Sprint Burndown Summary -->
+        <div class="sprint-burndown-summary" id="modeGBurndownSummary">
+          <div class="burndown-stat total">
+            <div class="burndown-stat-value" id="burndownTotal">—</div>
+            <div class="burndown-stat-label">Total Points</div>
+          </div>
+          <div class="burndown-stat completed">
+            <div class="burndown-stat-value" id="burndownCompleted">—</div>
+            <div class="burndown-stat-label">Completed</div>
+          </div>
+          <div class="burndown-stat in-progress">
+            <div class="burndown-stat-value" id="burndownInProgress">—</div>
+            <div class="burndown-stat-label">In Progress</div>
+          </div>
+          <div class="burndown-stat remaining">
+            <div class="burndown-stat-value" id="burndownRemaining">—</div>
+            <div class="burndown-stat-label">Remaining</div>
+          </div>
         </div>
-        {% endif %}
+        
+        <!-- Sprint Tickets List -->
+        <div id="modeGTicketsList" style="max-height: 400px; overflow-y: auto;">
+          <div style="padding: 1rem; text-align: center; color: #6b7280;">
+            <div class="spinner" style="margin: 0 auto 0.5rem;"></div>
+            Loading sprint tickets...
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1629,7 +1893,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
         </svg>
-        @Rowan
+        @{{ env.USER_NAME }}
       </button>
       <button class="chip" onclick="askAI('reach_outs')">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1688,15 +1952,14 @@
   </div>
 
   <!-- Overview Highlights Section -->
-  {% if highlights %}
-  <div class="section-card full-width collapsible-box" data-box-id="attention" style="margin-bottom: 1.5rem;">
+  <div class="section-card full-width collapsible-box" data-box-id="attention" style="margin-bottom: 1.5rem;" id="attentionSection">
     <div class="section-header" style="cursor: pointer;" onclick="toggleBoxCollapse(this.parentElement)">
       <div style="display: flex; align-items: center; gap: 0.75rem;">
         <span class="collapse-icon">▼</span>
         <h3>📢 Need Your Attention</h3>
-        <span class="attention-badge" id="attentionCount">{{ highlights|length }}</span>
+        <span class="attention-badge" id="attentionCount">{{ highlights|length if highlights else 0 }}</span>
       </div>
-      <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <div style="display: flex; align-items: center; gap: 0
         <span class="refresh-info" id="refreshInfo" style="font-size: 0.75rem; color: var(--sf-text-muted);">Auto-refresh: on page load</span>
         <button class="refresh-btn" onclick="event.stopPropagation(); refreshAttention()" title="Refresh now">
           <svg id="refreshIcon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1713,6 +1976,7 @@
       </div>
     </div>
     <div class="section-content collapsible-content" id="attentionContent" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.75rem; padding: 1rem;">
+      {% if highlights %}
       {% for h in highlights %}
       <div class="highlight-item {{ h.type }}" data-highlight-id="{{ loop.index }}" data-meeting-source="{{ h.source }}" data-meeting-id="{{ h.meeting_id }}">
         <div class="highlight-header">
@@ -1738,9 +2002,14 @@
         </div>
       </div>
       {% endfor %}
+      {% else %}
+      <div class="empty-attention" style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--sf-text-muted);">
+        <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">✨ All clear!</p>
+        <p style="font-size: 0.9rem;">No items need your attention right now. Click refresh to check for new signals.</p>
+      </div>
+      {% endif %}
     </div>
   </div>
-  {% endif %}
 
   <!-- Main Grid -->
   <div class="main-grid">
@@ -1761,7 +2030,7 @@
               {% if signal.type == 'decision' %}✓{% elif signal.type == 'action' %}☐{% elif signal.type == 'blocker' %}⚠{% elif signal.type == 'risk' %}⚡{% else %}💡{% endif %}
             </div>
             <div class="signal-body">
-              <div class="signal-text markdown-content">{{ signal.text }}{% if signal.status and signal.status != 'pending' %}<span class="signal-status-badge {{ signal.status }}">{{ signal.status }}</span>{% endif %}</div>
+              <div class="signal-text markdown-content">{{ signal.text }}{% if signal.status and signal.status != 'pending' %}<span class="signal-status-badge {{ signal.status }}">{% if signal.status == 'approved' %}✓ Validated{% elif signal.status == 'rejected' %}✗ Dismissed{% elif signal.status == 'archived' %}📁 Archived{% elif signal.status == 'completed' %}✓ Done{% elif signal.status == 'waiting' %}⏳ Waiting{% else %}{{ signal.status }}{% endif %}</span>{% endif %}</div>
               <div class="signal-source">{{ signal.source }}</div>
             </div>
             <div class="signal-actions">
@@ -2632,6 +2901,351 @@ function toggleCheckbox(el) {
   saveWorkflowProgress(currentMode);
 }
 
+// Toggle Mode G task checkbox and persist to server
+async function toggleModeGTask(el) {
+  el.classList.toggle('checked');
+  
+  const taskItem = el.closest('.mode-g-task');
+  const taskIndex = taskItem.dataset.taskIndex;
+  const ticketId = taskItem.dataset.ticketId;
+  const isChecked = el.classList.contains('checked');
+  
+  taskItem.classList.toggle('completed', isChecked);
+  
+  // Update local progress displays
+  updateModeGProgress();
+  updateTicketProgress(ticketId);
+  
+  // Persist to server
+  try {
+    const response = await fetch(`/api/tickets/${ticketId}/task-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        task_index: parseInt(taskIndex),
+        status: isChecked ? 'done' : 'pending'
+      })
+    });
+    
+    if (response.ok) {
+      // Refresh burndown stats after successful save
+      refreshBurndownStats();
+    }
+  } catch (err) {
+    console.error('Failed to update task status:', err);
+  }
+}
+
+// Update the progress bar for a specific ticket
+function updateTicketProgress(ticketId) {
+  const card = document.querySelector(`.mode-g-ticket-card[data-ticket-id="${ticketId}"]`);
+  if (!card) return;
+  
+  const tasks = card.querySelectorAll('.mode-g-task');
+  const completed = card.querySelectorAll('.mode-g-task.completed').length;
+  const total = tasks.length;
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  
+  // Update the mini progress in the header
+  const progressFill = card.querySelector('.mode-g-progress-fill-mini');
+  const progressText = card.querySelector('.mode-g-progress-mini span');
+  
+  if (progressFill) progressFill.style.width = percent + '%';
+  if (progressText) progressText.textContent = `${completed}/${total}`;
+}
+
+// Refresh burndown stats from server
+async function refreshBurndownStats() {
+  try {
+    const res = await fetch('/api/reports/sprint-burndown');
+    const data = await res.json();
+    
+    document.getElementById('burndownTotal').textContent = data.total_points || 0;
+    document.getElementById('burndownCompleted').textContent = Math.round(data.completed_points || 0);
+    document.getElementById('burndownInProgress').textContent = Math.round(data.in_progress_points || 0);
+    document.getElementById('burndownRemaining').textContent = Math.round(data.remaining_points || 0);
+    
+    // Update jeopardy warning
+    const jeopardyEl = document.getElementById('modeGJeopardyWarning');
+    if (jeopardyEl) {
+      if (data.jeopardy_status && data.jeopardy_message) {
+        jeopardyEl.style.display = 'block';
+        if (data.jeopardy_status === 'critical') {
+          jeopardyEl.style.background = '#fef2f2';
+          jeopardyEl.style.border = '1px solid #fecaca';
+          jeopardyEl.style.color = '#b91c1c';
+        } else {
+          jeopardyEl.style.background = '#fffbeb';
+          jeopardyEl.style.border = '1px solid #fde68a';
+          jeopardyEl.style.color = '#b45309';
+        }
+        jeopardyEl.innerHTML = `<strong>${data.jeopardy_message}</strong>
+          ${data.working_days_remaining !== null ? `<div style="font-size: 0.8rem; margin-top: 0.25rem; opacity: 0.8;">Day ${data.sprint_day}/${data.sprint_total_days} • ${data.working_days_remaining} working days left • ${data.total_remaining_tasks} subtasks remaining</div>` : ''}`;
+      } else {
+        jeopardyEl.style.display = 'none';
+      }
+    }
+  } catch (err) {
+    console.error('Failed to refresh burndown stats:', err);
+  }
+}
+
+// Update Mode G progress bar
+function updateModeGProgress() {
+  const tasks = document.querySelectorAll('.mode-g-tasks .mode-g-task');
+  const completed = document.querySelectorAll('.mode-g-tasks .mode-g-task.completed').length;
+  const total = tasks.length;
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  
+  const progressFill = document.getElementById('modeGProgressFill');
+  const progressText = document.getElementById('modeGProgressText');
+  
+  if (progressFill) progressFill.style.width = percent + '%';
+  if (progressText) progressText.textContent = `${completed} of ${total} complete`;
+}
+
+// Toggle task details visibility
+function toggleTaskDetails(btn) {
+  btn.classList.toggle('expanded');
+  const taskItem = btn.closest('.mode-g-task');
+  const details = taskItem.querySelector('.mode-g-task-details');
+  if (details) {
+    details.style.display = details.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+// Toggle Mode G ticket card collapse
+function toggleModeGTicket(header) {
+  const card = header.closest('.mode-g-ticket-card');
+  card.classList.toggle('expanded');
+  header.classList.toggle('expanded');
+}
+
+// ========================================
+// Global Tasks for Mode G
+// ========================================
+
+function loadGlobalTasks() {
+  const container = document.getElementById('modeGGlobalTasks');
+  if (!container) return;
+  
+  const tasks = JSON.parse(localStorage.getItem('mode-g-global-tasks') || '[]');
+  
+  if (tasks.length === 0) {
+    container.innerHTML = '<li style="color: #6b7280; font-size: 0.85rem; padding: 0.25rem 0;">No global tasks. Click Edit to add some.</li>';
+    return;
+  }
+  
+  container.innerHTML = tasks.map((task, idx) => `
+    <li class="workflow-checklist-item mode-g-global-task ${task.done ? 'completed' : ''}" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0;">
+      <div class="workflow-checkbox ${task.done ? 'checked' : ''}" onclick="toggleGlobalTask(${idx})" style="flex-shrink: 0;"></div>
+      <span style="flex: 1; font-size: 0.85rem; ${task.done ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${escapeHtml(task.title)}</span>
+      <button onclick="removeGlobalTask(${idx})" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.7rem; opacity: 0; transition: opacity 0.2s;" class="remove-global-task">&times;</button>
+    </li>
+  `).join('');
+}
+
+function toggleGlobalTasksEdit() {
+  const editor = document.getElementById('globalTasksEditor');
+  editor.style.display = editor.style.display === 'none' ? 'block' : 'none';
+  if (editor.style.display === 'block') {
+    document.getElementById('newGlobalTaskInput').focus();
+  }
+}
+
+function addGlobalTask() {
+  const input = document.getElementById('newGlobalTaskInput');
+  const title = input.value.trim();
+  if (!title) return;
+  
+  const tasks = JSON.parse(localStorage.getItem('mode-g-global-tasks') || '[]');
+  tasks.push({ title: title, done: false });
+  localStorage.setItem('mode-g-global-tasks', JSON.stringify(tasks));
+  
+  input.value = '';
+  loadGlobalTasks();
+}
+
+function toggleGlobalTask(idx) {
+  const tasks = JSON.parse(localStorage.getItem('mode-g-global-tasks') || '[]');
+  if (tasks[idx]) {
+    tasks[idx].done = !tasks[idx].done;
+    localStorage.setItem('mode-g-global-tasks', JSON.stringify(tasks));
+    loadGlobalTasks();
+  }
+}
+
+function removeGlobalTask(idx) {
+  const tasks = JSON.parse(localStorage.getItem('mode-g-global-tasks') || '[]');
+  tasks.splice(idx, 1);
+  localStorage.setItem('mode-g-global-tasks', JSON.stringify(tasks));
+  loadGlobalTasks();
+}
+
+// Load global tasks on page load
+document.addEventListener('DOMContentLoaded', loadGlobalTasks);
+
+// Load Mode G sprint tickets
+async function loadModeGSprintTickets() {
+  const container = document.getElementById('modeGTicketsList');
+  if (!container) return;
+  
+  try {
+    const res = await fetch('/api/reports/sprint-burndown');
+    const data = await res.json();
+    
+    // Update burndown summary
+    document.getElementById('burndownTotal').textContent = data.total_points || 0;
+    document.getElementById('burndownCompleted').textContent = Math.round(data.completed_points || 0);
+    document.getElementById('burndownInProgress').textContent = Math.round(data.in_progress_points || 0);
+    document.getElementById('burndownRemaining').textContent = Math.round(data.remaining_points || 0);
+    
+    // Show jeopardy warning if applicable
+    const jeopardyEl = document.getElementById('modeGJeopardyWarning');
+    if (jeopardyEl) {
+      if (data.jeopardy_status && data.jeopardy_message) {
+        jeopardyEl.style.display = 'block';
+        if (data.jeopardy_status === 'critical') {
+          jeopardyEl.style.background = '#fef2f2';
+          jeopardyEl.style.border = '1px solid #fecaca';
+          jeopardyEl.style.color = '#b91c1c';
+        } else {
+          jeopardyEl.style.background = '#fffbeb';
+          jeopardyEl.style.border = '1px solid #fde68a';
+          jeopardyEl.style.color = '#b45309';
+        }
+        jeopardyEl.innerHTML = `<strong>${data.jeopardy_message}</strong>
+          ${data.working_days_remaining !== null ? `<div style="font-size: 0.8rem; margin-top: 0.25rem; opacity: 0.8;">Day ${data.sprint_day}/${data.sprint_total_days} • ${data.working_days_remaining} working days left • ${data.total_remaining_tasks} subtasks remaining</div>` : ''}`;
+      } else {
+        jeopardyEl.style.display = 'none';
+      }
+    }
+    
+    if (!data.tickets || data.tickets.length === 0) {
+      container.innerHTML = `
+        <div style="padding: 1rem; text-align: center; color: #6b7280; background: #f9fafb; border-radius: 8px;">
+          <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📋</div>
+          <div>No active sprint tickets found.</div>
+          <a href="/tickets/new" style="color: #6366f1; font-size: 0.85rem;">Add a ticket →</a>
+        </div>
+      `;
+      return;
+    }
+    
+    let html = '';
+    for (const ticket of data.tickets) {
+      const progressPct = ticket.progress_pct || 0;
+      const hasDecomposition = ticket.tasks && ticket.tasks.length > 0;
+      
+      html += `
+        <div class="mode-g-ticket-card" data-ticket-id="${ticket.id}">
+          <div class="mode-g-ticket-header">
+            <svg class="mode-g-ticket-toggle" fill="none" stroke="currentColor" viewBox="0 0 24 24" onclick="toggleModeGTicket(this.parentElement)">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+            <div class="mode-g-ticket-info" onclick="toggleModeGTicket(this.parentElement)" style="cursor: pointer;">
+              <div class="mode-g-ticket-id">${ticket.ticket_id}</div>
+              <div class="mode-g-ticket-title">${escapeHtml(ticket.title)}</div>
+            </div>
+            <div class="mode-g-ticket-meta">
+              <span class="mode-g-status-badge ${ticket.status}">${formatStatus(ticket.status)}</span>
+              ${ticket.sprint_points > 0 ? `<span class="mode-g-points-badge">${ticket.sprint_points} pts</span>` : ''}
+              ${hasDecomposition ? `
+                <div class="mode-g-progress-mini">
+                  <div class="mode-g-progress-bar-mini">
+                    <div class="mode-g-progress-fill-mini" style="width: ${progressPct}%"></div>
+                  </div>
+                  <span>${ticket.completed_tasks}/${ticket.total_tasks}</span>
+                </div>
+              ` : ''}
+              <a href="/tickets/${ticket.id}/edit" class="mode-g-edit-link" onclick="event.stopPropagation()" title="Edit ticket">✏️</a>
+            </div>
+          </div>
+          <div class="mode-g-ticket-body">
+            ${hasDecomposition ? renderTicketTasks(ticket) : `
+              <div style="padding: 0.75rem; background: #f9fafb; border-radius: 6px; color: #6b7280; font-size: 0.85rem; text-align: center;">
+                No task breakdown yet. 
+                <a href="/tickets/${ticket.id}/edit#task-breakdown" style="color: #6366f1;">Generate tasks →</a>
+              </div>
+            `}
+          </div>
+        </div>
+      `;
+    }
+    
+    container.innerHTML = html;
+    
+  } catch (err) {
+    console.error('Failed to load sprint tickets:', err);
+    container.innerHTML = `
+      <div style="padding: 1rem; text-align: center; color: #ef4444;">
+        Failed to load sprint tickets. <button onclick="loadModeGSprintTickets()" style="color: #6366f1; background: none; border: none; cursor: pointer; text-decoration: underline;">Retry</button>
+      </div>
+    `;
+  }
+}
+
+function formatStatus(status) {
+  const map = {
+    'todo': 'To Do',
+    'in_progress': 'In Progress',
+    'in_review': 'In Review',
+    'blocked': 'Blocked',
+    'done': 'Done'
+  };
+  return map[status] || status;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+}
+
+function renderTicketTasks(ticket) {
+  let html = '<ul class="workflow-checklist mode-g-tasks">';
+  
+  for (const task of ticket.tasks) {
+    const isDone = task.done;
+    html += `
+      <li class="workflow-checklist-item mode-g-task ${isDone ? 'completed' : ''}" 
+          data-task-index="${task.index}" data-ticket-id="${ticket.id}">
+        <div class="workflow-checkbox ${isDone ? 'checked' : ''}" onclick="toggleModeGTask(this)"></div>
+        <div class="workflow-checklist-content" style="flex: 1;">
+          <div class="workflow-checklist-title" style="display: flex; align-items: center; gap: 0.5rem;">
+            <span>${escapeHtml(task.title)}</span>
+            ${task.description ? `
+              <button class="mode-g-expand-btn" onclick="event.stopPropagation(); toggleTaskDetails(this)" title="Show details">
+                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+            ` : ''}
+          </div>
+          ${task.description ? `
+            <div class="mode-g-task-details" style="display: none;">
+              <div class="workflow-checklist-desc" style="margin-top: 0.5rem; padding: 0.5rem; background: #f8fafc; border-radius: 6px; border-left: 3px solid #6366f1;">
+                ${escapeHtml(task.description)}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      </li>
+    `;
+  }
+  
+  html += '</ul>';
+  html += `
+    <div style="margin-top: 0.75rem; text-align: right;">
+      <a href="/tickets/${ticket.id}/edit#task-breakdown" style="font-size: 0.8rem; color: #6366f1; text-decoration: none;">
+        Edit tasks →
+      </a>
+    </div>
+  `;
+  
+  return html;
+}
+
 function updateWorkflowProgress(mode) {
   const modeContent = document.querySelector(`.workflow-mode-content[data-mode="${mode}"]`);
   if (!modeContent) return;
@@ -2687,6 +3301,48 @@ function loadWorkflowProgress(mode) {
   } catch (e) {}
 }
 
+function resetAllModes() {
+  if (!confirm('Reset all mode checkboxes for a new sprint? This will clear all progress for modes A-G.')) {
+    return;
+  }
+  
+  const modes = ['mode-a', 'mode-b', 'mode-c', 'mode-d', 'mode-e', 'mode-f', 'mode-g'];
+  
+  modes.forEach(mode => {
+    // Clear localStorage
+    localStorage.removeItem(`workflow-progress-${mode}`);
+    
+    // Uncheck all checkboxes in the UI
+    const modeContent = document.querySelector(`.workflow-mode-content[data-mode="${mode}"]`);
+    if (modeContent) {
+      const checkboxes = modeContent.querySelectorAll('.workflow-checkbox');
+      checkboxes.forEach(cb => cb.classList.remove('checked'));
+    }
+  });
+  
+  // Reset to Mode A
+  localStorage.setItem('signalflow-mode', 'mode-a');
+  document.body.setAttribute('data-mode', 'mode-a');
+  
+  // Update UI
+  const currentMode = 'mode-a';
+  updateWorkflowPanel(currentMode);
+  updateWorkflowProgress(currentMode);
+  
+  if (typeof updateModeDisplay === 'function') {
+    updateModeDisplay();
+  }
+  
+  // Sync reset to server
+  fetch('/api/settings/reset-workflow-progress', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin'
+  }).catch(() => {});
+  
+  showToast('Sprint Reset', 'All mode checkboxes have been reset for the new sprint', 'success');
+}
+
 function advanceWorkflow() {
   const currentMode = localStorage.getItem('signalflow-mode') || 'mode-a';
   const modes = ['mode-a', 'mode-b', 'mode-c', 'mode-d', 'mode-e', 'mode-g', 'mode-f'];
@@ -2723,6 +3379,11 @@ document.addEventListener('modeChanged', (e) => {
   const mode = e.detail?.mode || localStorage.getItem('signalflow-mode') || 'mode-a';
   updateWorkflowPanel(mode);
   loadWorkflowProgress(mode);
+  
+  // Load Mode G sprint tickets when switching to mode-g
+  if (mode === 'mode-g') {
+    loadModeGSprintTickets();
+  }
 });
 
 // Initialize on page load
@@ -2740,6 +3401,12 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Initialize attention section
   initAttentionSection();
+  
+  // Initialize Mode G progress - load sprint tickets if in mode-g
+  const currentMode = localStorage.getItem('signalflow-mode') || 'mode-a';
+  if (currentMode === 'mode-g') {
+    loadModeGSprintTickets();
+  }
   
   // Load career suggestions
   const careerLimit = localStorage.getItem('career-suggestion-limit');
@@ -3117,6 +3784,11 @@ function initAttentionSection() {
 async function refreshAttention() {
   const btn = document.querySelector('.refresh-btn');
   const icon = document.getElementById('refreshIcon');
+  const section = document.getElementById('attentionSection');
+  
+  // Clear dismissed items on refresh since we're loading fresh data
+  // (indices will change so old dismissals don't make sense)
+  localStorage.removeItem('dismissed-highlights');
   
   if (btn) btn.classList.add('spinning');
   
@@ -3127,45 +3799,71 @@ async function refreshAttention() {
     const data = await response.json();
     const content = document.getElementById('attentionContent');
     
-    if (content && data.highlights) {
-      // Keep track of dismissed items
-      const dismissedItems = JSON.parse(localStorage.getItem('dismissed-highlights') || '[]');
-      const showDismissed = localStorage.getItem('show-dismissed-highlights') === 'true';
-      
-      content.innerHTML = data.highlights.map((h, index) => {
-        const isDismissed = dismissedItems.includes(String(index + 1));
-        const hiddenClass = isDismissed && !showDismissed ? 'hidden-dismissed' : '';
-        const dismissedClass = isDismissed ? 'dismissed' : '';
+    console.log('Highlights received:', data.highlights);
+    
+    if (content) {
+      if (data.highlights && data.highlights.length > 0) {
+        // Keep track of dismissed items
+        const dismissedItems = JSON.parse(localStorage.getItem('dismissed-highlights') || '[]');
+        const showDismissed = localStorage.getItem('show-dismissed-highlights') === 'true';
         
-        return `
-          <div class="highlight-item ${h.type} ${dismissedClass} ${hiddenClass}" data-highlight-id="${index + 1}" data-meeting-source="${h.source}" data-meeting-id="${h.meeting_id || ''}">
-            <div class="highlight-header">
-              <div class="highlight-label">${h.label}</div>
-              <div class="highlight-actions">
-                <button class="highlight-action-btn drill-btn" onclick="drillDown(this)" title="See more context">
-                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                  </svg>
-                </button>
-                <button class="highlight-action-btn dismiss-btn" onclick="dismissHighlight(this)" title="Dismiss (mark as seen)">
-                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                  </svg>
-                </button>
+        console.log('Dismissed items from localStorage:', dismissedItems);
+        console.log('Show dismissed:', showDismissed);
+        
+        content.innerHTML = data.highlights.map((h, index) => {
+          const isDismissed = dismissedItems.includes(String(index + 1));
+          const hiddenClass = isDismissed && !showDismissed ? 'hidden-dismissed' : '';
+          const dismissedClass = isDismissed ? 'dismissed' : '';
+          
+          return `
+            <div class="highlight-item ${h.type} ${dismissedClass} ${hiddenClass}" data-highlight-id="${index + 1}" data-meeting-source="${h.source || ''}" data-meeting-id="${h.meeting_id || ''}">
+              <div class="highlight-header">
+                <div class="highlight-label">${h.label}</div>
+                <div class="highlight-actions">
+                  <button class="highlight-action-btn drill-btn" onclick="drillDown(this)" title="See more context">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                    </svg>
+                  </button>
+                  <button class="highlight-action-btn dismiss-btn" onclick="dismissHighlight(this)" title="Dismiss (mark as seen)">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="highlight-text">${h.text}</div>
+              <div class="highlight-source">${h.source || ''}</div>
+              <div class="highlight-drilldown" style="display: none;">
+                <div class="drilldown-loading">Loading context...</div>
+                <div class="drilldown-content"></div>
               </div>
             </div>
-            <div class="highlight-text">${h.text}</div>
-            <div class="highlight-source">${h.source}</div>
-            <div class="highlight-drilldown" style="display: none;">
-              <div class="drilldown-loading">Loading context...</div>
-              <div class="drilldown-content"></div>
-            </div>
+          `;
+        }).join('');
+        
+        // Auto-expand section if it was collapsed and we found items
+        if (section && section.classList.contains('collapsed')) {
+          section.classList.remove('collapsed');
+          // Update localStorage
+          const collapsedBoxes = JSON.parse(localStorage.getItem('collapsed-boxes') || '{}');
+          collapsedBoxes['attention'] = false;
+          localStorage.setItem('collapsed-boxes', JSON.stringify(collapsedBoxes));
+        }
+        
+        showToast('Refreshed', `Found ${data.highlights.length} item(s)`, 'success');
+      } else {
+        content.innerHTML = `
+          <div class="empty-attention" style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--sf-text-muted);">
+            <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">✨ All clear!</p>
+            <p style="font-size: 0.9rem;">No items need your attention right now.</p>
           </div>
         `;
-      }).join('');
-      
+        showToast('Refreshed', 'No new items', 'info');
+      }
       updateAttentionCount();
-      showToast('Refreshed', 'Attention items updated', 'success');
+    } else {
+      console.error('attentionContent element not found');
     }
   } catch (err) {
     console.error('Failed to refresh attention:', err);
