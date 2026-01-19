@@ -973,7 +973,6 @@
       </div>
       <button class="mode-play-pause-btn" id="trackingPlayPause" onclick="toggleTrackingManual(event)" title="Start/Stop time tracking">
         <span class="play-icon">▶</span>
-        <span class="pause-icon">⏹</span>
       </button>
       <span class="mode-tracking-indicator" id="trackingIndicator" title="Time tracking active">
         <span class="tracking-dot"></span>
@@ -1315,6 +1314,7 @@
       activeTrackingMode = null;
       trackingStartTime = null;
       showTrackingIndicator(false);
+      updatePlayPauseButton();
     }
     
     function showTrackingIndicator(show) {
@@ -1357,6 +1357,7 @@
       
       if (activeTrackingMode) {
         await stopTracking();
+        // stopTracking already calls updatePlayPauseButton
       } else {
         // Force start even if auto-tracking is disabled
         try {
@@ -1372,12 +1373,12 @@
             trackingStartTime = Date.now();
             showTrackingIndicator(true);
             startTrackingTimer();
+            updatePlayPauseButton();
           }
         } catch (e) {
           console.error('Error starting tracking:', e);
         }
       }
-      updatePlayPauseButton();
     }
     
     function updatePlayPauseButton() {
