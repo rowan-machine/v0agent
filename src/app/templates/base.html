@@ -24,6 +24,250 @@
       }
     }
   </script>
+  
+  <!-- Global Functions for onclick handlers (must be in head to be available when HTML parses) -->
+  <script>
+    // Sprint Phase
+    window.currentPhase = localStorage.getItem('sprintPhase') || 'implementation';
+    window.setPhase = function(phase) {
+      console.log('setPhase called with:', phase);
+      window.currentPhase = phase;
+      localStorage.setItem('sprintPhase', phase);
+      document.querySelectorAll('.phase-chip').forEach(chip => {
+        chip.classList.toggle('active', chip.dataset.phase === phase);
+      });
+      if (typeof window.updateQuickPrompts === 'function') {
+        window.updateQuickPrompts();
+      }
+    };
+    
+    // Tech Stack Tags
+    window.activeTechs = JSON.parse(localStorage.getItem('activeTechs') || '[]');
+    window.toggleTech = function(tech) {
+      console.log('toggleTech called with:', tech);
+      const idx = window.activeTechs.indexOf(tech);
+      if (idx > -1) {
+        window.activeTechs.splice(idx, 1);
+      } else {
+        window.activeTechs.push(tech);
+      }
+      localStorage.setItem('activeTechs', JSON.stringify(window.activeTechs));
+      if (typeof window.updateTechTags === 'function') {
+        window.updateTechTags();
+      }
+    };
+    
+    window.updateTechTags = function() {
+      document.querySelectorAll('.tech-tag').forEach(tag => {
+        tag.classList.toggle('active', window.activeTechs.includes(tag.dataset.tech));
+      });
+    };
+    
+    // Insert prompt into chat textarea
+    window.insertPrompt = function(prompt) {
+      const textarea = document.querySelector('.chat-textarea');
+      if (textarea) {
+        let contextPrefix = '';
+        if (window.activeTechs && window.activeTechs.length > 0) {
+          contextPrefix = `[Focus: ${window.activeTechs.join(', ')}] `;
+        }
+        textarea.value = contextPrefix + prompt;
+        textarea.focus();
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+      } else {
+        const encoded = encodeURIComponent(prompt);
+        window.location.href = `/chat/new?prompt=${encoded}`;
+      }
+    };
+    
+    // User Status Management
+    window.updateUserStatus = async function() {
+      const input = document.getElementById('userStatusInput');
+      if (!input) return;
+      const statusText = input.value.trim();
+      if (!statusText) return;
+      
+      try {
+        const resp = await fetch('/api/user-status/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ status: statusText })
+        });
+        const data = await resp.json();
+        if (data.status === 'ok') {
+          const interpreted = data.interpreted;
+          const display = document.getElementById('currentStatusDisplay');
+          if (display) {
+            display.innerHTML = `<strong>${interpreted.mode}</strong>: ${interpreted.activity}`;
+            display.classList.add('visible');
+          }
+          input.value = '';
+          if (interpreted.mode) {
+            window.currentPhase = interpreted.mode;
+            localStorage.setItem('sprintPhase', interpreted.mode);
+            document.querySelectorAll('.phase-chip').forEach(chip => {
+              chip.classList.toggle('active', chip.dataset.phase === interpreted.mode);
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to update status:', err);
+      }
+    };
+    
+    // Blockers Modal
+    window.openBlockersModal = function() {
+      const modal = document.getElementById('blockersModal');
+      if (modal) {
+        modal.classList.add('active');
+        if (typeof window.loadBlockers === 'function') window.loadBlockers();
+      }
+    };
+    window.closeBlockersModal = function() {
+      const modal = document.getElementById('blockersModal');
+      if (modal) modal.classList.remove('active');
+    };
+    
+    // Actions Modal
+    window.openActionsModal = function() {
+      const modal = document.getElementById('actionsModal');
+      if (modal) {
+        modal.classList.add('active');
+        if (typeof window.loadActions === 'function') window.loadActions();
+      }
+    };
+    window.closeActionsModal = function() {
+      const modal = document.getElementById('actionsModal');
+      if (modal) modal.classList.remove('active');
+    };
+    
+    // Context Panel
+    window.toggleContextPanel = function() {
+      const panel = document.getElementById('contextPanel');
+      if (panel) {
+        panel.classList.toggle('collapsed');
+        localStorage.setItem('contextPanelCollapsed', panel.classList.contains('collapsed'));
+      }
+    };
+    
+    // Signal Modal
+    window.openSignalModal = function() {
+      const modal = document.getElementById('signalModal');
+      if (modal) {
+        modal.classList.add('active');
+        document.getElementById('signalSearchQuery')?.focus();
+      }
+    };
+    window.closeSignalModal = function() {
+      const modal = document.getElementById('signalModal');
+      if (modal) modal.classList.remove('active');
+    };
+    
+    // Signal actions
+    window.askAboutSignal = function(signalText) {
+      if (typeof window.closeBlockersModal === 'function') window.closeBlockersModal();
+      if (typeof window.closeActionsModal === 'function') window.closeActionsModal();
+      window.insertPrompt(`Tell me more about this: "${signalText}..."`);
+    };
+    
+    window.handleSignal = async function(signalId, action) {
+      const card = document.getElementById(`signal-${signalId}`);
+      try {
+        const formData = new FormData();
+        formData.append('signal_id', signalId);
+        formData.append('action', action);
+        await fetch('/api/signal-action', {
+          method: 'POST',
+          body: formData,
+          credentials: 'same-origin'
+        });
+        localStorage.setItem(`signal-handled-${signalId}`, action);
+        if (card) {
+          card.classList.add('handled');
+          setTimeout(() => card.remove(), 300);
+        }
+      } catch (err) {
+        console.error('Failed to handle signal:', err);
+      }
+    };
+    
+    // Confirm delete conversation
+    window.confirmDeleteConversation = function(id) {
+      if (confirm('Delete this conversation permanently? This cannot be undone.')) {
+        fetch(`/chat/${id}`, { method: 'DELETE', credentials: 'same-origin' })
+          .then(res => res.json())
+          .then(data => {
+            if (data.status === 'ok') {
+              if (typeof window.showToast === 'function') window.showToast('Conversation deleted', 'success');
+              const convItem = document.querySelector(`.conversation-item[href="/chat/${id}"]`) ||
+                               document.querySelector(`.conversation-item[data-id="${id}"]`);
+              if (convItem) convItem.remove();
+              if (window.location.pathname === `/chat/${id}`) {
+                window.location.href = '/chat';
+              }
+            } else {
+              if (typeof window.showToast === 'function') window.showToast('Failed to delete conversation', 'error');
+            }
+          })
+          .catch(err => {
+            console.error('Delete error:', err);
+            if (typeof window.showToast === 'function') window.showToast('Failed to delete conversation', 'error');
+          });
+      }
+    };
+    
+    // Archive conversation
+    window.archiveConversation = function(id) {
+      console.log('archiveConversation called with:', id);
+      fetch(`/chat/${id}/archive`, { method: 'POST', credentials: 'same-origin' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === 'ok') {
+            if (typeof window.showToast === 'function') window.showToast('Conversation archived', 'success');
+            const convItem = document.querySelector(`.conversation-item[href="/chat/${id}"]`) ||
+                             document.querySelector(`.conversation-item[data-id="${id}"]`);
+            if (convItem) convItem.remove();
+            if (window.location.pathname === `/chat/${id}`) {
+              window.location.href = '/chat';
+            }
+          } else {
+            if (typeof window.showToast === 'function') window.showToast('Failed to archive conversation', 'error');
+          }
+        })
+        .catch(err => {
+          console.error('Archive error:', err);
+          if (typeof window.showToast === 'function') window.showToast('Failed to archive conversation', 'error');
+        });
+    };
+    
+    // Generic toast helper (fallback if not defined elsewhere)
+    window.showToast = window.showToast || function(message, type) {
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type || 'info'}`;
+      toast.textContent = message;
+      toast.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 500;
+        z-index: 9999;
+        background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+        animation: slideIn 0.3s ease;
+      `;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    };
+  </script>
+  
   <!-- SignalFlow Theme System -->
   <link rel="stylesheet" href="/static/signalflow-theme.css">
   <!-- SignalFlow Workflow Modes -->
@@ -670,6 +914,12 @@
           </svg>
           Sprint Settings
         </a>
+        <a href="/reports" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+          Reports
+        </a>
         <a href="/settings" class="nav-link">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
@@ -715,12 +965,31 @@
 
   <!-- Workflow Mode Indicator -->
   <div class="mode-indicator" id="modeIndicator">
-    <div class="mode-badge" onclick="toggleModeSelector()">
-      <div class="mode-badge-dot"></div>
-      <span class="mode-badge-text" id="currentModeName">Mode A</span>
+    <div class="mode-badge">
+      <div class="mode-badge-main" onclick="toggleModeSelector()">
+        <div class="mode-badge-dot"></div>
+        <span class="mode-badge-text" id="currentModeName">Mode A</span>
+        <span class="mode-sprint-time" id="currentModeSprintTime" title="Time spent this sprint">—</span>
+      </div>
+      <button class="mode-play-pause-btn" id="trackingPlayPause" onclick="toggleTrackingManual(event)" title="Start/Stop time tracking">
+        <span class="play-icon">▶</span>
+        <span class="pause-icon">⏹</span>
+      </button>
+      <span class="mode-tracking-indicator" id="trackingIndicator" title="Time tracking active">
+        <span class="tracking-dot"></span>
+        <span class="tracking-time" id="trackingTime">00:00</span>
+      </span>
       <span class="mode-badge-time" id="currentTime">--:--</span>
     </div>
     <div class="mode-selector" id="modeSelector">
+      <!-- Tracking Toggle -->
+      <div class="mode-tracking-toggle">
+        <label class="tracking-switch">
+          <input type="checkbox" id="autoTrackingToggle" onchange="toggleAutoTracking(this.checked)">
+          <span class="tracking-slider"></span>
+        </label>
+        <span class="tracking-label">Auto-track time on mode change</span>
+      </div>
       <div class="mode-selector-header">
         <h4>📍 Personal Laptop (Offline)</h4>
       </div>
@@ -731,6 +1000,7 @@
           <div class="mode-option-desc">Select files, zip context, seed agents, load neurons</div>
           <span class="mode-option-tag offline">Offline • Non-Executing</span>
         </div>
+        <span class="mode-option-time" data-mode="mode-a">—</span>
       </button>
       <button class="mode-option offline" data-mode="mode-b" onclick="setMode('mode-b')">
         <div class="mode-option-dot mode-b"></div>
@@ -739,6 +1009,7 @@
           <div class="mode-option-desc">Plan from canonical context only, no assumptions</div>
           <span class="mode-option-tag offline">Offline • No Commits</span>
         </div>
+        <span class="mode-option-time" data-mode="mode-b">—</span>
       </button>
       <button class="mode-option offline" data-mode="mode-c" onclick="setMode('mode-c')">
         <div class="mode-option-dot mode-c"></div>
@@ -747,6 +1018,7 @@
           <div class="mode-option-desc">Junior/architect AI produces code, docs, walkthroughs</div>
           <span class="mode-option-tag offline">Offline • Trello Buffer</span>
         </div>
+        <span class="mode-option-time" data-mode="mode-c">—</span>
       </button>
       <button class="mode-option offline" data-mode="mode-d" onclick="setMode('mode-d')">
         <div class="mode-option-dot mode-d"></div>
@@ -755,6 +1027,7 @@
           <div class="mode-option-desc">Line-by-line review, smoke test, break & fix</div>
           <span class="mode-option-tag offline">Offline • Learning Loops</span>
         </div>
+        <span class="mode-option-time" data-mode="mode-d">—</span>
       </button>
       <button class="mode-option offline" data-mode="mode-e" onclick="setMode('mode-e')">
         <div class="mode-option-dot mode-e"></div>
@@ -763,6 +1036,7 @@
           <div class="mode-option-desc">Checklist, code locker, transfer packet</div>
           <span class="mode-option-tag offline">Offline • Pre-Delivery</span>
         </div>
+        <span class="mode-option-time" data-mode="mode-e">—</span>
       </button>
       
       <div class="mode-divider"></div>
@@ -775,6 +1049,7 @@
           <div class="mode-option-desc">Push/pull, commit, PR, merge — execution only</div>
           <span class="mode-option-tag online">Online • No Thinking</span>
         </div>
+        <span class="mode-option-time" data-mode="mode-f">—</span>
       </button>
       <button class="mode-option" data-mode="mode-g" onclick="setMode('mode-g')">
         <div class="mode-option-dot mode-g"></div>
@@ -783,6 +1058,7 @@
           <div class="mode-option-desc">Implement tasks from the decomposition checklist</div>
           <span class="mode-option-tag online">Online • Writing Code</span>
         </div>
+        <span class="mode-option-time" data-mode="mode-g">—</span>
       </button>
     </div>
   </div>
@@ -873,11 +1149,13 @@
           const data = await response.json();
           if (data.mode) {
             setMode(data.mode, false);
+            loadSprintTimeStats(); // Load sprint time after mode init
             return;
           }
         }
       } catch (err) {}
       setMode(savedMode);
+      loadSprintTimeStats(); // Load sprint time after mode init
     }
     initMode();
     
@@ -890,6 +1168,240 @@
     }
     updateTimeDisplay();
     setInterval(updateTimeDisplay, 60000);
+    
+    // ===== SPRINT TIME STATS =====
+    let sprintTimeStats = {};
+    
+    async function loadSprintTimeStats() {
+      try {
+        const response = await fetch('/api/mode-timer/stats?days=14', { credentials: 'same-origin' });
+        if (response.ok) {
+          const data = await response.json();
+          sprintTimeStats = data.modes || {};
+          updateSprintTimeDisplays();
+        }
+      } catch (e) {
+        console.error('Error loading sprint time stats:', e);
+      }
+    }
+    
+    function formatSprintTime(seconds) {
+      if (!seconds || seconds < 60) return '—';
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+      }
+      return `${minutes}m`;
+    }
+    
+    function updateSprintTimeDisplays() {
+      const currentMode = localStorage.getItem('signalflow-mode') || 'mode-a';
+      
+      // Update current mode sprint time in badge
+      const currentStats = sprintTimeStats[currentMode];
+      const currentSprintTimeEl = document.getElementById('currentModeSprintTime');
+      if (currentSprintTimeEl) {
+        currentSprintTimeEl.textContent = formatSprintTime(currentStats?.total_seconds);
+      }
+      
+      // Update each mode option's sprint time
+      document.querySelectorAll('.mode-option-time').forEach(el => {
+        const mode = el.dataset.mode;
+        const stats = sprintTimeStats[mode];
+        el.textContent = formatSprintTime(stats?.total_seconds);
+      });
+    }
+    
+    // Refresh sprint stats periodically (every 5 minutes)
+    setInterval(loadSprintTimeStats, 300000);
+    
+    // ===== TIME TRACKING SYSTEM =====
+    let trackingInterval = null;
+    let trackingStartTime = null;
+    let activeTrackingMode = null;
+    
+    // Check auto-tracking preference
+    function isAutoTrackingEnabled() {
+      return localStorage.getItem('signalflow-auto-tracking') !== 'false';
+    }
+    
+    function toggleAutoTracking(enabled) {
+      localStorage.setItem('signalflow-auto-tracking', enabled ? 'true' : 'false');
+      if (!enabled && activeTrackingMode) {
+        // Stop current tracking if disabling
+        stopTracking();
+      }
+    }
+    
+    // Initialize toggle state
+    document.addEventListener('DOMContentLoaded', () => {
+      const toggle = document.getElementById('autoTrackingToggle');
+      if (toggle) {
+        toggle.checked = isAutoTrackingEnabled();
+      }
+      // Check for active tracking session
+      checkActiveTracking();
+    });
+    
+    async function checkActiveTracking() {
+      try {
+        const response = await fetch('/api/mode-timer/status', { credentials: 'same-origin' });
+        if (response.ok) {
+          const data = await response.json();
+          const activeSessions = data.active_sessions || {};
+          
+          // Find any active session
+          for (const [mode, session] of Object.entries(activeSessions)) {
+            if (session && session.started_at) {
+              activeTrackingMode = mode;
+              trackingStartTime = Date.now() - (session.elapsed_seconds * 1000);
+              showTrackingIndicator(true);
+              startTrackingTimer();
+              updatePlayPauseButton();
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Error checking tracking status:', e);
+      }
+      updatePlayPauseButton();
+    }
+    
+    async function startTracking(mode) {
+      if (!isAutoTrackingEnabled()) return;
+      
+      // Stop any existing tracking
+      if (activeTrackingMode && activeTrackingMode !== mode) {
+        await stopTracking();
+      }
+      
+      try {
+        const response = await fetch('/api/mode-timer/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ mode: mode })
+        });
+        
+        if (response.ok) {
+          activeTrackingMode = mode;
+          trackingStartTime = Date.now();
+          showTrackingIndicator(true);
+          startTrackingTimer();
+        }
+      } catch (e) {
+        console.error('Error starting tracking:', e);
+      }
+    }
+    
+    async function stopTracking() {
+      if (!activeTrackingMode) return;
+      
+      try {
+        await fetch('/api/mode-timer/stop', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ mode: activeTrackingMode })
+        });
+      } catch (e) {
+        console.error('Error stopping tracking:', e);
+      }
+      
+      clearInterval(trackingInterval);
+      trackingInterval = null;
+      activeTrackingMode = null;
+      trackingStartTime = null;
+      showTrackingIndicator(false);
+    }
+    
+    function showTrackingIndicator(show) {
+      const indicator = document.getElementById('trackingIndicator');
+      if (indicator) {
+        indicator.classList.toggle('active', show);
+      }
+    }
+    
+    function startTrackingTimer() {
+      if (trackingInterval) clearInterval(trackingInterval);
+      
+      trackingInterval = setInterval(updateTrackingTime, 1000);
+      updateTrackingTime();
+    }
+    
+    function updateTrackingTime() {
+      if (!trackingStartTime) return;
+      
+      const elapsed = Math.floor((Date.now() - trackingStartTime) / 1000);
+      const h = Math.floor(elapsed / 3600);
+      const m = Math.floor((elapsed % 3600) / 60);
+      const s = elapsed % 60;
+      
+      let timeStr;
+      if (h > 0) {
+        timeStr = `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      } else {
+        timeStr = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      }
+      
+      const timeEl = document.getElementById('trackingTime');
+      if (timeEl) timeEl.textContent = timeStr;
+    }
+    
+    // Manual play/pause toggle
+    async function toggleTrackingManual(event) {
+      event.stopPropagation();
+      const currentMode = localStorage.getItem('signalflow-mode') || 'mode-a';
+      
+      if (activeTrackingMode) {
+        await stopTracking();
+      } else {
+        // Force start even if auto-tracking is disabled
+        try {
+          const response = await fetch('/api/mode-timer/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ mode: currentMode })
+          });
+          
+          if (response.ok) {
+            activeTrackingMode = currentMode;
+            trackingStartTime = Date.now();
+            showTrackingIndicator(true);
+            startTrackingTimer();
+          }
+        } catch (e) {
+          console.error('Error starting tracking:', e);
+        }
+      }
+      updatePlayPauseButton();
+    }
+    
+    function updatePlayPauseButton() {
+      const btn = document.getElementById('trackingPlayPause');
+      if (btn) {
+        btn.classList.toggle('tracking', !!activeTrackingMode);
+      }
+    }
+    
+    // Hook into mode changes to auto-start tracking
+    const originalSetMode = setMode;
+    setMode = function(mode, persist = true) {
+      // Call original
+      originalSetMode(mode, persist);
+      
+      // Update sprint time display for the new mode
+      updateSprintTimeDisplays();
+      
+      // Auto-start tracking for the new mode
+      if (persist && isAutoTrackingEnabled()) {
+        startTracking(mode);
+      }
+      updatePlayPauseButton();
+    };
     
     // Close menus on outside click
     document.addEventListener('click', (e) => {
@@ -975,6 +1487,7 @@
   </script>
 
   <!-- Include assistant chatbot widget -->
+  {% include 'components/assistant_widget.html' %}
 
 </body>
 </html>

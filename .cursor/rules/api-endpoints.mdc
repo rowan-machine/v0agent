@@ -1,46 +1,50 @@
 ---
-description: Documentation for FastAPI routes implementing CRUD operations for meetings and document management endpoints
+description: Documents FastAPI route implementations for meetings and documents CRUD operations with business-specific signal processing
 ---
 
 
 # api-endpoints
 
-The API endpoints implement specialized meeting management and signal processing workflows:
+## Meeting Signal Routes
+Path: src/app/api/meetings.py
+Importance Score: 85/100
 
-## Meeting Bundle Processing
-Path: src/app/api/assistant.py
-Importance Score: 90
-- Sophisticated context building for AI assistance with multiple data sources
-- Business-specific intent parsing for ticket creation and accountability tracking
-- Integration of sprint information, recent meetings, and accountability items
-- Custom execution logic for business intents (create_ticket, update_ticket, create_accountability)
+- `/api/meetings/create`: Creates meeting with intelligent signal extraction
+  - Automatically extracts and categorizes decisions, actions, risks
+  - Generates embeddings for knowledge graph integration
+  - Links related meetings based on content similarity
 
-## Career Development Endpoints
-Path: src/app/api/career.py 
-Importance Score: 80
-- Advanced career suggestion generation via profile matching
-- Work history and skills integration with career development paths
-- Custom conversion between career suggestions and actionable tickets
-- Profile-based career development tracking endpoints
+- `/api/meetings/signals`: Manages meeting signal lifecycle
+  - Custom signal state transitions (draft → approved → archived)
+  - Signal classification (decision/action/blocker/risk/idea)
+  - Automated accountability assignment
 
-## Accountability Management
-Path: src/app/api/accountability.py
-Importance Score: 75
-- Organization-wide accountability item tracking
-- Business-specific status workflow (waiting, completed, cancelled)
-- Source reference tracking for accountability items
-- Organizational context integration endpoints
+## Knowledge Integration Routes  
+Path: src/app/api/knowledge.py
+Importance Score: 90/100
 
-## Meeting Signal Processing
-Importance Score: 85
-- Domain-specific signal extraction from meeting summaries
-- Structured signal processing for:
-  - Decisions
-  - Action Items
-  - Blockers
-  - Risks
-- Hierarchical parsing of meeting outcomes with fallback mechanisms
-- Domain-aware categorization of business context signals
+- `/api/knowledge/graph`: Manages knowledge graph construction
+  - Creates relationships between meetings and extracted signals
+  - Infers connections based on semantic similarity
+  - Maintains DIKW hierarchy mappings
+
+## Career Development Routes
+Path: src/app/api/career.py
+Importance Score: 80/100
+
+- `/api/career/suggestions`: Generates career insights
+  - Analyzes meeting participation patterns
+  - Maps skills mentioned in discussions
+  - Recommends growth opportunities based on meeting context
+
+## Sprint Management Routes
+Path: src/app/api/sprint.py
+Importance Score: 75/100
+
+- `/api/sprint/status`: Tracks sprint-specific signals
+  - Custom sprint cycle calculations
+  - Work mode analysis based on meeting signals
+  - Sprint performance metrics computation
 
 $END$
 

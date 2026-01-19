@@ -39,13 +39,21 @@ def init_chat_tables():
             conn.execute("ALTER TABLE conversations ADD COLUMN archived INTEGER DEFAULT 0")
         except:
             pass
+        try:
+            conn.execute("ALTER TABLE conversations ADD COLUMN meeting_id INTEGER")
+        except:
+            pass
+        try:
+            conn.execute("ALTER TABLE conversations ADD COLUMN document_id INTEGER")
+        except:
+            pass
 
 
-def create_conversation(title: str = None) -> int:
+def create_conversation(title: str = None, meeting_id: int = None, document_id: int = None) -> int:
     with connect() as conn:
         cur = conn.execute(
-            "INSERT INTO conversations (title) VALUES (?)",
-            (title,)
+            "INSERT INTO conversations (title, meeting_id, document_id) VALUES (?, ?, ?)",
+            (title, meeting_id, document_id)
         )
         return cur.lastrowid
 
@@ -135,6 +143,8 @@ def get_conversation(conversation_id: int):
         has_title = "title" in cols
         has_summary = "summary" in cols
         has_updated_at = "updated_at" in cols
+        has_meeting_id = "meeting_id" in cols
+        has_document_id = "document_id" in cols
         
         select_cols = ["id", "created_at"]
         if has_title:
@@ -143,6 +153,10 @@ def get_conversation(conversation_id: int):
             select_cols.append("summary")
         if has_updated_at:
             select_cols.append("updated_at")
+        if has_meeting_id:
+            select_cols.append("meeting_id")
+        if has_document_id:
+            select_cols.append("document_id")
         
         row = conn.execute(
             f"""
@@ -186,7 +200,8 @@ def get_recent_messages(conversation_id: int, limit: int = 6):
             (conversation_id, limit),
         ).fetchall()
 
-    return list(reversed(rows))
+    # Convert Row objects to dicts for JSON serialization in templates
+    return [{"role": row["role"], "content": row["content"]} for row in reversed(rows)]
 
 
 def archive_conversation(conversation_id: int):
@@ -212,3 +227,12 @@ def delete_conversation(conversation_id: int):
     with connect() as conn:
         conn.execute("DELETE FROM messages WHERE conversation_id = ?", (conversation_id,))
         conn.execute("DELETE FROM conversations WHERE id = ?", (conversation_id,))
+
+
+def update_conversation_context(conversation_id: int, meeting_id: int = None, document_id: int = None):
+    """Update the meeting and document context for a conversation."""
+    with connect() as conn:
+        conn.execute(
+            "UPDATE conversations SET meeting_id = ?, document_id = ?, updated_at = datetime('now') WHERE id = ?",
+            (meeting_id, document_id, conversation_id)
+        )

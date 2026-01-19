@@ -145,14 +145,16 @@ def create_ticket(
     description: str = Form(None),
     status: str = Form("todo"),
     priority: str = Form(None),
+    sprint_points: int = Form(0),
+    in_sprint: int = Form(1),
     tags: str = Form(None),
 ):
     """Create a new ticket."""
     with connect() as conn:
         cursor = conn.execute(
-            """INSERT INTO tickets (ticket_id, title, description, status, priority, tags)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (ticket_id.strip(), title, description, status, priority, tags),
+            """INSERT INTO tickets (ticket_id, title, description, status, priority, sprint_points, in_sprint, tags)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (ticket_id.strip(), title, description, status, priority, sprint_points, in_sprint, tags),
         )
         new_id = cursor.lastrowid
     
@@ -214,6 +216,8 @@ def update_ticket(
     description: str = Form(None),
     status: str = Form("todo"),
     priority: str = Form(None),
+    sprint_points: int = Form(0),
+    in_sprint: int = Form(1),
     tags: str = Form(None),
     ai_summary: str = Form(None),
     implementation_plan: str = Form(None),
@@ -224,10 +228,10 @@ def update_ticket(
         conn.execute(
             """UPDATE tickets SET
                ticket_id = ?, title = ?, description = ?, status = ?,
-               priority = ?, tags = ?, ai_summary = ?, implementation_plan = ?,
+               priority = ?, sprint_points = ?, in_sprint = ?, tags = ?, ai_summary = ?, implementation_plan = ?,
                task_decomposition = ?, updated_at = datetime('now')
                WHERE id = ?""",
-            (ticket_id, title, description, status, priority, tags, 
+            (ticket_id, title, description, status, priority, sprint_points, in_sprint, tags, 
              ai_summary, implementation_plan, task_decomposition, ticket_pk),
         )
     
@@ -449,6 +453,66 @@ Return ONLY the JSON array, no markdown or explanation."""
             return JSONResponse({"error": "Could not parse task breakdown"}, status_code=500)
     except json.JSONDecodeError:
         return JSONResponse({"error": "Invalid JSON in AI response"}, status_code=500)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.post("/api/tickets/{ticket_pk}/task-status")
+async def update_task_status(ticket_pk: int, request: Request):
+    """Update the status of a specific task in the ticket's task decomposition."""
+    try:
+        data = await request.json()
+        task_index = data.get("task_index")
+        status = data.get("status", "pending")
+        
+        if task_index is None:
+            return JSONResponse({"error": "task_index required"}, status_code=400)
+        
+        with connect() as conn:
+            ticket = conn.execute(
+                "SELECT task_decomposition FROM tickets WHERE id = ?", (ticket_pk,)
+            ).fetchone()
+            
+            if not ticket:
+                return JSONResponse({"error": "Ticket not found"}, status_code=404)
+            
+            raw_tasks = ticket["task_decomposition"]
+            if not raw_tasks:
+                return JSONResponse({"error": "No tasks found"}, status_code=404)
+            
+            tasks = json.loads(raw_tasks) if isinstance(raw_tasks, str) else raw_tasks
+            
+            if not isinstance(tasks, list) or task_index >= len(tasks):
+                return JSONResponse({"error": "Invalid task index"}, status_code=400)
+            
+            # Update the task status
+            if isinstance(tasks[task_index], dict):
+                tasks[task_index]["status"] = status
+            else:
+                tasks[task_index] = {"text": str(tasks[task_index]), "status": status}
+            
+            # Save back to database
+            conn.execute(
+                "UPDATE tickets SET task_decomposition = ?, updated_at = datetime('now') WHERE id = ?",
+                (json.dumps(tasks), ticket_pk)
+            )
+        
+        return JSONResponse({"status": "ok", "task_index": task_index, "new_status": status})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.post("/api/tickets/clear-sprint")
+async def clear_sprint_tickets():
+    """Move all tickets out of the current sprint (to backlog)."""
+    try:
+        with connect() as conn:
+            result = conn.execute(
+                "UPDATE tickets SET in_sprint = 0, updated_at = datetime('now') WHERE in_sprint = 1"
+            )
+            updated_count = result.rowcount
+        
+        return JSONResponse({"status": "ok", "updated_count": updated_count})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 

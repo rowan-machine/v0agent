@@ -5,6 +5,7 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta
 import json
+import os
 from ..db import connect
 from ..chat.models import (
     create_conversation,
@@ -15,12 +16,45 @@ from ..chat.models import (
     delete_conversation,
     archive_conversation,
     unarchive_conversation,
+    update_conversation_context,
 )
-from ..chat.turn import run_chat_turn
+from ..chat.turn import run_chat_turn, run_chat_turn_with_context
 from ..llm import ask
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
+templates.env.globals['env'] = os.environ
+
+
+def get_meetings_for_selector(limit: int = 50):
+    """Get recent meetings for the context selector."""
+    with connect() as conn:
+        meetings = conn.execute(
+            """
+            SELECT id, meeting_name, meeting_date, 
+                   (SELECT id FROM docs WHERE source LIKE '%' || meeting_summaries.meeting_name || '%' LIMIT 1) as linked_doc_id
+            FROM meeting_summaries
+            ORDER BY COALESCE(meeting_date, created_at) DESC
+            LIMIT ?
+            """,
+            (limit,)
+        ).fetchall()
+    return [dict(m) for m in meetings]
+
+
+def get_documents_for_selector(limit: int = 50):
+    """Get recent documents for the context selector."""
+    with connect() as conn:
+        docs = conn.execute(
+            """
+            SELECT id, source, created_at
+            FROM documents
+            ORDER BY created_at DESC
+            LIMIT ?
+            """,
+            (limit,)
+        ).fetchall()
+    return [dict(d) for d in docs]
 
 
 def get_recent_signals_for_context(days: int = 14, limit: int = 8):
@@ -132,6 +166,8 @@ def chat_history(request: Request):
     conversations = get_all_conversations(limit=50)
     recent_signals = get_recent_signals_for_context()
     sprint_stats = get_sprint_stats()
+    meetings_list = get_meetings_for_selector()
+    documents_list = get_documents_for_selector()
     
     return templates.TemplateResponse(
         "chat_history.html",
@@ -142,6 +178,8 @@ def chat_history(request: Request):
             "messages": [],
             "recent_signals": recent_signals,
             "sprint_stats": sprint_stats,
+            "meetings_list": meetings_list,
+            "documents_list": documents_list,
         },
     )
 
@@ -165,9 +203,44 @@ def view_chat(request: Request, conversation_id: int, prompt: str = None):
     if not conversation:
         return RedirectResponse(url="/chat", status_code=303)
     
-    messages = get_recent_messages(conversation_id, limit=50)
+    # Get meeting/document context if set
+    meeting_id = conversation.get("meeting_id") if hasattr(conversation, "get") else (conversation["meeting_id"] if "meeting_id" in conversation.keys() else None)
+    document_id = conversation.get("document_id") if hasattr(conversation, "get") else (conversation["document_id"] if "document_id" in conversation.keys() else None)
+    
+    # Get messages, filtering by meeting_id if present
+    if meeting_id:
+        with connect() as conn:
+            messages = conn.execute(
+                """
+                SELECT * FROM messages
+                WHERE meeting_id = ?
+                ORDER BY created_at DESC
+                LIMIT 50
+                """,
+                (meeting_id,)
+            ).fetchall()
+    else:
+        messages = get_recent_messages(conversation_id, limit=50)
+    
     recent_signals = get_recent_signals_for_context()
     sprint_stats = get_sprint_stats()
+    meetings_list = get_meetings_for_selector()
+    documents_list = get_documents_for_selector()
+    
+    # Get linked meeting/document names for display
+    selected_meeting = None
+    selected_document = None
+    if meeting_id:
+        with connect() as conn:
+            m = conn.execute("SELECT meeting_name FROM meeting_summaries WHERE id = ?", (meeting_id,)).fetchone()
+            if m:
+                selected_meeting = {"id": meeting_id, "name": m["meeting_name"]}
+    
+    if document_id:
+        with connect() as conn:
+            d = conn.execute("SELECT source FROM documents WHERE id = ?", (document_id,)).fetchone()
+            if d:
+                selected_document = {"id": document_id, "name": d["source"]}
     
     return templates.TemplateResponse(
         "chat_history.html",
@@ -180,7 +253,11 @@ def view_chat(request: Request, conversation_id: int, prompt: str = None):
             "answer": None,
             "recent_signals": recent_signals,
             "sprint_stats": sprint_stats,
-            "prefill_prompt": prompt,  # Pass prompt to template for pre-filling
+            "prefill_prompt": prompt,
+            "meetings_list": meetings_list,
+            "documents_list": documents_list,
+            "selected_meeting": selected_meeting,
+            "selected_document": selected_document,
         },
     )
 
@@ -192,11 +269,21 @@ def chat_turn(
     message: str = Form(...),
 ):
     """Process a chat turn and return the updated view."""
-    # Get conversation to check if it needs a title
+    # Get conversation to check if it needs a title and get context
     conversation = get_conversation(conversation_id)
     
-    # Run the chat turn
-    answer = run_chat_turn(conversation_id, message)
+    # Get meeting/document context if set
+    meeting_id = None
+    document_id = None
+    if conversation:
+        meeting_id = conversation.get("meeting_id") if hasattr(conversation, "get") else (conversation["meeting_id"] if "meeting_id" in conversation.keys() else None)
+        document_id = conversation.get("document_id") if hasattr(conversation, "get") else (conversation["document_id"] if "document_id" in conversation.keys() else None)
+    
+    # Run the chat turn with context if available
+    if meeting_id or document_id:
+        answer = run_chat_turn_with_context(conversation_id, message, meeting_id, document_id)
+    else:
+        answer = run_chat_turn(conversation_id, message)
     
     # Generate title if this is the first message
     if conversation and not conversation["title"]:
@@ -209,6 +296,22 @@ def chat_turn(
     conversation = get_conversation(conversation_id)  # Refresh after title update
     recent_signals = get_recent_signals_for_context()
     sprint_stats = get_sprint_stats()
+    meetings_list = get_meetings_for_selector()
+    documents_list = get_documents_for_selector()
+    
+    # Get linked meeting/document names for display
+    selected_meeting = None
+    selected_document = None
+    if meeting_id:
+        with connect() as conn:
+            m = conn.execute("SELECT meeting_name FROM meeting_summaries WHERE id = ?", (meeting_id,)).fetchone()
+            if m:
+                selected_meeting = {"id": meeting_id, "name": m["meeting_name"]}
+    if document_id:
+        with connect() as conn:
+            d = conn.execute("SELECT source FROM documents WHERE id = ?", (document_id,)).fetchone()
+            if d:
+                selected_document = {"id": document_id, "name": d["source"]}
     
     return templates.TemplateResponse(
         "chat_history.html",
@@ -221,6 +324,10 @@ def chat_turn(
             "answer": answer,
             "recent_signals": recent_signals,
             "sprint_stats": sprint_stats,
+            "meetings_list": meetings_list,
+            "documents_list": documents_list,
+            "selected_meeting": selected_meeting,
+            "selected_document": selected_document,
         },
     )
 
@@ -252,6 +359,23 @@ def update_chat_title(conversation_id: int, title: str = Form(...)):
     update_conversation_title(conversation_id, title)
     return RedirectResponse(url=f"/chat/{conversation_id}", status_code=303)
 
+
+@router.post("/api/chat/{conversation_id}/context")
+async def update_chat_context(conversation_id: int, request: Request):
+    """Update the meeting/document context for a conversation."""
+    try:
+        data = await request.json()
+        meeting_id = data.get("meeting_id")
+        document_id = data.get("document_id")
+        
+        # Convert empty strings to None
+        meeting_id = int(meeting_id) if meeting_id else None
+        document_id = int(document_id) if document_id else None
+        
+        update_conversation_context(conversation_id, meeting_id, document_id)
+        return JSONResponse({"status": "ok", "meeting_id": meeting_id, "document_id": document_id})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 @router.get("/api/sprint-stats")
 def api_sprint_stats():

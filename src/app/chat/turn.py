@@ -248,3 +248,87 @@ def run_chat_turn(
 
     add_message(conversation_id, "assistant", answer)
     return answer
+
+
+# ============================================================
+# Conversational turn with specific meeting/document context
+# ============================================================
+def run_chat_turn_with_context(
+    conversation_id: int,
+    question: str,
+    meeting_id: int = None,
+    document_id: int = None,
+) -> str:
+    """
+    Conversational turn with specific meeting/document context.
+    When a meeting_id or document_id is provided, use that as primary context.
+    """
+
+    add_message(conversation_id, "user", question)
+
+    items: List[Dict] = []
+    context_names = []
+
+    # If specific meeting is selected, prioritize it
+    if meeting_id:
+        with connect() as conn:
+            m = conn.execute(
+                "SELECT id, meeting_name, synthesized_notes, created_at FROM meeting_summaries WHERE id = ?",
+                (meeting_id,)
+            ).fetchone()
+            if m:
+                content = get_meeting_content_with_screenshots(m["id"], m["synthesized_notes"])
+                items.append({
+                    "type": "meetings",
+                    "id": m["id"],
+                    "label": m["meeting_name"],
+                    "content": content,
+                    "created_at": m["created_at"],
+                    "priority": True,
+                })
+                context_names.append(f"Meeting: {m['meeting_name']}")
+
+    # If specific document is selected, prioritize it
+    if document_id:
+        with connect() as conn:
+            d = conn.execute(
+                "SELECT id, source, content, created_at FROM documents WHERE id = ?",
+                (document_id,)
+            ).fetchone()
+            if d:
+                items.append({
+                    "type": "docs",
+                    "id": d["id"],
+                    "label": d["source"],
+                    "content": d["content"],
+                    "created_at": d["created_at"],
+                    "priority": True,
+                })
+                context_names.append(f"Document: {d['source']}")
+
+    # Build memory blocks - priority items first with focus instruction
+    memory_blocks = []
+    
+    # Add a strong instruction to focus only on the selected context
+    if context_names:
+        focus_instruction = f"""[IMPORTANT INSTRUCTION]
+You are answering questions ONLY about the following specific context:
+{', '.join(context_names)}
+
+Do NOT reference or include information from any other meetings or documents.
+Base your answers EXCLUSIVELY on the content provided below.
+If the question cannot be answered from this specific context, say so clearly."""
+        memory_blocks.append(focus_instruction)
+    
+    for it in items:
+        memory_blocks.append(
+            f"[CONTEXT - {it['type'].capitalize()}: {it['label']}]\n{it['content']}"
+        )
+
+    conversation = get_recent_messages(conversation_id)
+    context = build_context(conversation, memory_blocks)
+
+    answer = llm_answer(question, context)
+
+    add_message(conversation_id, "assistant", answer)
+    return answer

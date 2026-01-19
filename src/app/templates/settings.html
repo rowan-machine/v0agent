@@ -125,6 +125,175 @@
     margin: 0.5rem 0 0 0;
     color: #78350f;
   }
+
+  /* Mode card styles */
+  .mode-card {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .mode-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .mode-card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    font-size: 1rem;
+  }
+
+  .mode-card-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .mode-card-actions button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    font-size: 1rem;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+
+  .mode-card-actions button:hover {
+    opacity: 1;
+  }
+
+  .mode-card-desc {
+    color: #666;
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .mode-steps {
+    background: white;
+    border-radius: 6px;
+    padding: 0.5rem;
+  }
+
+  .mode-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.85rem;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .mode-step:last-child {
+    border-bottom: none;
+  }
+
+  .mode-step-num {
+    background: #667eea;
+    color: white;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+  }
+
+  /* Mode edit modal */
+  .mode-edit-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+
+  .mode-edit-modal.active {
+    display: flex;
+  }
+
+  .mode-edit-content {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 1.5rem;
+  }
+
+  .mode-edit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .mode-edit-header h3 {
+    margin: 0;
+  }
+
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  .form-group label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+    color: #374151;
+    font-size: 0.9rem;
+  }
+
+  .form-group input,
+  .form-group textarea {
+    width: 100%;
+    padding: 0.625rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-family: inherit;
+  }
+
+  .steps-editor {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .step-item {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .step-item input {
+    flex: 1;
+  }
+
+  .step-item button {
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.5rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
 </style>
 
 <div class="settings-container">
@@ -188,6 +357,22 @@
         </div>
       </a>
     </div>
+  </div>
+
+  <!-- Workflow Modes Admin -->
+  <div class="settings-section">
+    <h2>🔧 Workflow Modes</h2>
+    <p>Customize the workflow modes, their steps, and descriptions</p>
+
+    <div id="modesContainer" style="margin-bottom: 1rem;">
+      <div class="loading-state" style="text-align: center; padding: 2rem; color: #666;">
+        Loading modes...
+      </div>
+    </div>
+
+    <button onclick="addNewMode()" style="background: #667eea; color: white; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; font-size: 0.95rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+      ➕ Add New Mode
+    </button>
   </div>
 
   <div class="settings-section">
@@ -413,5 +598,259 @@
   loadAuthStatus();
   loadCurrentModel();
   loadCareerProfile();
+  loadWorkflowModes();
+
+  // ========================================
+  // Workflow Modes Management
+  // ========================================
+  let currentModes = [];
+  let editingModeIndex = null;
+
+  async function loadWorkflowModes() {
+    try {
+      const response = await fetch('/api/settings/workflow-modes', { credentials: 'same-origin' });
+      const data = await response.json();
+      currentModes = data.modes || [];
+      
+      if (data.is_default) {
+        // Initialize defaults in database
+        await fetch('/api/settings/workflow-modes/init-defaults', { 
+          method: 'POST', 
+          credentials: 'same-origin' 
+        });
+      }
+      
+      renderModes();
+    } catch (err) {
+      console.error('Failed to load workflow modes:', err);
+      document.getElementById('modesContainer').innerHTML = '<p style="color: #ef4444;">Failed to load modes</p>';
+    }
+  }
+
+  function renderModes() {
+    const container = document.getElementById('modesContainer');
+    
+    if (currentModes.length === 0) {
+      container.innerHTML = '<p style="color: #666;">No modes configured. Click "Add New Mode" to create one.</p>';
+      return;
+    }
+    
+    container.innerHTML = currentModes.map((mode, idx) => `
+      <div class="mode-card" data-mode-key="${mode.mode_key}">
+        <div class="mode-card-header">
+          <div class="mode-card-title">
+            <span>${mode.icon}</span>
+            <span>${mode.name}</span>
+            <span style="color: #9ca3af; font-size: 0.8rem; font-weight: normal;">(${mode.mode_key})</span>
+            ${mode.mode_key === 'mode-g' ? '<span style="background: #dbeafe; color: #1d4ed8; padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.7rem; margin-left: 0.5rem;">FIXED</span>' : ''}
+          </div>
+          <div class="mode-card-actions">
+            <button onclick="editMode(${idx})" title="Edit">✏️</button>
+            ${mode.mode_key !== 'mode-g' ? `<button onclick="deleteMode('${mode.mode_key}')" title="Delete">🗑️</button>` : ''}
+          </div>
+        </div>
+        ${mode.short_description ? `<div class="mode-card-short-desc" style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.5rem;">${mode.short_description}</div>` : ''}
+        <div class="mode-card-desc">${mode.description || 'No description'}</div>
+        <div class="mode-steps">
+          ${(mode.steps_json || []).map((step, i) => `
+            <div class="mode-step">
+              <span class="mode-step-num">${i + 1}</span>
+              <span>${step.title || step}</span>
+            </div>
+          `).join('') || '<div style="padding: 0.5rem; color: #9ca3af; font-size: 0.85rem;">No steps defined</div>'}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function addNewMode() {
+    editingModeIndex = null;
+    document.getElementById('modeEditTitle').textContent = 'Add New Mode';
+    document.getElementById('modeKey').value = 'mode-' + String.fromCharCode(97 + currentModes.length);
+    document.getElementById('modeName').value = '';
+    document.getElementById('modeIcon').value = '🎯';
+    document.getElementById('modeShortDesc').value = '';
+    document.getElementById('modeDescription').value = '';
+    document.getElementById('modeSortOrder').value = currentModes.length;
+    renderStepsEditor([]);
+    document.getElementById('modeEditModal').classList.add('active');
+  }
+
+  function editMode(index) {
+    editingModeIndex = index;
+    const mode = currentModes[index];
+    document.getElementById('modeEditTitle').textContent = 'Edit Mode';
+    document.getElementById('modeKey').value = mode.mode_key;
+    document.getElementById('modeName').value = mode.name;
+    document.getElementById('modeIcon').value = mode.icon;
+    document.getElementById('modeShortDesc').value = mode.short_description || '';
+    document.getElementById('modeDescription').value = mode.description || '';
+    document.getElementById('modeSortOrder').value = mode.sort_order || index;
+    renderStepsEditor(mode.steps_json || []);
+    document.getElementById('modeEditModal').classList.add('active');
+  }
+
+  function closeModeModal() {
+    document.getElementById('modeEditModal').classList.remove('active');
+  }
+
+  function renderStepsEditor(steps) {
+    const container = document.getElementById('stepsEditorContainer');
+    container.innerHTML = steps.map((step, i) => `
+      <div class="step-item">
+        <input type="text" value="${(step.title || step).replace(/"/g, '&quot;')}" placeholder="Step ${i + 1} title" data-step-index="${i}">
+        <button onclick="removeStep(${i})">✕</button>
+      </div>
+    `).join('') + `
+      <button onclick="addStep()" style="background: #10b981; color: white; border: none; border-radius: 6px; padding: 0.5rem 1rem; cursor: pointer; font-size: 0.85rem; margin-top: 0.5rem;">
+        + Add Step
+      </button>
+    `;
+  }
+
+  function addStep() {
+    const container = document.getElementById('stepsEditorContainer');
+    const steps = getStepsFromEditor();
+    steps.push({ title: '', description: '' });
+    renderStepsEditor(steps);
+  }
+
+  function removeStep(index) {
+    const steps = getStepsFromEditor();
+    steps.splice(index, 1);
+    renderStepsEditor(steps);
+  }
+
+  function getStepsFromEditor() {
+    const inputs = document.querySelectorAll('#stepsEditorContainer input[data-step-index]');
+    return Array.from(inputs).map(input => ({ title: input.value, description: '' }));
+  }
+
+  async function saveMode() {
+    const modeData = {
+      mode_key: document.getElementById('modeKey').value.toLowerCase().replace(/\s+/g, '-'),
+      name: document.getElementById('modeName').value,
+      icon: document.getElementById('modeIcon').value || '🎯',
+      short_description: document.getElementById('modeShortDesc').value,
+      description: document.getElementById('modeDescription').value,
+      sort_order: parseInt(document.getElementById('modeSortOrder').value) || 0,
+      steps_json: getStepsFromEditor().filter(s => s.title.trim())
+    };
+    
+    if (editingModeIndex !== null && currentModes[editingModeIndex].id) {
+      modeData.id = currentModes[editingModeIndex].id;
+    }
+    
+    if (!modeData.mode_key || !modeData.name) {
+      showToast('Mode key and name are required', 'error');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/settings/workflow-modes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(modeData)
+      });
+      
+      if (response.ok) {
+        showToast('Mode saved successfully', 'success');
+        closeModeModal();
+        loadWorkflowModes();
+      } else {
+        throw new Error('Failed to save');
+      }
+    } catch (err) {
+      console.error('Failed to save mode:', err);
+      showToast('Failed to save mode', 'error');
+    }
+  }
+
+  async function deleteMode(modeKey) {
+    // Prevent deletion of Mode G (fixed execution mode)
+    if (modeKey === 'mode-g') {
+      showToast('Mode G cannot be deleted - it is a fixed execution mode', 'error');
+      return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete ${modeKey}?`)) return;
+    
+    try {
+      const response = await fetch(`/api/settings/workflow-modes/${modeKey}`, {
+        method: 'DELETE',
+        credentials: 'same-origin'
+      });
+      
+      if (response.ok) {
+        showToast('Mode deleted', 'success');
+        loadWorkflowModes();
+      } else {
+        throw new Error('Failed to delete');
+      }
+    } catch (err) {
+      console.error('Failed to delete mode:', err);
+      showToast('Failed to delete mode', 'error');
+    }
+  }
 </script>
+
+<!-- Mode Edit Modal -->
+<div class="mode-edit-modal" id="modeEditModal">
+  <div class="mode-edit-content">
+    <div class="mode-edit-header">
+      <h3 id="modeEditTitle">Edit Mode</h3>
+      <button onclick="closeModeModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer;">&times;</button>
+    </div>
+    
+    <div class="form-group">
+      <label>Mode Key</label>
+      <input type="text" id="modeKey" placeholder="e.g., mode-a">
+      <small style="color: #666;">Unique identifier (lowercase, no spaces)</small>
+    </div>
+    
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="modeName" placeholder="e.g., Context Distillation">
+    </div>
+    
+    <div class="form-group">
+      <label>Short Description (for Mode Card)</label>
+      <input type="text" id="modeShortDesc" placeholder="e.g., Checklist, code locker, transfer packet">
+      <small style="color: #666;">Brief summary shown on mode cards</small>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+      <div class="form-group">
+        <label>Icon (Emoji)</label>
+        <input type="text" id="modeIcon" placeholder="🎯" style="font-size: 1.5rem; text-align: center;">
+      </div>
+      <div class="form-group">
+        <label>Sort Order</label>
+        <input type="number" id="modeSortOrder" placeholder="0" min="0">
+      </div>
+    </div>
+    
+    <div class="form-group">
+      <label>Description</label>
+      <input type="text" id="modeDescription" placeholder="Short description of this mode">
+    </div>
+    
+    <div class="form-group">
+      <label>Checklist Steps</label>
+      <div class="steps-editor" id="stepsEditorContainer">
+        <!-- Steps will be rendered here -->
+      </div>
+    </div>
+    
+    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+      <button onclick="closeModeModal()" style="background: #e5e7eb; color: #374151; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; cursor: pointer;">
+        Cancel
+      </button>
+      <button onclick="saveMode()" style="background: #667eea; color: white; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; cursor: pointer; font-weight: 600;">
+        Save Mode
+      </button>
+    </div>
+  </div>
+</div>
 {% endblock %}

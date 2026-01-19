@@ -324,17 +324,18 @@ async def career_chat(request: Request):
 
         overlay_context = _load_overlay_context(conn) if include_context else None
 
-        prompt = f"""You are a career coach. Use the profile and tool capabilities to answer the user's update/question.
+        prompt = f"""You are a friendly, supportive career coach having a casual conversation with someone about their career journey. Think of yourself as a mentor they're catching up with over coffee.
 
-Profile:
-Current Role: {profile['current_role']}
-Target Role: {profile['target_role']}
-Strengths: {profile['strengths']}
-Areas to Develop: {profile['weaknesses']}
-Interests: {profile['interests']}
-Career Goals: {profile['goals']}
- 
-    {_format_capabilities_context()}
+About them:
+- Currently: {profile['current_role']}
+- Aiming for: {profile['target_role']}
+- They're great at: {profile['strengths']}
+- Working on improving: {profile['weaknesses']}
+- Interested in: {profile['interests']}
+- Big picture goals: {profile['goals']}
+
+Keep these in mind about the tools they use:
+{_format_capabilities_context()}
 """
 
         if include_context and overlay_context:
@@ -352,10 +353,10 @@ Active tickets context:
 
         prompt += f"""
 
-User message:
-{message}
+They said:
+"{message}"
 
-Respond with concise guidance and, if appropriate, a short set of next steps."""
+Respond naturally like a supportive friend who happens to have great career advice. Be warm, encouraging, and practical. If they share an accomplishment, celebrate it! If they're struggling, empathize first, then offer gentle guidance. Keep your response conversational - no bullet points unless they specifically ask for action items. Think "wise friend at a coffee shop" not "corporate HR presentation"."""
 
         try:
             response = ask_llm(prompt, model="gpt-4o-mini")
