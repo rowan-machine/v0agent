@@ -110,58 +110,6 @@
     color: white;
   }
 
-  /* Mode Timer */
-  .mode-timer-display {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-left: auto;
-    font-size: 0.8rem;
-  }
-
-  .timer-time {
-    font-family: 'Monaco', 'Menlo', monospace;
-    font-size: 0.85rem;
-    color: #2c3e50;
-    min-width: 60px;
-  }
-
-  .timer-time.running {
-    color: #27ae60;
-    font-weight: 600;
-  }
-
-  .timer-btn {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    border: none;
-    cursor: pointer;
-    font-size: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-  }
-
-  .timer-btn.play {
-    background: #27ae60;
-    color: white;
-  }
-
-  .timer-btn.play:hover {
-    background: #219a52;
-  }
-
-  .timer-btn.stop {
-    background: #e74c3c;
-    color: white;
-  }
-
-  .timer-btn.stop:hover {
-    background: #c0392b;
-  }
-
   .mode-stats-mini {
     display: flex;
     gap: 1rem;
@@ -802,6 +750,18 @@
     border: 1px solid #eee;
   }
 
+  /* Typing indicator animation */
+  .typing-indicator .typing-dots span {
+    animation: typingDot 1.4s infinite;
+    animation-fill-mode: both;
+  }
+  .typing-indicator .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-indicator .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typingDot {
+    0%, 80%, 100% { opacity: 0.3; }
+    40% { opacity: 1; }
+  }
+
   .message-role {
     font-size: 0.75rem;
     font-weight: 600;
@@ -1072,6 +1032,71 @@
 
   .send-btn:hover {
     background: #2980b9;
+  }
+
+  /* Context Selector Styles */
+  .chat-context-selector {
+    padding: 0.75rem 1.25rem;
+    border-top: 1px solid #eee;
+    background: #f8fafc;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  
+  .context-label {
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+  
+  .context-select {
+    padding: 0.4rem 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    background: white;
+    color: #334155;
+    max-width: 200px;
+    cursor: pointer;
+  }
+  
+  .context-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+  }
+  
+  .context-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.6rem;
+    background: #dbeafe;
+    color: #1d4ed8;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  
+  .context-badge.document {
+    background: #dcfce7;
+    color: #166534;
+  }
+  
+  .context-badge button {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.7;
+    font-size: 0.9rem;
+    line-height: 1;
+  }
+  
+  .context-badge button:hover {
+    opacity: 1;
   }
 
   /* Signal Search Button */
@@ -1408,7 +1433,7 @@
             <option value="o1-mini">o1 Mini</option>
             <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
           </select>
-          <button class="icon-btn" onclick="openSignalModal()" title="Search Signals">🔍 Signals</button>
+          <a href="/signals" class="icon-btn" title="Search Signals" style="text-decoration: none;">🔍 Signals</a>
           <button class="icon-btn" onclick="archiveConversation({{ active_conversation.id }})" title="Archive">📦</button>
           <button class="icon-btn danger" onclick="deleteConversation({{ active_conversation.id }})" title="Delete">🗑️</button>
         </div>
@@ -1437,16 +1462,54 @@
         {% endif %}
       </div>
 
+      <!-- Context Selector -->
+      <div class="chat-context-selector">
+        <span class="context-label">📍 Focus on:</span>
+        <select id="meetingSelect" class="context-select" onchange="updateChatContext()">
+          <option value="">All meetings</option>
+          {% for m in meetings_list %}
+          <option value="{{ m.id }}" {% if selected_meeting and selected_meeting.id == m.id %}selected{% endif %}>
+            {{ m.meeting_name[:40] }}{% if m.meeting_name|length > 40 %}...{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        <select id="documentSelect" class="context-select" onchange="updateChatContext()">
+          <option value="">All documents</option>
+          {% for d in documents_list %}
+          <option value="{{ d.id }}" {% if selected_document and selected_document.id == d.id %}selected{% endif %}>
+            {{ d.source[:40] }}{% if d.source|length > 40 %}...{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        {% if selected_meeting or selected_document %}
+        <div style="display: flex; gap: 0.5rem; margin-left: 0.5rem;">
+          {% if selected_meeting %}
+          <span class="context-badge">
+            📅 {{ selected_meeting.name[:25] }}{% if selected_meeting.name|length > 25 %}...{% endif %}
+            <button onclick="clearContext('meeting')" title="Clear">&times;</button>
+          </span>
+          {% endif %}
+          {% if selected_document %}
+          <span class="context-badge document">
+            📄 {{ selected_document.name[:25] }}{% if selected_document.name|length > 25 %}...{% endif %}
+            <button onclick="clearContext('document')" title="Clear">&times;</button>
+          </span>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
       <div class="chat-input-area">
-        <form method="post" action="/chat/{{ active_conversation.id }}" class="chat-form">
+        <form method="post" action="/chat/{{ active_conversation.id }}" class="chat-form" id="chatForm" onsubmit="return handleChatSubmit(event)">
           <textarea 
             name="message" 
+            id="chatTextarea"
             class="chat-textarea" 
-            placeholder="Ask a question about your meetings and documents..."
+            placeholder="Ask a question about your meetings and documents... (e.g., 'Where was {{ env.USER_NAME }} mentioned?')"
             rows="1"
             onkeydown="handleKeyDown(event)"
           >{{ prefill_prompt or '' }}</textarea>
-          <button type="submit" class="send-btn">Send</button>
+          <button type="submit" class="send-btn" id="sendBtn">Send</button>
         </form>
       </div>
 
@@ -1492,14 +1555,10 @@
         <div id="currentStatusDisplay" class="current-status-display"></div>
       </div>
 
-      <!-- Sprint Phase with Timer -->
+      <!-- Sprint Phase -->
       <div class="context-section">
         <div class="context-section-title">
           Sprint Phase
-          <span class="mode-timer-display" id="modeTimerDisplay">
-            <span class="timer-time" id="timerTime">00:00:00</span>
-            <button class="timer-btn play" id="timerPlayBtn" onclick="toggleModeTimer()" title="Start Timer">▶</button>
-          </span>
         </div>
         <div class="sprint-phase-selector">
           <button class="phase-chip" data-phase="grooming" onclick="setPhase('grooming')">📋 Grooming</button>
@@ -1607,48 +1666,14 @@
 
 <!-- Floating Action Buttons -->
 <div class="fab-container">
-  <button class="fab secondary" onclick="openSignalModal()">
+  <a href="/signals" class="fab secondary" style="text-decoration: none;">
     <span class="fab-tooltip">Search Signals</span>
     🔍
-  </button>
+  </a>
   <a href="/chat/new" class="fab primary">
     <span class="fab-tooltip">New Chat</span>
     +
   </a>
-</div>
-
-<!-- Signal Search Modal -->
-<div class="modal-overlay" id="signalModal">
-  <div class="modal">
-    <div class="modal-header">
-      <h3>🔍 Search Meeting Signals</h3>
-      <button class="modal-close" onclick="closeSignalModal()">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="signal-search-form">
-        <input 
-          type="text" 
-          id="signalSearchQuery" 
-          placeholder='Search signals (e.g., "rx claims", "budget", "deadline")...'
-          onkeydown="if(event.key === 'Enter') searchSignals()"
-        />
-        <select id="signalTypeFilter">
-          <option value="all">All Signals</option>
-          <option value="decisions">Decisions</option>
-          <option value="action_items">Action Items</option>
-          <option value="blockers">Blockers</option>
-          <option value="risks">Risks</option>
-          <option value="ideas">Ideas</option>
-        </select>
-        <button onclick="searchSignals()" class="send-btn">Search</button>
-      </div>
-      <div class="signal-results" id="signalResults">
-        <div class="no-results">
-          <p>Enter a search term to find signals across all meetings</p>
-        </div>
-      </div>
-    </div>
-  </div>
 </div>
 
 <!-- Blockers Modal -->
@@ -1682,6 +1707,273 @@
 </div>
 
 <script>
+  // ========================================
+  // EARLY GLOBAL FUNCTIONS (needed for onclick handlers)
+  // These must be defined before the HTML parses onclick attributes
+  // ========================================
+  
+  // Sprint Phase
+  let currentPhase = localStorage.getItem('sprintPhase') || 'implementation';
+  
+  function setPhase(phase) {
+    console.log('setPhase called with:', phase);
+    currentPhase = phase;
+    localStorage.setItem('sprintPhase', phase);
+    document.querySelectorAll('.phase-chip').forEach(chip => {
+      chip.classList.toggle('active', chip.dataset.phase === phase);
+    });
+    if (typeof updateQuickPrompts === 'function') {
+      updateQuickPrompts();
+    }
+  }
+  window.setPhase = setPhase;
+  
+  // Tech Stack Tags
+  let activeTechs = JSON.parse(localStorage.getItem('activeTechs') || '[]');
+  
+  function toggleTech(tech) {
+    console.log('toggleTech called with:', tech);
+    const idx = activeTechs.indexOf(tech);
+    if (idx > -1) {
+      activeTechs.splice(idx, 1);
+    } else {
+      activeTechs.push(tech);
+    }
+    localStorage.setItem('activeTechs', JSON.stringify(activeTechs));
+    updateTechTags();
+  }
+  window.toggleTech = toggleTech;
+  
+  function updateTechTags() {
+    document.querySelectorAll('.tech-tag').forEach(tag => {
+      tag.classList.toggle('active', activeTechs.includes(tag.dataset.tech));
+    });
+  }
+  window.updateTechTags = updateTechTags;
+  
+  // Insert prompt into chat textarea
+  function insertPrompt(prompt) {
+    const textarea = document.querySelector('.chat-textarea');
+    if (textarea) {
+      let contextPrefix = '';
+      if (activeTechs.length > 0) {
+        contextPrefix = `[Focus: ${activeTechs.join(', ')}] `;
+      }
+      textarea.value = contextPrefix + prompt;
+      textarea.focus();
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
+    } else {
+      const encoded = encodeURIComponent(prompt);
+      window.location.href = `/chat/new?prompt=${encoded}`;
+    }
+  }
+  window.insertPrompt = insertPrompt;
+  
+  // User Status Management
+  async function updateUserStatus() {
+    const input = document.getElementById('userStatusInput');
+    if (!input) return;
+    const statusText = input.value.trim();
+    if (!statusText) return;
+    
+    try {
+      const resp = await fetch('/api/user-status/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ status: statusText })
+      });
+      
+      const data = await resp.json();
+      
+      if (data.status === 'ok') {
+        const interpreted = data.interpreted;
+        const display = document.getElementById('currentStatusDisplay');
+        if (display) {
+          display.innerHTML = `<strong>${interpreted.mode}</strong>: ${interpreted.activity}`;
+          display.classList.add('visible');
+        }
+        input.value = '';
+        if (interpreted.mode) {
+          currentPhase = interpreted.mode;
+          localStorage.setItem('sprintPhase', interpreted.mode);
+          document.querySelectorAll('.phase-chip').forEach(chip => {
+            chip.classList.toggle('active', chip.dataset.phase === interpreted.mode);
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Failed to update status:', err);
+    }
+  }
+  window.updateUserStatus = updateUserStatus;
+  
+  // Blockers Modal
+  function openBlockersModal() {
+    const modal = document.getElementById('blockersModal');
+    if (modal) {
+      modal.classList.add('active');
+      loadBlockers();
+    }
+  }
+  window.openBlockersModal = openBlockersModal;
+  
+  function closeBlockersModal() {
+    const modal = document.getElementById('blockersModal');
+    if (modal) modal.classList.remove('active');
+  }
+  window.closeBlockersModal = closeBlockersModal;
+  
+  async function loadBlockers() {
+    const listDiv = document.getElementById('blockersList');
+    if (!listDiv) return;
+    listDiv.innerHTML = '<div class="loading-state">Loading blockers...</div>';
+    try {
+      const response = await fetch('/api/sprint-signals/blockers', { credentials: 'same-origin' });
+      const data = await response.json();
+      if (data.signals && data.signals.length > 0) {
+        listDiv.innerHTML = data.signals.map(signal => renderSignalCard(signal, 'blocker')).join('');
+      } else {
+        listDiv.innerHTML = '<div class="empty-signals">✨ No blockers right now!</div>';
+      }
+    } catch (err) {
+      console.error('Error loading blockers:', err);
+      listDiv.innerHTML = '<div class="empty-signals">Failed to load blockers</div>';
+    }
+  }
+  window.loadBlockers = loadBlockers;
+  
+  // Actions Modal
+  function openActionsModal() {
+    const modal = document.getElementById('actionsModal');
+    if (modal) {
+      modal.classList.add('active');
+      loadActions();
+    }
+  }
+  window.openActionsModal = openActionsModal;
+  
+  function closeActionsModal() {
+    const modal = document.getElementById('actionsModal');
+    if (modal) modal.classList.remove('active');
+  }
+  window.closeActionsModal = closeActionsModal;
+  
+  async function loadActions() {
+    const listDiv = document.getElementById('actionsList');
+    if (!listDiv) return;
+    listDiv.innerHTML = '<div class="loading-state">Loading action items...</div>';
+    try {
+      const response = await fetch('/api/sprint-signals/action_items', { credentials: 'same-origin' });
+      const data = await response.json();
+      if (data.signals && data.signals.length > 0) {
+        listDiv.innerHTML = data.signals.map(signal => renderSignalCard(signal, 'action_items')).join('');
+      } else {
+        listDiv.innerHTML = '<div class="empty-signals">✨ No pending action items!</div>';
+      }
+    } catch (err) {
+      console.error('Error loading actions:', err);
+      listDiv.innerHTML = '<div class="empty-signals">Failed to load action items</div>';
+    }
+  }
+  window.loadActions = loadActions;
+  
+  // Signal card renderer (needed by loadBlockers/loadActions)
+  function renderSignalCard(signal, type) {
+    const handleClass = localStorage.getItem(`signal-handled-${signal.id}`) ? 'handled' : '';
+    return `
+      <div class="signal-item-card ${type} ${handleClass}" id="signal-${signal.id}">
+        <div class="signal-item-header">
+          <div class="signal-item-source">📄 ${escapeHtmlEarly(signal.meeting_name || 'Unknown Meeting')}</div>
+          <div class="signal-item-date">${signal.meeting_date || 'No date'}</div>
+        </div>
+        <div class="signal-item-text">${escapeHtmlEarly(signal.text)}</div>
+        <div class="signal-item-actions">
+          <button class="signal-action-btn ask" onclick="askAboutSignal('${escapeHtmlEarly(signal.text.substring(0, 100))}')">
+            💬 Ask
+          </button>
+          <button class="signal-action-btn approve" onclick="handleSignal('${signal.id}', 'approve')">
+            ✓ Done
+          </button>
+          <button class="signal-action-btn reject" onclick="handleSignal('${signal.id}', 'reject')">
+            ✗ Not relevant
+          </button>
+        </div>
+      </div>
+    `;
+  }
+  window.renderSignalCard = renderSignalCard;
+  
+  // Early escapeHtml for signal cards
+  function escapeHtmlEarly(text) {
+    const div = document.createElement('div');
+    div.textContent = text || '';
+    return div.innerHTML;
+  }
+  window.escapeHtmlEarly = escapeHtmlEarly;
+  
+  // Signal actions
+  function askAboutSignal(signalText) {
+    const prompt = `Tell me more about this signal: "${signalText}"`;
+    insertPrompt(prompt);
+  }
+  window.askAboutSignal = askAboutSignal;
+  
+  async function handleSignal(signalId, action) {
+    const card = document.getElementById(`signal-${signalId}`);
+    try {
+      const formData = new FormData();
+      formData.append('signal_id', signalId);
+      formData.append('action', action);
+      
+      await fetch('/api/signal-action', {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+      });
+      
+      localStorage.setItem(`signal-handled-${signalId}`, action);
+      if (card) {
+        card.classList.add('handled');
+        setTimeout(() => card.remove(), 300);
+      }
+    } catch (err) {
+      console.error('Failed to handle signal:', err);
+    }
+  }
+  window.handleSignal = handleSignal;
+  
+  // Context Panel
+  function toggleContextPanel() {
+    const panel = document.getElementById('contextPanel');
+    if (panel) {
+      panel.classList.toggle('collapsed');
+      localStorage.setItem('contextPanelCollapsed', panel.classList.contains('collapsed'));
+    }
+  }
+  window.toggleContextPanel = toggleContextPanel;
+  
+  // Signal search modal
+  function openSignalModal() {
+    const modal = document.getElementById('signalModal');
+    if (modal) {
+      modal.classList.add('active');
+      document.getElementById('signalSearchQuery')?.focus();
+    }
+  }
+  window.openSignalModal = openSignalModal;
+  
+  function closeSignalModal() {
+    const modal = document.getElementById('signalModal');
+    if (modal) modal.classList.remove('active');
+  }
+  window.closeSignalModal = closeSignalModal;
+  
+  // ========================================
+  // MAIN SCRIPT
+  // ========================================
+
   // Simple Markdown Parser for assistant messages
   function parseMarkdown(text) {
     if (!text) return '';
@@ -1780,8 +2072,142 @@
   function handleKeyDown(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      event.target.form.submit();
+      const form = event.target.form;
+      if (form) {
+        handleChatSubmit(new Event('submit'));
+      }
     }
+  }
+
+  // Handle form submit
+  function handleChatSubmit(event) {
+    event.preventDefault();
+    const form = document.getElementById('chatForm');
+    const textarea = document.getElementById('chatTextarea');
+    const sendBtn = document.getElementById('sendBtn');
+    const messagesContainer = document.querySelector('.messages-container');
+    const message = textarea.value.trim();
+    
+    if (!message) return false;
+    
+    // Immediately show user message in the chat window
+    if (messagesContainer) {
+      const userMessageDiv = document.createElement('div');
+      userMessageDiv.className = 'message user';
+      userMessageDiv.innerHTML = `
+        <div class="message-role">user</div>
+        <div class="message-content">${escapeHtml(message)}</div>
+      `;
+      messagesContainer.appendChild(userMessageDiv);
+      
+      // Show typing indicator for AI
+      const typingDiv = document.createElement('div');
+      typingDiv.className = 'message assistant typing-indicator';
+      typingDiv.id = 'typingIndicator';
+      typingDiv.innerHTML = `
+        <div class="message-role">assistant</div>
+        <div class="message-content"><span class="typing-dots">Thinking<span>.</span><span>.</span><span>.</span></span></div>
+      `;
+      messagesContainer.appendChild(typingDiv);
+      
+      // Scroll to bottom
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+    
+    // Disable form while submitting
+    textarea.disabled = true;
+    textarea.value = '';
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Waiting...';
+    sendBtn.style.opacity = '0.6';
+    
+    // Submit form (this triggers the full page refresh with response)
+    form.submit();
+    return false;
+  }
+  
+  // Helper to escape HTML
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Update chat context (meeting/document focus)
+  async function updateChatContext() {
+    const conversationId = {{ active_conversation.id if active_conversation else 'null' }};
+    if (!conversationId) return;
+    
+    const meetingId = document.getElementById('meetingSelect')?.value || null;
+    const documentId = document.getElementById('documentSelect')?.value || null;
+    
+    try {
+      const response = await fetch(`/api/chat/${conversationId}/context`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ meeting_id: meetingId, document_id: documentId })
+      });
+      
+      if (response.ok) {
+        showToast('Context updated - chat will now focus on selected meeting/document', 'success');
+        // Reload to show updated context badges
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('Failed to update context:', err);
+    }
+  }
+
+  // Clear specific context
+  function clearContext(type) {
+    const conversationId = {{ active_conversation.id if active_conversation else 'null' }};
+    if (!conversationId) return;
+    
+    const meetingSelect = document.getElementById('meetingSelect');
+    const documentSelect = document.getElementById('documentSelect');
+    
+    if (type === 'meeting' && meetingSelect) {
+      meetingSelect.value = '';
+    } else if (type === 'document' && documentSelect) {
+      documentSelect.value = '';
+    }
+    
+    updateChatContext();
+  }
+
+  // Scroll to bottom of messages
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ meeting_id: meetingId, document_id: documentId })
+      });
+      
+      if (response.ok) {
+        showToast('Context updated - chat will now focus on selected meeting/document', 'success');
+        // Reload to show updated context badges
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('Failed to update context:', err);
+    }
+  }
+
+  // Clear specific context
+  function clearContext(type) {
+    const conversationId = {{ active_conversation.id if active_conversation else 'null' }};
+    if (!conversationId) return;
+    
+    const meetingSelect = document.getElementById('meetingSelect');
+    const documentSelect = document.getElementById('documentSelect');
+    
+    if (type === 'meeting' && meetingSelect) {
+      meetingSelect.value = '';
+    } else if (type === 'document' && documentSelect) {
+      documentSelect.value = '';
+    }
+    
+    updateChatContext();
   }
 
   // Scroll to bottom of messages
@@ -1879,16 +2305,6 @@
     setTimeout(() => toast.remove(), 3000);
   }
 
-  // Signal Modal
-  function openSignalModal() {
-    document.getElementById('signalModal').classList.add('active');
-    document.getElementById('signalSearchQuery').focus();
-  }
-
-  function closeSignalModal() {
-    document.getElementById('signalModal').classList.remove('active');
-  }
-
   // Close modal on overlay click
   document.getElementById('signalModal')?.addEventListener('click', function(e) {
     if (e.target === this) closeSignalModal();
@@ -1902,127 +2318,6 @@
       closeActionsModal();
     }
   });
-
-  // Blockers Modal
-  function openBlockersModal() {
-    document.getElementById('blockersModal').classList.add('active');
-    loadBlockers();
-  }
-
-  function closeBlockersModal() {
-    document.getElementById('blockersModal').classList.remove('active');
-  }
-
-  async function loadBlockers() {
-    const listDiv = document.getElementById('blockersList');
-    listDiv.innerHTML = '<div class="loading-state">Loading blockers...</div>';
-
-    try {
-      const response = await fetch('/api/sprint-signals/blockers', { credentials: 'same-origin' });
-      const data = await response.json();
-
-      if (data.signals && data.signals.length > 0) {
-        listDiv.innerHTML = data.signals.map(signal => renderSignalCard(signal, 'blocker')).join('');
-      } else {
-        listDiv.innerHTML = '<div class="empty-signals">🎉 No blockers in this sprint!</div>';
-      }
-    } catch (err) {
-      console.error('Error loading blockers:', err);
-      listDiv.innerHTML = '<div class="empty-signals">Failed to load blockers</div>';
-    }
-  }
-
-  // Actions Modal
-  function openActionsModal() {
-    document.getElementById('actionsModal').classList.add('active');
-    loadActions();
-  }
-
-  function closeActionsModal() {
-    document.getElementById('actionsModal').classList.remove('active');
-  }
-
-  async function loadActions() {
-    const listDiv = document.getElementById('actionsList');
-    listDiv.innerHTML = '<div class="loading-state">Loading action items...</div>';
-
-    try {
-      const response = await fetch('/api/sprint-signals/action_items', { credentials: 'same-origin' });
-      const data = await response.json();
-
-      if (data.signals && data.signals.length > 0) {
-        listDiv.innerHTML = data.signals.map(signal => renderSignalCard(signal, 'action_items')).join('');
-      } else {
-        listDiv.innerHTML = '<div class="empty-signals">✨ No pending action items!</div>';
-      }
-    } catch (err) {
-      console.error('Error loading actions:', err);
-      listDiv.innerHTML = '<div class="empty-signals">Failed to load action items</div>';
-    }
-  }
-
-  // Render a signal card with actions
-  function renderSignalCard(signal, type) {
-    const handleClass = localStorage.getItem(`signal-handled-${signal.id}`) ? 'handled' : '';
-    return `
-      <div class="signal-item-card ${type} ${handleClass}" id="signal-${signal.id}">
-        <div class="signal-item-header">
-          <div class="signal-item-source">📄 ${escapeHtml(signal.meeting_name || 'Unknown Meeting')}</div>
-          <div class="signal-item-date">${signal.meeting_date || 'No date'}</div>
-        </div>
-        <div class="signal-item-text">${escapeHtml(signal.text)}</div>
-        <div class="signal-item-actions">
-          <button class="signal-action-btn ask" onclick="askAboutSignal('${escapeHtml(signal.text.substring(0, 100))}')">
-            💬 Ask
-          </button>
-          <button class="signal-action-btn approve" onclick="handleSignal('${signal.id}', 'approve')">
-            ✓ Done
-          </button>
-          <button class="signal-action-btn reject" onclick="handleSignal('${signal.id}', 'reject')">
-            ✗ Not relevant
-          </button>
-        </div>
-      </div>
-    `;
-  }
-
-  // Handle signal action (approve/reject)
-  async function handleSignal(signalId, action) {
-    const card = document.getElementById(`signal-${signalId}`);
-    
-    try {
-      const formData = new FormData();
-      formData.append('signal_id', signalId);
-      formData.append('action', action);
-      
-      await fetch('/api/signal-action', {
-        method: 'POST',
-        body: formData
-      });
-
-      // Mark as handled locally
-      localStorage.setItem(`signal-handled-${signalId}`, action);
-      
-      if (card) {
-        card.classList.add('handled');
-        const actionText = action === 'approve' ? '✓ Marked as done' : '✗ Marked as not relevant';
-        showToast(actionText, 'success');
-      }
-      
-      // Refresh sprint stats
-      loadSprintStats();
-    } catch (err) {
-      console.error('Error handling signal:', err);
-      showToast('Failed to update signal', 'error');
-    }
-  }
-
-  // Ask about a signal in chat
-  function askAboutSignal(signalText) {
-    closeBlockersModal();
-    closeActionsModal();
-    insertPrompt(`Tell me more about this: "${signalText}..."`);
-  }
 
   // Close modals on overlay click
   document.getElementById('blockersModal')?.addEventListener('click', function(e) {
@@ -2098,36 +2393,18 @@
     return div.innerHTML;
   }
 
-  // Context Panel Functions
-  function toggleContextPanel() {
-    const panel = document.getElementById('contextPanel');
-    panel.classList.toggle('collapsed');
-    localStorage.setItem('contextPanelCollapsed', panel.classList.contains('collapsed'));
-  }
-
   // Restore collapsed state
   if (localStorage.getItem('contextPanelCollapsed') === 'true') {
     document.getElementById('contextPanel')?.classList.add('collapsed');
   }
 
-  // Sprint Phase
-  let currentPhase = localStorage.getItem('sprintPhase') || 'implementation';
-  function setPhase(phase) {
-    console.log('setPhase called with:', phase);
-    currentPhase = phase;
-    localStorage.setItem('sprintPhase', phase);
-    document.querySelectorAll('.phase-chip').forEach(chip => {
-      chip.classList.toggle('active', chip.dataset.phase === phase);
-    });
-    updateQuickPrompts();
-  }
-
-  window.setPhase = setPhase;
-
-  // Initialize phase on load
+  // Initialize phase chips on load (setPhase defined at top of script)
   document.querySelectorAll('.phase-chip').forEach(chip => {
     chip.classList.toggle('active', chip.dataset.phase === currentPhase);
   });
+  
+  // Initialize tech tags on load
+  updateTechTags();
 
   // Mode Timer
   let timerInterval = null;
@@ -2254,9 +2531,9 @@
   loadModeStats();
   loadCurrentStatus();
 
-  // Update timer when phase changes
-  const originalSetPhase = setPhase;
-  setPhase = function(phase) {
+  // Update timer when phase changes - wrap the global setPhase
+  const originalSetPhase = window.setPhase;
+  window.setPhase = function(phase) {
     // If timer running for old phase, stop it
     if (isTimerRunning) {
       toggleModeTimer().then(() => {
@@ -2268,52 +2545,6 @@
       loadModeStats();
     }
   };
-
-  // User Status Management
-  async function updateUserStatus() {
-    const input = document.getElementById('userStatusInput');
-    const statusText = input.value.trim();
-    
-    if (!statusText) return;
-    
-    try {
-      const resp = await fetch('/api/user-status/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ status: statusText })
-      });
-      
-      const data = await resp.json();
-      
-      if (data.status === 'ok') {
-        const interpreted = data.interpreted;
-        
-        // Update display
-        const display = document.getElementById('currentStatusDisplay');
-        display.innerHTML = `<strong>${interpreted.mode}</strong>: ${interpreted.activity}`;
-        display.classList.add('visible');
-        
-        // Clear input
-        input.value = '';
-        
-        // Update phase selector
-        currentPhase = interpreted.mode;
-        document.querySelectorAll('.phase-chip').forEach(chip => {
-          chip.classList.toggle('active', chip.dataset.phase === interpreted.mode);
-        });
-        
-        // Refresh timer display
-        checkActiveTimer();
-        loadModeStats();
-        
-        showToast(`Status updated: ${interpreted.activity}`, 'success');
-      }
-    } catch (e) {
-      console.error('Error updating status:', e);
-      showToast('Failed to update status', 'error');
-    }
-  }
 
   async function loadCurrentStatus() {
     try {
@@ -2337,27 +2568,6 @@
       console.error('Error loading status:', e);
     }
   }
-
-  // Tech Stack Tags
-  let activeTechs = JSON.parse(localStorage.getItem('activeTechs') || '[]');
-  function toggleTech(tech) {
-    console.log('toggleTech called with:', tech);
-    const idx = activeTechs.indexOf(tech);
-    if (idx > -1) {
-      activeTechs.splice(idx, 1);
-    } else {
-      activeTechs.push(tech);
-    }
-    localStorage.setItem('activeTechs', JSON.stringify(activeTechs));
-    updateTechTags();
-  }
-
-  function updateTechTags() {
-    document.querySelectorAll('.tech-tag').forEach(tag => {
-      tag.classList.toggle('active', activeTechs.includes(tag.dataset.tech));
-    });
-  }
-  updateTechTags();
 
   // Model selector
   async function updateModel() {
@@ -2394,26 +2604,6 @@
 
   // Load model on page load
   loadCurrentModel();
-
-  // Insert prompt into chat textarea
-  function insertPrompt(prompt) {
-    const textarea = document.querySelector('.chat-textarea');
-    if (textarea) {
-      // Add tech context if any tags are active
-      let contextPrefix = '';
-      if (activeTechs.length > 0) {
-        contextPrefix = `[Focus: ${activeTechs.join(', ')}] `;
-      }
-      textarea.value = contextPrefix + prompt;
-      textarea.focus();
-      textarea.style.height = 'auto';
-      textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px';
-    } else {
-      // No active conversation - redirect to new chat with prompt
-      const encoded = encodeURIComponent(prompt);
-      window.location.href = `/chat/new?prompt=${encoded}`;
-    }
-  }
 
   // Update quick prompts based on phase
   function updateQuickPrompts() {

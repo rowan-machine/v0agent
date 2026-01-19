@@ -387,6 +387,9 @@
       <button class="graph-btn graph-btn-secondary" onclick="refreshStats()">
         📊 Refresh Stats
       </button>
+      <button class="graph-btn graph-btn-secondary" onclick="openNeoBrowser()" title="Open Neo4j Browser in new window">
+        🌐 Open Neo4j Browser
+      </button>
     </div>
   </div>
 
@@ -497,9 +500,22 @@
         <span style="font-size: 0.8rem; color: #6b7280;">Read-only queries</span>
       </div>
       <div class="panel-body">
+        <div style="margin-bottom: 0.75rem;">
+          <label style="font-size: 0.85rem; color: #6b7280; margin-bottom: 0.5rem; display: block;">Quick Queries:</label>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+            <button class="graph-btn graph-btn-secondary" onclick="setQuery('full')" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">🕸️ Full Graph</button>
+            <button class="graph-btn graph-btn-secondary" onclick="setQuery('meetings')" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">📅 Meetings</button>
+            <button class="graph-btn graph-btn-secondary" onclick="setQuery('signals')" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">📡 Signals</button>
+            <button class="graph-btn graph-btn-secondary" onclick="setQuery('people')" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">👥 People</button>
+            <button class="graph-btn graph-btn-secondary" onclick="setQuery('connections')" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;">🔗 Connections</button>
+          </div>
+        </div>
         <div class="query-console">
-          <textarea class="query-input" id="cypherInput" 
-                    placeholder="MATCH (n) RETURN n LIMIT 10"></textarea>
+          <textarea class="query-input" id="cypherInput">// Full Knowledge Graph - shows all nodes and relationships
+MATCH (n)
+OPTIONAL MATCH (n)-[r]->(m)
+RETURN n, r, m
+LIMIT 100</textarea>
         </div>
         <button class="graph-btn graph-btn-primary" onclick="runQuery()" style="margin-bottom: 1rem;">
           ▶️ Run Query
@@ -529,10 +545,24 @@
 
 <script>
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
-  checkConnection();
-  refreshStats();
+document.addEventListener('DOMContentLoaded', async () => {
+  await checkConnection();
+  const isEmpty = await refreshStats();
+  
+  // Auto-sync if graph is empty
+  if (isEmpty) {
+    console.log('Knowledge graph is empty, triggering auto-sync...');
+    showToast('Syncing existing data to knowledge graph...', false);
+    await syncAll();
+  }
 });
+
+// Open Neo4j Browser in new window
+function openNeoBrowser() {
+  // Neo4j Browser typically runs on port 7474
+  const neo4jBrowserUrl = 'http://localhost:7474/browser/';
+  window.open(neo4jBrowserUrl, '_blank', 'width=1200,height=800,menubar=no,toolbar=no');
+}
 
 // Enter key to search
 document.getElementById('searchInput').addEventListener('keypress', (e) => {
@@ -562,7 +592,7 @@ async function checkConnection() {
   }
 }
 
-// Refresh stats
+// Refresh stats - returns true if graph is empty
 async function refreshStats() {
   try {
     const response = await fetch('/api/neo4j/stats', { credentials: 'same-origin' });
@@ -572,9 +602,10 @@ async function refreshStats() {
     }
     
     const stats = await response.json();
+    const totalNodes = stats.total_nodes || 0;
     
     // Update totals
-    document.getElementById('totalNodes').textContent = stats.total_nodes || 0;
+    document.getElementById('totalNodes').textContent = totalNodes;
     document.getElementById('totalRelationships').textContent = stats.total_relationships || 0;
     
     // Update specific counts
@@ -616,8 +647,10 @@ async function refreshStats() {
       relsList.innerHTML = '<div style="text-align: center; color: #9ca3af; padding: 1rem;">No relationships in graph</div>';
     }
     
+    return totalNodes === 0;  // Return true if graph is empty
   } catch (err) {
     console.error('Failed to refresh stats:', err);
+    return true;  // Assume empty on error
   }
 }
 
@@ -788,6 +821,45 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text || '';
   return div.innerHTML;
+}
+
+// Set predefined queries
+function setQuery(type) {
+  const queries = {
+    full: `// Full Knowledge Graph - shows all nodes and relationships
+MATCH (n)
+OPTIONAL MATCH (n)-[r]->(m)
+RETURN n, r, m
+LIMIT 100`,
+    meetings: `// All Meetings with their Signals
+MATCH (m:Meeting)
+OPTIONAL MATCH (m)-[r:HAS_SIGNAL]->(s:Signal)
+RETURN m, r, s
+ORDER BY m.meeting_date DESC
+LIMIT 50`,
+    signals: `// Signals grouped by type
+MATCH (s:Signal)
+RETURN s.signal_type AS type, collect(s.text)[0..5] AS examples, count(*) AS count
+ORDER BY count DESC`,
+    people: `// People and their connections
+MATCH (p:Person)
+OPTIONAL MATCH (p)<-[r:MENTIONS]-(source)
+RETURN p.name AS person, labels(source)[0] AS mentioned_in, count(r) AS mentions
+ORDER BY mentions DESC
+LIMIT 30`,
+    connections: `// Most connected nodes
+MATCH (n)-[r]-(m)
+WITH n, count(r) AS connections
+RETURN labels(n)[0] AS type, 
+       CASE WHEN n.name IS NOT NULL THEN n.name 
+            WHEN n.meeting_name IS NOT NULL THEN n.meeting_name
+            ELSE 'Node ' + id(n) END AS name,
+       connections
+ORDER BY connections DESC
+LIMIT 20`
+  };
+  
+  document.getElementById('cypherInput').value = queries[type] || queries.full;
 }
 
 function showToast(message, isError = false) {

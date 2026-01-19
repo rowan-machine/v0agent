@@ -13,6 +13,12 @@ from .memory.vector_store import upsert_embedding
 from .mcp.parser import parse_meeting_summary
 from .mcp.extract import extract_structured_signals
 from .mcp.cleaner import clean_meeting_text
+
+# Neo4j sync (optional - fails silently if unavailable)
+try:
+    from .api.neo4j_graph import sync_single_meeting
+except ImportError:
+    sync_single_meeting = None
 from .llm import analyze_image
 
 router = APIRouter()
@@ -103,6 +109,13 @@ async def store_meeting(
     vector = embed_text(text_for_embedding)
     upsert_embedding("meeting", meeting_id, EMBED_MODEL, vector)
 
+    # ---- Auto-sync to Neo4j knowledge graph ----
+    if sync_single_meeting:
+        try:
+            sync_single_meeting(meeting_id, meeting_name, cleaned_notes, meeting_date, json.dumps(signals))
+        except Exception:
+            pass  # Neo4j sync is optional
+
     return RedirectResponse(url="/meetings?success=meeting_created", status_code=303)
 
 
@@ -150,12 +163,22 @@ def view_meeting(meeting_id: int, request: Request):
             "SELECT * FROM meeting_summaries WHERE id = ?",
             (meeting_id,),
         ).fetchone()
+        
+        # Find linked transcript document
+        linked_transcript = None
+        if meeting:
+            transcript = conn.execute(
+                "SELECT id, source FROM docs WHERE source LIKE ?",
+                (f"Transcript: {meeting['meeting_name']}%",)
+            ).fetchone()
+            if transcript:
+                linked_transcript = dict(transcript)
     
     screenshots = get_meeting_screenshots(meeting_id)
 
     return templates.TemplateResponse(
         "view_meeting.html",
-        {"request": request, "meeting": meeting, "screenshots": screenshots},
+        {"request": request, "meeting": meeting, "screenshots": screenshots, "linked_transcript": linked_transcript},
     )
 
 

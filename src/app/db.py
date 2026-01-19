@@ -53,6 +53,24 @@ CREATE INDEX IF NOT EXISTS idx_meetings_notes ON meeting_summaries(LOWER(synthes
 Create INDEX IF NOT EXISTS idx_docs_source ON docs(LOWER(source));
 CREATE INDEX IF NOT EXISTS idx_meetings_name ON meeting_summaries(LOWER(meeting_name));
 
+-- Workflow modes configuration
+CREATE TABLE IF NOT EXISTS workflow_modes (
+  id INTEGER PRIMARY KEY,
+  mode_key TEXT NOT NULL UNIQUE,    -- e.g., 'mode-a', 'mode-b'
+  name TEXT NOT NULL,               -- e.g., 'Context Distillation'
+  icon TEXT DEFAULT '🎯',           -- emoji icon
+  short_description TEXT,           -- brief summary for mode cards
+  description TEXT,                 -- detailed description/subtitle
+  steps_json TEXT,                  -- JSON array of checklist steps
+  sort_order INTEGER DEFAULT 0,     -- display order
+  is_active INTEGER DEFAULT 1,      -- whether mode is enabled
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_workflow_modes_key ON workflow_modes(mode_key);
+CREATE INDEX IF NOT EXISTS idx_workflow_modes_order ON workflow_modes(sort_order);
+
 -- Sprint settings (singleton row)
 CREATE TABLE IF NOT EXISTS sprint_settings (
   id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -70,6 +88,8 @@ CREATE TABLE IF NOT EXISTS tickets (
   description TEXT,                 -- pasted ticket details
   status TEXT DEFAULT 'todo',       -- todo, in_progress, done
   priority TEXT,
+  sprint_points INTEGER DEFAULT 0,  -- story points for sprint tracking
+  in_sprint INTEGER DEFAULT 1,      -- 1 if assigned to current sprint
   ai_summary TEXT,                  -- AI-generated summary
   implementation_plan TEXT,         -- AI-generated or user-edited plan
   task_decomposition TEXT,          -- JSON array of subtasks
@@ -276,6 +296,18 @@ CREATE TABLE IF NOT EXISTS career_chat_updates (
 
 CREATE INDEX IF NOT EXISTS idx_career_suggestions_type ON career_suggestions(suggestion_type);
 CREATE INDEX IF NOT EXISTS idx_career_suggestions_status ON career_suggestions(status);
+
+CREATE TABLE IF NOT EXISTS documents (
+  id INTEGER PRIMARY KEY,
+  meeting_id INTEGER,
+  source TEXT NOT NULL,
+  content TEXT NOT NULL,
+  document_date TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (meeting_id) REFERENCES meeting_summaries(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_documents_meeting_id ON documents(meeting_id);
 """
 
 def connect():
@@ -286,6 +318,18 @@ def connect():
 def init_db():
     with connect() as conn:
         conn.executescript(SCHEMA)
+        
+        # Migration: Add sprint_points column to tickets if it doesn't exist
+        try:
+            conn.execute("ALTER TABLE tickets ADD COLUMN sprint_points INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Migration: Add in_sprint column to tickets if it doesn't exist
+        try:
+            conn.execute("ALTER TABLE tickets ADD COLUMN in_sprint INTEGER DEFAULT 1")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
         
         # Initialize default career profile
         conn.execute("""

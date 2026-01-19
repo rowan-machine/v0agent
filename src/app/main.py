@@ -32,7 +32,7 @@ from .auth import (
     destroy_session, get_auth_password, hash_password
 )
 
-app = FastAPI(title="SignalFlow - Memory & Signal Intelligence")
+app = FastAPI(title="Hare Krishna - Memory & Signal Intelligence")
 
 # Add authentication middleware
 app.add_middleware(AuthMiddleware)
@@ -49,11 +49,53 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 templates = Jinja2Templates(directory="src/app/templates")
 
+# Expose environment variables to Jinja2 templates
+templates.env.globals['env'] = os.environ
+
+
+def init_neo4j_background():
+    """Initialize Neo4j schema and backfill data in background (non-blocking)."""
+    import threading
+    def _init():
+        try:
+            from .api.neo4j_graph import is_neo4j_available, run_write, SCHEMA_QUERIES
+            if not is_neo4j_available():
+                print("Neo4j not available - skipping knowledge graph initialization")
+                return
+            
+            # Initialize schema
+            for query in SCHEMA_QUERIES:
+                try:
+                    run_write(query)
+                except Exception as e:
+                    print(f"Schema query failed (may already exist): {e}")
+            
+            # Trigger background sync
+            from .api.neo4j_graph import sync_meetings_to_neo4j, sync_documents_to_neo4j
+            import asyncio
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(sync_meetings_to_neo4j())
+                loop.run_until_complete(sync_documents_to_neo4j())
+                print("Neo4j knowledge graph synced successfully")
+            except Exception as e:
+                print(f"Neo4j sync failed: {e}")
+            finally:
+                loop.close()
+        except Exception as e:
+            print(f"Neo4j initialization skipped: {e}")
+    
+    thread = threading.Thread(target=_init, daemon=True)
+    thread.start()
+
 
 @app.on_event("startup")
 def startup():
     init_db()
     init_chat_tables()
+    # Initialize Neo4j in background (non-blocking)
+    init_neo4j_background()
 
 
 # -------------------------
@@ -265,21 +307,54 @@ def dashboard(request: Request):
         for m in recent_meetings[:5]:
             try:
                 signals = json.loads(m["signals_json"])
-                # Add blockers to highlights
+                # Add blockers to highlights (highest priority)
                 for blocker in signals.get("blockers", [])[:2]:
                     if blocker:
                         highlights.append({
                             "type": "blocker",
-                            "label": "Blocker",
+                            "label": "🚧 Blocker",
                             "text": blocker,
+                            "source": m["meeting_name"],
+                            "meeting_id": m["id"],
+                        })
+                # Add action items
+                for action in signals.get("action_items", [])[:2]:
+                    if action:
+                        highlights.append({
+                            "type": "action",
+                            "label": "📋 Action Item",
+                            "text": action,
+                            "source": m["meeting_name"],
+                            "meeting_id": m["id"],
+                        })
+                # Add decisions
+                for decision in signals.get("decisions", [])[:1]:
+                    if decision:
+                        highlights.append({
+                            "type": "decision",
+                            "label": "✅ Decision",
+                            "text": decision,
+                            "source": m["meeting_name"],
+                            "meeting_id": m["id"],
+                        })
+                # Add risks
+                for risk in signals.get("risks", [])[:1]:
+                    if risk:
+                        highlights.append({
+                            "type": "risk",
+                            "label": "⚠️ Risk",
+                            "text": risk,
                             "source": m["meeting_name"],
                             "meeting_id": m["id"],
                         })
             except:
                 pass
         
-        # Limit highlights
-        highlights = highlights[:4]
+        # Limit highlights (prioritize blockers first)
+        blockers_first = [h for h in highlights if h["type"] == "blocker"]
+        actions = [h for h in highlights if h["type"] == "action"]
+        others = [h for h in highlights if h["type"] not in ("blocker", "action")]
+        highlights = (blockers_first + actions + others)[:6]
         
         # Recent items (meetings + docs)
         recent_items = []
@@ -333,14 +408,16 @@ def dashboard(request: Request):
                     parsed = []
                 if isinstance(parsed, list) and parsed:
                     normalized = []
-                    for item in parsed:
+                    for idx, item in enumerate(parsed):
                         if isinstance(item, dict):
-                            title = item.get("title") or item.get("task") or item.get("name") or "Task"
-                            description = item.get("description") or item.get("details")
+                            title = item.get("title") or item.get("text") or item.get("task") or item.get("name") or "Task"
+                            description = item.get("description") or item.get("details") or item.get("estimate")
+                            status = item.get("status", "pending")
                         else:
                             title = str(item)
                             description = None
-                        normalized.append({"title": title, "description": description})
+                            status = "pending"
+                        normalized.append({"index": idx, "title": title, "description": description, "status": status})
                     execution_ticket = {
                         "id": ticket["id"],
                         "ticket_id": ticket["ticket_id"],
@@ -522,20 +599,56 @@ async def get_highlights():
     for m in recent_meetings:
         try:
             signals = json.loads(m["signals_json"]) if m["signals_json"] else {}
-            # Add blockers to highlights
+            # Add blockers (highest priority)
             for blocker in signals.get("blockers", [])[:2]:
                 if blocker:
                     highlights.append({
                         "type": "blocker",
-                        "label": "Blocker",
+                        "label": "🚧 Blocker",
                         "text": blocker,
+                        "source": m["meeting_name"],
+                        "meeting_id": m["id"],
+                    })
+            # Add action items
+            for action in signals.get("action_items", [])[:2]:
+                if action:
+                    highlights.append({
+                        "type": "action",
+                        "label": "📋 Action Item",
+                        "text": action,
+                        "source": m["meeting_name"],
+                        "meeting_id": m["id"],
+                    })
+            # Add decisions
+            for decision in signals.get("decisions", [])[:1]:
+                if decision:
+                    highlights.append({
+                        "type": "decision",
+                        "label": "✅ Decision",
+                        "text": decision,
+                        "source": m["meeting_name"],
+                        "meeting_id": m["id"],
+                    })
+            # Add risks
+            for risk in signals.get("risks", [])[:1]:
+                if risk:
+                    highlights.append({
+                        "type": "risk",
+                        "label": "⚠️ Risk",
+                        "text": risk,
                         "source": m["meeting_name"],
                         "meeting_id": m["id"],
                     })
         except:
             pass
     
-    return JSONResponse({"highlights": highlights[:4]})
+    # Prioritize blockers first
+    blockers_first = [h for h in highlights if h["type"] == "blocker"]
+    actions = [h for h in highlights if h["type"] == "action"]
+    others = [h for h in highlights if h["type"] not in ("blocker", "action")]
+    highlights = (blockers_first + actions + others)[:6]
+    
+    return JSONResponse({"highlights": highlights})
 
 
 @app.post("/api/dashboard/highlight-context")
@@ -1051,6 +1164,319 @@ async def get_mode_timer_stats(days: int = 7):
         }
     
     return JSONResponse(result)
+
+
+# ============================================
+# Reports API Endpoints
+# ============================================
+
+@app.get("/reports")
+async def reports_page(request: Request):
+    """Render the sprint reports page."""
+    return templates.TemplateResponse("reports.html", {"request": request})
+
+
+@app.get("/api/reports/signals")
+async def get_signals_report(days: int = 14):
+    """Get signal statistics for the reporting period."""
+    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    
+    with connect() as conn:
+        # Count signals from meetings
+        meetings = conn.execute(
+            """
+            SELECT signals_json FROM meeting_summaries 
+            WHERE (meeting_date >= ? OR (meeting_date IS NULL AND created_at >= ?))
+            AND signals_json IS NOT NULL
+            """,
+            (cutoff, cutoff)
+        ).fetchall()
+        
+        decisions = actions = blockers = risks = ideas = 0
+        
+        for m in meetings:
+            try:
+                signals = json.loads(m["signals_json"])
+                decisions += len(signals.get("decisions", []))
+                actions += len(signals.get("action_items", []))
+                blockers += len(signals.get("blockers", []))
+                risks += len(signals.get("risks", []))
+                ideas += len(signals.get("ideas", []))
+            except:
+                continue
+        
+        # Count tickets created in period
+        tickets_count = conn.execute(
+            "SELECT COUNT(*) as cnt FROM tickets WHERE created_at >= ?",
+            (cutoff,)
+        ).fetchone()["cnt"]
+        
+        return JSONResponse({
+            "decisions": decisions,
+            "actions": actions,
+            "blockers": blockers,
+            "risks": risks,
+            "ideas": ideas,
+            "meetings_count": len(meetings),
+            "tickets_created": tickets_count
+        })
+
+
+@app.get("/api/reports/workflow-progress")
+async def get_workflow_progress_report():
+    """Get workflow mode progress for reporting."""
+    import json as json_module
+    
+    with connect() as conn:
+        modes = conn.execute(
+            "SELECT * FROM workflow_modes WHERE is_active = 1 ORDER BY sort_order"
+        ).fetchall()
+        
+        result = []
+        for mode in modes:
+            steps = json_module.loads(mode["steps_json"]) if mode["steps_json"] else []
+            total_steps = len(steps)
+            
+            # Get progress from settings
+            progress_row = conn.execute(
+                "SELECT value FROM settings WHERE key = ?",
+                (f"workflow_progress_{mode['mode_key']}",)
+            ).fetchone()
+            
+            completed = 0
+            if progress_row:
+                try:
+                    progress = json_module.loads(progress_row["value"])
+                    completed = sum(1 for p in progress if p)
+                except:
+                    pass
+            
+            result.append({
+                "mode_key": mode["mode_key"],
+                "name": mode["name"],
+                "icon": mode["icon"],
+                "total_steps": total_steps,
+                "progress": completed
+            })
+        
+        return JSONResponse({"modes": result})
+
+
+@app.get("/api/reports/daily")
+async def get_daily_report(days: int = 14):
+    """Get daily breakdown for reporting."""
+    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    
+    with connect() as conn:
+        # Get daily time tracking
+        daily_time = conn.execute(
+            """
+            SELECT date, 
+                   SUM(duration_seconds) as total_seconds,
+                   COUNT(*) as sessions
+            FROM mode_sessions
+            WHERE date >= ? AND duration_seconds IS NOT NULL
+            GROUP BY date
+            ORDER BY date DESC
+            """,
+            (cutoff,)
+        ).fetchall()
+        
+        # Get daily signal counts
+        daily_signals = {}
+        meetings = conn.execute(
+            """
+            SELECT COALESCE(meeting_date, date(created_at)) as date, signals_json 
+            FROM meeting_summaries 
+            WHERE (meeting_date >= ? OR (meeting_date IS NULL AND created_at >= ?))
+            AND signals_json IS NOT NULL
+            """,
+            (cutoff, cutoff)
+        ).fetchall()
+        
+        for m in meetings:
+            date = m["date"]
+            if date:
+                try:
+                    signals = json.loads(m["signals_json"])
+                    count = sum(len(signals.get(k, [])) for k in ["decisions", "action_items", "blockers", "risks", "ideas"])
+                    daily_signals[date] = daily_signals.get(date, 0) + count
+                except:
+                    pass
+        
+        result = []
+        for row in daily_time:
+            result.append({
+                "date": row["date"],
+                "total_seconds": row["total_seconds"] or 0,
+                "sessions": row["sessions"],
+                "signals": daily_signals.get(row["date"], 0)
+            })
+        
+        return JSONResponse({"daily": result})
+
+
+@app.get("/api/reports/sprint-burndown")
+async def get_sprint_burndown():
+    """Get sprint points breakdown with task decomposition progress."""
+    with connect() as conn:
+        # Get sprint settings for jeopardy calculation
+        sprint_settings = conn.execute("SELECT * FROM sprint_settings WHERE id = 1").fetchone()
+        working_days_remaining = None
+        sprint_total_days = 14
+        sprint_day = None
+        
+        if sprint_settings:
+            from datetime import datetime, timedelta
+            sprint_start = datetime.strptime(sprint_settings["sprint_start_date"], "%Y-%m-%d")
+            sprint_total_days = sprint_settings["sprint_length_days"] or 14
+            sprint_day = (datetime.now() - sprint_start).days + 1
+            days_remaining = sprint_total_days - sprint_day
+            # Estimate working days (exclude weekends roughly)
+            working_days_remaining = max(0, int(days_remaining * 5 / 7))
+        
+        # Get all active tickets assigned to sprint (not done)
+        tickets = conn.execute(
+            """
+            SELECT id, ticket_id, title, status, sprint_points, in_sprint, task_decomposition
+            FROM tickets 
+            WHERE status IN ('todo', 'in_progress', 'in_review', 'blocked')
+            AND in_sprint = 1
+            ORDER BY 
+                CASE status
+                    WHEN 'blocked' THEN 0
+                    WHEN 'in_progress' THEN 1
+                    WHEN 'in_review' THEN 2
+                    WHEN 'todo' THEN 3
+                END,
+                sprint_points DESC
+            """
+        ).fetchall()
+        
+        total_points = 0
+        completed_points = 0
+        in_progress_points = 0
+        remaining_points = 0
+        
+        ticket_breakdown = []
+        
+        for ticket in tickets:
+            points = ticket["sprint_points"] or 0
+            total_points += points
+            
+            # Parse task decomposition
+            tasks = []
+            total_tasks = 0
+            completed_tasks = 0
+            
+            if ticket["task_decomposition"]:
+                try:
+                    parsed = json.loads(ticket["task_decomposition"])
+                    if isinstance(parsed, list):
+                        for idx, item in enumerate(parsed):
+                            if isinstance(item, dict):
+                                title = item.get("title") or item.get("text") or item.get("task") or item.get("name") or "Task"
+                                description = item.get("description") or item.get("details") or ""
+                                status = item.get("status", "pending")
+                            else:
+                                title = str(item)
+                                description = ""
+                                status = "pending"
+                            
+                            is_done = status in ("done", "completed")
+                            total_tasks += 1
+                            if is_done:
+                                completed_tasks += 1
+                            
+                            tasks.append({
+                                "index": idx,
+                                "title": title,
+                                "description": description,
+                                "status": status,
+                                "done": is_done
+                            })
+                except:
+                    pass
+            
+            # Calculate progress percentage for this ticket
+            progress_pct = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
+            
+            # Estimate points based on progress
+            ticket_completed_points = (points * progress_pct / 100)
+            ticket_remaining = points - ticket_completed_points
+            
+            if ticket["status"] == "in_progress":
+                in_progress_points += ticket_remaining
+            else:
+                remaining_points += points
+            
+            completed_points += ticket_completed_points
+            
+            ticket_breakdown.append({
+                "id": ticket["id"],
+                "ticket_id": ticket["ticket_id"],
+                "title": ticket["title"],
+                "status": ticket["status"],
+                "sprint_points": points,
+                "total_tasks": total_tasks,
+                "completed_tasks": completed_tasks,
+                "progress_pct": round(progress_pct, 1),
+                "tasks": tasks
+            })
+        
+        # Get completed tickets for total burndown context (in sprint only)
+        completed_tickets = conn.execute(
+            """
+            SELECT SUM(COALESCE(sprint_points, 0)) as points
+            FROM tickets 
+            WHERE status = 'done'
+            AND in_sprint = 1
+            AND updated_at >= date('now', '-14 days')
+            """
+        ).fetchone()
+        
+        done_points = completed_tickets["points"] or 0
+        
+        # Count total remaining tasks
+        total_remaining_tasks = sum(
+            t["total_tasks"] - t["completed_tasks"] for t in ticket_breakdown
+        )
+        
+        # Calculate jeopardy status
+        jeopardy_status = None
+        jeopardy_message = None
+        
+        if working_days_remaining is not None:
+            remaining_points_value = remaining_points + in_progress_points
+            # Assume ~2 tasks per working day as velocity
+            estimated_capacity_tasks = working_days_remaining * 3  # 3 tasks per day rough estimate
+            # Assume ~3 points per working day as velocity
+            estimated_capacity_points = working_days_remaining * 3
+            
+            if remaining_points_value > estimated_capacity_points * 1.5:
+                jeopardy_status = "critical"
+                jeopardy_message = f"🚨 Sprint at risk: {remaining_points_value:.0f} points remaining with only {working_days_remaining} working days left"
+            elif remaining_points_value > estimated_capacity_points:
+                jeopardy_status = "warning"
+                jeopardy_message = f"⚠️ Sprint may be at risk: {remaining_points_value:.0f} points remaining"
+            elif total_remaining_tasks > estimated_capacity_tasks:
+                jeopardy_status = "warning"
+                jeopardy_message = f"⚠️ High task count: {total_remaining_tasks} subtasks remaining with {working_days_remaining} days left"
+        
+        return JSONResponse({
+            "total_points": total_points,
+            "completed_points": round(completed_points, 1),
+            "in_progress_points": round(in_progress_points, 1),
+            "remaining_points": round(remaining_points, 1),
+            "done_this_sprint": done_points,
+            "total_remaining_tasks": total_remaining_tasks,
+            "working_days_remaining": working_days_remaining,
+            "sprint_day": sprint_day,
+            "sprint_total_days": sprint_total_days,
+            "jeopardy_status": jeopardy_status,
+            "jeopardy_message": jeopardy_message,
+            "tickets": ticket_breakdown
+        })
 
 
 def format_duration(seconds: int) -> str:
