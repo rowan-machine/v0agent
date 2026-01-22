@@ -8,6 +8,8 @@ __pycache__/
 # Node.js
 node_modules/
 mobile/node_modules/
+package-lock.json
+mobile/package-lock.json
 npm-debug.log
 yarn-error.log
 
