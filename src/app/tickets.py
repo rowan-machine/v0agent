@@ -1,5 +1,20 @@
 # src/app/tickets.py
-"""Ticket management for sprint planning and tracking."""
+"""
+Ticket Management - Sprint planning and tracking.
+
+This module handles ticket CRUD operations and delegates to TicketAgent
+(Checkpoint 2.7) for AI-powered features like summary generation,
+implementation planning, and task decomposition.
+
+Migration Status:
+- TicketAgent: src/app/agents/ticket_agent.py (new agent implementation)
+- This file: FastAPI routes + adapters (backward compatible)
+
+AI Features (delegated to TicketAgent):
+- generate-summary: Tag-aware ticket summaries
+- generate-plan: Claude Opus implementation planning  
+- generate-decomposition: Atomic task breakdown with estimates
+"""
 
 from fastapi import APIRouter, Request, Form, UploadFile, File
 from fastapi.responses import RedirectResponse, JSONResponse
@@ -13,13 +28,6 @@ from .db import connect
 from .llm import ask
 from .memory.embed import embed_text, EMBED_MODEL
 from .memory.vector_store import upsert_embedding
-
-# Import agent adapters for AI operations
-from .agents.ticket_agent import (
-    summarize_ticket_adapter,
-    generate_plan_adapter,
-    decompose_ticket_adapter,
-)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
@@ -298,13 +306,16 @@ def delete_ticket(ticket_pk: int):
 
 @router.post("/api/tickets/{ticket_pk}/generate-summary")
 async def generate_ticket_summary(ticket_pk: int, request: Request):
-    """Generate AI summary for a ticket.
+    """
+    Generate AI summary for a ticket.
     
     Accepts optional JSON body with:
     - format_hint: Custom formatting instructions
     
-    Uses TicketAgent adapter for centralized AI handling.
+    Delegates to TicketAgent.summarize() for AI processing (Checkpoint 2.7).
     """
+    from .agents.ticket_agent import summarize_ticket_adapter
+    
     # Parse optional format hints from request body
     format_hint = ""
     try:
@@ -329,10 +340,14 @@ async def generate_ticket_summary(ticket_pk: int, request: Request):
 
 @router.post("/api/tickets/{ticket_pk}/generate-plan")
 async def generate_implementation_plan(ticket_pk: int):
-    """Generate AI implementation plan for a ticket.
-    
-    Uses TicketAgent adapter with Claude Opus 4 for premium quality planning.
     """
+    Generate AI implementation plan for a ticket.
+    
+    Uses Claude Opus 4 for premium quality planning.
+    Delegates to TicketAgent.generate_plan() (Checkpoint 2.7).
+    """
+    from .agents.ticket_agent import generate_plan_adapter
+    
     try:
         result = await generate_plan_adapter(ticket_pk)
         
@@ -376,10 +391,14 @@ async def save_implementation_plan(request: Request, ticket_pk: int):
 
 @router.post("/api/tickets/{ticket_pk}/generate-decomposition")
 async def generate_task_decomposition(ticket_pk: int):
-    """Generate AI task breakdown for a ticket.
-    
-    Uses TicketAgent adapter for centralized AI handling.
     """
+    Generate AI task breakdown for a ticket.
+    
+    Returns 4-8 atomic subtasks with time estimates.
+    Delegates to TicketAgent.decompose() (Checkpoint 2.7).
+    """
+    from .agents.ticket_agent import decompose_ticket_adapter
+    
     try:
         result = await decompose_ticket_adapter(ticket_pk)
         
