@@ -794,6 +794,11 @@
     background: rgba(255,255,255,0.3);
   }
 
+  /* Dark mode: Quick Actions gradient blends with dark background */
+  [data-theme="dark"] .quick-actions {
+    background: linear-gradient(135deg, #3b4668 0%, #4a3a6b 100%);
+  }
+
   /* AI Response Card */
   .ai-response {
     background: var(--sf-card-bg, white);
@@ -802,6 +807,11 @@
     margin-top: 1rem;
     display: none;
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+
+  [data-theme="dark"] .ai-response {
+    background: #1a2234 !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   }
 
   .ai-response.visible {
