@@ -2,13 +2,17 @@
 Base agent class for all AI agents in SignalFlow.
 Provides common functionality for agent configuration, tool access, and LLM interactions.
 Integrates with ModelRouter for automatic model selection per task type.
+Integrates with Guardrails for pre/post call safety and reflection (Checkpoint 1.8).
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from pydantic import BaseModel
 from datetime import datetime
 import logging
+
+if TYPE_CHECKING:
+    from .guardrails import Guardrails
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +39,17 @@ class BaseAgent(ABC):
     Abstract base class for all agents in SignalFlow.
     Handles configuration, tool access, and LLM interactions.
     Integrates with ModelRouter for automatic model selection.
+    Integrates with Guardrails for pre/post call hooks (safety, reflection).
     """
     
-    def __init__(self, config: AgentConfig, llm_client=None, tool_registry=None, model_router=None):
+    def __init__(
+        self,
+        config: AgentConfig,
+        llm_client=None,
+        tool_registry=None,
+        model_router=None,
+        guardrails: Optional["Guardrails"] = None,
+    ):
         """
         Initialize the agent.
         
@@ -46,11 +58,13 @@ class BaseAgent(ABC):
             llm_client: LLM client (will default to global if None)
             tool_registry: Tool registry (will default to global if None)
             model_router: Model router for auto-selection (will default to global if None)
+            guardrails: Guardrails instance for pre/post hooks (will default to global if None)
         """
         self.config = config
         self.llm_client = llm_client
         self.tool_registry = tool_registry
         self.model_router = model_router
+        self.guardrails = guardrails
         self.interaction_log: List[Dict[str, Any]] = []
     
     @abstractmethod
@@ -107,9 +121,15 @@ class BaseAgent(ABC):
         model: Optional[str] = None,
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
+        context: Optional[Dict[str, Any]] = None,
+        skip_guardrails: bool = False,
     ) -> str:
         """
-        Call the LLM with automatic model selection and fallback support.
+        Call the LLM with automatic model selection, fallback support, and guardrails.
+        
+        Guardrails hooks (Checkpoint 1.8):
+        - pre_call: Input filtering, safety checks before LLM call
+        - post_call: Self-reflection, hallucination detection after response
         
         Args:
             prompt: The prompt to send
@@ -117,14 +137,35 @@ class BaseAgent(ABC):
             model: Override model (bypasses router)
             temperature: Override temperature
             max_tokens: Override max_tokens
+            context: Optional context for guardrails (e.g., source documents)
+            skip_guardrails: Bypass guardrails for internal reflection calls
         
         Returns:
             LLM response text
+        
+        Raises:
+            GuardrailBlockedError: If pre-call guardrails block the request
         """
         # Select model using router or override
         selected_model = self.select_model(task_type=task_type, override=model)
         temperature = temperature if temperature is not None else self.config.temperature
         max_tokens = max_tokens or self.config.max_tokens
+        
+        # === PRE-CALL GUARDRAILS ===
+        if not skip_guardrails and self.guardrails:
+            pre_result = await self.guardrails.pre_call(
+                input_text=prompt,
+                agent_name=self.config.name,
+                context=context,
+            )
+            
+            if pre_result.blocked:
+                logger.warning(
+                    f"Guardrails blocked request for {self.config.name}: "
+                    f"action={pre_result.action.value}, rules={pre_result.triggered_rules}"
+                )
+                # Return refusal message instead of calling LLM
+                return pre_result.refusal_message or "I'm not able to help with that request."
         
         start_time = datetime.now()
         
@@ -146,6 +187,29 @@ class BaseAgent(ABC):
                 latency_ms=int((datetime.now() - start_time).total_seconds() * 1000),
                 status="success"
             )
+            
+            # === POST-CALL GUARDRAILS (Self-Reflection) ===
+            if not skip_guardrails and self.guardrails:
+                post_result = await self.guardrails.post_call(
+                    response=response,
+                    agent_name=self.config.name,
+                    original_query=prompt,
+                    context=str(context) if context else None,
+                )
+                
+                if post_result.needs_revision:
+                    logger.info(
+                        f"Guardrails flagged response for {self.config.name}: "
+                        f"outcome={post_result.outcome.value}, issues={post_result.issues_found}"
+                    )
+                    
+                    # For now, log the warning but return response
+                    # Future: could trigger re-generation with reflection prompt
+                    if post_result.hallucination_risk and post_result.hallucination_risk > 0.8:
+                        logger.warning(
+                            f"High hallucination risk ({post_result.hallucination_risk:.2f}) "
+                            f"detected for {self.config.name}"
+                        )
             
             return response
             

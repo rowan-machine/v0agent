@@ -1,0 +1,105 @@
+# Guardrails Configuration for SignalFlow
+# Version: 1.0
+#
+# This configuration controls pre/post hooks for agent safety and self-reflection.
+# Feature flags allow gradual rollout and dry-run testing.
+#
+# Checkpoint 1.8: PHASED_MIGRATION_ROLLOUT.md
+
+version: "1.0"
+description: "Guardrails and self-reflection configuration for SignalFlow agents"
+
+# Global settings (apply to all agents unless overridden)
+global:
+  enabled: true
+  pre_call_enabled: true
+  post_call_enabled: true
+  dry_run: false  # Set true to log without blocking (testing mode)
+  log_all_checks: true
+
+# Per-agent guardrail settings
+agents:
+  arjuna:
+    enabled: true
+    
+    # Input filtering
+    block_patterns:
+      # Prompt injection attempts
+      - "(?i)ignore\\s+(all\\s+)?(previous|prior)\\s+instructions"
+      - "(?i)disregard\\s+(your\\s+)?(system|initial)\\s+prompt"
+      - "(?i)you\\s+are\\s+now\\s+(a|an)\\s+\\w+\\s+assistant"
+      - "(?i)forget\\s+(everything|all)\\s+(you|your)"
+      - "(?i)new\\s+instruction[s]?\\s*:"
+    
+    warn_patterns:
+      # Suspicious but may be legitimate
+      - "(?i)pretend\\s+(to\\s+be|you\\s+are)"
+      - "(?i)act\\s+as\\s+(if|though)"
+      - "(?i)roleplay\\s+as"
+    
+    # Detection features
+    pii_detection: true
+    prompt_injection_detection: true
+    
+    # Reflection settings
+    reflection_enabled: true
+    hallucination_threshold: 0.7
+    require_citations: false
+  
+  career_coach:
+    enabled: true
+    block_patterns: []
+    warn_patterns: []
+    pii_detection: true
+    prompt_injection_detection: true
+    reflection_enabled: true
+    hallucination_threshold: 0.6  # Career advice needs accuracy
+    require_citations: false
+  
+  meeting_analyzer:
+    enabled: true
+    block_patterns: []
+    warn_patterns: []
+    pii_detection: false  # Meetings contain names naturally
+    prompt_injection_detection: true
+    reflection_enabled: true
+    hallucination_threshold: 0.8  # Strict - must match meeting content
+    require_citations: true  # Should cite meeting sources [1], [2]
+  
+  dikw_synthesizer:
+    enabled: true
+    block_patterns: []
+    warn_patterns: []
+    pii_detection: false
+    prompt_injection_detection: true
+    reflection_enabled: true
+    hallucination_threshold: 0.5  # Synthesis needs creative flexibility
+    require_citations: true  # Should cite knowledge sources
+
+# Refusal message templates
+refusal_templates:
+  default: "I'm not able to help with that request."
+  prompt_injection: "I detected an attempt to modify my instructions. I'll continue following my original guidelines."
+  pii: "I noticed some personal information in your request. Please remove sensitive data and try again."
+  policy_violation: "This request may conflict with usage policies. Please rephrase your question."
+  hallucination: "I'm not confident in this response as it may contain unsupported claims. Let me try again with more focus on the provided context."
+
+# Metrics and observability
+metrics:
+  enabled: true
+  max_history: 1000
+  alert_thresholds:
+    block_rate_percent: 10  # Alert if > 10% of requests blocked
+    hallucination_rate_percent: 20  # Alert if > 20% flagged for hallucination
+
+# Feature flags for gradual rollout
+feature_flags:
+  # Enable LLM-based guardrails (more accurate but slower/costly)
+  llm_input_check: false
+  llm_reflection: false
+  
+  # Per-agent overrides
+  arjuna_guardrails: true
+  career_coach_guardrails: true
+  meeting_analyzer_guardrails: true
+  dikw_synthesizer_guardrails: true

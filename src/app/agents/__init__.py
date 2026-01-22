@@ -4,16 +4,21 @@ Agents Module - AI agents for SignalFlow.
 Clean exports for agent functionality without circular dependencies.
 AgentRegistry implementation is in registry.py.
 ModelRouter implementation is in model_router.py.
+Guardrails implementation is in guardrails.py.
 
 Usage:
     from src.app.agents import get_registry, BaseAgent, AgentConfig
     from src.app.agents import get_model_router, ModelRouter
+    from src.app.agents import get_guardrails, Guardrails
     
     registry = get_registry()
     arjuna = registry.get("arjuna")
     
     router = get_model_router()
     model = router.select("classification", agent_name="arjuna")
+    
+    guardrails = get_guardrails()
+    result = guardrails.pre_call("arjuna", user_input)
 """
 
 from typing import Optional
@@ -25,6 +30,17 @@ from .model_router import (
     TaskTypeConfig,
     get_model_router,
     initialize_model_router,
+)
+from .guardrails import (
+    Guardrails,
+    GuardrailConfig,
+    GuardrailResult,
+    GuardrailAction,
+    ReflectionResult,
+    ReflectionOutcome,
+    GuardrailMetrics,
+    get_guardrails,
+    initialize_guardrails,
 )
 import logging
 
@@ -86,4 +102,13 @@ __all__ = [
     "TaskTypeConfig",
     "get_model_router",
     "initialize_model_router",
+    "Guardrails",
+    "GuardrailConfig",
+    "GuardrailResult",
+    "GuardrailAction",
+    "ReflectionResult",
+    "ReflectionOutcome",
+    "GuardrailMetrics",
+    "get_guardrails",
+    "initialize_guardrails",
 ]

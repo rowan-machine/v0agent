@@ -3,7 +3,7 @@ Agent Registry - Central management of all AI agents in SignalFlow.
 Handles agent registration, configuration loading, and instantiation.
 
 This module contains the AgentRegistry class which manages agent lifecycle,
-configuration, and dependency injection including the ModelRouter.
+configuration, and dependency injection including the ModelRouter and Guardrails.
 """
 
 from typing import Dict, Type, Optional, Any
@@ -24,7 +24,7 @@ class AgentRegistry:
     - Load and manage agent configurations from YAML
     - Register agent classes
     - Create and cache agent instances (singleton per agent)
-    - Manage dependencies (LLM client, tool registry, model router)
+    - Manage dependencies (LLM client, tool registry, model router, guardrails)
     - Support hot-reloading configurations in development
     """
     
@@ -42,9 +42,11 @@ class AgentRegistry:
         self.llm_client = None
         self.tool_registry = None
         self.model_router = None
+        self.guardrails = None
         
         self._load_configurations()
         self._init_model_router()
+        self._init_guardrails()
     
     def _load_configurations(self):
         """
@@ -103,6 +105,22 @@ class AgentRegistry:
         except Exception as e:
             logger.warning(f"Failed to initialize model router: {e}")
     
+    def _init_guardrails(self):
+        """Initialize guardrails with config from config directory (Checkpoint 1.8)."""
+        try:
+            from .guardrails import Guardrails
+            
+            # Look for guardrails config in same directory as agent config
+            guardrails_path = self.config_path.parent / "guardrails.yaml"
+            if guardrails_path.exists():
+                self.guardrails = Guardrails(str(guardrails_path))
+                logger.info(f"Guardrails initialized from {guardrails_path}")
+            else:
+                self.guardrails = Guardrails()  # Use embedded default
+                logger.info("Guardrails initialized with embedded default config")
+        except Exception as e:
+            logger.warning(f"Failed to initialize guardrails: {e}")
+    
     def register(self, agent_class: Type[BaseAgent]):
         """
         Register an agent class.
@@ -157,6 +175,7 @@ class AgentRegistry:
             llm_client=self.llm_client,
             tool_registry=self.tool_registry,
             model_router=self.model_router,
+            guardrails=self.guardrails,
         )
         
         self.agents[agent_name] = agent
@@ -215,9 +234,24 @@ class AgentRegistry:
         for agent in self.agents.values():
             agent.model_router = model_router
     
+    def set_guardrails(self, guardrails: Any):
+        """
+        Set the guardrails for all agents (dependency injection).
+        
+        Args:
+            guardrails: Guardrails instance (Checkpoint 1.8)
+        """
+        self.guardrails = guardrails
+        for agent in self.agents.values():
+            agent.guardrails = guardrails
+    
     def get_model_router(self):
         """Get the current model router."""
         return self.model_router
+    
+    def get_guardrails(self):
+        """Get the current guardrails instance."""
+        return self.guardrails
     
     def list_agents(self) -> Dict[str, Dict[str, Any]]:
         """
@@ -255,4 +289,8 @@ class AgentRegistry:
         if self.model_router:
             self.model_router.reload_policy()
         
-        logger.info("Agent configurations and model routing policy reloaded")
+        # Also reload guardrails config
+        if self.guardrails:
+            self.guardrails.reload_config()
+        
+        logger.info("Agent configurations, model routing policy, and guardrails reloaded")
