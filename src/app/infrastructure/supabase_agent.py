@@ -57,7 +57,11 @@ class SupabaseConfig:
         """Load configuration from environment variables."""
         url = os.environ.get("SUPABASE_URL", "")
         anon_key = os.environ.get("SUPABASE_ANON_KEY", os.environ.get("SUPABASE_KEY", ""))
-        service_role_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+        # Support both SUPABASE_SERVICE_ROLE_KEY and SUPABASE_SECRET_KEY
+        service_role_key = os.environ.get(
+            "SUPABASE_SERVICE_ROLE_KEY", 
+            os.environ.get("SUPABASE_SECRET_KEY", "")
+        )
         
         return cls(url=url, anon_key=anon_key, service_role_key=service_role_key)
     

@@ -98,6 +98,16 @@ class ConfigLoader:
         self.config: Optional[SignalFlowConfig] = None
         self.load()
     
+    def _deep_merge(self, base: Dict, override: Dict) -> Dict:
+        """Deep merge override into base, preserving nested keys."""
+        result = base.copy()
+        for key, value in override.items():
+            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                result[key] = self._deep_merge(result[key], value)
+            else:
+                result[key] = value
+        return result
+    
     def load(self) -> SignalFlowConfig:
         """Load configuration from YAML and environment variables."""
         
@@ -108,15 +118,15 @@ class ConfigLoader:
         # Load default config first
         default_config = self._load_yaml(self.config_dir / "default.yaml")
         
-        # Override with environment-specific config
+        # Override with environment-specific config (deep merge for nested dicts)
         if config_file.exists():
             env_config = self._load_yaml(config_file)
-            default_config.update(env_config)
+            default_config = self._deep_merge(default_config, env_config)
         else:
             logger.warning(f"Config file not found: {config_file}, using defaults")
         
-        # Override with environment variables
-        default_config.update(self._load_from_env())
+        # Override with environment variables (deep merge for nested dicts)
+        default_config = self._deep_merge(default_config, self._load_from_env())
         
         # Auto-generate device_id if not set
         if not default_config.get("device_id"):
