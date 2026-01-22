@@ -81,6 +81,23 @@ from .meeting_analyzer import (
     SIGNAL_TYPES,
     HEADING_TO_SIGNAL_TYPE,
 )
+from .dikw_synthesizer import (
+    DIKWSynthesizerAgent,
+    get_dikw_synthesizer,
+    DIKW_LEVELS,
+    DIKW_NEXT_LEVEL,
+    DIKW_LEVEL_DESCRIPTIONS,
+    # Adapter functions for backward compatibility
+    promote_signal_to_dikw_adapter,
+    promote_dikw_item_adapter,
+    merge_dikw_items_adapter,
+    validate_dikw_item_adapter,
+    generate_dikw_tags_adapter,
+    ai_summarize_dikw_adapter,
+    ai_promote_dikw_adapter,
+    get_mindmap_data_adapter,
+    generate_dikw_tags,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -186,4 +203,20 @@ __all__ = [
     "extract_signals_from_meeting",
     "SIGNAL_TYPES",
     "HEADING_TO_SIGNAL_TYPE",
+    # DIKW Synthesizer Agent (Checkpoint 2.5)
+    "DIKWSynthesizerAgent",
+    "get_dikw_synthesizer",
+    "DIKW_LEVELS",
+    "DIKW_NEXT_LEVEL",
+    "DIKW_LEVEL_DESCRIPTIONS",
+    # DIKW Adapter functions
+    "promote_signal_to_dikw_adapter",
+    "promote_dikw_item_adapter",
+    "merge_dikw_items_adapter",
+    "validate_dikw_item_adapter",
+    "generate_dikw_tags_adapter",
+    "ai_summarize_dikw_adapter",
+    "ai_promote_dikw_adapter",
+    "get_mindmap_data_adapter",
+    "generate_dikw_tags",
 ]
