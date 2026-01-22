@@ -1,5 +1,14 @@
 # src/app/signals.py
-"""Signal views for browsing extracted meeting signals."""
+"""
+Signal views for browsing extracted meeting signals.
+
+This module delegates signal extraction to MeetingAnalyzerAgent (Checkpoint 2.4)
+for AI-powered features, maintaining backward compatibility.
+
+Migration Status:
+- MeetingAnalyzerAgent: src/app/agents/meeting_analyzer.py (new agent implementation)
+- This file: Adapters + FastAPI routes (will be slimmed down over time)
+"""
 
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import JSONResponse
@@ -8,6 +17,15 @@ from datetime import datetime, timedelta
 import json
 from .db import connect
 from .llm import ask as ask_llm
+
+# Import from new MeetingAnalyzer agent (Checkpoint 2.4)
+from .agents.meeting_analyzer import (
+    MeetingAnalyzerAgent,
+    get_meeting_analyzer,
+    parse_meeting_summary_adaptive,
+    extract_signals_from_meeting,
+    SIGNAL_TYPES,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
@@ -200,8 +218,9 @@ def signals_ideas(request: Request, days: str = Query(default="all")):
 
 @router.post("/api/signals/extract-from-document")
 async def extract_signals_from_document(request: Request):
-    """Extract signals from a document (transcript) using LLM.
+    """Extract signals from a document (transcript) using MeetingAnalyzerAgent.
     
+    Delegates to MeetingAnalyzerAgent (Checkpoint 2.4) for signal extraction.
     This is useful for finding signals that weren't captured during the initial
     meeting summarization process.
     """
@@ -228,45 +247,38 @@ async def extract_signals_from_document(request: Request):
         if len(content) > 15000:
             content = content[:15000] + "\n\n[... truncated for processing ...]"
         
-        # Extract signals using LLM
-        prompt = f"""Analyze this transcript/document and extract important signals. Look for items that may have been missed during initial meeting summarization.
-
-Document: {source}
-
-Content:
-{content}
-
-Extract and categorize signals into these types:
-1. **Decisions** - Any decisions made or agreed upon
-2. **Action Items** - Tasks, commitments, follow-ups assigned to people
-3. **Blockers** - Issues blocking progress, dependencies
-4. **Risks** - Potential problems, concerns, uncertainties
-5. **Ideas** - Suggestions, proposals, future possibilities
-
-Return as JSON with this exact structure:
-{{
-  "decisions": ["decision 1", "decision 2"],
-  "action_items": ["action 1 @person", "action 2"],
-  "blockers": ["blocker 1", "blocker 2"],
-  "risks": ["risk 1", "risk 2"],
-  "ideas": ["idea 1", "idea 2"]
-}}
-
-Only include signals that are clearly stated or strongly implied. Be specific and include @mentions where people are assigned tasks. Return empty arrays for categories with no signals."""
-
         try:
-            response = ask_llm(prompt, model="gpt-4o-mini")
+            # Use MeetingAnalyzerAgent for signal extraction
+            agent = get_meeting_analyzer()
             
-            # Parse the JSON response
-            json_start = response.find('{')
-            json_end = response.rfind('}') + 1
-            if json_start >= 0 and json_end > json_start:
-                signals = json.loads(response[json_start:json_end])
+            # First, try adaptive parsing to extract sections
+            parsed_sections = agent.parse_adaptive(content)
+            
+            # Then extract signals from sections
+            signals_result = agent.extract_signals_from_sections(parsed_sections)
+            
+            # If parsing didn't yield many signals, use AI extraction
+            if agent._should_use_ai_extraction(signals_result):
+                ai_signals = await agent._extract_signals_with_ai(content, source)
+                # Merge with parsed signals
+                signals = agent._merge_signals(signals_result, ai_signals)
             else:
-                signals = json.loads(response)
+                signals = signals_result
+            
+            # Deduplicate
+            signals = agent._deduplicate_signals(signals)
+            
+            # Convert to expected format
+            extracted_signals = {
+                "decisions": signals.get("decisions", []),
+                "action_items": signals.get("action_items", []),
+                "blockers": signals.get("blockers", []),
+                "risks": signals.get("risks", []),
+                "ideas": signals.get("ideas", []),
+            }
             
             # Count extracted signals
-            total_extracted = sum(len(signals.get(k, [])) for k in ["decisions", "action_items", "blockers", "risks", "ideas"])
+            total_extracted = sum(len(extracted_signals.get(k, [])) for k in ["decisions", "action_items", "blockers", "risks", "ideas"])
             
             # If meeting_id provided, merge with existing signals
             if meeting_id:
@@ -280,7 +292,7 @@ Only include signals that are clearly stated or strongly implied. Be specific an
                     # Merge new signals (avoiding duplicates)
                     for key in ["decisions", "action_items", "blockers", "risks", "ideas"]:
                         existing_items = existing.get(key, [])
-                        new_items = signals.get(key, [])
+                        new_items = extracted_signals.get(key, [])
                         for item in new_items:
                             if item not in existing_items:
                                 existing_items.append(item)
@@ -298,7 +310,7 @@ Only include signals that are clearly stated or strongly implied. Be specific an
                         "action": "merged",
                         "meeting_id": meeting_id,
                         "new_signals": total_extracted,
-                        "signals": signals
+                        "signals": extracted_signals
                     })
             
             return JSONResponse({
@@ -306,14 +318,9 @@ Only include signals that are clearly stated or strongly implied. Be specific an
                 "action": "extracted",
                 "document_id": doc_id,
                 "total_signals": total_extracted,
-                "signals": signals
+                "signals": extracted_signals
             })
             
-        except json.JSONDecodeError:
-            return JSONResponse({
-                "error": "Failed to parse AI response",
-                "raw_response": response
-            }, status_code=500)
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=500)
 
