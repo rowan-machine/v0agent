@@ -14,6 +14,13 @@ from .llm import ask
 from .memory.embed import embed_text, EMBED_MODEL
 from .memory.vector_store import upsert_embedding
 
+# Import agent adapters for AI operations
+from .agents.ticket_agent import (
+    summarize_ticket_adapter,
+    generate_plan_adapter,
+    decompose_ticket_adapter,
+)
+
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
 
@@ -295,15 +302,9 @@ async def generate_ticket_summary(ticket_pk: int, request: Request):
     
     Accepts optional JSON body with:
     - format_hint: Custom formatting instructions
+    
+    Uses TicketAgent adapter for centralized AI handling.
     """
-    with connect() as conn:
-        ticket = conn.execute(
-            "SELECT * FROM tickets WHERE id = ?", (ticket_pk,)
-        ).fetchone()
-    
-    if not ticket:
-        return JSONResponse({"error": "Ticket not found"}, status_code=404)
-    
     # Parse optional format hints from request body
     format_hint = ""
     try:
@@ -312,97 +313,33 @@ async def generate_ticket_summary(ticket_pk: int, request: Request):
     except:
         pass
     
-    # Extract formatting hints from tags
-    tags = ticket['tags'] or ""
-    tag_list = [t.strip().lower() for t in tags.split(',') if t.strip()]
-    
-    # Build format guidance from tags
-    tag_hints = []
-    if 'brief' in tag_list or 'short' in tag_list:
-        tag_hints.append("Keep it very brief - 2-3 sentences max.")
-    if 'detailed' in tag_list or 'verbose' in tag_list:
-        tag_hints.append("Provide detailed coverage of all aspects.")
-    if 'technical' in tag_list or 'tech' in tag_list:
-        tag_hints.append("Focus on technical implementation details.")
-    if 'business' in tag_list or 'stakeholder' in tag_list:
-        tag_hints.append("Frame in business/stakeholder terms, not technical.")
-    if 'bullet' in tag_list or 'bullets' in tag_list:
-        tag_hints.append("Use bullet points for key items.")
-    if 'checklist' in tag_list:
-        tag_hints.append("Format as a checklist with checkboxes.")
-    
-    tag_guidance = "\n".join(tag_hints) if tag_hints else ""
-    custom_guidance = format_hint if format_hint else ""
-    
-    # Build optional sections
-    tag_section = f"**Format guidance from tags:**\n{tag_guidance}\n\n" if tag_guidance else ""
-    custom_section = f"**Custom formatting instructions:**\n{custom_guidance}\n\n" if custom_guidance else ""
-    
-    prompt = f"""Summarize this ticket for a senior data engineer.
-
-**Ticket:** {ticket['ticket_id']} - {ticket['title']}
-
-**Description:**
-{ticket['description'] or 'No description provided'}
-
-**Tags:** {tags or 'None'}
-
-{tag_section}{custom_section}**Output format:**
-- **Goal:** What needs to be done (1-2 sentences)
-- **Key Details:** Technical specifics, affected systems, or data flows
-- **Dependencies:** Any blockers, prerequisites, or related work
-- **Complexity:** Low/Medium/High with brief rationale
-
-Be concise and actionable. Use markdown formatting."""
-
     try:
-        summary = ask(prompt)
+        result = await summarize_ticket_adapter(ticket_pk, format_hint)
         
-        # Auto-save the generated summary
-        with connect() as conn:
-            conn.execute(
-                "UPDATE tickets SET ai_summary = ?, updated_at = datetime('now') WHERE id = ?",
-                (summary, ticket_pk)
-            )
+        if not result.get("success"):
+            return JSONResponse({"error": result.get("error", "Summary generation failed")}, status_code=404 if "not found" in result.get("error", "").lower() else 500)
         
-        return JSONResponse({"summary": summary, "saved": True})
+        return JSONResponse({
+            "summary": result["summary"],
+            "saved": result.get("saved", False),
+        })
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @router.post("/api/tickets/{ticket_pk}/generate-plan")
 async def generate_implementation_plan(ticket_pk: int):
-    """Generate AI implementation plan for a ticket."""
-    with connect() as conn:
-        ticket = conn.execute(
-            "SELECT * FROM tickets WHERE id = ?", (ticket_pk,)
-        ).fetchone()
+    """Generate AI implementation plan for a ticket.
     
-    if not ticket:
-        return JSONResponse({"error": "Ticket not found"}, status_code=404)
-    
-    prompt = f"""Create a sprint implementation plan for this ticket. You're helping a senior data engineer working with Airflow, Python, GitLab, and AWS.
-
-Ticket: {ticket['ticket_id']} - {ticket['title']}
-
-Description:
-{ticket['description'] or 'No description provided'}
-
-{f"AI Summary: {ticket['ai_summary']}" if ticket['ai_summary'] else ""}
-
-Create a practical implementation plan with:
-1. **Approach** - High-level strategy (2-3 sentences)
-2. **Steps** - Numbered list of implementation steps
-3. **Files to modify** - Key files/DAGs/modules likely affected
-4. **Testing** - How to validate the work
-5. **Risks** - Potential issues to watch for
-
-Be specific and actionable. Assume access to local development environment."""
-
+    Uses TicketAgent adapter with Claude Opus 4 for premium quality planning.
+    """
     try:
-        # Use Claude Opus 4 for implementation planning (premium quality)
-        plan = ask(prompt, model="claude-opus-4-20250514")
-        return JSONResponse({"plan": plan})
+        result = await generate_plan_adapter(ticket_pk)
+        
+        if not result.get("success"):
+            return JSONResponse({"error": result.get("error", "Plan generation failed")}, status_code=404 if "not found" in result.get("error", "").lower() else 500)
+        
+        return JSONResponse({"plan": result["plan"]})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
@@ -439,49 +376,20 @@ async def save_implementation_plan(request: Request, ticket_pk: int):
 
 @router.post("/api/tickets/{ticket_pk}/generate-decomposition")
 async def generate_task_decomposition(ticket_pk: int):
-    """Generate AI task breakdown for a ticket."""
-    with connect() as conn:
-        ticket = conn.execute(
-            "SELECT * FROM tickets WHERE id = ?", (ticket_pk,)
-        ).fetchone()
+    """Generate AI task breakdown for a ticket.
     
-    if not ticket:
-        return JSONResponse({"error": "Ticket not found"}, status_code=404)
-    
-    prompt = f"""Break down this ticket into specific, actionable subtasks. You're helping a senior data engineer working with Airflow, Python, GitLab, and AWS.
-
-Ticket: {ticket['ticket_id']} - {ticket['title']}
-
-Description:
-{ticket['description'] or 'No description provided'}
-
-{f"AI Summary: {ticket['ai_summary']}" if ticket['ai_summary'] else ""}
-{f"Implementation Plan: {ticket['implementation_plan']}" if ticket['implementation_plan'] else ""}
-
-Generate 4-8 specific, atomic tasks that would complete this ticket.
-Return ONLY a JSON array of objects with "text" (task description) and "estimate" (time estimate like "1h", "2h", "30m").
-
-Example format:
-[
-  {{"text": "Create new DAG file for data pipeline", "estimate": "2h"}},
-  {{"text": "Add unit tests for transformer function", "estimate": "1h"}}
-]
-
-Return ONLY the JSON array, no markdown or explanation."""
-
+    Uses TicketAgent adapter for centralized AI handling.
+    """
     try:
-        result = ask(prompt)
-        # Parse the JSON response
-        import re
-        # Extract JSON from response (handles markdown code blocks)
-        json_match = re.search(r'\[[\s\S]*\]', result)
-        if json_match:
-            tasks = json.loads(json_match.group())
-            return JSONResponse({"tasks": tasks, "ai_response": result})
-        else:
-            return JSONResponse({"error": "Could not parse task breakdown"}, status_code=500)
-    except json.JSONDecodeError:
-        return JSONResponse({"error": "Invalid JSON in AI response"}, status_code=500)
+        result = await decompose_ticket_adapter(ticket_pk)
+        
+        if not result.get("success"):
+            return JSONResponse({"error": result.get("error", "Decomposition failed")}, status_code=404 if "not found" in result.get("error", "").lower() else 500)
+        
+        return JSONResponse({
+            "tasks": result["tasks"],
+            "ai_response": result.get("ai_response", ""),
+        })
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 

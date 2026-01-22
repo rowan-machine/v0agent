@@ -249,6 +249,60 @@ MCP_COMMANDS = {
             },
         },
     },
+    # Chain Commands (Multi-step task automation)
+    "chain": {
+        "description": "Execute multi-step task chains",
+        "aliases": ["c", "workflow", "pipe"],
+        "subcommands": {
+            "ticket-sprint": {
+                "description": "Create a ticket and add to current sprint",
+                "usage": "/chain ticket-sprint <title> [--priority high|medium|low]",
+                "aliases": ["ts", "new-sprint-ticket"],
+                "intent": "chain_ticket_to_sprint",
+                "steps": ["create_ticket", "add_to_sprint"],
+                "args": ["title", "priority", "description"],
+            },
+            "analyze-promote": {
+                "description": "Analyze meeting notes and promote key signals",
+                "usage": "/chain analyze-promote <meeting_notes>",
+                "aliases": ["ap", "meeting-signals"],
+                "intent": "chain_analyze_and_promote",
+                "steps": ["analyze_meeting", "extract_signals", "promote_signals"],
+                "args": ["notes"],
+            },
+            "standup-feedback": {
+                "description": "Log standup and get AI coaching feedback",
+                "usage": "/chain standup-feedback <yesterday> | <today> | <blockers>",
+                "aliases": ["sf", "daily-coach"],
+                "intent": "chain_standup_with_feedback",
+                "steps": ["create_standup", "analyze_standup", "suggest_improvements"],
+                "args": ["yesterday", "today_plan", "blockers"],
+            },
+            "ticket-plan-decompose": {
+                "description": "Create ticket, generate implementation plan, and decompose into subtasks",
+                "usage": "/chain ticket-plan-decompose <title> --description <desc>",
+                "aliases": ["tpd", "full-ticket"],
+                "intent": "chain_full_ticket_setup",
+                "steps": ["create_ticket", "generate_plan", "decompose_tasks"],
+                "args": ["title", "description", "priority"],
+            },
+            "focus-execute": {
+                "description": "Get focus recommendations and start working on top priority",
+                "usage": "/chain focus-execute",
+                "aliases": ["fe", "start-work"],
+                "intent": "chain_focus_and_execute",
+                "steps": ["get_focus_recommendations", "update_ticket_status"],
+            },
+            "blocked-escalate": {
+                "description": "Mark ticket as blocked and create accountability item",
+                "usage": "/chain blocked-escalate <ticket_id> --reason <reason> --from <person>",
+                "aliases": ["be", "block-track"],
+                "intent": "chain_block_and_escalate",
+                "steps": ["update_ticket_blocked", "create_accountability"],
+                "args": ["ticket_id", "reason", "responsible_party"],
+            },
+        },
+    },
 }
 
 
@@ -439,6 +493,58 @@ MCP_INFERENCE_PATTERNS = {
                 r"(visualize|map)\s+(the\s+)?(concepts?|knowledge)",
             ],
             "keywords": ["mindmap", "concept map", "visualize concepts"],
+        },
+    },
+    # Chain Commands Inference
+    "chain": {
+        "ticket-sprint": {
+            "patterns": [
+                r"(create|add|make)\s+(a\s+)?ticket\s+(and|then)\s+(add\s+)?(to|into)\s+(the\s+)?sprint",
+                r"new\s+sprint\s+ticket",
+                r"(add|create)\s+to\s+sprint\s+(as\s+)?(a\s+)?ticket",
+            ],
+            "keywords": ["ticket and sprint", "new sprint ticket", "add to sprint"],
+            "extract": ["title", "priority", "description"],
+        },
+        "analyze-promote": {
+            "patterns": [
+                r"analyze\s+(meeting|notes)\s+(and|then)\s+promote",
+                r"(extract|get)\s+signals?\s+(and|then)\s+(promote|upgrade)",
+                r"meeting\s+to\s+(knowledge|wisdom)",
+            ],
+            "keywords": ["analyze and promote", "meeting to knowledge", "extract and promote"],
+        },
+        "standup-feedback": {
+            "patterns": [
+                r"(log|do)\s+standup\s+(and|with)\s+(get\s+)?feedback",
+                r"daily\s+(update|standup)\s+with\s+coaching",
+                r"standup\s+(and|then)\s+(coach|feedback)",
+            ],
+            "keywords": ["standup with feedback", "daily with coaching", "standup and coach"],
+        },
+        "ticket-plan-decompose": {
+            "patterns": [
+                r"(create|new)\s+ticket\s+(and|then)\s+(plan|implement)\s+(and|then)\s+(decompose|break)",
+                r"full\s+ticket\s+(setup|creation)",
+                r"ticket\s+with\s+(plan|implementation)\s+and\s+(subtasks|breakdown)",
+            ],
+            "keywords": ["full ticket setup", "ticket with plan", "create and decompose"],
+        },
+        "focus-execute": {
+            "patterns": [
+                r"(get\s+)?focus\s+(and|then)\s+(start|execute|work)",
+                r"what\s+(should\s+i\s+)?(focus|work)\s+on\s+(and|then)\s+start",
+                r"start\s+(working|my\s+day)",
+            ],
+            "keywords": ["focus and start", "start working", "begin work"],
+        },
+        "blocked-escalate": {
+            "patterns": [
+                r"(mark|set)\s+(as\s+)?blocked\s+(and|then)\s+(track|escalate)",
+                r"blocked\s+(by|on)\s+.+\s+(track|accountability)",
+                r"(escalate|track)\s+blocker",
+            ],
+            "keywords": ["blocked and track", "escalate blocker", "track blocker"],
         },
     },
 }

@@ -3,7 +3,7 @@
     "url": "https://mcp.gigamind.dev/mcp"
   },
   "supabase": {
-    "command": "npx",
+    "command": "/opt/homebrew/bin/npx",
     "args": [
       "-y",
       "@supabase/mcp-server-supabase@latest",

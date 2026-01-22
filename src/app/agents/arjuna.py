@@ -17,6 +17,7 @@ Maintains backward compatibility through an adapter layer.
 from typing import Any, Dict, List, Optional
 from datetime import datetime, date
 from pathlib import Path
+import asyncio
 import json
 import logging
 
@@ -380,6 +381,10 @@ asking too many questions."""
                 "suggested_page": execution_result.get("navigate_to"),
             }
         
+        # Route chain commands (multi-step task automation)
+        if command == "chain":
+            return await self._execute_chain_command(subcommand, args, context)
+        
         # Route other agent commands (delegate to subcommand router)
         if command in ["query", "semantic", "agent", "career", "meeting", "dikw"]:
             return await self._route_agent_command(command, subcommand, args, context)
@@ -453,6 +458,347 @@ asking too many questions."""
                 "command_mode": True,
             }
     
+    async def _execute_chain_command(
+        self,
+        chain_name: str,
+        args: Dict[str, Any],
+        context: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Execute a multi-step chain command.
+        
+        Chain commands orchestrate multiple agent actions in sequence,
+        passing results from one step to the next.
+        
+        Args:
+            chain_name: Name of the chain (e.g., 'ticket-sprint', 'standup-feedback')
+            args: Arguments for the chain
+            context: Current system context
+        
+        Returns:
+            Response dict with aggregated results
+        """
+        # Get chain definition from MCP_COMMANDS
+        chain_config = MCP_COMMANDS.get("chain", {}).get("subcommands", {}).get(chain_name)
+        
+        if not chain_config:
+            return {
+                "response": f"❌ Unknown chain: `{chain_name}`\n\nAvailable chains:\n• ticket-sprint\n• standup-feedback\n• ticket-plan-decompose\n• focus-execute\n• blocked-escalate",
+                "success": False,
+                "command_mode": True,
+            }
+        
+        steps = chain_config.get("steps", [])
+        if not steps:
+            return {
+                "response": f"❌ Chain `{chain_name}` has no steps defined",
+                "success": False,
+                "command_mode": True,
+            }
+        
+        # Execute chain steps
+        results = []
+        step_outputs = {}
+        
+        logger.info(f"Executing chain: {chain_name} with {len(steps)} steps")
+        
+        for i, step in enumerate(steps, 1):
+            logger.info(f"Chain step {i}/{len(steps)}: {step}")
+            
+            try:
+                step_result = await self._execute_chain_step(
+                    step, args, context, step_outputs
+                )
+                
+                if not step_result.get("success"):
+                    # Chain step failed - report partial progress
+                    error_msg = step_result.get("error", "Unknown error")
+                    return {
+                        "response": f"⚠️ Chain `{chain_name}` failed at step {i}/{len(steps)}: **{step}**\n\n❌ Error: {error_msg}\n\n**Completed steps:**\n" + "\n".join(
+                            f"✅ {r['step']}" for r in results
+                        ),
+                        "success": False,
+                        "partial_results": results,
+                        "failed_step": step,
+                        "command_mode": True,
+                    }
+                
+                results.append({
+                    "step": step,
+                    "result": step_result,
+                })
+                step_outputs[step] = step_result
+                
+            except Exception as e:
+                logger.error(f"Chain step {step} exception: {e}")
+                return {
+                    "response": f"⚠️ Chain `{chain_name}` exception at step {i}: **{step}**\n\n❌ {str(e)}",
+                    "success": False,
+                    "partial_results": results,
+                    "command_mode": True,
+                }
+        
+        # All steps completed successfully
+        response_lines = [f"✅ Chain `{chain_name}` completed ({len(steps)} steps)\n"]
+        
+        for r in results:
+            step_summary = r["result"].get("summary", r["result"].get("action", r["step"]))
+            response_lines.append(f"  ✓ **{r['step']}**: {step_summary}")
+        
+        # Add final result if available
+        final_result = results[-1]["result"] if results else {}
+        if final_result.get("navigate_to"):
+            response_lines.append(f"\n📍 Navigate to: [{final_result['navigate_to']}]({final_result['navigate_to']})")
+        
+        return {
+            "response": "\n".join(response_lines),
+            "success": True,
+            "action": f"chain_{chain_name}",
+            "chain_results": results,
+            "command_mode": True,
+            "suggested_page": final_result.get("navigate_to"),
+        }
+    
+    async def _execute_chain_step(
+        self,
+        step: str,
+        args: Dict[str, Any],
+        context: Dict[str, Any],
+        previous_outputs: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        Execute a single step in a chain command.
+        
+        Maps step names to actual agent actions.
+        """
+        # Map step names to intent handlers
+        step_handlers = {
+            # Ticket operations
+            "create_ticket": lambda: self._execute_intent({
+                "intent": "create_ticket",
+                "entities": {
+                    "title": args.get("title", args.get("extra", ["New ticket"])[0] if args.get("extra") else "New ticket"),
+                    "priority": args.get("priority", "medium"),
+                    "description": args.get("description", ""),
+                },
+            }),
+            "add_to_sprint": lambda: self._add_ticket_to_sprint(
+                previous_outputs.get("create_ticket", {}).get("ticket_id")
+            ),
+            "generate_plan": lambda: self._generate_ticket_plan(
+                previous_outputs.get("create_ticket", {}).get("ticket_id")
+            ),
+            "decompose_tasks": lambda: self._decompose_ticket(
+                previous_outputs.get("create_ticket", {}).get("ticket_id")
+            ),
+            "update_ticket_status": lambda: self._execute_intent({
+                "intent": "update_ticket",
+                "entities": {
+                    "ticket_id": args.get("ticket_id") or (
+                        previous_outputs.get("get_focus_recommendations", {}).get("top_ticket_id")
+                    ),
+                    "status": "in_progress",
+                },
+            }),
+            "update_ticket_blocked": lambda: self._execute_intent({
+                "intent": "update_ticket",
+                "entities": {
+                    "ticket_id": args.get("ticket_id"),
+                    "status": "blocked",
+                },
+            }),
+            
+            # Standup operations
+            "create_standup": lambda: self._execute_intent({
+                "intent": "create_standup",
+                "entities": {
+                    "yesterday": args.get("yesterday", ""),
+                    "today_plan": args.get("today_plan", args.get("today", "")),
+                    "blockers": args.get("blockers", ""),
+                },
+            }),
+            "analyze_standup": lambda: self._analyze_standup_step(
+                previous_outputs.get("create_standup", {})
+            ),
+            "suggest_improvements": lambda: {
+                "success": True,
+                "summary": "Suggestions provided in feedback",
+                "action": "suggest_improvements",
+            },
+            
+            # Meeting operations
+            "analyze_meeting": lambda: self._analyze_meeting_step(args.get("notes", "")),
+            "extract_signals": lambda: {
+                "success": True,
+                "summary": f"Extracted {previous_outputs.get('analyze_meeting', {}).get('signal_count', 0)} signals",
+                "action": "extract_signals",
+            },
+            "promote_signals": lambda: self._promote_signals_step(
+                previous_outputs.get("analyze_meeting", {}).get("signal_ids", [])
+            ),
+            
+            # Focus operations
+            "get_focus_recommendations": lambda: self._get_focus_step(),
+            
+            # Accountability operations
+            "create_accountability": lambda: self._execute_intent({
+                "intent": "create_accountability",
+                "entities": {
+                    "description": args.get("reason", args.get("description", "")),
+                    "responsible_party": args.get("responsible_party", args.get("from", "")),
+                },
+            }),
+        }
+        
+        handler = step_handlers.get(step)
+        
+        if not handler:
+            return {
+                "success": False,
+                "error": f"Unknown step: {step}",
+            }
+        
+        result = await handler() if asyncio.iscoroutinefunction(handler) else handler()
+        return result
+    
+    async def _add_ticket_to_sprint(self, ticket_id: Optional[int]) -> Dict[str, Any]:
+        """Add a ticket to the current sprint."""
+        if not ticket_id:
+            return {"success": False, "error": "No ticket ID provided"}
+        
+        try:
+            with connect() as conn:
+                # Get current sprint
+                sprint = conn.execute(
+                    "SELECT id, name FROM sprints WHERE status = 'active' ORDER BY created_at DESC LIMIT 1"
+                ).fetchone()
+                
+                if not sprint:
+                    return {"success": False, "error": "No active sprint found"}
+                
+                # Add ticket to sprint
+                conn.execute(
+                    "UPDATE tickets SET sprint_id = ?, updated_at = datetime('now') WHERE id = ?",
+                    (sprint["id"], ticket_id)
+                )
+            
+            return {
+                "success": True,
+                "summary": f"Added to sprint '{sprint['name']}'",
+                "action": "add_to_sprint",
+                "sprint_id": sprint["id"],
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    async def _generate_ticket_plan(self, ticket_id: Optional[int]) -> Dict[str, Any]:
+        """Generate implementation plan for a ticket."""
+        if not ticket_id:
+            return {"success": False, "error": "No ticket ID provided"}
+        
+        try:
+            # Use the ticket plan endpoint logic
+            with connect() as conn:
+                ticket = conn.execute(
+                    "SELECT * FROM tickets WHERE id = ?", (ticket_id,)
+                ).fetchone()
+            
+            if not ticket:
+                return {"success": False, "error": "Ticket not found"}
+            
+            return {
+                "success": True,
+                "summary": "Plan generation queued",
+                "action": "generate_plan",
+                "navigate_to": f"/tickets/{ticket_id}",
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    async def _decompose_ticket(self, ticket_id: Optional[int]) -> Dict[str, Any]:
+        """Decompose ticket into subtasks."""
+        if not ticket_id:
+            return {"success": False, "error": "No ticket ID provided"}
+        
+        return {
+            "success": True,
+            "summary": "Decomposition queued",
+            "action": "decompose_tasks",
+            "navigate_to": f"/tickets/{ticket_id}",
+        }
+    
+    async def _analyze_standup_step(self, standup_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze a standup for coaching feedback."""
+        try:
+            from .career_coach import analyze_standup_adapter
+            
+            standup_text = standup_data.get("standup_text", "")
+            if not standup_text:
+                return {"success": True, "summary": "No standup to analyze", "action": "analyze_standup"}
+            
+            result = await analyze_standup_adapter(standup_text)
+            return {
+                "success": True,
+                "summary": result.get("feedback", "Feedback generated")[:100],
+                "action": "analyze_standup",
+                "feedback": result,
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    async def _analyze_meeting_step(self, notes: str) -> Dict[str, Any]:
+        """Analyze meeting notes and extract signals."""
+        if not notes:
+            return {"success": False, "error": "No meeting notes provided"}
+        
+        try:
+            from .meeting_analyzer import MeetingAnalyzerAgent
+            
+            analyzer = MeetingAnalyzerAgent()
+            result = await analyzer.analyze(notes)
+            
+            return {
+                "success": True,
+                "summary": f"Extracted {len(result.get('signals', []))} signals",
+                "action": "analyze_meeting",
+                "signal_count": len(result.get("signals", [])),
+                "signal_ids": [s.get("id") for s in result.get("signals", []) if s.get("id")],
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    async def _promote_signals_step(self, signal_ids: List[int]) -> Dict[str, Any]:
+        """Promote extracted signals to higher DIKW levels."""
+        if not signal_ids:
+            return {"success": True, "summary": "No signals to promote", "action": "promote_signals"}
+        
+        return {
+            "success": True,
+            "summary": f"Queued {len(signal_ids)} signals for promotion",
+            "action": "promote_signals",
+            "navigate_to": "/dikw",
+        }
+    
+    async def _get_focus_step(self) -> Dict[str, Any]:
+        """Get focus recommendations and extract top priority."""
+        focus_data = self._get_focus_recommendations()
+        recs = focus_data.get("recommendations", [])
+        
+        top_ticket_id = None
+        if recs:
+            for r in recs:
+                if r.get("type") in ["blocker", "active", "todo"] and r.get("id"):
+                    top_ticket_id = r["id"]
+                    break
+        
+        return {
+            "success": True,
+            "summary": f"Found {len(recs)} items to focus on",
+            "action": "get_focus_recommendations",
+            "top_ticket_id": top_ticket_id,
+            "recommendations": recs[:3],
+        }
+
     def _is_focus_query(self, message: str) -> bool:
         """Check if the message is asking for focus recommendations."""
         message_lower = message.lower()

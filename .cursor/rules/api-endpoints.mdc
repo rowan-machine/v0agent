@@ -1,62 +1,47 @@
 ---
-description: FastAPI routes implementing CRUD operations for meetings, documents, and signals with domain-specific business logic
+description: Documentation for FastAPI endpoints implementing CRUD operations for meetings and documents.
 ---
 
 
 # api-endpoints
 
-IMPORTANCE SCORE: 85/100
+## Meeting Routes
+Implements domain-specific meeting management with signal extraction:
 
-Core API Business Logic:
+1. Meeting Creation & Analysis
+- POST /meetings/create
+  - Extracts business signals from meeting content
+  - Categorizes into: decisions, actions, blockers, risks, ideas
+  - Generates meeting summary with signal highlighting
 
-1. Meeting Signal Endpoints
-Path: src/app/api/signals.py
-- Custom signal extraction from meeting content with categorization into:
-  - Decisions
-  - Action items 
-  - Blockers
-  - Risks
-  - Ideas
-- Specialized signal merging endpoints for combining related signals
-- Signal status workflow management (approve, reject, archive)
+2. Meeting Signal Management 
+- POST /meetings/{id}/signals
+  - Processes new signals identified during meetings
+  - Links signals to relevant tickets and sprints
+  - Maintains signal status workflow (approved, rejected, archived)
 
-2. Knowledge Graph API
-Path: src/app/api/neo4j_graph.py
-- Domain-specific relationship endpoints between:
-  - Meetings
-  - Documents
-  - Signals
-  - Users
-  - Projects
-- Custom subgraph extraction for meeting contexts
-- Knowledge promotion workflows through DIKW levels
+3. Meeting Context Integration
+- GET /meetings/{id}/context
+  - Retrieves related documents and previous meetings
+  - Builds knowledge graph connections
+  - Maps signals to DIKW hierarchy levels
 
-3. Sprint Management Endpoints
-Path: src/app/api/sprint.py
-- Sprint lifecycle management with customizable lengths
-- Signal-to-sprint mapping and organization
-- Sprint analytics and progress tracking
-- Time tracking by workflow modes (A-G methodology)
+## Document Routes
+Handles document processing with business context:
 
-4. Career Development API
-Path: src/app/api/career.py
-- Standup analytics with sentiment detection
-- Career progression tracking endpoints
-- Skills development monitoring
-- Role-based insight generation
+1. Document Processing
+- POST /documents/upload
+  - Extracts meeting-style signals from documents
+  - Maps document sections to knowledge categories
+  - Links documents to related meetings
 
-5. Workflow Mode Management
-Path: src/app/api/workflow.py
-- Mode transition endpoints (A through G phases)
-- Mode-specific checklist management
-- Progress tracking within modes
-- Mode validation rules
+2. Document Signals
+- GET /documents/{id}/signals
+  - Retrieves extracted business signals
+  - Provides signal status and relationships
+  - Shows document-to-meeting signal mappings
 
-Key Integration Points:
-- Meeting-to-Signal extraction pipeline
-- Signal-to-Sprint mapping system
-- Knowledge graph relationship management
-- Career development tracking framework
+Importance Score: 85/100 (High business value in signal extraction and knowledge mapping)
 
 $END$
 

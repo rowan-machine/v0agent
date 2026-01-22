@@ -98,6 +98,16 @@ from .dikw_synthesizer import (
     get_mindmap_data_adapter,
     generate_dikw_tags,
 )
+from .ticket_agent import (
+    TicketAgent,
+    # Adapter functions for backward compatibility
+    summarize_ticket_adapter,
+    generate_plan_adapter,
+    decompose_ticket_adapter,
+    summarize_ticket_sync,
+    generate_plan_sync,
+    decompose_ticket_sync,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -219,4 +229,13 @@ __all__ = [
     "ai_promote_dikw_adapter",
     "get_mindmap_data_adapter",
     "generate_dikw_tags",
+    # Ticket Agent (Checkpoint 2.7)
+    "TicketAgent",
+    # Ticket Adapter functions
+    "summarize_ticket_adapter",
+    "generate_plan_adapter",
+    "decompose_ticket_adapter",
+    "summarize_ticket_sync",
+    "generate_plan_sync",
+    "decompose_ticket_sync",
 ]

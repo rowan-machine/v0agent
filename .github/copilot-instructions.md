@@ -18,53 +18,47 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-IMPORTANCE SCORE: 85/100
+A knowledge work management system built around three core capabilities: signal extraction from meetings, hierarchical knowledge organization, and AI-assisted workflow management.
 
-Core Business Logic Architecture:
+## Core Business Systems
 
-1. Meeting Intelligence & Signal Processing
-- Signal extraction system categorizes meeting content into decisions, actions, blockers, risks, ideas
-- Custom signal merging with deduplication and confidence scoring
-- Meeting bundle processing with authoritative synthesis
-- Domain-specific signal persistence and relationship tracking
+### Knowledge Organization (Importance: 90/100)
+- DIKW (Data-Information-Knowledge-Wisdom) pyramid implementation
+- Hierarchical knowledge transformation rules
+- Knowledge synthesis patterns across meetings and documents
+- Graph-based relationship mapping between knowledge items
 
-2. Knowledge Management Framework
-- DIKW (Data, Information, Knowledge, Wisdom) pyramid implementation
-- Hierarchical knowledge promotion with validation rules
-- Semantic deduplication and tag generation
-- Custom knowledge graph for software artifacts with specialized relationships
+### Meeting Intelligence (Importance: 85/100)
+- Signal extraction system categorizing:
+  - Decisions
+  - Action Items
+  - Blockers
+  - Risks
+  - Ideas
+- Custom conversation history tracking
+- Context-aware suggestion generation
+- Business-specific clarification handling
 
-3. Workflow Orchestration
-- Seven-phase workflow system (Modes A-G):
-  * Context Distillation
-  * Implementation Planning
-  * Assisted Draft Intake
-  * Testing & QA
-  * Documentation
-  * Review & Retrospective
-  * Knowledge Transfer
-- Sprint lifecycle management with mode transitions
-- Custom accountability tracking for dependencies
+### Sprint Management (Importance: 80/100)
+- Sprint cycle workflow implementation
+- Custom archival process with time tracking
+- Sprint mode progress tracking (A-G modes)
+- Ticket backlog management system
+- AI-powered standup analysis
 
-4. Career Development System
-- Growth suggestion generation based on role context
-- Standup analysis with sentiment detection
-- Career insight synthesis from skills/projects
-- Code locker analysis for suggestions
+### Career Development System (Importance: 75/100)
+- Career signal extraction from standups
+- Code locker analysis for productivity
+- Ticket-to-capability mapping
+- Work pattern analysis
+- Growth suggestion generation
 
-Critical Integration Points:
-- Meeting signals → Knowledge graph relationships
-- Sprint modes → Career development tracking
-- Signal extraction → Workflow state transitions
-- Knowledge synthesis → Career insights
+## Integration Points
 
-Key Business Files:
-- src/app/mcp/extract.py: Signal extraction engine
-- src/app/agents/dikw_synthesizer.py: Knowledge management core
-- src/app/api/settings.py: Workflow mode system
-- src/app/agents/career_coach.py: Career development logic
-
-This system implements a sophisticated software development workflow platform with unique implementations around meeting intelligence, knowledge management, and career development tracking. The core value lies in its specialized signal processing and knowledge synthesis capabilities.
+- Meeting signals feed into DIKW pyramid for synthesis
+- Sprint management connects with knowledge organization
+- Career development signals integrate with knowledge base
+- Context-aware routing between all components
 
 $END$
 

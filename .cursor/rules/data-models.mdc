@@ -1,73 +1,59 @@
 ---
-description: Documentation of the two main data models (Meetings and Documents) and their relationship structure
+description: Used for analyzing core data models and their relationships in the Signal Flow system, particularly Meetings and Documents.
 ---
 
 
 # data-models
 
-Core Data Models and Relationships:
+## Core Models
 
-1. Meeting Model
-Importance Score: 90/100
+### Meeting Model
+- Unique identifier + metadata
+- Contains signals array for storing extracted insights
+- Links to multiple Document records via document_refs
+- Temporal tracking (start_time, end_time, duration)
+- Attendance tracking with participant metadata
+- Meeting type classification (standup, sprint, review)
 
-- Domain-specific meeting categorization:
-  - Regular standup
-  - Sprint planning
-  - Retrospective
-  - Design review
-  - Code review
+### Document Model  
+- Unique identifier + metadata
+- Parent/child relationship tracking for document hierarchies
+- Signal extraction status tracking
+- Document type classification (meeting notes, screenshots, transcripts)
+- Version history for document content
+- Links to related Meeting records via meeting_ref
 
-- Signal extraction structure:
-  - Decisions
-  - Action items
-  - Blockers
-  - Risks
-  - Ideas
+## Model Relationships
 
-- Meeting metadata:
-  - Participants
-  - Signal count by type
-  - Mode (A-G workflow phase)
-  - Sprint association
-  - Knowledge graph connections
-  - Parent/child meeting relationships
+### Meeting -> Document
+- One-to-many relationship 
+- Meeting can reference multiple associated documents
+- Document types tied to specific meeting contexts
+- Maintains signal extraction status between documents and meetings
 
-2. Document Model  
-Importance Score: 85/100
+### Document -> Meeting
+- Many-to-one relationship
+- Documents link back to parent meeting
+- Tracking of document origin context
+- Document version linked to meeting timeline
 
-- Document categorization:
-  - Technical specs
-  - Implementation plans
-  - Code reviews
-  - Architecture diagrams
-  - Career development plans
+## Signal Storage
 
-- Document metadata:
-  - Author
-  - Related meetings
-  - Signal references
-  - Mode association
-  - Sprint context
-  - Knowledge level (DIKW pyramid)
+### Meeting Signals
+- Stored as structured array within Meeting model
+- Signal types: decisions, action items, blockers, risks, ideas
+- Each signal contains:
+  - Classification type
+  - Extracted content
+  - Assignee (if applicable)
+  - Status tracking
+  - Approval state
 
-3. Model Relationships
-Importance Score: 95/100
-
-- Meeting-Document Connections:
-  - Reference type (source/derivation)
-  - Signal inheritance flow
-  - Context preservation
-  - Knowledge promotion path
-  - Mode transitions
-
-- Signal Propagation Rules:
-  - Parent-child signal inheritance
-  - Cross-document signal merging
-  - Meeting-to-document signal flow
-  - Knowledge graph edge creation
-  - Mode-based routing
-
-The data models support specialized workflows around meeting intelligence, signal extraction, and knowledge management through the DIKW hierarchy.
+### Document Signals  
+- Extracted from document content
+- Mapped to meeting signals
+- Maintains source tracing
+- Links to specific document sections
 
 $END$
 
