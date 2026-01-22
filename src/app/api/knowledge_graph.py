@@ -693,3 +693,114 @@ async def build_graph_from_embeddings(
             "links_skipped": skipped,
             "suggestions": suggestions[:50] if dry_run else None,
         }
+
+
+@router.post("/link-documents")
+async def link_all_documents(
+    min_similarity: float = Query(0.78, ge=0.5, le=1.0),
+    dry_run: bool = Query(True, description="If true, show what would be linked"),
+    limit: int = Query(50, ge=1, le=200, description="Max documents to process"),
+) -> dict:
+    """
+    P5.11: Batch link existing documents to related meetings/tickets/DIKW items.
+    
+    This processes unlinked documents and creates entity_links based on
+    semantic similarity to other content.
+    """
+    sb = get_supabase_client()
+    if not sb:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Supabase not available for semantic search"
+        )
+    
+    with connect() as conn:
+        # Get documents without many links
+        docs = conn.execute(
+            """SELECT d.id, d.source, d.content 
+               FROM docs d
+               LEFT JOIN (
+                   SELECT source_id, COUNT(*) as link_count 
+                   FROM entity_links 
+                   WHERE source_type = 'document' AND created_by = 'system'
+                   GROUP BY source_id
+               ) el ON d.id = el.source_id
+               WHERE d.content IS NOT NULL AND LENGTH(d.content) > 50
+               AND (el.link_count IS NULL OR el.link_count < 3)
+               ORDER BY d.id DESC
+               LIMIT ?""",
+            (limit,)
+        ).fetchall()
+        
+        processed = 0
+        links_created = 0
+        suggestions = []
+        
+        for doc in docs:
+            try:
+                # Generate embedding
+                embedding = get_embedding(doc["content"][:8000])
+                if not embedding:
+                    continue
+                
+                # Search for similar content
+                result = sb.rpc("semantic_search", {
+                    "query_embedding": embedding,
+                    "match_threshold": min_similarity,
+                    "match_count": 10,
+                }).execute()
+                
+                for item in result.data or []:
+                    item_type = item.get("ref_type")
+                    item_id = item.get("ref_id")
+                    similarity = item.get("similarity", 0)
+                    
+                    # Skip self and other documents
+                    if item_type == "document":
+                        continue
+                    
+                    # Check if link exists
+                    existing = conn.execute(
+                        """SELECT id FROM entity_links 
+                           WHERE source_type = 'document' AND source_id = ? 
+                           AND target_type = ? AND target_id = ?""",
+                        (doc["id"], item_type, item_id)
+                    ).fetchone()
+                    
+                    if existing:
+                        continue
+                    
+                    link_type = "semantic_similar" if similarity > 0.85 else "same_topic"
+                    
+                    if not dry_run:
+                        conn.execute(
+                            """INSERT INTO entity_links 
+                               (source_type, source_id, target_type, target_id, link_type,
+                                similarity_score, confidence, is_bidirectional, created_by)
+                               VALUES ('document', ?, ?, ?, ?, ?, 0.8, 1, 'system')""",
+                            (doc["id"], item_type, item_id, link_type, similarity)
+                        )
+                        links_created += 1
+                    else:
+                        suggestions.append({
+                            "document_id": doc["id"],
+                            "document_source": doc["source"][:50],
+                            "target": f"{item_type}/{item_id}",
+                            "similarity": round(similarity, 3),
+                            "link_type": link_type,
+                        })
+                
+                processed += 1
+                
+            except Exception as e:
+                logger.warning(f"Failed to process document {doc['id']}: {e}")
+        
+        if not dry_run:
+            conn.commit()
+        
+        return {
+            "dry_run": dry_run,
+            "documents_processed": processed,
+            "links_created": links_created,
+            "suggestions": suggestions[:30] if dry_run else None,
+        }

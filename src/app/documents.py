@@ -3,6 +3,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime
 from zoneinfo import ZoneInfo
+import logging
 
 from .db import connect
 from .memory.embed import embed_text, EMBED_MODEL
@@ -14,8 +15,110 @@ try:
 except ImportError:
     sync_single_document = None
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
+
+
+# -------------------------
+# P5.11: Intelligent Document Linking
+# -------------------------
+
+def auto_link_document(doc_id: int, content: str, min_similarity: float = 0.78):
+    """
+    Automatically create entity links for a new document based on semantic similarity.
+    
+    Uses pgvector semantic search to find related meetings, tickets, and DIKW items,
+    then creates links in the entity_links table.
+    
+    Args:
+        doc_id: ID of the newly created document
+        content: Document content for embedding
+        min_similarity: Minimum similarity threshold for auto-linking
+    """
+    try:
+        # Try to use Supabase for semantic search
+        import os
+        from supabase import create_client
+        
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+        
+        if not url or not key:
+            logger.debug("Supabase not configured, skipping auto-link")
+            return
+        
+        sb = create_client(url, key)
+        
+        # Generate embedding for the document
+        import openai
+        client = openai.OpenAI()
+        response = client.embeddings.create(
+            model="text-embedding-3-small",
+            input=content[:8000]  # Limit to model context
+        )
+        embedding = response.data[0].embedding
+        
+        # Search for similar content
+        result = sb.rpc("semantic_search", {
+            "query_embedding": embedding,
+            "match_threshold": min_similarity,
+            "match_count": 10,
+        }).execute()
+        
+        with connect() as conn:
+            links_created = 0
+            
+            for item in result.data or []:
+                item_type = item.get("ref_type")
+                item_id = item.get("ref_id")
+                similarity = item.get("similarity", 0)
+                
+                # Skip self-references (same document)
+                if item_type == "document" and str(item_id) == str(doc_id):
+                    continue
+                
+                # Skip documents with same content (likely transcripts)
+                if item_type == "document":
+                    continue
+                
+                # Determine link type based on similarity
+                link_type = "semantic_similar" if similarity > 0.85 else "same_topic"
+                
+                # Check if link already exists
+                existing = conn.execute(
+                    """SELECT id FROM entity_links 
+                       WHERE source_type = 'document' AND source_id = ? 
+                       AND target_type = ? AND target_id = ?""",
+                    (doc_id, item_type, item_id)
+                ).fetchone()
+                
+                if existing:
+                    continue
+                
+                # Create the link
+                conn.execute(
+                    """INSERT INTO entity_links 
+                       (source_type, source_id, target_type, target_id, link_type,
+                        similarity_score, confidence, is_bidirectional, created_by)
+                       VALUES ('document', ?, ?, ?, ?, ?, 0.8, 1, 'system')""",
+                    (doc_id, item_type, item_id, link_type, similarity)
+                )
+                links_created += 1
+                
+                if links_created >= 5:  # Limit auto-links per document
+                    break
+            
+            conn.commit()
+            
+            if links_created > 0:
+                logger.info(f"Auto-linked document {doc_id} to {links_created} related items")
+                
+    except ImportError as e:
+        logger.debug(f"Auto-link skipped (missing module): {e}")
+    except Exception as e:
+        logger.warning(f"Auto-link failed for document {doc_id}: {e}")
 
 
 @router.post("/documents/store")
@@ -42,6 +145,9 @@ def store_doc(
             sync_single_document(doc_id, source, content, document_date)
         except Exception:
             pass  # Neo4j sync is optional
+
+    # ---- P5.11: Intelligent document linking ----
+    auto_link_document(doc_id, content)
 
     return RedirectResponse(url="/documents?success=document_created", status_code=303)
 
@@ -146,6 +252,18 @@ def update_document(
     text_for_embedding = f"{source}\n{content}"
     vector = embed_text(text_for_embedding)
     upsert_embedding("doc", doc_id, EMBED_MODEL, vector)
+
+    # ---- P5.11: Re-link on content change ----
+    # Clear old auto-links and regenerate
+    with connect() as conn:
+        conn.execute(
+            """DELETE FROM entity_links 
+               WHERE source_type = 'document' AND source_id = ? 
+               AND created_by = 'system'""",
+            (doc_id,)
+        )
+        conn.commit()
+    auto_link_document(doc_id, content)
 
     return RedirectResponse(url="/documents?success=document_updated", status_code=303)
 
