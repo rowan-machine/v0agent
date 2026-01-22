@@ -18,58 +18,56 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-Core Business Domain: Organizational Knowledge Management System with Meeting Intelligence
+## Core Business Systems
 
-Primary Business Components:
+### Assistant Intelligence (Importance: 85/100)
+Arjuna assistant system implementing sophisticated focus recommendations based on:
+- Blocked ticket prioritization
+- Sprint deadline proximity analysis
+- Dependency chain tracking
+- Meeting action item correlation
+- Stale work detection algorithms
 
-1. Signal Processing Engine (Score: 95)
-- Advanced signal extraction from meetings and documents
-- Domain-specific categorization system:
-  * Decisions
-  * Action Items
-  * Blockers
-  * Risks
-  * Ideas
-  * Context
-- Signal lifecycle management with approval workflows
-- Custom signal merging and deduplication logic
-- Meeting-based signal grouping
+### Signal Processing (Importance: 90/100)
+Multi-stage pipeline extracting structured business signals from meetings:
+- Decisions, action items, blockers, risks tracking
+- Screenshot analysis with vision AI integration
+- Signal lifecycle management (pending, approved, rejected)
+- Implicit signal extraction via LLM analysis
+- Signal-to-action conversion workflows
 
-2. Knowledge Graph System (Score: 90)
-- DIKW pyramid classification implementation
-- Organizational knowledge modeling
-- Multiple visualization modes: radial, force, cluster
-- Source-type filtering
-- Contextual relationship mapping
-- Knowledge promotion pathways
+### Knowledge Graph Management (Importance: 75/100)
+Domain-specific organizational knowledge representation:
+- DIKW hierarchy implementation
+- Relationship inference between meetings, documents, people
+- Context chain traversal
+- Knowledge promotion tracking
+- Semantic proximity analysis
 
-3. Career Development Framework (Score: 85)
-- Comprehensive progression tracking
-- Technical specialization mapping
-- Mentorship integration
-- Goal categorization system
-- Skills development tracking
+### Workflow Orchestration (Importance: 70/100)
+Seven-mode sprint workflow system:
+- Context Distillation
+- Implementation Planning
+- Assisted Draft Intake
+- Deep Review
+- Promotion Readiness
+- Controlled Ingress/Egress
+- Execution Mode
 
-4. Sprint Management System (Score: 80)
-- Custom burndown tracking
-- Multi-dimensional workflow modes
-- Point allocation algorithms
-- Mode-specific time tracking
-- Signal-based progress analysis
+### Conversation Intelligence (Importance: 65/100)
+24-hour persistence system with:
+- Role-based message tracking
+- Context-aware suggestion rotation
+- Command categorization with emoji mapping
+- Domain-specific clarification handling
+- Model switching between GPT-4 and Claude
 
-5. AI Assistant Integration (Score: 75)
-- Domain-specific messaging workflows
-- Contextual conversation management
-- Task template system
-- Accountability tracking integration
-- Sprint query capabilities
-
-Business Logic Organization:
-- Signal extraction and processing forms the core intelligence layer
-- Knowledge graph provides relationship modeling and visualization
-- Career framework enables organizational development tracking
-- Sprint management handles execution workflows
-- AI assistant provides interface for system interaction
+## Integration Points
+- Ticket management system connectivity
+- Sprint analytics and burndown tracking
+- Meeting note search and correlation
+- Task decomposition workflows
+- Waiting-for item tracking
 
 $END$
 

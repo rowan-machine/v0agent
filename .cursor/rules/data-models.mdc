@@ -1,5 +1,5 @@
 ---
-description: Specification for core data models handling meetings and documents, their relationships and business-specific attributes
+description: Documents core data models for meetings, documents and their relationships in a signal-focused system
 ---
 
 
@@ -7,38 +7,45 @@ description: Specification for core data models handling meetings and documents,
 
 ## Core Data Models
 
-### Meeting Model (Importance Score: 90)
-- Domain-specific meeting record with sophisticated signal tracking
-- Key business attributes:
-  * Signal collection with categorized types (decisions, actions, risks)
-  * Multiple transcript sources integration
-  * Knowledge graph relationship tracking
-  * Custom screenshot/artifact management
-  * Sprint context linking
+### Meetings Model
+Importance Score: 85/100
 
-### Document Model (Importance Score: 85)  
-- Business document management with specialized metadata
-- Domain attributes:
-  * Multi-level signal extraction
-  * Context propagation system
-  * Meeting relationship tracking
-  * Version control with signal preservation
-  * Knowledge state transitions
+Primary data model for capturing meeting information and associated signals:
+- UUID-based identification
+- Structured signal extraction storage (decisions, actions, blockers, risks, ideas)
+- Meeting metadata including date, duration, participants
+- Screenshot bundle relationships for visual context
+- Signal relationship tracking with version history
+
+### Documents Model  
+Importance Score: 80/100
+
+Knowledge artifact storage with signal extraction capabilities:
+- Document versions with full history
+- Signal extraction markers for parsed content
+- Topic and category classification
+- Relationship mapping to meetings and other documents
+- DIKW hierarchy classification (Data, Information, Knowledge, Wisdom)
 
 ## Relationships
 
-### Meeting-Document Graph Structure
-- Bi-directional relationship tracking between meetings and documents
-- Signal inheritance patterns across related entities
-- Custom knowledge propagation rules
-- Time-based relationship strength scoring
-- Context preservation across entity relationships
+### Signal Relationships
+- Meetings -> Signals (1:many)
+- Documents -> Signals (1:many) 
+- Signals -> Related Signals (many:many)
+- Signal status tracking (pending, approved, rejected, archived)
 
-### Signal Cross-References
-- Inter-model signal relationships
-- Custom signal merging rules between meetings and documents 
-- Business context inheritance system
-- Automated relationship discovery through content analysis
+### Knowledge Graph Relationships
+- Documents -> Topics (many:many)
+- Meetings -> Topics (many:many)
+- Topics -> Topics (hierarchical)
+- DIKW promotion chains
+
+### Sprint Integration
+- Meetings -> Sprint association
+- Documents -> Sprint documentation
+- Signal -> Sprint action items
+- Sprint -> Mode tracking
 
 $END$
 
