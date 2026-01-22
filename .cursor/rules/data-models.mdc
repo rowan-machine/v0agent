@@ -1,67 +1,45 @@
 ---
-description: Documents primary data models and relationships for meeting signals and document management
+description: Defines the core data models for Meetings and Documents, including their relationship structures and business rules
 ---
 
 
 # data-models
 
-The system implements two core domain models with specialized business relationships:
+## Core Data Models
 
-## Meeting Model
+### Meetings Model
 Importance Score: 90/100
 
-Key Attributes:
-- Title and summary
-- Start/end timestamps
-- Signal extraction status
-- Knowledge graph status 
-- Processing state tracking
-- Signal mappings and relationships
-- Sprint context association
+Key attributes and relationships:
+- Structured signal extraction system for meetings categorizing:
+  - Decisions
+  - Action items 
+  - Blockers
+  - Risks
+  - Ideas
+- Integrated with knowledge graph through signal relationships
+- Custom signal state management workflow with approval states
+- Meeting bundle concept linking related sessions
+- Source-linked accountability tracking
 
-Related Signals:
-- Decisions
-- Action Items 
-- Blockers
-- Risks
-- Ideas
-- Context Notes
-
-## Document Model
+### Documents Model
 Importance Score: 85/100
 
-Key Attributes:
-- Document type classification
-- Signal extraction status
-- Content vectorization state
-- Parent meeting reference (if promoted)
-- Knowledge graph mappings
-- Sprint association
-- Signal relationships
+Key attributes and relationships:
+- Document-to-signal transformation pipeline
+- Hierarchical organization with document bundles
+- Integration with meeting signals through knowledge graph
+- Custom validation workflow states
+- Sprint phase awareness for documentation
 
-Signal Categories:
-- Technical Decisions
-- Requirements
-- Design Elements
-- Implementation Notes
-- Risk Factors
+### Model Relationships
+- Meetings and Documents connected through extracted signals
+- Signal promotion chains track knowledge evolution
+- Hierarchical bundling for related content
+- Sprint-based organization and filtering
+- Career development tracking integration
 
-## Model Relationships
-
-Meeting-to-Document:
-- One meeting can have multiple source documents
-- Documents can be promoted to meeting status
-- Shared signal inheritance structure
-- Sprint context preservation
-
-Signal Relationships:
-- Cross-model signal linking
-- Status propagation rules
-- Type-based categorization
-- Context preservation
-- Sprint boundary handling
-
-The models implement a sophisticated knowledge management system focused on extracting and maintaining structured business signals across meetings and documents while preserving contextual relationships.
+Both models implement sophisticated business-specific features around signal extraction, knowledge management, and sprint integration. The relationship structure enables tracking of knowledge evolution and accountability chains across different content types.
 
 $END$
 

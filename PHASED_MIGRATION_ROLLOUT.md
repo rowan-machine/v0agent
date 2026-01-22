@@ -20,6 +20,8 @@ Phase 1: Local Refactoring (10-14 days) - Extract agents, no database changes
 ├─ Checkpoint 1.4: MeetingAnalyzerAgent extracted (agents/meeting_analyzer.py)
 ├─ Checkpoint 1.5: DIKWSynthesizerAgent extracted (agents/dikw_synthesizer.py)
 ├─ Checkpoint 1.6: Adapter layer working (old code → new agents)
+├─ Checkpoint 1.7: Model auto-selection router + user override (per agent)
+├─ Checkpoint 1.8: Guardrail and self-reflection scaffolding (hooks + flags)
 └─ Risk: Medium (code refactoring) - MITIGATED by adapter pattern
 
 Phase 2: Database Evolution (7-10 days) - Add new tables/columns, keep old
@@ -48,6 +50,7 @@ Phase 5: Embeddings & Hybrid Search (7-10 days) - Add embeddings to all types
 ├─ Checkpoint 5.2: ChromaDB collections populated
 ├─ Checkpoint 5.3: Hybrid search (BM25 + semantic) working
 ├─ Checkpoint 5.4: No breaking changes to search API
+├─ Checkpoint 5.5: Concept mindmaps (cross-meeting, tag-drillable) generated
 └─ Risk: Low (additive only) - No existing data modified
 
 Phase 6: Mobile App (14-21 days) - React Native build
@@ -267,6 +270,41 @@ assert old_result == new_result
 - [ ] AgentRegistry moved to agents/registry.py
 - [ ] Zero breaking changes to external API
 - [ ] Feature flag ready (set use_new_arjuna: false for gradual rollout)
+
+**Checkpoint 1.7: Model auto-selection router + user override**
+
+- Add a lightweight model router per agent with clear defaults (small model for classification, larger for synthesis) and a deterministic fallback.
+- Allow explicit overrides from user/config (`model` param or agent config) and log the chosen model for observability.
+- Keep routing policy declarative (YAML/JSON) so we can later plug in LangChain/LangGraph/LangSmith without touching call sites.
+
+**Checkpoint 1.8: Guardrail and self-reflection scaffolding**
+
+- Add pre/post hook interfaces on BaseAgent to run guardrails (input filters, safety prompts) and self-reflection passes (critique/sanity check) with feature flags to keep them optional.
+- Provide no-op default implementations plus stub prompts stored alongside each agent’s prompts directory.
+- Emit metrics for when guardrails or reflection paths are invoked to inform later tuning.
+
+**LangChain/LangGraph/LangSmith (optional sandbox in Phase 1)**
+- Prototype the router/guardrail hooks against these libraries in isolation to validate fit; keep production path plain Python until stability is proven.
+
+**Claude Opus 4.5 prompt pack (use Opus for these tasks)**
+- Apply Opus on checkpoints 1.7 (model routing), 1.8 (guardrails/reflection), and 5.5 (concept mindmaps) instead of smaller models.
+- Send these prompts verbatim to Opus:
+    - Model routing policy review:
+        ```
+        You are reviewing an agent model-routing policy. Goal: small model for classification/routing; larger for synthesis/long-context; deterministic fallback. Input: YAML/JSON policy. Deliver: gaps, unsafe fallbacks, missing latency/$$ cost guards, and concrete thresholds (token length, latency budgets). Include a recommended default model map per task type and a rollback/fallback rule.
+        ```
+    - Guardrail + reflection critique:
+        ```
+        You are designing guardrails and self-reflection hooks for an agent. Input: pre/post hook descriptions + sample prompts. Deliver: adversarial test cases, safety prompt improvements, refusal patterns, and a minimal critique loop that catches hallucinations or policy violations. Highlight logging/telemetry needed (hit rates, bypass reasons, false positives).
+        ```
+    - Signal extraction QA (meetings/documents):
+        ```
+        You are QA’ing signal extraction for meetings/documents. Categories: decisions, actions, blockers, risks, ideas, context notes; sprint-aware; graph relationships. Input: sample extraction output. Deliver: precision/recall risks, category confusion, taxonomy tweaks, and 5 adversarial examples to test.
+        ```
+    - Concept mindmap schema review:
+        ```
+        You are reviewing a concept graph design for cross-meeting mindmaps with tag/meeting drill-down. Nodes: concepts, meetings; edges: mentions/co-occurrence. Input: proposed node/edge schema + filters. Deliver: clustering criteria, labeling guidance, pagination/drill-down UX constraints, and caching/persistence advice for repeated queries.
+        ```
 
 ---
 
@@ -1290,12 +1328,19 @@ stats = health.get_stats()
 logger.info(f"Embedding coverage: {stats['coverage_percent']:.1f}%")
 ```
 
+**Checkpoint 5.5: Concept mindmaps (cross-meeting, tag-drillable)**
+
+- Extract key concepts/entities from meetings and documents using existing signals plus embeddings; cluster by tags and date ranges.
+- Build a lightweight graph (nodes: concepts, meetings; edges: mentions/co-occurrence) with drill-down filters for specific tags or single meetings.
+- Expose via API and a simple view to render mindmaps; persist derived graphs so repeated queries are fast.
+
 **Exit Criteria:**
 - [ ] Embeddings generated for all 6 entity types
 - [ ] ChromaDB collections populated (meetings, documents, signals, dikw, tickets, career_memories)
 - [ ] Hybrid search (BM25 + semantic) working
 - [ ] Search API endpoint functional
 - [ ] Embedding health checks show > 95% coverage
+- [ ] Concept mindmaps generated and drillable by tag/meeting
 - [ ] No breaking changes to existing search
 
 ---
