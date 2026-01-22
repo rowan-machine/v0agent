@@ -18,56 +18,58 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-## Core Business Systems
+AI-Enabled Project Management and Knowledge System
 
-### Assistant Intelligence (Importance: 85/100)
-Arjuna assistant system implementing sophisticated focus recommendations based on:
-- Blocked ticket prioritization
-- Sprint deadline proximity analysis
-- Dependency chain tracking
-- Meeting action item correlation
-- Stale work detection algorithms
+Core Business Components:
 
-### Signal Processing (Importance: 90/100)
-Multi-stage pipeline extracting structured business signals from meetings:
-- Decisions, action items, blockers, risks tracking
-- Screenshot analysis with vision AI integration
-- Signal lifecycle management (pending, approved, rejected)
-- Implicit signal extraction via LLM analysis
-- Signal-to-action conversion workflows
+1. Signal Intelligence System
+- Extracts structured signals from meetings (decisions, actions, blockers, risks)
+- Custom categorization with contextual tagging
+- Sprint-based signal lifecycle management
+- Importance Score: 90/100
 
-### Knowledge Graph Management (Importance: 75/100)
-Domain-specific organizational knowledge representation:
-- DIKW hierarchy implementation
-- Relationship inference between meetings, documents, people
-- Context chain traversal
-- Knowledge promotion tracking
-- Semantic proximity analysis
+2. Knowledge Graph Management
+- DIKW pyramid implementation (Data, Information, Knowledge, Wisdom)
+- Hierarchical data organization with semantic relationships
+- Signal clustering with tag-based filtering
+- Domain-specific node categorization
+- Importance Score: 85/100
 
-### Workflow Orchestration (Importance: 70/100)
-Seven-mode sprint workflow system:
-- Context Distillation
-- Implementation Planning
-- Assisted Draft Intake
-- Deep Review
-- Promotion Readiness
-- Controlled Ingress/Egress
-- Execution Mode
+3. AI Assistant Integration
+- Context-aware conversation management
+- Rotating suggestion system with 4 categories:
+  * Task/Sprint Management
+  * AI Model Selection
+  * Workflow Status
+  * Meeting Management
+- Command history intelligence with usage-based ranking
+- Importance Score: 80/100
 
-### Conversation Intelligence (Importance: 65/100)
-24-hour persistence system with:
-- Role-based message tracking
-- Context-aware suggestion rotation
-- Command categorization with emoji mapping
-- Domain-specific clarification handling
-- Model switching between GPT-4 and Claude
+4. Career Development Framework
+- Sprint-based skill progression tracking
+- Technical specialization monitoring
+- AI-assisted task decomposition
+- Professional networking integration
+- Importance Score: 75/100
 
-## Integration Points
-- Ticket management system connectivity
-- Sprint analytics and burndown tracking
-- Meeting note search and correlation
-- Task decomposition workflows
-- Waiting-for item tracking
+5. Sprint Management System
+- Custom sprint metrics and progress tracking
+- Signal archival automation
+- Workflow mode transitions (A-G modes)
+- Work item migration policies
+- Importance Score: 80/100
+
+Critical Integration Points:
+- Meeting signal extraction pipeline connects to knowledge graph
+- Sprint system interfaces with career development tracking
+- AI assistant integrates with all core components
+- Signal processing feeds into accountability system
+
+Business Domain Uniqueness:
+- Custom signal extraction and categorization
+- Integrated knowledge evolution pipeline
+- Context-aware AI assistance
+- Sprint-based career progression
 
 $END$
 

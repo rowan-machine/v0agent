@@ -1,51 +1,67 @@
 ---
-description: Documents core data models for meetings, documents and their relationships in a signal-focused system
+description: Documents primary data models and relationships for meeting signals and document management
 ---
 
 
 # data-models
 
-## Core Data Models
+The system implements two core domain models with specialized business relationships:
 
-### Meetings Model
+## Meeting Model
+Importance Score: 90/100
+
+Key Attributes:
+- Title and summary
+- Start/end timestamps
+- Signal extraction status
+- Knowledge graph status 
+- Processing state tracking
+- Signal mappings and relationships
+- Sprint context association
+
+Related Signals:
+- Decisions
+- Action Items 
+- Blockers
+- Risks
+- Ideas
+- Context Notes
+
+## Document Model
 Importance Score: 85/100
 
-Primary data model for capturing meeting information and associated signals:
-- UUID-based identification
-- Structured signal extraction storage (decisions, actions, blockers, risks, ideas)
-- Meeting metadata including date, duration, participants
-- Screenshot bundle relationships for visual context
-- Signal relationship tracking with version history
+Key Attributes:
+- Document type classification
+- Signal extraction status
+- Content vectorization state
+- Parent meeting reference (if promoted)
+- Knowledge graph mappings
+- Sprint association
+- Signal relationships
 
-### Documents Model  
-Importance Score: 80/100
+Signal Categories:
+- Technical Decisions
+- Requirements
+- Design Elements
+- Implementation Notes
+- Risk Factors
 
-Knowledge artifact storage with signal extraction capabilities:
-- Document versions with full history
-- Signal extraction markers for parsed content
-- Topic and category classification
-- Relationship mapping to meetings and other documents
-- DIKW hierarchy classification (Data, Information, Knowledge, Wisdom)
+## Model Relationships
 
-## Relationships
+Meeting-to-Document:
+- One meeting can have multiple source documents
+- Documents can be promoted to meeting status
+- Shared signal inheritance structure
+- Sprint context preservation
 
-### Signal Relationships
-- Meetings -> Signals (1:many)
-- Documents -> Signals (1:many) 
-- Signals -> Related Signals (many:many)
-- Signal status tracking (pending, approved, rejected, archived)
+Signal Relationships:
+- Cross-model signal linking
+- Status propagation rules
+- Type-based categorization
+- Context preservation
+- Sprint boundary handling
 
-### Knowledge Graph Relationships
-- Documents -> Topics (many:many)
-- Meetings -> Topics (many:many)
-- Topics -> Topics (hierarchical)
-- DIKW promotion chains
-
-### Sprint Integration
-- Meetings -> Sprint association
-- Documents -> Sprint documentation
-- Signal -> Sprint action items
-- Sprint -> Mode tracking
+The models implement a sophisticated knowledge management system focused on extracting and maintaining structured business signals across meetings and documents while preserving contextual relationships.
 
 $END$
 

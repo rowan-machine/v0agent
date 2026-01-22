@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# OS
+.DS_Store
+Thumbs.db
+.env.local
+
+# Project specific
+.env
+.env.*.local
+data/
+uploads/
+logs/
+*.db
+*.sqlite3
+agent.db
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.circleci/
+
+# Documentation
+*.md
+docs/
+
+# Development
+.pytest_cache/
+.coverage/
+htmlcov/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Dependencies cache
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Node stuff (if any)
+node_modules/
+npm-debug.log
+yarn-error.log

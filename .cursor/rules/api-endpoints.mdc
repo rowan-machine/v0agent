@@ -1,56 +1,65 @@
 ---
-description: API endpoint documentation for meeting and document management with business-specific signal extraction and workflow integration.
+description: Specification for FastAPI routes implementing CRUD operations for meetings and documents with signal extraction
 ---
 
 
 # api-endpoints
 
-FastAPI Routes for Meeting and Document Management
+API Routes for Meeting and Document Management (Importance: 85/100)
 
-## Signal Extraction Endpoints
-Importance Score: 85/100
+Key Endpoints:
 
-/api/meetings/signals
-- Extracts structured business signals from meeting content
-- Categorizes into decisions, action items, blockers, risks, ideas
-- Associates signals with originating meetings and participants
-- Integrates with knowledge graph for relationship tracking
+1. Meeting Signal Management
+```
+/api/meetings/{meeting_id}/signals
+/api/meetings/{meeting_id}/extract
+```
+- Extracts structured signals from meeting content
+- Categorizes signals into decisions, actions, blockers, risks
+- Associates signals with sprint context
+- Handles signal approval workflows
 
-/api/meetings/process
-- Implements meeting intelligence pipeline
-- Analyzes screenshots for additional context
-- Maintains signal relationships and metadata
-- Generates meeting summaries with extracted insights
+2. Document Processing 
+```
+/api/documents/process
+/api/documents/{doc_id}/signals
+```
+- Converts documents into meeting-compatible signal format
+- Implements document-to-meeting signal promotion
+- Manages document version tracking with signal context
 
-## Workflow Management Endpoints
-Importance Score: 80/100
+3. Knowledge Graph Integration
+```
+/api/graph/signals
+/api/graph/relationships
+```
+- Creates graph nodes from meeting signals
+- Establishes relationships between signals across meetings
+- Maintains DIKW hierarchy connections
 
-/api/workflow/mode
-- Controls 7 distinct workflow modes for sprint management
-- Handles mode-specific validations and transitions
-- Manages workflow state progression
-- Integrates with sprint settings
+4. Sprint Context Management
+```
+/api/sprint/signals
+/api/sprint/archive
+```
+- Tracks signals within sprint boundaries
+- Handles sprint transition signal archival
+- Manages signal state transitions during sprint changes
 
-/api/workflow/sprint
-- Manages sprint lifecycle operations
-- Handles ticket backlog migration
-- Implements sprint progress reset logic
-- Controls time tracking archival rules
+5. Accountability Tracking
+```
+/api/signals/waiting
+/api/signals/blocked
+```
+- Tracks signal dependencies and blockers
+- Manages waiting-for items with context
+- Updates accountability status across meetings
 
-## Knowledge Management Endpoints
-Importance Score: 75/100
-
-/api/knowledge/graph
-- Creates domain-specific knowledge relationships
-- Links meetings, signals, documents, and topics
-- Implements DIKW hierarchy promotions
-- Manages semantic relationship inference
-
-/api/knowledge/context
-- Builds contextual awareness for assistant interactions
-- Merges conversation history with knowledge base
-- Handles meeting-specific context modes
-- Integrates screenshot summaries
+Business-Specific Endpoints:
+- Signal extraction and categorization
+- Sprint context association 
+- Knowledge graph relationship management
+- Accountability status tracking
 
 $END$
 
