@@ -9,6 +9,7 @@ Phase 3.1: Modern API with proper HTTP semantics.
 - OpenAPI/Swagger documentation
 
 Phase 7+: Signal feedback loop and AI memory integration
+Phase F1: File import pipeline for Pocket transcripts
 """
 
 from fastapi import APIRouter
@@ -19,6 +20,7 @@ from .signals import router as signals_router
 from .tickets import router as tickets_router
 from .feedback import router as feedback_router
 from .ai_memory import router as ai_memory_router
+from .imports import router as imports_router
 
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 
@@ -29,3 +31,4 @@ router.include_router(signals_router, prefix="/signals", tags=["signals"])
 router.include_router(tickets_router, prefix="/tickets", tags=["tickets"])
 router.include_router(feedback_router, prefix="/signals", tags=["feedback"])
 router.include_router(ai_memory_router, prefix="/ai", tags=["ai-memory"])
+router.include_router(imports_router, prefix="/imports", tags=["imports"])

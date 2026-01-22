@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS meeting_summaries (
   raw_text TEXT,
   pocket_ai_summary TEXT,
   pocket_template_type TEXT,
+  import_source TEXT,              -- 'manual', 'markdown_upload', 'pocket', 'api'
+  source_url TEXT,                 -- Original source URL (e.g., Pocket link)
   FOREIGN KEY (source_document_id) REFERENCES docs(id) ON DELETE SET NULL
 );
 
@@ -143,6 +145,43 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL,
   updated_at TEXT DEFAULT (datetime('now'))
 );
+
+-- Import history tracking (F1: Pocket Import Pipeline)
+CREATE TABLE IF NOT EXISTS import_history (
+  id INTEGER PRIMARY KEY,
+  filename TEXT NOT NULL,
+  file_type TEXT NOT NULL,          -- 'md', 'txt', 'pdf', 'docx'
+  meeting_id INTEGER,               -- Reference to created meeting (if successful)
+  status TEXT DEFAULT 'pending',    -- 'pending', 'processing', 'completed', 'failed'
+  error_message TEXT,               -- Error details if failed
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (meeting_id) REFERENCES meeting_summaries(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_import_history_status ON import_history(status);
+CREATE INDEX IF NOT EXISTS idx_import_history_created ON import_history(created_at DESC);
+
+-- Meeting documents: linked transcripts and summaries from multiple sources (F1b: Pocket Bundle)
+-- Supports Teams transcript + Pocket transcript, Teams summary + Pocket summary
+-- All documents get embeddings for holistic search
+CREATE TABLE IF NOT EXISTS meeting_documents (
+  id INTEGER PRIMARY KEY,
+  meeting_id INTEGER NOT NULL,
+  doc_type TEXT NOT NULL,           -- 'transcript' | 'summary' | 'notes'
+  source TEXT NOT NULL,             -- 'teams' | 'pocket' | 'manual' | 'zoom' | 'other'
+  content TEXT NOT NULL,            -- the actual transcript or summary text
+  format TEXT,                      -- 'markdown' | 'txt' | 'pdf' | 'docx'
+  signals_json TEXT,                -- extracted signals from this specific document
+  file_path TEXT,                   -- if uploaded as file, path to original
+  metadata_json TEXT,               -- additional metadata (e.g., duration, speaker count)
+  is_primary INTEGER DEFAULT 0,     -- 1 if this is the primary source for this doc_type
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (meeting_id) REFERENCES meeting_summaries(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_meeting_documents_meeting ON meeting_documents(meeting_id);
+CREATE INDEX IF NOT EXISTS idx_meeting_documents_type ON meeting_documents(doc_type, source);
 
 -- Signal status tracking (approve/reject/archive/complete)
 CREATE TABLE IF NOT EXISTS signal_status (
@@ -565,6 +604,39 @@ def init_db():
             conn.execute("ALTER TABLE docs ADD COLUMN meeting_id INTEGER REFERENCES meeting_summaries(id)")
         except sqlite3.OperationalError:
             pass  # Column already exists
+        
+        # Migration (F1): Add import_source column to meeting_summaries
+        try:
+            conn.execute("ALTER TABLE meeting_summaries ADD COLUMN import_source TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Migration (F1): Add source_url column to meeting_summaries
+        try:
+            conn.execute("ALTER TABLE meeting_summaries ADD COLUMN source_url TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Migration (F1b): Create meeting_documents table for linked transcripts/summaries
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS meeting_documents (
+                id INTEGER PRIMARY KEY,
+                meeting_id INTEGER NOT NULL,
+                doc_type TEXT NOT NULL,
+                source TEXT NOT NULL,
+                content TEXT NOT NULL,
+                format TEXT,
+                signals_json TEXT,
+                file_path TEXT,
+                metadata_json TEXT,
+                is_primary INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (meeting_id) REFERENCES meeting_summaries(id) ON DELETE CASCADE
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_meeting_documents_meeting ON meeting_documents(meeting_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_meeting_documents_type ON meeting_documents(doc_type, source)")
         
         # Initialize default career profile
         conn.execute("""
