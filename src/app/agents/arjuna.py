@@ -1196,7 +1196,7 @@ Analyze the user's intent and respond with JSON as specified."""
             """
             SELECT meeting_name, meeting_date, signals_json
             FROM meeting_summaries
-            WHERE meeting_name LIKE ? OR raw_notes LIKE ? OR signals_json LIKE ?
+            WHERE meeting_name LIKE ? OR raw_text LIKE ? OR signals_json LIKE ?
             ORDER BY meeting_date DESC
             LIMIT 5
             """,

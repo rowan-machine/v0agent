@@ -1,49 +1,50 @@
 ---
-description: Documentation of database models and relationships for meetings and documents with their associated metadata
+description: Documents core data models and relationships for meetings and documents in a knowledge management system
 ---
 
 
 # data-models
 
-Primary Data Models:
+## Meeting Model (Importance: 85)
 
-1. Meeting Model
-Importance Score: 95/100
-- Title and metadata tracking
-- Multiple note formats support (markdown, plain text)
-- Signal tracking (decisions, actions, risks)
-- Participant list with roles
-- Integration with sprint/project context
-- Link to knowledge graph nodes
-- Custom fields for meeting intelligence
+- Meeting entities maintain sophisticated metadata including:
+  - Signal extraction status and confidence scores
+  - DIKW pyramid classifications 
+  - Version history with full change tracking
+  - Meeting series grouping and relationship mapping
+  - Template pattern detection results
 
-2. Document Model
-Importance Score: 90/100 
-- Versioned content storage
-- Signal extraction results
-- Tag-based categorization
-- DIKW level classification
-- Knowledge graph connections
-- Source attribution tracking
-- Custom metadata fields
+- Custom fields track:
+  - Extracted signal counts by category
+  - Knowledge item relationships
+  - Sprint/ticket associations
+  - Historical template matches
 
-Relationships:
-- Meetings <-> Documents (many-to-many)
-  - Meeting notes as documents
-  - Referenced documents in meetings
-  - Shared signal context
+## Document Model (Importance: 80)
 
-- Meetings <-> Signals (one-to-many)
-  - Extracted decisions
-  - Action items
-  - Risks and blockers
-  - Ideas and suggestions
+- Document entities implement:
+  - Hierarchical knowledge organization
+  - Signal source tracking
+  - Version-controlled content with diff tracking
+  - Semantic relationship scoring with other documents
+  - Template-based categorization
 
-- Documents <-> DIKW Items (one-to-many)
-  - Knowledge hierarchy classification
-  - Confidence scoring
-  - Promotion tracking
-  - Version history
+## Relationship Structure (Importance: 75)
+
+- Bidirectional linking between meetings and documents
+- Confidence scoring for automatically detected relationships
+- Custom fields for relationship metadata:
+  - Match confidence scores
+  - Relationship type classification
+  - Temporal connection strength
+  - Citation tracking
+  - Signal overlap metrics
+
+- Knowledge graph integration points:
+  - DIKW hierarchy position tracking
+  - Cross-entity relationship strength scoring
+  - Semantic clustering metadata
+  - Historical relationship evolution
 
 $END$
 

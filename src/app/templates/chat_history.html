@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block title %}Chat{% endblock %}
 {% block content %}
 
 <style>
@@ -9,7 +10,8 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: #f5f5f5;
+    background: var(--sf-bg, #f5f5f5);
+    padding-right: 80px; /* Space for floating shortcuts */
   }
 
   body.drawer-pinned .chat-container {
@@ -20,8 +22,8 @@
   .chat-sidebar {
     width: 260px;
     min-width: 260px;
-    background: white;
-    border-right: 1px solid #e0e0e0;
+    background: var(--sf-card-bg, white);
+    border-right: 1px solid var(--sf-border, #e0e0e0);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -32,8 +34,8 @@
   .context-panel {
     width: 300px;
     min-width: 300px;
-    background: white;
-    border-left: 1px solid #e0e0e0;
+    background: var(--sf-card-bg, white);
+    border-left: 1px solid var(--sf-border, #e0e0e0);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -42,7 +44,7 @@
 
   .context-panel-header {
     padding: 1rem 1.25rem;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--sf-border, #eee);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -51,7 +53,7 @@
   .context-panel-header h3 {
     margin: 0;
     font-size: 1rem;
-    color: #2c3e50;
+    color: var(--sf-text, #2c3e50);
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -508,6 +510,34 @@
     color: #2c3e50;
   }
 
+  /* Small pencil button for sidebar header */
+  .sidebar-new-btn {
+    background: #3498db;
+    color: white;
+    border: none;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+  }
+
+  .sidebar-new-btn:hover {
+    background: #2980b9;
+    transform: translateY(-1px);
+  }
+
+  .sidebar-new-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  /* Full "New Chat" button for empty states */
   .new-chat-btn {
     background: #3498db;
     color: white;
@@ -1469,6 +1499,239 @@
     from { opacity: 1; }
     to { opacity: 0; }
   }
+
+  /* ===== DARK MODE OVERRIDES ===== */
+  [data-theme="dark"] .chat-container {
+    background: var(--sf-bg, #0a0e1a);
+  }
+
+  [data-theme="dark"] .chat-sidebar {
+    background: var(--sf-card-bg, #1a2234);
+    border-right-color: var(--sf-border, #334155);
+  }
+
+  [data-theme="dark"] .context-panel {
+    background: var(--sf-card-bg, #1a2234);
+    border-left-color: var(--sf-border, #334155);
+  }
+
+  [data-theme="dark"] .context-panel-header {
+    border-bottom-color: var(--sf-border, #334155);
+  }
+
+  [data-theme="dark"] .context-panel-header h3 {
+    color: var(--sf-text, #f0f4f8);
+  }
+
+  [data-theme="dark"] .sidebar-header {
+    background: var(--sf-surface, #1e293b);
+    border-bottom-color: var(--sf-border, #334155);
+    color: var(--sf-text, #f0f4f8);
+  }
+
+  [data-theme="dark"] .sidebar-header h3 {
+    color: var(--sf-text, #f0f4f8);
+  }
+
+  [data-theme="dark"] .new-chat-btn {
+    background: var(--sf-primary, #3b82f6);
+  }
+
+  [data-theme="dark"] .sidebar-new-btn {
+    background: var(--sf-primary, #3b82f6);
+  }
+
+  [data-theme="dark"] .conversations-list {
+    background: var(--sf-card-bg, #1a2234);
+  }
+
+  [data-theme="dark"] .conv-item {
+    color: var(--sf-text, #f0f4f8);
+    border-bottom-color: var(--sf-border, #334155);
+  }
+
+  [data-theme="dark"] .conv-item:hover {
+    background: var(--sf-surface, #1e293b);
+  }
+
+  [data-theme="dark"] .conv-item.active {
+    background: var(--sf-primary-soft, rgba(59, 130, 246, 0.15));
+    border-left-color: var(--sf-primary, #3b82f6);
+  }
+
+  [data-theme="dark"] .conversation-title {
+    color: #86efac !important; /* Lighter green */
+  }
+
+  [data-theme="dark"] .conversation-preview {
+    color: #fef08a !important; /* Lighter yellow */
+  }
+
+  [data-theme="dark"] .conv-date {
+    color: var(--sf-text-muted, #64748b);
+  }
+
+  [data-theme="dark"] .conv-badge {
+    background: var(--sf-surface, #1e293b);
+    color: var(--sf-text-muted, #94a3b8);
+  }
+
+  [data-theme="dark"] .chat-main {
+    background: var(--sf-card-bg, #1a2234);
+  }
+
+  [data-theme="dark"] .chat-header {
+    background: var(--sf-surface, #1e293b);
+    border-bottom-color: var(--sf-border, #334155);
+    color: var(--sf-text, #f0f4f8);
+  }
+
+  [data-theme="dark"] .chat-header h2 {
+    color: var(--sf-text, #f0f4f8);
+  }
+
+  [data-theme="dark"] .messages-container {
+    background: var(--sf-card-bg, #1a2234);
+  }
+
+  [data-theme="dark"] .message-bubble.user {
+    background: var(--sf-primary, #3b82f6);
+    color: white;
+  }
+
+  [data-theme="dark"] .message-bubble.assistant {
+    background: var(--sf-surface, #1e293b);
+    color: var(--sf-text, #f0f4f8);
+    border-color: var(--sf-border, #334155);
+  }
+
+  [data-theme="dark"] .message-time {
+    color: var(--sf-text-muted, #64748b);
+  }
+
+  [data-theme="dark"] .input-container {
+    background: var(--sf-surface, #1e293b);
+    border-top-color: var(--sf-border, #334155);
+  }
+
+  [data-theme="dark"] .input-container textarea {
+    background: var(--sf-bg, #0a0e1a);
+    color: var(--sf-text, #f0f4f8);
+    border-color: var(--sf-border, #334155);
+  }
+
+  [data-theme="dark"] .input-container textarea:focus {
+    border-color: var(--sf-primary, #3b82f6);
+  }
+
+  [data-theme="dark"] .empty-state {
+    color: var(--sf-text-muted, #64748b);
+  }
+
+  [data-theme="dark"] .empty-state h3 {
+    color: var(--sf-text, #f0f4f8);
+  }
+
+  [data-theme="dark"] .quick-prompt {
+    background: var(--sf-surface, #1e293b);
+    border-color: var(--sf-border, #334155);
+    color: var(--sf-text, #f0f4f8);
+  }
+
+  [data-theme="dark"] .quick-prompt:hover {
+    background: var(--sf-primary-soft, rgba(59, 130, 246, 0.15));
+    border-color: var(--sf-primary, #3b82f6);
+  }
+
+  [data-theme="dark"] .context-section-title {
+    color: var(--sf-text-muted, #64748b);
+  }
+
+  [data-theme="dark"] .phase-chip {
+    background: var(--sf-surface, #1e293b);
+    border-color: var(--sf-border, #334155);
+    color: var(--sf-text-muted, #94a3b8);
+  }
+
+  [data-theme="dark"] .phase-chip:hover {
+    background: var(--sf-primary-soft, rgba(59, 130, 246, 0.15));
+    border-color: var(--sf-primary, #3b82f6);
+    color: var(--sf-primary, #3b82f6);
+  }
+
+  [data-theme="dark"] .phase-chip.active {
+    background: var(--sf-primary, #3b82f6);
+    color: white;
+  }
+
+  [data-theme="dark"] .tech-tag {
+    background: var(--sf-surface, #1e293b);
+    border-color: var(--sf-border, #334155);
+    color: var(--sf-text-muted, #94a3b8);
+  }
+
+  [data-theme="dark"] .tech-tag:hover {
+    border-color: var(--sf-primary, #667eea);
+    background: rgba(102, 126, 234, 0.15);
+  }
+
+  [data-theme="dark"] .tech-tag.active {
+    background: var(--sf-primary, #667eea);
+    color: white;
+  }
+
+  [data-theme="dark"] .sprint-stat {
+    background: var(--sf-surface, #1e293b);
+  }
+
+  [data-theme="dark"] .sprint-stat-value {
+    color: var(--sf-text, #f0f4f8);
+  }
+
+  [data-theme="dark"] .sprint-stat-label {
+    color: var(--sf-text-muted, #64748b);
+  }
+
+  [data-theme="dark"] .related-signal {
+    background: var(--sf-surface, #1e293b);
+    color: var(--sf-text, #f0f4f8);
+  }
+
+  [data-theme="dark"] .related-signal:hover {
+    background: rgba(59, 130, 246, 0.1);
+  }
+
+  [data-theme="dark"] .related-signal-type {
+    color: var(--sf-text-muted, #64748b);
+  }
+
+  [data-theme="dark"] .related-signal-source {
+    color: var(--sf-text-muted, #64748b);
+  }
+
+  [data-theme="dark"] .status-input {
+    background: var(--sf-bg, #0a0e1a);
+    border-color: var(--sf-border, #334155);
+    color: var(--sf-text, #f0f4f8);
+  }
+
+  [data-theme="dark"] .mode-stats-mini {
+    border-top-color: var(--sf-border, #334155);
+    color: var(--sf-text-muted, #64748b);
+  }
+
+  [data-theme="dark"] .mode-stats-mini .stat-item span:last-child {
+    color: var(--sf-text, #f0f4f8);
+  }
+
+  [data-theme="dark"] .current-status-display {
+    background: var(--sf-surface, #1e293b);
+    color: var(--sf-text-muted, #94a3b8);
+  }
+
+  [data-theme="dark"] .fab-btn {
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+  }
 </style>
 
 <div class="chat-container">
@@ -1476,8 +1739,10 @@
   <div class="chat-sidebar">
     <div class="sidebar-header">
       <h3>💬 Conversations</h3>
-      <a href="/chat/new" class="new-chat-btn">
-        <span>+</span> New Chat
+      <a href="/chat/new" class="sidebar-new-btn" title="New Chat">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+        </svg>
       </a>
     </div>
     <div class="conversation-list">

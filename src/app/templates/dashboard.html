@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
 {% block content %}
 <style>
   /* Toast Notifications */
@@ -701,11 +702,12 @@
 
   /* AI Quick Actions */
   .quick-actions {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 16px;
-    padding: 1.5rem;
+    background: none;
+    border: none;
+    border-radius: 0;
+    padding: 0.75rem 1rem;
     margin-bottom: 1.5rem;
-    color: white;
+    color: var(--sf-text);
   }
 
   .quick-actions-header {
@@ -717,7 +719,7 @@
 
   .quick-actions-header h2 {
     font-size: 1.1rem;
-    color: white;
+    color: var(--sf-text);
     margin: 0;
     display: flex;
     align-items: center;
@@ -732,9 +734,9 @@
   }
 
   .chip {
-    background: rgba(255,255,255,0.2);
-    border: 1px solid rgba(255,255,255,0.3);
-    color: white;
+    background: transparent;
+    border: 1px solid var(--sf-border);
+    color: var(--sf-text);
     padding: 0.6rem 1.1rem;
     border-radius: 20px;
     font-size: 0.9rem;
@@ -746,13 +748,15 @@
   }
 
   .chip:hover {
-    background: rgba(255,255,255,0.3);
+    background: var(--sf-surface);
     transform: translateY(-1px);
+    border-color: var(--sf-primary);
   }
 
   .chip.active {
-    background: var(--sf-card-bg, white);
-    color: var(--sf-primary, #667eea);
+    background: var(--sf-primary);
+    color: white;
+    border-color: var(--sf-primary);
   }
 
   .chip svg {
@@ -768,21 +772,23 @@
   .custom-query input {
     flex: 1;
     padding: 0.85rem 1.1rem;
-    border: none;
+    border: 1px solid var(--sf-border);
     border-radius: 10px;
     font-size: 0.95rem;
-    background: rgba(255,255,255,0.95);
+    background: var(--sf-surface);
+    color: var(--sf-text);
   }
 
   .custom-query input:focus {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(255,255,255,0.3);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    border-color: var(--sf-primary);
   }
 
   .custom-query button {
     padding: 0.85rem 1.5rem;
-    background: rgba(255,255,255,0.2);
-    border: 1px solid rgba(255,255,255,0.3);
+    background: var(--sf-primary);
+    border: 1px solid var(--sf-primary);
     color: white;
     border-radius: 10px;
     cursor: pointer;
@@ -791,12 +797,13 @@
   }
 
   .custom-query button:hover {
-    background: rgba(255,255,255,0.3);
+    opacity: 0.9;
   }
 
-  /* Dark mode: Quick Actions gradient blends with dark background */
+  /* Dark mode: Quick Actions - no background */
   [data-theme="dark"] .quick-actions {
-    background: linear-gradient(135deg, #3b4668 0%, #4a3a6b 100%);
+    background: none;
+    border: none;
   }
 
   /* AI Response Card */
@@ -2832,17 +2839,41 @@ async function updateSignalStatus(btn, status) {
       };
       showToast('Updated', statusDisplayLabels[newStatus], 'success');
       
-      // Update or remove status indicator
-      let indicator = item.querySelector('.signal-status-indicator');
-      if (newStatus !== 'pending') {
-        if (!indicator) {
-          indicator = document.createElement('div');
-          item.appendChild(indicator);
+      // Send feedback for learning (approved=up, rejected/archived=down)
+      const feedback = newStatus === 'approved' ? 'up' : (newStatus === 'rejected' || newStatus === 'archived') ? 'down' : null;
+      if (feedback) {
+        fetch('/api/signals/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            meeting_id: meetingId,
+            signal_type: signalType,
+            signal_text: signalText,
+            feedback: feedback
+          })
+        }).catch(err => console.error('Failed to send feedback:', err));
+      }
+      
+      // Remove from view if archived or rejected
+      if (newStatus === 'archived' || newStatus === 'rejected') {
+        item.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        item.style.opacity = '0';
+        item.style.transform = 'translateX(20px)';
+        setTimeout(() => item.remove(), 300);
+      } else {
+        // Update or remove status indicator
+        let indicator = item.querySelector('.signal-status-indicator');
+        if (newStatus !== 'pending') {
+          if (!indicator) {
+            indicator = document.createElement('div');
+            item.appendChild(indicator);
+          }
+          indicator.className = `signal-status-indicator ${newStatus}`;
+          indicator.textContent = statusLabels[newStatus];
+        } else if (indicator) {
+          indicator.remove();
         }
-        indicator.className = `signal-status-indicator ${newStatus}`;
-        indicator.textContent = statusLabels[newStatus];
-      } else if (indicator) {
-        indicator.remove();
       }
     } else {
       throw new Error('Failed to update status');
@@ -3614,6 +3645,13 @@ function renderModeContent(mode) {
 // Initialize workflow panel based on current mode
 function initWorkflowPanel() {
   const currentMode = localStorage.getItem('signalflow-mode') || 'mode-a';
+  // Set mode immediately before API call to avoid showing default text
+  const modeInfo = workflowModes[currentMode] || workflowModes['mode-a'];
+  const iconEl = document.getElementById('workflowModeIcon');
+  const titleEl = document.getElementById('workflowModeTitle');
+  if (iconEl) iconEl.textContent = modeInfo.icon;
+  if (titleEl) titleEl.innerHTML = `${modeInfo.title}<span style="display: block; font-size: 0.8rem; font-weight: 400; color: var(--sf-text-muted); margin-top: 0.25rem;">${modeInfo.subtitle}</span>`;
+  
   updateWorkflowPanel(currentMode);
   loadWorkflowProgress(currentMode);
 }
@@ -3626,7 +3664,7 @@ function updateWorkflowPanel(mode) {
   const titleEl = document.getElementById('workflowModeTitle');
   
   if (iconEl) iconEl.textContent = modeInfo.icon;
-  if (titleEl) titleEl.innerHTML = `${modeInfo.title}<span style="display: block; font-size: 0.8rem; font-weight: 400; opacity: 0.8; margin-top: 0.25rem;">${modeInfo.subtitle}</span>`;
+  if (titleEl) titleEl.innerHTML = `${modeInfo.title}<span style="display: block; font-size: 0.8rem; font-weight: 400; color: var(--sf-text-muted); margin-top: 0.25rem;">${modeInfo.subtitle}</span>`;
   
   // Show only the active mode's content
   document.querySelectorAll('.workflow-mode-content').forEach(el => {
@@ -4126,8 +4164,6 @@ function advanceWorkflow() {
   // Update workflow panel
   updateWorkflowPanel(nextMode);
   loadWorkflowProgress(nextMode);
-  
-  showToast('Mode Changed', `Switched to ${workflowModes[nextMode].title}`, 'info');
 }
 
 // Listen for mode changes from the header
@@ -4577,10 +4613,13 @@ async function refreshAttention(suppressToast = false) {
         `;
         } else {
           content.innerHTML = visibleHighlights.map((h) => {
+          // Ensure link is a string (in case it comes as object)
+          const linkUrl = typeof h.link === 'string' ? h.link : (h.link ? JSON.stringify(h.link) : '');
+          // Store link in data attribute to avoid onclick injection issues
           return `
-            <div class="highlight-item ${h.type}" data-highlight-id="${h.id}" onclick="navigateHighlight(event, '${h.link}')">
+            <div class="highlight-item ${h.type}" data-highlight-id="${h.id}" data-link="${linkUrl.replace(/"/g, '&quot;')}" onclick="navigateHighlight(event, this)">
               <div class="highlight-header">
-                <div class="highlight-label">${h.label}</div>
+                <div class="highlight-label">${h.label || ''}</div>
                 <div class="highlight-actions">
                   <button class="highlight-action-btn snooze-btn" onclick="snoozeHighlight(event, this)" title="Snooze for this sprint">
                     <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -4594,7 +4633,7 @@ async function refreshAttention(suppressToast = false) {
                   </button>
                 </div>
               </div>
-              <div class="highlight-text">${h.text}</div>
+              <div class="highlight-text">${h.text || ''}</div>
               <div class="highlight-action-hint">${h.action || ''}</div>
               <div class="highlight-cta">
                 <span class="highlight-link">${h.link_text || 'View'} →</span>
@@ -4647,9 +4686,10 @@ async function refreshAttention(suppressToast = false) {
 }
 
 // Navigate when clicking a highlight card
-function navigateHighlight(event, link) {
+function navigateHighlight(event, element) {
   // Don't navigate if clicking the dismiss button
   if (event.target.closest('.dismiss-btn') || event.target.closest('.snooze-btn')) return;
+  const link = element.dataset.link;
   if (link) {
     window.location.href = link;
   }

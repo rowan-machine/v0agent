@@ -1,56 +1,56 @@
 ---
-description: Specification for FastAPI route implementations managing meetings and documents with business-specific workflows
+description: Documentation for API endpoints implementing FastAPI business logic around meetings, documents and signals
 ---
 
 
 # api-endpoints
 
-The API implements specialized endpoints for meeting and document management:
+## Meeting Management API
+/api/v1/meetings
+Importance Score: 85
 
-## Meeting Management
-Importance Score: 85/100
+- Signal extraction pipeline for meeting transcripts
+  - Automatic categorization of decisions, action items, blockers and risks
+  - Contextual linking to related documents and tickets
+  - Multi-stage validation workflow for extracted signals
+  - Custom confidence scoring based on historical pattern matching
 
-- `/api/meetings/analyze`
-  - Extracts and categorizes signals from meeting content
-  - Processes structured and unstructured meeting notes
-  - Auto-categorizes decisions, action items, blockers and risks
-  - Links related documents and tickets through semantic similarity
+- Meeting note processing workflow
+  - Template detection (30+ meeting types) with format-specific parsing
+  - Signal synthesis with relationship mapping
+  - Knowledge graph integration for entity linking
+  - Version control for meeting notes with change tracking
 
-- `/api/meetings/signal-extraction` 
-  - Implements custom signal extraction pipeline
-  - Processes 30+ meeting template formats
-  - Hierarchical categorization of business signals
-  - Integration with knowledge graph for relationship mapping
+## Document Management API 
+/api/v1/documents
+Importance Score: 80
 
-## Document Intelligence
-Importance Score: 80/100
+- Document intelligence system
+  - Semantic similarity-based document relationship scoring 
+  - Automated signal extraction from document content
+  - DIKW pyramid promotion rules for document insights
+  - Custom document categorization based on business context
 
-- `/api/documents/dikw`
-  - Handles DIKW (Data-Information-Knowledge-Wisdom) hierarchy
-  - Manages knowledge promotion through pyramid levels
-  - Tracks confidence scores for promoted items
-  - Implements feedback loop for signal validation
+## Knowledge Graph API
+/api/v1/knowledge
+Importance Score: 75
 
-- `/api/documents/synthesis`
-  - Merges related knowledge items based on semantic similarity
-  - Auto-generates tags and clusters for knowledge management
-  - Handles bidirectional linking with relationship typing
-  - Maintains confidence scoring system for links (0.0-1.0)
+- Knowledge synthesis engine
+  - Hierarchical knowledge organization (Data → Information → Knowledge → Wisdom)
+  - Relationship mapping between knowledge entities
+  - Confidence scoring for synthesized insights
+  - Pattern-based knowledge validation
 
-## Memory Management 
-Importance Score: 90/100
+## Signal Management API
+/api/v1/signals
+Importance Score: 70
 
-- `/api/memory/context`
-  - Manages contextual AI conversation memory
-  - Implements importance-based memory prioritization (1-10)
-  - Handles memory confidence scoring with feedback
-  - Controls context injection with token budgets
-
-- `/api/memory/boost`
-  - Calculates memory boost factors from feedback
-  - Adjusts signal confidence based on user interactions
-  - Manages promotion tracking with validation counts
-  - Handles decay rates for older memories
+- Signal lifecycle management
+  - Multi-stage approval workflow
+  - Custom signal categorization rules
+  - Source attribution tracking
+  - Signal relationship mapping
+  - Automated signal merging and deduplication
 
 $END$
 

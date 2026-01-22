@@ -3,8 +3,32 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hare Krishna</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪷</text></svg>">
+  <title>{% block title %}Dashboard{% endblock %}</title>
+  <!-- Early theme/mode/accent init to prevent flash -->
+  <script>
+    (function() {
+      // Set theme immediately to prevent flash
+      const savedTheme = localStorage.getItem('harekrishna-theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      // Set mode immediately so mode colors apply from the start
+      const savedMode = localStorage.getItem('signalflow-mode') || 'mode-a';
+      document.documentElement.setAttribute('data-mode', savedMode);
+      // Set accent color
+      const savedAccent = localStorage.getItem('signalflow-accent') || 'blue';
+      const colorMap = {
+        'blue': { primary: '#3b82f6', secondary: '#60a5fa' },
+        'orange': { primary: '#f97316', secondary: '#fb923c' },
+        'green': { primary: '#22c55e', secondary: '#4ade80' },
+        'red': { primary: '#ef4444', secondary: '#f87171' }
+      };
+      if (colorMap[savedAccent]) {
+        document.documentElement.style.setProperty('--sf-primary', colorMap[savedAccent].primary);
+        document.documentElement.style.setProperty('--sf-secondary', colorMap[savedAccent].secondary);
+      }
+    })();
+  </script>
+  <!-- SVG Logo Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g1' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%233b82f6'/%3E%3Cstop offset='100%25' stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='6' fill='url(%23g1)'/%3E%3Cpath d='M8 10h6v3H8zM8 15h10v3H8zM8 20h14v3H8z' fill='white' opacity='0.9'/%3E%3Ccircle cx='24' cy='11' r='3' fill='%2322c55e'/%3E%3C/svg%3E">
   <!-- Markdown Parser -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <!-- Tailwind CSS -->
@@ -40,6 +64,30 @@
       });
       if (typeof window.updateQuickPrompts === 'function') {
         window.updateQuickPrompts();
+      }
+    };
+    
+    // DRAWER TOGGLE - Define early so onclick works
+    window.toggleDrawer = function() {
+      var drawer = document.getElementById('navDrawer');
+      var overlay = document.getElementById('navDrawerOverlay');
+      if (!drawer || !overlay) return;
+      if (document.body.classList.contains('drawer-pinned')) return;
+      drawer.classList.toggle('open');
+      overlay.classList.toggle('open');
+    };
+    
+    window.togglePin = function() {
+      var pinBtn = document.querySelector('.pin-btn');
+      if (!pinBtn) return;
+      var drawer = document.getElementById('navDrawer');
+      var overlay = document.getElementById('navDrawerOverlay');
+      var isPinned = document.body.classList.toggle('drawer-pinned');
+      pinBtn.classList.toggle('pinned', isPinned);
+      localStorage.setItem('drawerPinned', isPinned);
+      if (isPinned && drawer && overlay) {
+        drawer.classList.remove('open');
+        overlay.classList.remove('open');
       }
     };
     
@@ -683,7 +731,7 @@
       opacity: 0;
       visibility: hidden;
       transition: opacity 0.3s, visibility 0.3s;
-      z-index: 90;
+      z-index: 199;
     }
 
     .drawer-overlay.open {
@@ -700,7 +748,7 @@
       background: var(--sf-card-bg, white);
       transform: translateX(-100%);
       transition: transform 0.3s ease;
-      z-index: 95;
+      z-index: 200;
       display: flex;
       flex-direction: column;
       box-shadow: 2px 0 12px rgba(0,0,0,0.1);
@@ -730,7 +778,7 @@
       padding: 1rem;
       border-bottom: 1px solid var(--sf-border, #eee);
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-end;
       align-items: center;
     }
 
@@ -743,27 +791,30 @@
 
     .pin-btn {
       background: none;
-      border: 1px solid var(--sf-border, #ddd);
-      padding: 0.3rem 0.6rem;
-      border-radius: 4px;
+      border: none;
+      padding: 0.5rem;
+      border-radius: 6px;
       cursor: pointer;
-      font-size: 0.75rem;
       color: var(--sf-text-muted, #666);
       display: flex;
       align-items: center;
-      gap: 0.3rem;
+      justify-content: center;
       transition: all 0.2s;
     }
 
     .pin-btn:hover {
       background: var(--sf-surface, #f5f5f5);
-      border-color: var(--sf-border, #bbb);
+      color: var(--sf-text, #333);
     }
 
     .pin-btn.pinned {
-      background: #3498db;
+      background: var(--sf-primary, #3b82f6);
       color: white;
-      border-color: #3498db;
+    }
+    
+    .pin-btn.pinned:hover {
+      background: var(--sf-primary, #3b82f6);
+      opacity: 0.9;
     }
 
     .drawer-nav {
@@ -1090,9 +1141,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
       </svg>
     </button>
-    <a href="/" class="header-brand">
-      <span>📡</span> SignalFlow
-    </a>
+    <a href="/" class="header-brand"></a>
     <div class="header-actions">
       <a href="/search" class="header-btn">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1110,17 +1159,15 @@
   </header>
 
   <!-- Drawer Overlay -->
-  <div class="drawer-overlay" onclick="toggleDrawer()"></div>
+  <div class="drawer-overlay" id="navDrawerOverlay" onclick="toggleDrawer()"></div>
 
   <!-- Sliding Drawer Navigation -->
-  <nav class="drawer">
+  <nav class="drawer" id="navDrawer">
     <div class="drawer-header">
-      <h3>Navigation</h3>
       <button class="pin-btn" onclick="togglePin()" title="Pin sidebar">
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M4.146.146A.5.5 0 0 1 4.5 0h7a.5.5 0 0 1 .5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 0 1-.5.5h-4v4.5c0 .276-.224 1.5-.5 1.5s-.5-1.224-.5-1.5V10h-4a.5.5 0 0 1-.5-.5c0-.973.64-1.725 1.17-2.189A5.921 5.921 0 0 1 5 6.708V2.277a2.77 2.77 0 0 1-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 0 1 .146-.354z"/>
         </svg>
-        <span id="pin-text">Pin</span>
       </button>
     </div>
     <div class="drawer-nav">
@@ -1326,75 +1373,86 @@
     </div>
   </nav>
 
-  <!-- Theme Switcher -->
-  <div class="theme-switcher">
-    <button class="theme-switcher-toggle" onclick="toggleTheme()">
-      <span id="currentThemeIcon">☀️</span>
-      <span id="currentThemeLabel">Light</span>
-    </button>
-  </div>
-
   <!-- Workflow Mode Indicator -->
   <div class="mode-indicator" id="modeIndicator">
-    <div class="mode-badge">
-      <div class="mode-badge-main" onclick="toggleModeSelector()">
-        <div class="mode-badge-dot"></div>
-        <span class="mode-badge-text" id="currentModeName">Mode A</span>
-        <span class="mode-sprint-time" id="currentModeSprintTime" title="Time spent this sprint">—</span>
-      </div>
-      <button class="mode-play-pause-btn" id="trackingPlayPause" onclick="toggleTrackingManual(event)" title="Start/Stop time tracking">
-        <span class="play-icon">▶</span>
-      </button>
-      <span class="mode-tracking-indicator" id="trackingIndicator" title="Time tracking active">
-        <span class="tracking-dot"></span>
-        <span class="tracking-time" id="trackingTime">00:00</span>
-      </span>
-      <span class="mode-badge-time" id="currentTime">--:--</span>
-    </div>
-    <div class="mode-selector" id="modeSelector">
-      <!-- Tracking Toggle -->
-      <div class="mode-tracking-toggle">
-        <label class="tracking-switch">
-          <input type="checkbox" id="autoTrackingToggle" onchange="toggleAutoTracking(this.checked)">
-          <span class="tracking-slider"></span>
-        </label>
-        <span class="tracking-label">Auto-track time on mode change</span>
-      </div>
-      <div class="mode-selector-header">
-        <h4>📍 Personal Laptop (Offline)</h4>
-      </div>
-      <button class="mode-option offline" data-mode="mode-a" onclick="setMode('mode-a')">
-        <div class="mode-option-dot mode-a"></div>
-        <div class="mode-option-content">
-          <div class="mode-option-title">A: Context Distillation</div>
-          <div class="mode-option-desc">Select files, zip context, seed agents, load neurons</div>
-          <span class="mode-option-tag offline">Offline • Non-Executing</span>
+    <!-- Theme Toggle Button -->
+    <button class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleThemeFromBadge()" title="Toggle light/dark mode">
+      <svg class="sun-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line>
+        <line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      </svg>
+      <svg class="moon-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </svg>
+    </button>
+    <!-- Mode Badge Wrapper (for dropdown positioning) -->
+    <div class="mode-badge-wrapper">
+      <div class="mode-badge">
+        <div class="mode-badge-main" onclick="toggleModeSelector()">
+          <div class="mode-badge-dot"></div>
+          <span class="mode-badge-text" id="currentModeName">Mode A</span>
+          <span class="mode-sprint-time" id="currentModeSprintTime" title="Time spent this sprint">—</span>
         </div>
-        <span class="mode-option-time" data-mode="mode-a">—</span>
-      </button>
-      <button class="mode-option offline" data-mode="mode-b" onclick="setMode('mode-b')">
-        <div class="mode-option-dot mode-b"></div>
-        <div class="mode-option-content">
-          <div class="mode-option-title">B: Implementation Planning</div>
-          <div class="mode-option-desc">Plan from canonical context only, no assumptions</div>
-          <span class="mode-option-tag offline">Offline • No Commits</span>
+        <button class="mode-play-pause-btn" id="trackingPlayPause" onclick="toggleTrackingManual(event)" title="Start/Stop time tracking">
+          <span class="play-icon">▶</span>
+        </button>
+        <span class="mode-tracking-indicator" id="trackingIndicator" title="Time tracking active">
+          <span class="tracking-dot"></span>
+          <span class="tracking-time" id="trackingTime">00:00</span>
+        </span>
+        <span class="mode-badge-time" id="currentTime">--:--</span>
+      </div>
+      <div class="mode-selector" id="modeSelector">
+        <!-- Tracking Toggle -->
+        <div class="mode-tracking-toggle">
+          <label class="tracking-switch">
+            <input type="checkbox" id="autoTrackingToggle" onchange="toggleAutoTracking(this.checked)">
+            <span class="tracking-slider"></span>
+          </label>
+          <span class="tracking-label">Auto-track time on mode change</span>
         </div>
-        <span class="mode-option-time" data-mode="mode-b">—</span>
-      </button>
-      <button class="mode-option offline" data-mode="mode-c" onclick="setMode('mode-c')">
-        <div class="mode-option-dot mode-c"></div>
-        <div class="mode-option-content">
-          <div class="mode-option-title">C: Assisted Draft Intake</div>
-          <div class="mode-option-desc">Junior/architect AI produces code, docs, walkthroughs</div>
-          <span class="mode-option-tag offline">Offline • Trello Buffer</span>
+        <div class="mode-selector-header">
+          <h4>📍 Personal Laptop (Offline)</h4>
         </div>
-        <span class="mode-option-time" data-mode="mode-c">—</span>
-      </button>
-      <button class="mode-option offline" data-mode="mode-d" onclick="setMode('mode-d')">
-        <div class="mode-option-dot mode-d"></div>
-        <div class="mode-option-content">
-          <div class="mode-option-title">D: Deep Review & Validation</div>
-          <div class="mode-option-desc">Line-by-line review, smoke test, break & fix</div>
+        <button class="mode-option offline" data-mode="mode-a" onclick="setMode('mode-a')">
+          <div class="mode-option-dot mode-a"></div>
+          <div class="mode-option-content">
+            <div class="mode-option-title">A: Context Distillation</div>
+            <div class="mode-option-desc">Select files, zip context, seed agents, load neurons</div>
+            <span class="mode-option-tag offline">Offline • Non-Executing</span>
+          </div>
+          <span class="mode-option-time" data-mode="mode-a">—</span>
+        </button>
+        <button class="mode-option offline" data-mode="mode-b" onclick="setMode('mode-b')">
+          <div class="mode-option-dot mode-b"></div>
+          <div class="mode-option-content">
+            <div class="mode-option-title">B: Implementation Planning</div>
+            <div class="mode-option-desc">Plan from canonical context only, no assumptions</div>
+            <span class="mode-option-tag offline">Offline • No Commits</span>
+          </div>
+          <span class="mode-option-time" data-mode="mode-b">—</span>
+        </button>
+        <button class="mode-option offline" data-mode="mode-c" onclick="setMode('mode-c')">
+          <div class="mode-option-dot mode-c"></div>
+          <div class="mode-option-content">
+            <div class="mode-option-title">C: Assisted Draft Intake</div>
+            <div class="mode-option-desc">Junior/architect AI produces code, docs, walkthroughs</div>
+            <span class="mode-option-tag offline">Offline • Trello Buffer</span>
+          </div>
+          <span class="mode-option-time" data-mode="mode-c">—</span>
+        </button>
+        <button class="mode-option offline" data-mode="mode-d" onclick="setMode('mode-d')">
+          <div class="mode-option-dot mode-d"></div>
+          <div class="mode-option-content">
+            <div class="mode-option-title">D: Deep Review & Validation</div>
+            <div class="mode-option-desc">Line-by-line review, smoke test, break & fix</div>
           <span class="mode-option-tag offline">Offline • Learning Loops</span>
         </div>
         <span class="mode-option-time" data-mode="mode-d">—</span>
@@ -1430,6 +1488,7 @@
         </div>
         <span class="mode-option-time" data-mode="mode-g">—</span>
       </button>
+      </div>
     </div>
   </div>
 
@@ -1455,6 +1514,20 @@
       setTheme(current === 'light' ? 'dark' : 'light');
     }
     
+    // Theme toggle from floating badge button
+    function toggleThemeFromBadge() {
+      const current = localStorage.getItem('harekrishna-theme') || 'light';
+      const newTheme = current === 'light' ? 'dark' : 'light';
+      localStorage.setItem('harekrishna-theme', newTheme);
+      document.documentElement.setAttribute('data-theme', newTheme);
+      // Also update settings page if the elements exist
+      const themeIcon = document.getElementById('currentThemeIcon');
+      const themeLabel = document.getElementById('currentThemeLabel');
+      if (themeIcon) themeIcon.textContent = newTheme === 'dark' ? '🌙' : '☀️';
+      if (themeLabel) themeLabel.textContent = newTheme === 'dark' ? 'Dark' : 'Light';
+    }
+    window.toggleThemeFromBadge = toggleThemeFromBadge;
+    
     // Initialize theme
     const savedTheme = localStorage.getItem('harekrishna-theme') || 'light';
     setTheme(savedTheme);
@@ -1473,7 +1546,8 @@
     function setMode(mode, persist = true) {
       document.documentElement.setAttribute('data-mode', mode);
       localStorage.setItem('signalflow-mode', mode);
-      document.getElementById('currentModeName').textContent = modeNames[mode] || mode;
+      const modeNameEl = document.getElementById('currentModeName');
+      if (modeNameEl) modeNameEl.textContent = modeNames[mode] || mode;
       
       // Update active state
       document.querySelectorAll('.mode-option').forEach(btn => {
@@ -1481,7 +1555,8 @@
       });
       
       // Close selector
-      document.getElementById('modeSelector').classList.remove('open');
+      const selector = document.getElementById('modeSelector');
+      if (selector) selector.classList.remove('open');
       
       // Dispatch custom event for other components (like dashboard workflow panel)
       document.dispatchEvent(new CustomEvent('modeChanged', { detail: { mode: mode } }));
@@ -1859,6 +1934,10 @@
       // Call original
       originalSetMode(mode, persist);
       
+      // Ensure selector is closed (force close)
+      const selector = document.getElementById('modeSelector');
+      if (selector) selector.classList.remove('open');
+      
       // Update sprint time display for the new mode
       updateSprintTimeDisplays();
       
@@ -1918,38 +1997,14 @@
       showToast('Error', urlParams.get('error'), 'error');
     }
 
-    // ===== DRAWER NAVIGATION =====
-    const drawer = document.querySelector('.drawer');
-    const overlay = document.querySelector('.drawer-overlay');
-    const body = document.body;
-    const pinText = document.getElementById('pin-text');
-    const pinBtn = document.querySelector('.pin-btn');
-
-    // Check localStorage for pinned state
-    if (localStorage.getItem('drawerPinned') === 'true') {
-      body.classList.add('drawer-pinned');
-      pinBtn.classList.add('pinned');
-      pinText.textContent = 'Unpin';
-    }
-
-    function toggleDrawer() {
-      if (body.classList.contains('drawer-pinned')) return;
-      drawer.classList.toggle('open');
-      overlay.classList.toggle('open');
-    }
-
-    function togglePin() {
-      const isPinned = body.classList.toggle('drawer-pinned');
-      pinBtn.classList.toggle('pinned', isPinned);
-      pinText.textContent = isPinned ? 'Unpin' : 'Pin';
-      localStorage.setItem('drawerPinned', isPinned);
-      
-      // Close drawer overlay when pinning
-      if (isPinned) {
-        drawer.classList.remove('open');
-        overlay.classList.remove('open');
+    // ===== DRAWER NAVIGATION (init pinned state) =====
+    (function() {
+      const pinBtn = document.querySelector('.pin-btn');
+      if (localStorage.getItem('drawerPinned') === 'true') {
+        document.body.classList.add('drawer-pinned');
+        if (pinBtn) pinBtn.classList.add('pinned');
       }
-    }
+    })();
 
     // ===== ARJUNA SHORTCUTS DRAWER =====
     function initArjunaShortcuts() {

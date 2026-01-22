@@ -835,7 +835,7 @@ def execute_intent(intent_data: dict) -> dict:
                     """
                     SELECT meeting_name, meeting_date, signals_json
                     FROM meeting_summaries
-                    WHERE meeting_name LIKE ? OR raw_notes LIKE ? OR signals_json LIKE ?
+                    WHERE meeting_name LIKE ? OR raw_text LIKE ? OR signals_json LIKE ?
                     ORDER BY meeting_date DESC
                     LIMIT 5
                     """,

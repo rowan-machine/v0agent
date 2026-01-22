@@ -4,6 +4,131 @@
 
 {% block content %}
 <style>
+  /* Dark Mode Overrides for Settings Page */
+  [data-theme="dark"] .settings-container h1 {
+    color: var(--sf-text, #e2e8f0);
+  }
+  
+  [data-theme="dark"] .settings-section {
+    background: var(--sf-card-bg, #1a2234);
+    border-color: var(--sf-border, #2d3748);
+  }
+  
+  [data-theme="dark"] .section-header {
+    border-color: var(--sf-border, #2d3748);
+  }
+  
+  [data-theme="dark"] .section-header:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  [data-theme="dark"] .section-header h2 {
+    color: var(--sf-text, #e2e8f0);
+  }
+  
+  [data-theme="dark"] .section-header p {
+    color: var(--sf-text-muted, #94a3b8);
+  }
+  
+  [data-theme="dark"] .setting-item h3 {
+    color: var(--sf-text, #e2e8f0);
+  }
+  
+  [data-theme="dark"] .setting-item p,
+  [data-theme="dark"] .settings-section p {
+    color: var(--sf-text-muted, #94a3b8);
+  }
+  
+  [data-theme="dark"] .form-group label {
+    color: var(--sf-text, #e2e8f0);
+  }
+  
+  [data-theme="dark"] .form-group input,
+  [data-theme="dark"] .form-group textarea,
+  [data-theme="dark"] input[type="text"],
+  [data-theme="dark"] input[type="number"],
+  [data-theme="dark"] textarea {
+    background: var(--sf-surface, #1e293b);
+    border-color: var(--sf-border, #2d3748);
+    color: var(--sf-text, #e2e8f0);
+  }
+  
+  [data-theme="dark"] .form-group input::placeholder,
+  [data-theme="dark"] .form-group textarea::placeholder,
+  [data-theme="dark"] input::placeholder,
+  [data-theme="dark"] textarea::placeholder {
+    color: var(--sf-text-muted, #64748b);
+  }
+  
+  [data-theme="dark"] .mode-card {
+    background: var(--sf-surface, #1e293b);
+    border-color: var(--sf-border, #2d3748);
+  }
+  
+  [data-theme="dark"] .mode-card-title {
+    color: var(--sf-text, #e2e8f0);
+  }
+  
+  [data-theme="dark"] .mode-card-desc {
+    color: var(--sf-text-muted, #94a3b8);
+  }
+  
+  [data-theme="dark"] .mode-steps {
+    background: rgba(0, 0, 0, 0.2);
+    border-color: var(--sf-border, #2d3748);
+  }
+  
+  [data-theme="dark"] .mode-steps li {
+    color: var(--sf-text-muted, #94a3b8);
+  }
+  
+  [data-theme="dark"] .steps-editor {
+    background: var(--sf-surface, #1e293b);
+  }
+  
+  [data-theme="dark"] .model-option {
+    background: var(--sf-surface, #1e293b);
+    border-color: var(--sf-border, #2d3748);
+  }
+  
+  [data-theme="dark"] .model-option:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  [data-theme="dark"] .model-name {
+    color: var(--sf-text, #e2e8f0);
+  }
+  
+  [data-theme="dark"] .warning-banner {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.4);
+  }
+  
+  [data-theme="dark"] .warning-banner strong {
+    color: #fbbf24;
+  }
+  
+  [data-theme="dark"] .warning-banner p {
+    color: #fcd34d;
+  }
+  
+  [data-theme="dark"] .mode-edit-content {
+    background: var(--sf-card-bg, #1a2234);
+    border-color: var(--sf-border, #2d3748);
+  }
+  
+  [data-theme="dark"] .mode-edit-header h3 {
+    color: var(--sf-text, #e2e8f0);
+  }
+  
+  [data-theme="dark"] small {
+    color: var(--sf-text-muted, #94a3b8) !important;
+  }
+  
+  [data-theme="dark"] .collapse-indicator {
+    color: var(--sf-text-muted, #94a3b8);
+  }
+
   .settings-container {
     max-width: 1400px;
     margin: 0 auto;
@@ -369,11 +494,42 @@
   <h1>⚙️ Settings</h1>
 
   <div class="settings-grid">
+  <!-- Appearance Section -->
+  <div class="settings-section" id="appearanceSection">
+    <div class="section-header" onclick="toggleSettingsSection('appearanceSection')">
+      <div>
+        <h2>🎨 Appearance</h2>
+        <p>Customize the look and feel</p>
+      </div>
+      <span class="collapse-indicator">▼</span>
+    </div>
+    <div class="section-content">
+      <div class="setting-item">
+        <div class="setting-info">
+          <h3>Dark Mode</h3>
+          <p>Toggle between light and dark themes</p>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="themeToggle" onchange="toggleThemeFromSettings()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      
+
+      
+      <div class="theme-preview" style="margin-top: 1rem; padding: 1rem; border-radius: 8px; border: 1px solid var(--sf-border, #e5e7eb); background: var(--sf-surface, #f9fafb);">
+        <p style="margin: 0; font-size: 0.85rem; color: var(--sf-text-muted, #6b7280);">
+          <span id="currentThemeLabel">☀️ Light mode active</span>
+        </p>
+      </div>
+    </div>
+  </div>
+
   <div class="settings-section" id="securitySection">
     <div class="section-header" onclick="toggleSettingsSection('securitySection')">
       <div>
         <h2>🔒 Security</h2>
-        <p>Control access to your Hare Krishna workspace</p>
+        <p>Control access to your SignalFlow workspace</p>
       </div>
       <span class="collapse-indicator">▼</span>
     </div>
@@ -560,7 +716,7 @@
   </div>
 
   <!-- Workflow Modes Admin -->
-  <div class="settings-section full-width" id="modesSection">
+  <div class="settings-section" id="modesSection">
     <div class="section-header" onclick="toggleSettingsSection('modesSection')">
       <div>
         <h2>🔧 Workflow Modes</h2>
@@ -568,7 +724,7 @@
       </div>
       <span class="collapse-indicator">▼</span>
     </div>
-    <div class="section-content">
+    <div class="section-content" style="max-height: 600px; overflow-y: auto;">
 
     <div id="modesContainer" style="margin-bottom: 1rem;">
       <div class="loading-state" style="text-align: center; padding: 2rem; color: #666;">
@@ -582,7 +738,7 @@
     </div>
   </div>
 
-  <div class="settings-section full-width" id="careerSection">
+  <div class="settings-section" id="careerSection">
     <div class="section-header" onclick="toggleSettingsSection('careerSection')">
       <div>
         <h2>🌱 Career Development Profile</h2>
@@ -590,7 +746,7 @@
       </div>
       <span class="collapse-indicator">▼</span>
     </div>
-    <div class="section-content">
+    <div class="section-content" style="max-height: 600px; overflow-y: auto;">
 
     <div style="display: grid; gap: 1rem;">
       <!-- Basic Info Row -->
@@ -760,6 +916,38 @@
 </div>
 
 <script>
+  // Theme toggle from settings
+  function toggleThemeFromSettings() {
+    const checkbox = document.getElementById('themeToggle');
+    const isDark = checkbox.checked;
+    const newTheme = isDark ? 'dark' : 'light';
+    
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('harekrishna-theme', newTheme);
+    
+    updateThemeLabel();
+  }
+  
+  function updateThemeLabel() {
+    const theme = document.documentElement.getAttribute('data-theme') || 'light';
+    const label = document.getElementById('currentThemeLabel');
+    const checkbox = document.getElementById('themeToggle');
+    
+    if (checkbox) {
+      checkbox.checked = (theme === 'dark');
+    }
+    if (label) {
+      label.textContent = theme === 'dark' ? '🌙 Dark mode active' : '☀️ Light mode active';
+    }
+  }
+  
+  // Initialize theme on load (accent colors fixed: orange primary, purple secondary)
+  (function() {
+    const savedTheme = localStorage.getItem('harekrishna-theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    setTimeout(updateThemeLabel, 0);
+  })();
+
   // Toggle settings section collapse
   function toggleSettingsSection(sectionId) {
     const section = document.getElementById(sectionId);
@@ -771,7 +959,7 @@
 
   // Restore collapsed states
   function restoreSettingsCollapsedStates() {
-    const sections = ['securitySection', 'aiSection', 'sprintSection', 'modesSection', 'careerSection'];
+    const sections = ['appearanceSection', 'securitySection', 'aiSection', 'sprintSection', 'modesSection', 'careerSection'];
     
     // Check URL params for openSection
     const urlParams = new URLSearchParams(window.location.search);

@@ -31,26 +31,28 @@ Data → Information → Knowledge → Wisdom
 - **Knowledge**: Actionable patterns
 - **Wisdom**: Strategic principles
 
-### 🔄 Workflow Modes (A-F)
-Structured sprint workflow system for offline-first development:
+### 🔄 Workflow Modes
+Customizable workflow modes to match your development process. Each mode has a distinct color and can be configured with its own checklist:
 
-| Mode | Name | Purpose |
-|------|------|---------|
-| **A** | Context Distillation | Select canonical files, seed agents |
-| **B** | Implementation Planning | Plan from context only, no assumptions |
-| **C** | Assisted Draft Intake | AI generates code, docs, walkthroughs |
-| **D** | Deep Review & Validation | Line-by-line review, smoke testing |
-| **E** | Promotion Readiness | Checklist, code locker, transfer packet |
-| **F** | Controlled Sync | Push/pull, commit, PR, merge (online) |
+- **7 default modes** (A-G) with customizable names, icons, and checklists
+- **Color-coded visualization** - borders and indicators change with each mode
+- **Progress tracking** - Check off tasks as you complete each phase
+- **Flexible workflow** - Adapt the system to your sprint methodology
 
-### 🎨 Time-Aware Themes
-Themes that adapt to your time of day:
-- 🌅 Dawn (5-8am)
-- ☀️ Morning (8am-12pm)
-- 🌤️ Afternoon (12-5pm)
-- 🌆 Evening (5-8pm)
-- 🌙 Night (8pm-12am)
-- 🌑 Late Night (12-5am)
+Configure modes in the settings to match your team's workflow (planning → implementation → review → deployment, etc.)
+
+### 🤖 Integrated AI Capabilities
+Powered by LLM intelligence throughout the platform:
+
+- **Smart Signal Extraction** — AI automatically identifies decisions, actions, blockers, risks, and ideas from meeting notes
+- **DIKW Synthesis** — AI generates contextual summaries when promoting signals through knowledge levels
+- **Quick Ask** — Natural language dashboard queries ("Show my blockers", "What was decided about the API?")
+- **Ticket Decomposition** — Break down tickets into actionable subtasks with AI assistance
+- **Implementation Planning** — Generate step-by-step plans for ticket completion
+- **Career Coaching** — Get personalized suggestions based on your work patterns and sprint data
+- **Semantic Search** — Find relevant content using natural language, powered by embeddings
+- **Meeting Analyzer** — Extract structured insights from unstructured meeting notes
+- **Learning Loop** — System improves signal extraction quality based on your feedback
 
 ### 🎫 Ticket Management
 - Create tickets from signals
@@ -303,49 +305,6 @@ POST /api/settings/workflow-progress
   "progress": [true, false, true, false]
 }
 ```
-
----
-
-## 🎨 Customization
-
-### Themes
-
-Available themes in the theme picker:
-- ☀️ Light
-- 🌙 Dark
-- 🌌 Midnight
-- 🌊 Ocean
-- 🌲 Forest
-- 🌅 Sunset
-- 🕐 Auto (time-based)
-
-### Adding Custom Themes
-
-Edit `static/signalflow-theme.css`:
-
-```css
-[data-theme="custom"] {
-  --sf-bg: #your-color;
-  --sf-surface: #your-color;
-  --sf-primary: #your-color;
-  --sf-text: #your-color;
-  --sf-text-muted: #your-color;
-  --sf-border: #your-color;
-}
-```
-
-### Mode Colors
-
-Each workflow mode has a signature color defined in `signalflow-modes.css`:
-
-| Mode | Color | Hex |
-|------|-------|-----|
-| A | Violet | `#8b5cf6` |
-| B | Blue | `#3b82f6` |
-| C | Green | `#22c55e` |
-| D | Amber | `#f59e0b` |
-| E | Red | `#ef4444` |
-| F | Cyan | `#06b6d4` |
 
 ---
 

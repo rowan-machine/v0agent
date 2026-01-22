@@ -18,45 +18,46 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-AI Assistant Business Logic Overview
+Assistant Widget Implementation
 Importance Score: 85/100
 
-Core Components:
+Core Business Components:
 
-1. Conversation Management System
-- Role-based message tracking (user/assistant)
-- 24-hour conversation persistence
-- Full context restoration
-- Integrated history preservation
+1. Intelligent Conversation System
+- 24-hour conversation expiry management
+- Weighted command suggestion system based on usage patterns
+- Contextual history persistence with automatic pruning
+- Session-based suggestion rotation using storage cycling
 
-2. Contextual Suggestion Engine
-- Rotating themed suggestion sets
-  - Task management suggestions
-  - Workflow recommendations
-  - Sprint coordination hints
-- Frequency/recency based prioritization
-- Auto-categorization with emoji mapping
+2. Domain-Specific Processing
+- Task/ticket management integration
+- Sprint workflow capabilities 
+- Standup logging and tracking
+- Meeting note search and analysis
+- Waiting-for item management
+- Model switching between "GPT-4o" and "Claude Sonnet"
 
-3. Command Intelligence Layer
-- Usage pattern analysis
-- Smart history tracking
-- Type-based command categorization
-- Cross-session context preservation
+3. Smart UI Intelligence
+- Context-aware suggestion generation
+- Dynamic suggestion sets with session rotation
+- Command frequency analysis
+- Intelligent emoji mapping based on content patterns
+- Automated command categorization (tickets, search, sprints)
 
-4. Response Processing Pipeline
-- Structured response handling
-  - Clarification workflows
-  - Follow-up generation
-  - Navigation suggestions
-- Domain-specific content formatting
+4. Message Analysis System
+- Dynamic follow-up generation based on content
+- Smart command categorization with emoji mapping
+- Automated classification into functional categories
+- Contextual suggestion adaptation
 
-Integration Architecture:
-- Bidirectional context flow between components
-- Persistent state management across sessions
-- Smart suggestion rotation with usage adaptation
-- Command categorization feedback loop
+Primary Focus Areas:
+- Software development workflow optimization
+- Sprint/task management integration
+- Meeting organization and analysis
+- AI model coordination
+- Development process automation
 
-The system emphasizes continuous learning through usage patterns while maintaining contextual awareness across interactions. The suggestion engine adapts to user behavior while the conversation management ensures coherent multi-turn interactions.
+The system implements a hybrid approach combining contextual suggestions with command history analysis, specifically tailored for software development operations rather than general-purpose chatbot functionality.
 
 $END$
 
