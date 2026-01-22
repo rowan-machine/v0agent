@@ -967,6 +967,200 @@ def get_mindmap_data_adapter(items: List[Dict]) -> Dict[str, Any]:
     }
 
 
+async def find_duplicates_adapter(items: List[Dict], level: str) -> List[List[int]]:
+    """
+    Adapter function for finding duplicate DIKW items.
+    Returns groups of IDs that are duplicates/similar.
+    
+    Migration Note (P1.8): Centralizes duplicate detection logic.
+    """
+    if len(items) < 2:
+        return []
+    
+    items_text = "\n".join([
+        f"[ID:{i.get('id')}] {(i.get('content') or '')[:150]}"
+        for i in items[:30]
+    ])
+    
+    prompt = f"""Analyze these {level}-level DIKW items and identify duplicates or highly similar items that should be merged.
+
+Items:
+{items_text}
+
+Return a JSON array of groups to merge. Each group is an array of IDs that are duplicates/similar:
+Example: [[1, 5], [3, 8, 12]]
+
+Only group items that are clearly about the same thing. Return empty array [] if no duplicates.
+Return ONLY the JSON array:"""
+
+    agent = get_dikw_synthesizer()
+    try:
+        response = await agent._call_llm_text(prompt)
+        groups = json.loads(response.strip().strip('```json').strip('```'))
+        return [g for g in groups if len(g) >= 2]
+    except Exception as e:
+        logger.error(f"Error finding duplicates in {level}: {e}")
+        return []
+
+
+async def analyze_for_suggestions_adapter(items: List[Dict]) -> Dict[str, Any]:
+    """
+    Adapter function for smart DIKW suggestions analysis.
+    Returns promotion candidates, confidence updates, wisdom candidates, and new suggestions.
+    
+    Migration Note (P1.8): Centralizes smart suggestions logic.
+    """
+    if not items:
+        return {'promote': [], 'confidence': [], 'wisdom_candidates': [], 'suggest': []}
+    
+    items_summary = "\n".join([
+        f"[{i.get('level')}] (id:{i.get('id')}, confidence:{i.get('confidence', 70)}%) {i.get('content', '')[:200]}"
+        for i in items[:25]
+    ])
+    
+    prompt = f"""Analyze these DIKW pyramid items thoroughly:
+
+Current items:
+{items_summary}
+
+Provide a comprehensive analysis with JSON containing:
+
+1. "promote": Items ready for promotion (consider: maturity, validation, actionability)
+   [{{"id": <id>, "from_level": "data", "to_level": "information", "reason": "specific reason"}}]
+
+2. "confidence": Items needing confidence adjustments based on:
+   - Specificity (vague = lower, precise = higher)
+   - Verifiability (opinion = 40-60%, verified fact = 80-95%)
+   - Actionability (theoretical = lower, practical = higher)
+   - Time sensitivity (dated info = lower confidence)
+   [{{"id": <id>, "old_confidence": 70, "new_confidence": 85, "reason": "why this adjustment"}}]
+
+3. "wisdom_candidates": Knowledge items that could become wisdom (timeless principles, strategic insights)
+   [{{"id": <id>, "potential_wisdom": "the distilled principle", "readiness_score": 1-10, "reason": "why this could be wisdom"}}]
+
+4. "suggest": New items to fill gaps in the pyramid
+   [{{"level": "knowledge", "content": "...", "summary": "..."}}]
+
+Be specific about confidence levels:
+- 30-50%: Uncertain, needs validation
+- 50-70%: Reasonable but not confirmed
+- 70-85%: Well-supported
+- 85-95%: Highly confident, verified
+
+JSON only:"""
+
+    agent = get_dikw_synthesizer()
+    try:
+        response = await agent._call_llm_text(prompt)
+        result = json.loads(response.strip().strip('```json').strip('```'))
+        return {
+            'promote': result.get('promote', [])[:4],
+            'confidence': result.get('confidence', [])[:6],
+            'wisdom_candidates': result.get('wisdom_candidates', [])[:3],
+            'suggest': result.get('suggest', [])[:3],
+        }
+    except Exception as e:
+        logger.error(f"Error in smart suggestions analysis: {e}")
+        return {'promote': [], 'confidence': [], 'wisdom_candidates': [], 'suggest': []}
+
+
+async def generate_promoted_content_adapter(
+    content: str, 
+    to_level: str
+) -> Dict[str, str]:
+    """
+    Adapter function for generating promoted content for a specific level.
+    Returns dict with 'promoted_content' and 'summary'.
+    
+    Migration Note (P1.8): Centralizes promotion content generation.
+    """
+    promotion_prompts = {
+        'information': f"""Transform this raw data into structured, contextualized information.
+Explain what it means, why it matters, and what context is needed to understand it.
+
+Data: {content}
+
+Provide clear, informative content:""",
+        'knowledge': f"""Extract actionable knowledge from this information.
+What patterns emerge? What can be applied? What decisions does this inform?
+
+Information: {content}
+
+Provide actionable knowledge:""",
+        'wisdom': f"""Distill strategic wisdom from this knowledge.
+What timeless principle or strategic insight emerges that will remain true across contexts?
+
+Knowledge: {content}
+
+Provide wisdom-level insight:"""
+    }
+    
+    agent = get_dikw_synthesizer()
+    try:
+        promoted_content = await agent._call_llm_text(
+            promotion_prompts.get(to_level, promotion_prompts['information'])
+        )
+        summary = await agent._call_llm_text(
+            f"Summarize this {to_level}-level insight in one clear sentence:\n\n{promoted_content}"
+        )
+        return {'promoted_content': promoted_content, 'summary': summary}
+    except Exception as e:
+        logger.error(f"Error generating promoted content: {e}")
+        return {'promoted_content': content, 'summary': ''}
+
+
+async def generate_wisdom_content_adapter(
+    knowledge_content: str, 
+    potential_wisdom_direction: str = ""
+) -> str:
+    """
+    Adapter function for generating wisdom content from knowledge.
+    
+    Migration Note (P1.8): Centralizes wisdom generation logic.
+    """
+    prompt = f"""Transform this knowledge into timeless wisdom - a principle that transcends specific contexts.
+
+Knowledge: {knowledge_content}
+Potential wisdom direction: {potential_wisdom_direction}
+
+Create a concise, memorable wisdom statement:"""
+
+    agent = get_dikw_synthesizer()
+    try:
+        return await agent._call_llm_text(prompt)
+    except Exception as e:
+        logger.error(f"Error generating wisdom content: {e}")
+        return ""
+
+
+async def suggest_from_signals_adapter(signal_context: str) -> List[Dict]:
+    """
+    Adapter function for suggesting DIKW items from meeting signals.
+    
+    Migration Note (P1.8): Centralizes signal-to-DIKW suggestion logic.
+    """
+    if not signal_context:
+        return []
+    
+    prompt = f"""Based on these recent signals from meetings, suggest 2-3 DIKW items to add:
+
+{signal_context}
+
+Return a JSON array of objects with: level (data/information/knowledge/wisdom), content, summary
+Example: [{{"level": "data", "content": "Team velocity decreased 20% this sprint", "summary": "Velocity tracking observation"}}]
+
+JSON array only:"""
+
+    agent = get_dikw_synthesizer()
+    try:
+        response = await agent._call_llm_text(prompt)
+        suggestions = json.loads(response.strip().strip('```json').strip('```'))
+        return suggestions[:3]
+    except Exception as e:
+        logger.error(f"Error generating suggestions from signals: {e}")
+        return []
+
+
 # Synchronous wrapper for backward compatibility
 def generate_dikw_tags(content: str, level: str, existing_tags: str = "") -> str:
     """
