@@ -5,46 +5,49 @@ description: Documents core data models and relationships for meetings and docum
 
 # data-models
 
-## Meeting Model (Importance: 85)
+## Core Data Models
 
-- Meeting entities maintain sophisticated metadata including:
-  - Signal extraction status and confidence scores
-  - DIKW pyramid classifications 
-  - Version history with full change tracking
-  - Meeting series grouping and relationship mapping
-  - Template pattern detection results
+### Meetings Model
+- Primary container for collaborative session data
+- Links to multiple Documents and Signals
+- Specialized fields:
+  - Meeting template type (30+ business templates) 
+  - Signal extraction confidence scores
+  - Semantic context vectors
+  - DIKW pyramid stage markers
+- Supports hierarchical meeting relationships
+Importance Score: 90/100
 
-- Custom fields track:
-  - Extracted signal counts by category
-  - Knowledge item relationships
-  - Sprint/ticket associations
-  - Historical template matches
+### Documents Model 
+- Core knowledge artifact storage
+- Complex relationships with Meetings, Signals, Knowledge Items
+- Domain-specific attributes:
+  - Knowledge state tracking (Data/Info/Knowledge/Wisdom)
+  - Signal extraction markers
+  - Semantic relationship scores
+  - Template classification tags
+- Versioned document history with signal preservation
+Importance Score: 85/100
 
-## Document Model (Importance: 80)
+## Key Relationships
 
-- Document entities implement:
-  - Hierarchical knowledge organization
-  - Signal source tracking
-  - Version-controlled content with diff tracking
-  - Semantic relationship scoring with other documents
-  - Template-based categorization
+### Meeting-Document Links
+- Bidirectional references between meetings and documents
+- Semantic similarity scores for automatic linking
+- Signal inheritance patterns between related items
+- Template-based relationship rules
 
-## Relationship Structure (Importance: 75)
+### Signal Connections
+- Maps extracted signals across meetings and documents
+- Maintains DIKW promotion history
+- Tracks signal confidence evolution
+- Links related signals by semantic similarity
 
-- Bidirectional linking between meetings and documents
-- Confidence scoring for automatically detected relationships
-- Custom fields for relationship metadata:
-  - Match confidence scores
-  - Relationship type classification
-  - Temporal connection strength
-  - Citation tracking
-  - Signal overlap metrics
-
-- Knowledge graph integration points:
-  - DIKW hierarchy position tracking
-  - Cross-entity relationship strength scoring
-  - Semantic clustering metadata
-  - Historical relationship evolution
+### Knowledge Evolution Chain
+- Tracks progression through DIKW hierarchy
+- Maintains source relationships during promotion
+- Documents transformation history and confidence
+- Preserves context during knowledge evolution
 
 $END$
 
