@@ -484,7 +484,7 @@ def dikw_page(request: Request):
 
 @app.get("/knowledge-graph")
 def knowledge_graph_page(request: Request):
-    """Neo4j Knowledge Graph visualization and management page."""
+    """Knowledge Mindmap visualization page."""
     return templates.TemplateResponse("knowledge_graph.html", {"request": request})
 
 
@@ -1316,9 +1316,21 @@ async def get_daily_report(days: int = 14):
         return JSONResponse({"daily": result})
 
 
+# Sprint burndown cache to avoid recomputing on rapid mode changes
+_sprint_burndown_cache = {"data": None, "timestamp": 0}
+SPRINT_BURNDOWN_CACHE_TTL = 90  # Cache for 90 seconds (improved from 30)
+
+
 @app.get("/api/reports/sprint-burndown")
-async def get_sprint_burndown():
+async def get_sprint_burndown(force: bool = False):
     """Get sprint points breakdown with task decomposition progress."""
+    import time
+    
+    # Check cache unless force refresh
+    now = time.time()
+    if not force and _sprint_burndown_cache["data"] and (now - _sprint_burndown_cache["timestamp"]) < SPRINT_BURNDOWN_CACHE_TTL:
+        return JSONResponse(_sprint_burndown_cache["data"])
+    
     with connect() as conn:
         # Get sprint settings for jeopardy calculation
         sprint_settings = conn.execute("SELECT * FROM sprint_settings WHERE id = 1").fetchone()
@@ -1463,7 +1475,7 @@ async def get_sprint_burndown():
                 jeopardy_status = "warning"
                 jeopardy_message = f"⚠️ High task count: {total_remaining_tasks} subtasks remaining with {working_days_remaining} days left"
         
-        return JSONResponse({
+        result = {
             "total_points": total_points,
             "completed_points": round(completed_points, 1),
             "in_progress_points": round(in_progress_points, 1),
@@ -1476,7 +1488,13 @@ async def get_sprint_burndown():
             "jeopardy_status": jeopardy_status,
             "jeopardy_message": jeopardy_message,
             "tickets": ticket_breakdown
-        })
+        }
+        
+        # Update cache
+        _sprint_burndown_cache["data"] = result
+        _sprint_burndown_cache["timestamp"] = now
+        
+        return JSONResponse(result)
 
 
 def format_duration(seconds: int) -> str:
@@ -1693,21 +1711,31 @@ async def get_dikw_items(level: str = None, status: str = "active"):
     with connect() as conn:
         if level:
             items = conn.execute(
-                """SELECT * FROM dikw_items WHERE level = ? AND status = ? 
-                   ORDER BY created_at DESC""",
+                """SELECT d.*, m.meeting_name, m.meeting_date 
+                   FROM dikw_items d 
+                   LEFT JOIN meeting_summaries m ON d.meeting_id = m.id
+                   WHERE d.level = ? AND d.status = ? 
+                   ORDER BY d.created_at DESC""",
                 (level, status)
             ).fetchall()
         else:
             items = conn.execute(
-                """SELECT * FROM dikw_items WHERE status = ? 
-                   ORDER BY level, created_at DESC""",
+                """SELECT d.*, m.meeting_name, m.meeting_date 
+                   FROM dikw_items d 
+                   LEFT JOIN meeting_summaries m ON d.meeting_id = m.id
+                   WHERE d.status = ? 
+                   ORDER BY d.level, d.created_at DESC""",
                 (status,)
             ).fetchall()
     
     # Group by level for pyramid view
     pyramid = {level: [] for level in DIKW_LEVELS}
     for item in items:
-        pyramid[item['level']].append(dict(item))
+        item_dict = dict(item)
+        # Normalize signal type
+        if item_dict.get('original_signal_type'):
+            item_dict['original_signal_type'] = normalize_signal_type(item_dict['original_signal_type'])
+        pyramid[item['level']].append(item_dict)
     
     return JSONResponse({
         "pyramid": pyramid,
@@ -1740,12 +1768,15 @@ async def promote_signal_to_dikw(request: Request):
     except:
         summary = signal_text[:200]
     
+    # Auto-generate tags based on content and signal type
+    tags = generate_dikw_tags(signal_text, target_level, signal_type)
+    
     with connect() as conn:
         conn.execute(
             """INSERT INTO dikw_items 
-               (level, content, summary, source_type, original_signal_type, meeting_id, validation_count)
-               VALUES (?, ?, ?, 'signal', ?, ?, 1)""",
-            (target_level, signal_text, summary, signal_type, meeting_id)
+               (level, content, summary, source_type, original_signal_type, meeting_id, validation_count, tags)
+               VALUES (?, ?, ?, 'signal', ?, ?, 1, ?)""",
+            (target_level, signal_text, summary, signal_type, meeting_id, tags)
         )
         conn.commit()
         item_id = conn.execute("SELECT last_insert_rowid() as id").fetchone()["id"]
@@ -1760,7 +1791,7 @@ async def promote_signal_to_dikw(request: Request):
         )
         conn.commit()
     
-    return JSONResponse({"status": "ok", "id": item_id, "level": target_level})
+    return JSONResponse({"status": "ok", "id": item_id, "level": target_level, "tags": tags})
 
 
 @app.post("/api/dikw/promote")
@@ -1768,6 +1799,9 @@ async def promote_dikw_item(request: Request):
     """Promote a DIKW item to the next level (with AI synthesis)."""
     data = await request.json()
     item_id = data.get("item_id")
+    to_level = data.get("to_level")  # Optional: force specific target level
+    promoted_content = data.get("promoted_content")  # Optional: pre-generated content
+    provided_summary = data.get("summary")  # Optional: pre-generated summary
     
     if not item_id:
         return JSONResponse({"error": "Item ID is required"}, status_code=400)
@@ -1779,34 +1813,64 @@ async def promote_dikw_item(request: Request):
             return JSONResponse({"error": "Item not found"}, status_code=404)
         
         current_level = item['level']
-        if current_level == 'wisdom':
+        if current_level == 'wisdom' and not to_level:
             return JSONResponse({"error": "Already at highest level"}, status_code=400)
         
-        next_level = DIKW_NEXT_LEVEL[current_level]
+        # Use provided target level or default to next level
+        next_level = to_level if to_level else DIKW_NEXT_LEVEL.get(current_level, 'wisdom')
         
-        # Generate AI synthesis for next level
-        synthesis_prompts = {
-            'information': f"Transform this raw data into structured information. What does it mean in context?\n\nData: {item['content']}",
-            'knowledge': f"Extract actionable knowledge from this information. What patterns or insights emerge?\n\nInformation: {item['content']}\n\nPrevious summary: {item['summary']}",
-            'wisdom': f"Distill strategic wisdom from this knowledge. What principles should guide future decisions?\n\nKnowledge: {item['content']}\n\nInsight: {item['summary']}"
-        }
+        # Use provided content or keep original
+        new_content = promoted_content if promoted_content else item['content']
         
-        try:
-            new_summary = ask_llm(synthesis_prompts[next_level])
-        except:
-            new_summary = f"Promoted from {current_level}: {item['summary']}"
+        # Generate AI synthesis for summary if not provided
+        if provided_summary:
+            new_summary = provided_summary
+        else:
+            synthesis_prompts = {
+                'information': f"Transform this raw data into structured information. What does it mean in context?\n\nData: {new_content}",
+                'knowledge': f"Extract actionable knowledge from this information. What patterns or insights emerge?\n\nInformation: {new_content}",
+                'wisdom': f"Distill strategic wisdom from this knowledge. What principles should guide future decisions?\n\nKnowledge: {new_content}"
+            }
+            
+            try:
+                new_summary = ask_llm(synthesis_prompts.get(next_level, synthesis_prompts['information']))
+            except:
+                new_summary = f"Promoted from {current_level}: {item['summary'] or ''}"
         
-        # Create new item at higher level
+        # Normalize confidence (handle both 0-1 and 0-100 ranges)
+        current_confidence = item['confidence'] or 70
+        if current_confidence <= 1:
+            current_confidence = current_confidence * 100
+        new_confidence = min(95, current_confidence + 5)  # Slight boost on promotion
+        
+        # Auto-generate tags for the promoted content
+        existing_tags = item['tags'] or ''
+        new_tags = generate_dikw_tags(new_content, next_level, existing_tags)
+        
+        # Create new item at higher level with the refined content
         conn.execute(
             """INSERT INTO dikw_items 
-               (level, content, summary, source_type, source_ref_ids, original_signal_type, meeting_id, confidence, validation_count)
-               VALUES (?, ?, ?, 'synthesis', ?, ?, ?, ?, ?)""",
-            (next_level, item['content'], new_summary, json.dumps([item_id]), 
+               (level, content, summary, source_type, source_ref_ids, original_signal_type, meeting_id, confidence, validation_count, tags)
+               VALUES (?, ?, ?, 'synthesis', ?, ?, ?, ?, ?, ?)""",
+            (next_level, new_content, new_summary, json.dumps([item_id]), 
              item['original_signal_type'], item['meeting_id'],
-             min(1.0, item['confidence'] + 0.1), item['validation_count'] + 1)
+             new_confidence, (item['validation_count'] or 0) + 1, new_tags)
         )
         conn.commit()
         new_id = conn.execute("SELECT last_insert_rowid() as id").fetchone()["id"]
+        
+        # Record evolution history for the promotion
+        conn.execute("""
+            INSERT INTO dikw_evolution 
+            (item_id, event_type, from_level, to_level, source_item_ids, content_snapshot, created_at)
+            VALUES (?, 'promoted', ?, ?, ?, ?, datetime('now'))
+        """, (
+            new_id,
+            current_level,
+            next_level,
+            json.dumps([item_id]),
+            item['content']  # Snapshot of original content
+        ))
         
         # Update original item to show it was promoted
         conn.execute(
@@ -1821,7 +1885,9 @@ async def promote_dikw_item(request: Request):
         "new_id": new_id, 
         "from_level": current_level, 
         "to_level": next_level,
-        "summary": new_summary
+        "content": new_content,
+        "summary": new_summary,
+        "tags": new_tags
     })
 
 
@@ -1945,6 +2011,44 @@ async def validate_dikw_item(request: Request):
     return JSONResponse({"status": "ok", "action": action})
 
 
+def generate_dikw_tags(content: str, level: str, existing_tags: str = "") -> str:
+    """Generate relevant tags for DIKW content using AI."""
+    try:
+        prompt = f"""Generate 3-5 relevant, concise tags for this {level}-level DIKW item.
+
+Content: {content[:500]}
+
+Rules:
+- Tags should be lowercase, single words or hyphenated-phrases
+- Focus on: topic, domain, type of insight, actionability
+- Examples: architecture, team-process, sprint-planning, technical-debt, decision
+{f"Existing tags to consider: {existing_tags}" if existing_tags else ""}
+
+Return ONLY comma-separated tags, nothing else:"""
+        tags = ask_llm(prompt).strip()
+        # Clean up the response
+        tags = tags.replace('"', '').replace("'", '').strip()
+        return tags
+    except Exception as e:
+        print(f"Error generating tags: {e}")
+        return ""
+
+
+@app.post("/api/dikw/generate-tags")
+async def generate_tags_endpoint(request: Request):
+    """Generate tags for DIKW content."""
+    data = await request.json()
+    content = data.get("content", "")
+    level = data.get("level", "data")
+    existing_tags = data.get("existing_tags", "")
+    
+    if not content:
+        return JSONResponse({"error": "Content is required"}, status_code=400)
+    
+    tags = generate_dikw_tags(content, level, existing_tags)
+    return JSONResponse({"status": "ok", "tags": tags})
+
+
 @app.post("/api/dikw")
 async def create_dikw_item(request: Request):
     """Create a new DIKW item."""
@@ -1953,9 +2057,14 @@ async def create_dikw_item(request: Request):
     content = data.get("content", "").strip()
     summary = data.get("summary", "").strip()
     tags = data.get("tags", "")
+    auto_tags = data.get("auto_tags", True)  # Auto-generate tags by default
     
     if not content:
         return JSONResponse({"error": "Content is required"}, status_code=400)
+    
+    # Auto-generate tags if not provided and auto_tags is enabled
+    if auto_tags and not tags:
+        tags = generate_dikw_tags(content, level)
     
     with connect() as conn:
         conn.execute(
@@ -1966,31 +2075,148 @@ async def create_dikw_item(request: Request):
         conn.commit()
         item_id = conn.execute("SELECT last_insert_rowid() as id").fetchone()["id"]
     
-    return JSONResponse({"status": "ok", "id": item_id})
+    return JSONResponse({"status": "ok", "id": item_id, "tags": tags})
 
 
 @app.put("/api/dikw/{item_id}")
 async def update_dikw_item(item_id: int, request: Request):
     """Update an existing DIKW item."""
     data = await request.json()
-    level = data.get("level")
-    content = data.get("content", "").strip()
-    summary = data.get("summary", "").strip()
-    tags = data.get("tags", "")
-    
-    if not content:
-        return JSONResponse({"error": "Content is required"}, status_code=400)
     
     with connect() as conn:
-        conn.execute(
-            """UPDATE dikw_items 
-               SET level = ?, content = ?, summary = ?, tags = ?, updated_at = CURRENT_TIMESTAMP
-               WHERE id = ?""",
-            (level, content, summary or None, tags or None, item_id)
-        )
+        # Get current item to preserve unchanged fields
+        current = conn.execute("SELECT * FROM dikw_items WHERE id = ?", (item_id,)).fetchone()
+        if not current:
+            return JSONResponse({"error": "Item not found"}, status_code=404)
+        
+        # Extract fields with fallback to existing values
+        level = data.get("level", current['level'])
+        content = data.get("content", current['content'])
+        summary = data.get("summary", current['summary'])
+        tags = data.get("tags", current['tags'])
+        confidence = data.get("confidence")
+        
+        # Check if content or level changed to record evolution
+        content_changed = content != current['content']
+        level_changed = level != current['level']
+        
+        # Record evolution history if significant changes
+        if content_changed or level_changed:
+            # Snapshot the old state before updating
+            conn.execute("""
+                INSERT INTO dikw_evolution 
+                (item_id, event_type, from_level, to_level, content_snapshot, created_at)
+                VALUES (?, ?, ?, ?, ?, datetime('now'))
+            """, (
+                item_id,
+                'edited' if not level_changed else 'promoted',
+                current['level'],
+                level,
+                current['content']  # Snapshot of OLD content before change
+            ))
+        
+        # Handle confidence update (support both 0-1 and 0-100 ranges)
+        if confidence is not None:
+            if confidence <= 1:
+                confidence = confidence * 100
+            conn.execute(
+                """UPDATE dikw_items 
+                   SET level = ?, content = ?, summary = ?, tags = ?, confidence = ?, updated_at = CURRENT_TIMESTAMP
+                   WHERE id = ?""",
+                (level, content, summary, tags, confidence, item_id)
+            )
+        else:
+            conn.execute(
+                """UPDATE dikw_items 
+                   SET level = ?, content = ?, summary = ?, tags = ?, updated_at = CURRENT_TIMESTAMP
+                   WHERE id = ?""",
+                (level, content, summary, tags, item_id)
+            )
         conn.commit()
     
     return JSONResponse({"status": "ok"})
+
+
+@app.delete("/api/dikw/{item_id}")
+async def delete_dikw_item(item_id: int):
+    """Delete a DIKW item."""
+    with connect() as conn:
+        item = conn.execute("SELECT * FROM dikw_items WHERE id = ?", (item_id,)).fetchone()
+        if not item:
+            return JSONResponse({"error": "Item not found"}, status_code=404)
+        
+        conn.execute("DELETE FROM dikw_items WHERE id = ?", (item_id,))
+        conn.commit()
+    
+    return JSONResponse({"status": "ok"})
+
+
+@app.post("/api/dikw/ai-review")
+async def ai_review_dikw(request: Request):
+    """AI review and update existing DIKW item names/summaries."""
+    data = await request.json()
+    pyramid = data.get("pyramid", {})
+    
+    reviews = []
+    
+    # Collect all items for context-aware review
+    all_items = []
+    for level in ['data', 'information', 'knowledge', 'wisdom']:
+        for item in pyramid.get(level, []):
+            all_items.append({
+                "id": item.get("id"),
+                "level": level,
+                "content": item.get("content", ""),
+                "summary": item.get("summary", ""),
+            })
+    
+    if not all_items:
+        return JSONResponse({"status": "ok", "reviews": []})
+    
+    # Build context for AI
+    items_summary = "\n".join([
+        f"[ID:{i['id']}] ({i['level']}) Content: {i['content'][:150]}... | Summary: {i['summary'][:80] if i['summary'] else 'None'}..."
+        for i in all_items[:20]
+    ])
+    
+    try:
+        prompt = f"""Review these DIKW pyramid items and suggest improvements to their content (nugget name) and summaries.
+Focus on clarity, specificity, and appropriate level of abstraction for each DIKW level.
+
+Items to review:
+{items_summary}
+
+For each item that needs improvement, provide a JSON object with:
+- id: the item ID
+- improved_content: a clearer, more specific content/name (keep concise)
+- improved_summary: a better summary appropriate for the DIKW level
+- reason: brief explanation of what was improved
+
+Return a JSON array of improvements (only include items that need changes):
+"""
+        response = ask_llm(prompt)
+        result = json.loads(response.strip().strip('```json').strip('```'))
+        
+        # Validate and format reviews
+        for review in result[:10]:  # Limit to 10 reviews
+            item_id = review.get("id")
+            item = next((i for i in all_items if i["id"] == item_id), None)
+            if item:
+                reviews.append({
+                    "id": item_id,
+                    "level": item["level"],
+                    "current_content": item["content"][:100],
+                    "current_summary": item["summary"][:80] if item["summary"] else "",
+                    "improved_content": review.get("improved_content", item["content"]),
+                    "improved_summary": review.get("improved_summary", item["summary"] or ""),
+                    "reason": review.get("reason", "Improved for clarity")
+                })
+    except Exception as e:
+        print(f"Error in AI review: {e}")
+        import traceback
+        traceback.print_exc()
+    
+    return JSONResponse({"status": "ok", "reviews": reviews})
 
 
 @app.post("/api/dikw/ai-refine")
@@ -2083,15 +2309,476 @@ Provide the promoted wisdom-level content:"""
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+# -------------------------
+# Mindmap API Endpoints
+# -------------------------
+
+# In-memory store for mindmap data (can be persisted to DB later)
+_mindmap_cache = {
+    "last_generated": None,
+    "last_item_count": 0,
+    "data": None
+}
+
+
+@app.get("/api/mindmap/data")
+async def get_mindmap_data():
+    """Get mindmap data for visualization."""
+    with connect() as conn:
+        items = conn.execute(
+            """SELECT * FROM dikw_items WHERE status = 'active' 
+               ORDER BY level, created_at DESC"""
+        ).fetchall()
+    
+    # Build tree structure for mindmap
+    tree = {
+        "name": "Knowledge",
+        "type": "root",
+        "children": []
+    }
+    
+    # Group by level
+    levels = {level: [] for level in DIKW_LEVELS}
+    for item in items:
+        levels[item['level']].append(dict(item))
+    
+    # Build hierarchical tree structure
+    for level in ['data', 'information', 'knowledge', 'wisdom']:
+        level_node = {
+            "name": level.capitalize(),
+            "type": "level",
+            "level": level,
+            "children": []
+        }
+        for item in levels[level][:20]:  # Limit per level
+            level_node["children"].append({
+                "id": item['id'],
+                "name": (item['content'] or '')[:40] + ('...' if len(item.get('content', '')) > 40 else ''),
+                "type": "item",
+                "level": level,
+                "summary": item.get('summary', ''),
+                "tags": item.get('tags', '')
+            })
+        tree["children"].append(level_node)
+    
+    # Build flat nodes and links for force graph
+    nodes = [{"id": "root", "name": "Knowledge", "type": "root", "level": "root"}]
+    links = []
+    
+    for level in ['data', 'information', 'knowledge', 'wisdom']:
+        level_id = f"level_{level}"
+        nodes.append({"id": level_id, "name": level.capitalize(), "type": "level", "level": level})
+        links.append({"source": "root", "target": level_id})
+        
+        for item in levels[level][:15]:
+            item_id = f"item_{item['id']}"
+            nodes.append({
+                "id": item_id,
+                "name": (item['content'] or '')[:30] + ('...' if len(item.get('content', '')) > 30 else ''),
+                "type": "item",
+                "level": level,
+                "summary": item.get('summary', '')
+            })
+            links.append({"source": level_id, "target": item_id})
+    
+    # Build tag clusters
+    tag_clusters = {}
+    for item in items:
+        tags = (item.get('tags') or '').split(',')
+        for tag in tags:
+            tag = tag.strip()
+            if tag:
+                if tag not in tag_clusters:
+                    tag_clusters[tag] = []
+                tag_clusters[tag].append({
+                    "id": item['id'],
+                    "level": item['level'],
+                    "content": item['content'][:50]
+                })
+    
+    # Count stats
+    counts = {
+        "data": len(levels['data']),
+        "information": len(levels['information']),
+        "knowledge": len(levels['knowledge']),
+        "wisdom": len(levels['wisdom']),
+        "tags": len(tag_clusters),
+        "connections": len(links)
+    }
+    
+    return JSONResponse({
+        "tree": tree,
+        "nodes": nodes,
+        "links": links,
+        "tagClusters": tag_clusters,
+        "counts": counts
+    })
+
+
+@app.post("/api/mindmap/generate")
+async def generate_mindmap(request: Request):
+    """Generate or update mindmap data."""
+    data = await request.json()
+    full_regenerate = data.get("full", True)
+    
+    with connect() as conn:
+        items = conn.execute(
+            """SELECT * FROM dikw_items WHERE status = 'active' 
+               ORDER BY created_at DESC"""
+        ).fetchall()
+    
+    new_items_count = 0
+    
+    if not full_regenerate:
+        # Only count items newer than last generation
+        if _mindmap_cache.get("last_generated"):
+            new_items_count = len([i for i in items if i not in _mindmap_cache.get("processed_ids", [])])
+        else:
+            new_items_count = len(items)
+    else:
+        new_items_count = len(items)
+    
+    # Update cache
+    _mindmap_cache["last_generated"] = datetime.now().isoformat()
+    _mindmap_cache["last_item_count"] = len(items)
+    _mindmap_cache["processed_ids"] = [i['id'] for i in items]
+    
+    return JSONResponse({
+        "status": "ok",
+        "new_items": new_items_count,
+        "total_items": len(items),
+        "last_generated": _mindmap_cache["last_generated"]
+    })
+
+
+@app.get("/api/mindmap/tags")
+async def get_mindmap_tags():
+    """Get tag cloud data for mindmap."""
+    with connect() as conn:
+        items = conn.execute(
+            """SELECT tags FROM dikw_items WHERE status = 'active' AND tags IS NOT NULL AND tags != ''"""
+        ).fetchall()
+    
+    tag_counts = {}
+    for item in items:
+        tags = (item['tags'] or '').split(',')
+        for tag in tags:
+            tag = tag.strip().lower()
+            if tag:
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+    
+    # Sort by count descending
+    sorted_tags = sorted(
+        [{"name": tag, "count": count} for tag, count in tag_counts.items()],
+        key=lambda x: x['count'],
+        reverse=True
+    )
+    
+    return JSONResponse(sorted_tags)
+
+
+@app.get("/api/mindmap/status")
+async def get_mindmap_status():
+    """Get mindmap generation status."""
+    return JSONResponse({
+        "last_generated": _mindmap_cache.get("last_generated"),
+        "last_item_count": _mindmap_cache.get("last_item_count", 0)
+    })
+
+
+@app.post("/api/dikw/backfill-tags")
+async def backfill_dikw_tags():
+    """Backfill tags for existing DIKW items that don't have tags."""
+    with connect() as conn:
+        items = conn.execute(
+            """SELECT id, content, level, tags FROM dikw_items 
+               WHERE status = 'active' AND (tags IS NULL OR tags = '')"""
+        ).fetchall()
+    
+    updated_count = 0
+    errors = []
+    
+    for item in items:
+        try:
+            tags = generate_dikw_tags(item['content'] or '', item['level'], '')
+            if tags:
+                with connect() as conn:
+                    conn.execute(
+                        "UPDATE dikw_items SET tags = ? WHERE id = ?",
+                        (tags, item['id'])
+                    )
+                    conn.commit()
+                updated_count += 1
+        except Exception as e:
+            errors.append({"id": item['id'], "error": str(e)})
+    
+    return JSONResponse({
+        "status": "ok",
+        "total_without_tags": len(items),
+        "updated": updated_count,
+        "errors": errors[:5]  # Limit error reports
+    })
+
+
+# Signal type normalization map
+SIGNAL_TYPE_NORMALIZE = {
+    'action': 'action_item',
+    'action_items': 'action_item',
+    'actions': 'action_item',
+    'decisions': 'decision',
+    'blockers': 'blocker',
+    'risks': 'risk',
+    'ideas': 'idea',
+    'insights': 'insight',
+}
+
+
+def normalize_signal_type(signal_type: str) -> str:
+    """Normalize signal type to consistent format."""
+    if not signal_type:
+        return ''
+    normalized = signal_type.lower().strip()
+    return SIGNAL_TYPE_NORMALIZE.get(normalized, normalized)
+
+
+@app.post("/api/dikw/compress-dedupe")
+async def compress_and_dedupe_dikw():
+    """Compress similar items and remove duplicates using AI analysis."""
+    with connect() as conn:
+        items = conn.execute(
+            """SELECT id, level, content, summary, original_signal_type, tags, confidence
+               FROM dikw_items WHERE status = 'active' 
+               ORDER BY level, created_at DESC"""
+        ).fetchall()
+    
+    if len(items) < 2:
+        return JSONResponse({"status": "ok", "message": "Not enough items to compress", "merged": 0, "normalized": 0})
+    
+    # Normalize signal types first
+    normalized_count = 0
+    with connect() as conn:
+        for item in items:
+            if item['original_signal_type']:
+                normalized = normalize_signal_type(item['original_signal_type'])
+                if normalized != item['original_signal_type']:
+                    conn.execute(
+                        "UPDATE dikw_items SET original_signal_type = ? WHERE id = ?",
+                        (normalized, item['id'])
+                    )
+                    normalized_count += 1
+        conn.commit()
+    
+    # Group items by level for duplicate detection
+    levels = {}
+    for item in items:
+        if item['level'] not in levels:
+            levels[item['level']] = []
+        levels[item['level']].append(dict(item))
+    
+    # Use AI to find duplicates and similar items
+    duplicates = []
+    for level, level_items in levels.items():
+        if len(level_items) < 2:
+            continue
+        
+        items_text = "\n".join([
+            f"[ID:{i['id']}] {(i['content'] or '')[:150]}"
+            for i in level_items[:30]  # Limit for API
+        ])
+        
+        try:
+            prompt = f"""Analyze these {level}-level DIKW items and identify duplicates or highly similar items that should be merged.
+
+Items:
+{items_text}
+
+Return a JSON array of groups to merge. Each group is an array of IDs that are duplicates/similar:
+Example: [[1, 5], [3, 8, 12]]
+
+Only group items that are clearly about the same thing. Return empty array [] if no duplicates.
+Return ONLY the JSON array:"""
+            
+            response = ask_llm(prompt)
+            groups = json.loads(response.strip().strip('```json').strip('```'))
+            
+            for group in groups:
+                if len(group) >= 2:
+                    duplicates.append({
+                        "level": level,
+                        "ids": group,
+                        "items": [i for i in level_items if i['id'] in group]
+                    })
+        except Exception as e:
+            print(f"Error finding duplicates in {level}: {e}")
+    
+    # Merge duplicates - keep the one with highest confidence, merge content
+    merged_count = 0
+    for dup_group in duplicates[:10]:  # Limit merges per run
+        ids = dup_group['ids']
+        items_to_merge = dup_group['items']
+        
+        # Find the best item (highest confidence) to keep
+        best_item = max(items_to_merge, key=lambda x: x.get('confidence', 0) or 0)
+        other_ids = [i['id'] for i in items_to_merge if i['id'] != best_item['id']]
+        
+        if not other_ids:
+            continue
+        
+        # Merge tags
+        all_tags = set()
+        for item in items_to_merge:
+            if item.get('tags'):
+                all_tags.update(t.strip() for t in item['tags'].split(',') if t.strip())
+        merged_tags = ','.join(sorted(all_tags)[:10])
+        
+        # Archive the duplicate items
+        with connect() as conn:
+            conn.execute(
+                f"UPDATE dikw_items SET status = 'merged', updated_at = CURRENT_TIMESTAMP WHERE id IN ({','.join('?' * len(other_ids))})",
+                other_ids
+            )
+            # Update the kept item with merged tags
+            conn.execute(
+                "UPDATE dikw_items SET tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                (merged_tags, best_item['id'])
+            )
+            conn.commit()
+        merged_count += len(other_ids)
+    
+    return JSONResponse({
+        "status": "ok",
+        "normalized": normalized_count,
+        "duplicate_groups_found": len(duplicates),
+        "merged": merged_count,
+        "message": f"Normalized {normalized_count} signal types, found {len(duplicates)} duplicate groups, merged {merged_count} items"
+    })
+
+
+@app.get("/api/dikw/{item_id}/history")
+async def get_dikw_item_history(item_id: int):
+    """Get the evolution history of a DIKW item."""
+    with connect() as conn:
+        # Get the item itself
+        item = conn.execute("SELECT * FROM dikw_items WHERE id = ?", (item_id,)).fetchone()
+        if not item:
+            return JSONResponse({"error": "Item not found"}, status_code=404)
+        
+        # Get evolution history
+        history = conn.execute(
+            """SELECT * FROM dikw_evolution WHERE item_id = ? ORDER BY created_at ASC""",
+            (item_id,)
+        ).fetchall()
+        
+        # Get source meeting info if available
+        meeting_info = None
+        if item['meeting_id']:
+            meeting = conn.execute(
+                "SELECT id, meeting_name, meeting_date FROM meetings WHERE id = ?",
+                (item['meeting_id'],)
+            ).fetchone()
+            if meeting:
+                meeting_info = dict(meeting)
+        
+        # Get source items if this was promoted/merged
+        source_items = []
+        if item['source_ref_ids']:
+            try:
+                source_ids = json.loads(item['source_ref_ids'])
+                if source_ids:
+                    sources = conn.execute(
+                        f"SELECT id, level, content, created_at FROM dikw_items WHERE id IN ({','.join('?' * len(source_ids))})",
+                        source_ids
+                    ).fetchall()
+                    source_items = [dict(s) for s in sources]
+            except:
+                pass
+        
+        # Build evolution timeline
+        timeline = []
+        
+        # Add creation event
+        timeline.append({
+            "event": "created",
+            "level": item['level'] if not source_items else (source_items[0]['level'] if source_items else 'data'),
+            "date": item['created_at'],
+            "source": meeting_info['meeting_name'] if meeting_info else item['source_type'],
+            "source_date": meeting_info['meeting_date'] if meeting_info else None,
+            "content_snapshot": None  # No prior content for creation
+        })
+        
+        # Add history events with content snapshots
+        for h in history:
+            timeline.append({
+                "event": h['event_type'],
+                "from_level": h['from_level'],
+                "to_level": h['to_level'],
+                "date": h['created_at'],
+                "source": h['source_meeting_name'] or h['source_document_name'],
+                "content_snapshot": h['content_snapshot']  # Old content before change
+            })
+        
+        # If promoted, add that event
+        if item['promoted_to']:
+            timeline.append({
+                "event": "promoted",
+                "to_level": "next",
+                "date": item['promoted_at']
+            })
+        
+        return JSONResponse({
+            "item": dict(item),
+            "meeting": meeting_info,
+            "source_items": source_items,
+            "timeline": timeline
+        })
+
+
+@app.post("/api/dikw/normalize-categories")
+async def normalize_dikw_categories():
+    """Normalize all signal type categories to consistent format."""
+    with connect() as conn:
+        items = conn.execute(
+            """SELECT id, original_signal_type FROM dikw_items 
+               WHERE original_signal_type IS NOT NULL AND original_signal_type != ''"""
+        ).fetchall()
+    
+    updated = 0
+    changes = []
+    
+    with connect() as conn:
+        for item in items:
+            normalized = normalize_signal_type(item['original_signal_type'])
+            if normalized != item['original_signal_type']:
+                conn.execute(
+                    "UPDATE dikw_items SET original_signal_type = ? WHERE id = ?",
+                    (normalized, item['id'])
+                )
+                changes.append({
+                    "id": item['id'],
+                    "from": item['original_signal_type'],
+                    "to": normalized
+                })
+                updated += 1
+        conn.commit()
+    
+    return JSONResponse({
+        "status": "ok",
+        "total_checked": len(items),
+        "updated": updated,
+        "changes": changes[:20]
+    })
+
+
 @app.post("/api/dikw/auto-process")
 async def dikw_auto_process(request: Request):
-    """AI auto-process: suggest new items, promote existing, adjust confidence."""
+    """AI auto-process: suggest new items, promote existing, adjust confidence, assess wisdom candidates."""
     data = await request.json()
     pyramid = data.get("pyramid", {})
     
     suggested = []
     promoted = []
     confidence_updates = []
+    wisdom_candidates = []
     
     # Collect all existing items for context
     all_items = []
@@ -2101,8 +2788,10 @@ async def dikw_auto_process(request: Request):
                 "id": item.get("id"),
                 "level": level,
                 "content": item.get("content", ""),
+                "summary": item.get("summary", ""),
                 "confidence": item.get("confidence", 70),
-                "created_at": item.get("created_at", "")
+                "created_at": item.get("created_at", ""),
+                "tags": item.get("tags", "")
             })
     
     if not all_items:
@@ -2142,70 +2831,141 @@ JSON array only:"""
             except Exception as e:
                 print(f"Error generating suggestions: {e}")
     else:
-        # Analyze existing items for promotions and confidence adjustments
+        # Separate items by level for detailed analysis
+        data_items = [i for i in all_items if i['level'] == 'data']
+        info_items = [i for i in all_items if i['level'] == 'information']
+        knowledge_items = [i for i in all_items if i['level'] == 'knowledge']
+        wisdom_items = [i for i in all_items if i['level'] == 'wisdom']
+        
         items_summary = "\n".join([
             f"[{i['level']}] (id:{i['id']}, confidence:{i['confidence']}%) {i['content'][:200]}"
-            for i in all_items[:20]
+            for i in all_items[:25]
         ])
         
         try:
-            prompt = f"""Analyze these DIKW pyramid items and suggest:
-1. Which items are ready to be promoted to the next level (data->information->knowledge->wisdom)
-2. Which items need confidence adjustments based on their content quality/certainty
+            # Enhanced prompt with wisdom candidate assessment and confidence criteria
+            prompt = f"""Analyze these DIKW pyramid items thoroughly:
 
 Current items:
 {items_summary}
 
-Return JSON with three arrays:
-- "promote": items ready for promotion [{{"id": <id>, "from_level": "data", "to_level": "information", "reason": "why"}}]
-- "confidence": items needing confidence adjustment [{{"id": <id>, "old_confidence": 70, "new_confidence": 85, "reason": "why"}}]
-- "suggest": new items to add [{{"level": "knowledge", "content": "...", "summary": "..."}}]
+Provide a comprehensive analysis with JSON containing:
 
-Focus on actionable improvements. JSON only:"""
+1. "promote": Items ready for promotion (consider: maturity, validation, actionability)
+   [{{"id": <id>, "from_level": "data", "to_level": "information", "reason": "specific reason"}}]
+
+2. "confidence": Items needing confidence adjustments based on:
+   - Specificity (vague = lower, precise = higher)
+   - Verifiability (opinion = 40-60%, verified fact = 80-95%)
+   - Actionability (theoretical = lower, practical = higher)
+   - Time sensitivity (dated info = lower confidence)
+   [{{"id": <id>, "old_confidence": 70, "new_confidence": 85, "reason": "why this adjustment"}}]
+
+3. "wisdom_candidates": Knowledge items that could become wisdom (timeless principles, strategic insights)
+   [{{"id": <id>, "potential_wisdom": "the distilled principle", "readiness_score": 1-10, "reason": "why this could be wisdom"}}]
+
+4. "suggest": New items to fill gaps in the pyramid
+   [{{"level": "knowledge", "content": "...", "summary": "..."}}]
+
+Be specific about confidence levels:
+- 30-50%: Uncertain, needs validation
+- 50-70%: Reasonable but not confirmed
+- 70-85%: Well-supported
+- 85-95%: Highly confident, verified
+
+JSON only:"""
             
             response = ask_llm(prompt)
             import json
             result = json.loads(response.strip().strip('```json').strip('```'))
             
-            # Process promotions
-            for promo in result.get("promote", [])[:3]:
+            # Process promotions with enhanced content generation
+            for promo in result.get("promote", [])[:4]:
                 item_id = promo.get("id")
                 item = next((i for i in all_items if i["id"] == item_id), None)
                 if item:
                     to_level = promo.get("to_level", "information")
-                    # Generate promoted content
-                    promo_result = await ai_promote_dikw(Request(scope={"type": "http"}))
-                    # Actually call the promotion logic directly
+                    # Skip if already at target level or higher
+                    level_order = {'data': 0, 'information': 1, 'knowledge': 2, 'wisdom': 3}
+                    if level_order.get(item["level"], 0) >= level_order.get(to_level, 1):
+                        continue
+                    
+                    # Generate promoted content with level-specific prompts
                     promotion_prompts = {
-                        'information': f"Transform this data into structured information:\n{item['content']}",
-                        'knowledge': f"Extract actionable knowledge:\n{item['content']}",
-                        'wisdom': f"Distill strategic wisdom:\n{item['content']}"
+                        'information': f"""Transform this raw data into structured, contextualized information.
+Explain what it means, why it matters, and what context is needed to understand it.
+
+Data: {item['content']}
+
+Provide clear, informative content:""",
+                        'knowledge': f"""Extract actionable knowledge from this information.
+What patterns emerge? What can be applied? What decisions does this inform?
+
+Information: {item['content']}
+
+Provide actionable knowledge:""",
+                        'wisdom': f"""Distill strategic wisdom from this knowledge.
+What timeless principle or strategic insight emerges that will remain true across contexts?
+
+Knowledge: {item['content']}
+
+Provide wisdom-level insight:"""
                     }
                     promoted_content = ask_llm(promotion_prompts.get(to_level, promotion_prompts['information']))
-                    summary = ask_llm(f"Summarize in one sentence: {promoted_content}")
+                    summary = ask_llm(f"Summarize this {to_level}-level insight in one clear sentence:\n\n{promoted_content}")
                     
                     promoted.append({
                         "id": item_id,
                         "from_level": item["level"],
                         "to_level": to_level,
+                        "original_content": item["content"][:100],
                         "promoted_content": promoted_content,
                         "summary": summary,
-                        "reason": promo.get("reason", "")
+                        "reason": promo.get("reason", "Ready for promotion based on content maturity")
                     })
             
-            # Process confidence adjustments
-            for conf in result.get("confidence", [])[:5]:
+            # Process confidence adjustments with validation
+            for conf in result.get("confidence", [])[:6]:
                 item_id = conf.get("id")
                 item = next((i for i in all_items if i["id"] == item_id), None)
                 if item:
-                    confidence_updates.append({
-                        "id": item_id,
-                        "level": item["level"],
-                        "content": item["content"],
-                        "old_confidence": item["confidence"],
-                        "new_confidence": conf.get("new_confidence", item["confidence"]),
-                        "reason": conf.get("reason", "")
-                    })
+                    new_conf = conf.get("new_confidence", item["confidence"])
+                    # Validate confidence is reasonable
+                    new_conf = max(10, min(95, new_conf))
+                    # Only include if there's a meaningful change
+                    if abs(new_conf - item["confidence"]) >= 5:
+                        confidence_updates.append({
+                            "id": item_id,
+                            "level": item["level"],
+                            "content": item["content"],
+                            "old_confidence": item["confidence"],
+                            "new_confidence": new_conf,
+                            "reason": conf.get("reason", "Confidence adjusted based on content analysis")
+                        })
+            
+            # Process wisdom candidates
+            for wc in result.get("wisdom_candidates", [])[:3]:
+                item_id = wc.get("id")
+                item = next((i for i in all_items if i["id"] == item_id and i["level"] == "knowledge"), None)
+                if item:
+                    readiness = wc.get("readiness_score", 5)
+                    if readiness >= 6:  # Only show high-readiness candidates
+                        # Generate the wisdom content
+                        wisdom_prompt = f"""Transform this knowledge into timeless wisdom - a principle that transcends specific contexts.
+
+Knowledge: {item['content']}
+Potential wisdom direction: {wc.get('potential_wisdom', '')}
+
+Create a concise, memorable wisdom statement:"""
+                        wisdom_content = ask_llm(wisdom_prompt)
+                        
+                        wisdom_candidates.append({
+                            "id": item_id,
+                            "original_content": item["content"],
+                            "potential_wisdom": wisdom_content,
+                            "readiness_score": readiness,
+                            "reason": wc.get("reason", "Shows potential for strategic principle")
+                        })
             
             # Add new suggestions
             suggested = result.get("suggest", [])[:3]
@@ -2219,7 +2979,8 @@ Focus on actionable improvements. JSON only:"""
         "status": "ok",
         "suggested": suggested,
         "promoted": promoted,
-        "confidence_updates": confidence_updates
+        "confidence_updates": confidence_updates,
+        "wisdom_candidates": wisdom_candidates
     })
 
 

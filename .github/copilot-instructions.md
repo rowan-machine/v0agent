@@ -18,59 +18,52 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The system implements a specialized AI assistant platform for organizational task and knowledge management with several key business components:
+## Core Business Architecture
+The system implements a specialized meeting intelligence platform centered around signal extraction and knowledge management:
 
-## Core Knowledge Management
-Importance Score: 95/100
+### Signal Processing Engine
+Importance Score: 85
+- Extracts and classifies business signals into categories:
+  - Decisions
+  - Actions
+  - Blockers
+  - Risks
+  - Ideas
+- Maintains signal state lifecycle with tracking
+- Integrates signal extraction from multiple sources
+- Implements custom signal merging logic
 
-DIKW pyramid implementation for organizational knowledge:
-- Hierarchical knowledge promotion workflow
-- Signal extraction from meetings and documents
-- Custom categorization: decisions, actions, blockers, risks, ideas
-- Context-aware merging of related knowledge items
-- AI-assisted validation for knowledge promotion
+### Meeting Intelligence Pipeline
+Importance Score: 80
+- Domain-specific meeting summary analysis
+- Structured signal extraction from unstructured notes
+- Custom meeting context preservation system
+- Screenshot-based context augmentation
+- AI-assisted meeting synthesis
 
-## Task Management System
-Importance Score: 85/100
+### Knowledge Organization
+Importance Score: 75
+- DIKW pyramid implementation
+- Hierarchical knowledge categorization
+- Tag-based clustering
+- Relationship strength calculations
+- Time-based knowledge evolution tracking
 
-Specialized workflow integrating:
-- Sprint-based task decomposition
-- Accountability tracking with responsible party assignment
-- Context preservation across task lifecycle
-- AI-assisted implementation planning
-- Custom status progression rules
+### Workflow Management
+Importance Score: 70
+- Sprint-based workflow system with 7 distinct modes
+- Career development tracking
+- Progress visualization
+- Sprint cycle management
+- Custom standup analysis with sentiment tracking
 
-## Career Development Framework 
-Importance Score: 80/100
-
-Domain-specific career tracking:
-- AI-powered suggestion generation
-- Code change analysis for skill development
-- Progress tracking with organizational context
-- Custom promotion workflows
-- Sprint-integrated performance metrics
-
-## Meeting Intelligence
-Importance Score: 75/100
-
-Business-specific meeting processing:
-- Structured signal extraction pipeline
-- Domain categorization of key points
-- Integration with knowledge graph
-- Screenshot analysis with vision AI
-- Contextual relationship mapping
-
-## Workflow Mode Management
-Importance Score: 70/100
-
-Custom organizational workflow modes:
-- Context distillation phase handling
-- Implementation planning workflows
-- Time-aware state transitions
-- Checklist progression tracking
-- Sprint alignment rules
-
-The system uniquely combines AI assistance with organizational knowledge management through structured workflows and contextual processing, maintaining relationships between meetings, tasks, career development, and knowledge assets.
+### AI Integration Layer
+Importance Score: 65
+- Multi-provider orchestration
+- Domain-specific prompt engineering
+- Context-aware response generation
+- Task-specific model selection
+- Custom chat context management
 
 $END$
 

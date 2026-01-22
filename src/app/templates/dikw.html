@@ -5,6 +5,7 @@
     max-width: 1400px;
     margin: 0 auto;
     padding: 1.5rem;
+    padding-right: 80px; /* Space for side panel */
   }
 
   .dikw-header {
@@ -25,7 +26,122 @@
   .dikw-header-actions {
     display: flex;
     gap: 0.75rem;
+    flex-wrap: wrap;
+    padding-right: 200px; /* Space for floating mode indicator */
+    position: relative;
+    z-index: 60; /* Above mode indicator */
   }
+
+  /* Right side tool panel */
+  .dikw-tool-panel {
+    position: fixed;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 55;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem 0.5rem;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px 0 0 12px;
+    box-shadow: -2px 0 12px rgba(0,0,0,0.1);
+    border: 1px solid #e5e7eb;
+    border-right: none;
+  }
+
+  .dikw-tool-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    transition: all 0.2s;
+    position: relative;
+  }
+
+  .dikw-tool-btn:hover {
+    background: #f3f4f6;
+    transform: scale(1.05);
+  }
+
+  .dikw-tool-btn:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    right: 54px;
+    background: #1f2937;
+    color: white;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    z-index: 100;
+    animation: tooltipFade 0.2s ease-in-out;
+  }
+
+  .dikw-tool-btn:hover::before {
+    content: '';
+    position: absolute;
+    right: 50px;
+    border: 6px solid transparent;
+    border-left-color: #1f2937;
+    animation: tooltipFade 0.2s ease-in-out;
+  }
+
+  @keyframes tooltipFade {
+    from { opacity: 0; transform: translateX(5px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .dikw-tool-btn.primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+  }
+
+  .dikw-tool-btn.primary:hover {
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+
+  .dikw-tool-btn.processing {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  .dikw-tool-btn .spinner-small {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #e5e7eb;
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  .dikw-tool-divider {
+    height: 1px;
+    background: #e5e7eb;
+    margin: 0.25rem 0;
+  }
+
+  /* Category-specific colors */
+  .dikw-item-type {
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .dikw-item-type.decision { background: #dbeafe; color: #1e40af; }
+  .dikw-item-type.action_item, .dikw-item-type.action { background: #fef3c7; color: #92400e; }
+  .dikw-item-type.blocker { background: #fee2e2; color: #991b1b; }
+  .dikw-item-type.risk { background: #fce7f3; color: #9d174d; }
+  .dikw-item-type.idea { background: #e0e7ff; color: #4338ca; }
+  .dikw-item-type.insight { background: #d1fae5; color: #065f46; }
 
   .dikw-btn {
     padding: 0.6rem 1.2rem;
@@ -152,9 +268,26 @@
     line-height: 1.5;
     margin-bottom: 0.5rem;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 5;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    word-break: break-word;
+  }
+
+  .dikw-item-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-top: 0.25rem;
+  }
+
+  .dikw-tag {
+    padding: 0.1rem 0.35rem;
+    background: #f3f4f6;
+    color: #4b5563;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 500;
   }
 
   .dikw-item-meta {
@@ -469,6 +602,97 @@
     background: #fca5a5;
   }
 
+  /* History Timeline */
+  .dikw-history-container {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 1rem;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .dikw-history-loading {
+    color: #6b7280;
+    text-align: center;
+    padding: 1rem;
+  }
+
+  .dikw-history-timeline {
+    position: relative;
+    padding-left: 24px;
+  }
+
+  .dikw-history-timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, #3b82f6, #f59e0b, #10b981, #8b5cf6);
+    border-radius: 1px;
+  }
+
+  .history-event {
+    position: relative;
+    padding: 0.5rem 0;
+    padding-left: 1rem;
+    font-size: 0.85rem;
+  }
+
+  .history-event::before {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid #667eea;
+  }
+
+  .history-event.created::before { border-color: #3b82f6; background: #dbeafe; }
+  .history-event.promoted::before { border-color: #10b981; background: #d1fae5; }
+  .history-event.merged::before { border-color: #f59e0b; background: #fef3c7; }
+  .history-event.edited::before { border-color: #8b5cf6; background: #ede9fe; }
+
+  .history-event-title {
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .history-event-meta {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+  }
+
+  .history-event-source {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: #f3f4f6;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+  }
+
+  .history-level-badge {
+    display: inline-block;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .history-level-badge.data { background: #dbeafe; color: #1e40af; }
+  .history-level-badge.information { background: #fef3c7; color: #92400e; }
+  .history-level-badge.knowledge { background: #d1fae5; color: #065f46; }
+  .history-level-badge.wisdom { background: #ede9fe; color: #5b21b6; }
+
   /* Toast */
   .dikw-toast {
     position: fixed;
@@ -633,31 +857,43 @@
   .auto-process-item .item-action button.skip:hover {
     background: #f3f4f6;
   }
+  
+  .dikw-btn-small {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
 </style>
 
 <div class="dikw-container">
   <div class="dikw-header">
     <h1>🔺 DIKW Pyramid</h1>
     <div class="dikw-header-actions">
-      <button class="dikw-btn dikw-btn-secondary" id="aiAutoProcessBtn" onclick="aiAutoProcess()">
-        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-        </svg>
-        AI Auto-Process
-      </button>
-      <button class="dikw-btn dikw-btn-secondary" onclick="toggleSignalsPanel()">
-        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-        </svg>
-        Import Signals
-      </button>
-      <button class="dikw-btn dikw-btn-primary" onclick="openAddModal()">
-        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-        </svg>
-        Add Nugget
-      </button>
+      <!-- Main primary action stays in header -->
     </div>
+  </div>
+
+  <!-- Right side tool panel -->
+  <div class="dikw-tool-panel">
+    <button class="dikw-tool-btn primary" id="addNuggetToolBtn" onclick="openAddModal()" data-tooltip="Add new nugget">
+      ➕
+    </button>
+    <button class="dikw-tool-btn" id="importSignalsToolBtn" onclick="toggleSignalsPanel()" data-tooltip="Import signals from meetings">
+      📡
+    </button>
+    <div class="dikw-tool-divider"></div>
+    <button class="dikw-tool-btn" id="aiAutoProcessToolBtn" onclick="aiAutoProcess()" data-tooltip="AI auto-process: promote items through levels">
+      ⚡
+    </button>
+    <button class="dikw-tool-btn" id="aiReviewToolBtn" onclick="aiReviewNuggets()" data-tooltip="AI review: update names and summaries">
+      📋
+    </button>
+    <div class="dikw-tool-divider"></div>
+    <button class="dikw-tool-btn" id="compressDedupeToolBtn" onclick="compressDedupe()" data-tooltip="Compress: merge duplicates, normalize categories">
+      🗜️
+    </button>
+    <button class="dikw-tool-btn" id="backfillTagsToolBtn" onclick="backfillTags()" data-tooltip="Backfill missing tags using AI">
+      🏷️
+    </button>
   </div>
 
   <!-- Signals Import Panel (collapsible) -->
@@ -791,6 +1027,19 @@
       <div class="dikw-editor-section">
         <label>Tags (comma-separated)</label>
         <input type="text" class="dikw-editor-textarea" id="editTags" placeholder="e.g., architecture, decision, sprint-42" style="min-height: auto; height: 40px;">
+        <div class="dikw-ai-actions">
+          <button class="dikw-ai-btn" onclick="aiGenerateTags()">
+            <span class="btn-text">🏷️ Generate Tags</span>
+          </button>
+        </div>
+      </div>
+      
+      <!-- Evolution History Section -->
+      <div class="dikw-editor-section" id="historySection" style="display:none;">
+        <label>📜 Evolution History</label>
+        <div class="dikw-history-container" id="historyContainer">
+          <div class="dikw-history-loading">Loading history...</div>
+        </div>
       </div>
     </div>
     <div class="dikw-modal-footer">
@@ -835,6 +1084,17 @@ async function loadDIKWItems() {
 function renderPyramid() {
   const levels = ['data', 'information', 'knowledge', 'wisdom'];
   
+  // Category icons for visual distinction
+  const categoryIcons = {
+    'decision': '⚖️',
+    'action_item': '✅',
+    'action': '✅',
+    'blocker': '🚧',
+    'risk': '⚠️',
+    'idea': '💡',
+    'insight': '🔍'
+  };
+  
   levels.forEach(level => {
     const container = document.getElementById(`${level}Items`);
     const countEl = document.getElementById(`${level}Count`);
@@ -847,23 +1107,38 @@ function renderPyramid() {
       return;
     }
     
-    container.innerHTML = items.map(item => `
-      <div class="dikw-item ${selectedItems.has(item.id) ? 'selected' : ''}" 
-           data-id="${item.id}" 
-           data-level="${level}"
-           onclick="handleItemClick(event, ${item.id})">
-        <div class="dikw-item-content">${escapeHtml(item.summary || item.content)}</div>
-        <div class="dikw-item-meta">
-          <div class="dikw-item-confidence">
-            <div class="confidence-bar">
-              <div class="confidence-fill" style="width: ${(item.confidence || 0.5) * 100}%"></div>
+    container.innerHTML = items.map(item => {
+      // Confidence is stored as 0-100, normalize for display
+      const confidenceValue = item.confidence > 1 ? item.confidence : (item.confidence || 0.5) * 100;
+      
+      // Parse tags for display
+      const tagsHtml = item.tags ? 
+        item.tags.split(',').map(t => t.trim()).filter(t => t)
+          .slice(0, 3).map(tag => `<span class="dikw-tag">${escapeHtml(tag)}</span>`).join('') : '';
+      
+      // Normalize signal type for display
+      const signalType = normalizeSignalType(item.original_signal_type);
+      const categoryIcon = categoryIcons[signalType] || '';
+      
+      return `
+        <div class="dikw-item ${selectedItems.has(item.id) ? 'selected' : ''}" 
+             data-id="${item.id}" 
+             data-level="${level}"
+             onclick="handleItemClick(event, ${item.id})">
+          <div class="dikw-item-content">${renderSimpleMarkdown(item.content)}</div>
+          ${tagsHtml ? `<div class="dikw-item-tags">${tagsHtml}</div>` : ''}
+          <div class="dikw-item-meta">
+            <div class="dikw-item-confidence">
+              <div class="confidence-bar">
+                <div class="confidence-fill" style="width: ${confidenceValue}%"></div>
+              </div>
+              <span>${Math.round(confidenceValue)}%</span>
             </div>
-            <span>${Math.round((item.confidence || 0.5) * 100)}%</span>
+            ${signalType ? `<span class="dikw-item-type ${signalType}">${categoryIcon} ${signalType.replace('_', ' ')}</span>` : ''}
           </div>
-          ${item.original_signal_type ? `<span class="dikw-item-type ${item.original_signal_type}">${item.original_signal_type.replace('_', ' ')}</span>` : ''}
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   });
 }
 
@@ -948,6 +1223,7 @@ function openAddModal() {
   document.getElementById('editSummary').value = '';
   document.getElementById('editTags').value = '';
   document.getElementById('deleteBtn').style.display = 'none';
+  document.getElementById('historySection').style.display = 'none';
   document.getElementById('dikwModal').classList.add('active');
 }
 
@@ -969,7 +1245,110 @@ function openEditModal(itemId) {
   document.getElementById('editSummary').value = item.summary || '';
   document.getElementById('editTags').value = item.tags || '';
   document.getElementById('deleteBtn').style.display = 'block';
+  
+  // Show and load history
+  document.getElementById('historySection').style.display = 'block';
+  loadItemHistory(itemId);
+  
   document.getElementById('dikwModal').classList.add('active');
+}
+
+// Load item history
+async function loadItemHistory(itemId) {
+  const container = document.getElementById('historyContainer');
+  container.innerHTML = '<div class="dikw-history-loading">Loading history...</div>';
+  
+  try {
+    const response = await fetch(`/api/dikw/${itemId}/history`, { credentials: 'same-origin' });
+    if (!response.ok) throw new Error('Failed to load history');
+    
+    const data = await response.json();
+    renderHistory(data);
+  } catch (err) {
+    container.innerHTML = '<div class="dikw-history-loading">Unable to load history</div>';
+  }
+}
+
+// Render history timeline
+function renderHistory(data) {
+  const container = document.getElementById('historyContainer');
+  const timeline = data.timeline || [];
+  
+  if (timeline.length === 0) {
+    container.innerHTML = '<div class="dikw-history-loading">No history recorded yet</div>';
+    return;
+  }
+  
+  const levelIcons = {
+    'data': '📊',
+    'information': 'ℹ️',
+    'knowledge': '💡',
+    'wisdom': '🌟'
+  };
+  
+  const eventLabels = {
+    'created': 'Created',
+    'promoted': 'Promoted',
+    'merged': 'Merged',
+    'edited': 'Edited'
+  };
+  
+  let html = '<div class="dikw-history-timeline">';
+  
+  // Add source information if available
+  if (data.meeting) {
+    html += `
+      <div class="history-event created">
+        <div class="history-event-title">📍 Source</div>
+        <div class="history-event-meta">
+          <span class="history-event-source">📅 ${escapeHtml(data.meeting.meeting_name)}</span>
+          ${data.meeting.meeting_date ? `<span style="margin-left:0.5rem;color:#9ca3af;">${data.meeting.meeting_date}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }
+  
+  // Add timeline events
+  timeline.forEach(event => {
+    const eventClass = event.event || 'created';
+    const label = eventLabels[event.event] || event.event;
+    const date = event.date ? new Date(event.date).toLocaleDateString() : '';
+    
+    html += `
+      <div class="history-event ${eventClass}">
+        <div class="history-event-title">
+          ${label}
+          ${event.from_level ? `<span class="history-level-badge ${event.from_level}">${levelIcons[event.from_level] || ''} ${event.from_level}</span>` : ''}
+          ${event.from_level && event.to_level ? ' → ' : ''}
+          ${event.to_level && event.to_level !== 'next' ? `<span class="history-level-badge ${event.to_level}">${levelIcons[event.to_level] || ''} ${event.to_level}</span>` : ''}
+        </div>
+        <div class="history-event-meta">
+          ${date ? `<span style="color:#9ca3af;">${date}</span>` : ''}
+          ${event.source ? `<span class="history-event-source">${escapeHtml(event.source)}</span>` : ''}
+        </div>
+        ${event.content_snapshot ? `
+          <div class="history-content-snapshot" style="margin-top: 0.5rem; padding: 0.5rem; background: #f8fafc; border-radius: 6px; font-size: 0.8rem; color: #64748b; border-left: 3px solid #e2e8f0;">
+            <span style="font-weight: 500; color: #94a3b8;">Previous:</span> ${escapeHtml(event.content_snapshot.substring(0, 200))}${event.content_snapshot.length > 200 ? '...' : ''}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  });
+  
+  // Show source items if this was synthesized
+  if (data.source_items && data.source_items.length > 0) {
+    html += `
+      <div class="history-event merged">
+        <div class="history-event-title">🔗 Synthesized from ${data.source_items.length} item(s)</div>
+        <div class="history-event-meta">
+          ${data.source_items.map(s => `<span class="history-level-badge ${s.level}">${s.level}</span>`).join(' ')}
+        </div>
+      </div>
+    `;
+  }
+  
+  html += '</div>';
+  container.innerHTML = html;
 }
 
 // Close modal
@@ -1022,19 +1401,22 @@ async function deleteItem() {
   if (!confirm('Are you sure you want to delete this item?')) return;
   
   try {
-    const response = await fetch(`/api/dikw/validate`, {
-      method: 'POST',
+    const response = await fetch(`/api/dikw/${itemId}`, {
+      method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ item_id: parseInt(itemId), action: 'archive' })
+      credentials: 'same-origin'
     });
     
     if (response.ok) {
-      showToast('Item archived');
+      showToast('Item deleted');
       closeModal();
       loadDIKWItems();
+    } else {
+      const data = await response.json();
+      showToast(data.error || 'Failed to delete item', true);
     }
   } catch (err) {
+    console.error('Delete error:', err);
     showToast('Failed to delete item', true);
   }
 }
@@ -1121,6 +1503,61 @@ async function aiGenerateSummary() {
     }
   } catch (err) {
     showToast('Failed to generate summary', true);
+  } finally {
+    btnText.textContent = originalText;
+    btn.classList.remove('loading');
+  }
+}
+
+// AI Generate Tags
+async function aiGenerateTags() {
+  const content = document.getElementById('editContent').value.trim();
+  const level = document.getElementById('editLevel').value;
+  const tagsEl = document.getElementById('editTags');
+  
+  if (!content) {
+    showToast('Enter content first', true);
+    return;
+  }
+  
+  const btn = event.target.closest('.dikw-ai-btn');
+  const btnText = btn.querySelector('.btn-text');
+  const originalText = btnText.textContent;
+  btnText.innerHTML = '<span class="spinner"></span>';
+  btn.classList.add('loading');
+  
+  try {
+    const response = await fetch('/api/dikw/generate-tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ 
+        content, 
+        level,
+        existing_tags: tagsEl.value.trim()
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok && data.tags) {
+      // Merge with existing tags if any
+      const existingTags = tagsEl.value.trim();
+      if (existingTags) {
+        const combined = new Set([
+          ...existingTags.split(',').map(t => t.trim()).filter(t => t),
+          ...data.tags.split(',').map(t => t.trim()).filter(t => t)
+        ]);
+        tagsEl.value = Array.from(combined).join(', ');
+      } else {
+        tagsEl.value = data.tags;
+      }
+      showToast('Tags generated');
+    } else {
+      showToast(data.error || 'Failed to generate tags', true);
+    }
+  } catch (err) {
+    showToast('Failed to generate tags', true);
   } finally {
     btnText.textContent = originalText;
     btn.classList.remove('loading');
@@ -1291,6 +1728,40 @@ function escapeJs(text) {
   return (text || '').replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
 }
 
+// Simple markdown renderer for brief content
+function renderSimpleMarkdown(text) {
+  if (!text) return '';
+  let html = escapeHtml(text);
+  // Bold
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+  // Italic
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/_(.+?)_/g, '<em>$1</em>');
+  // Inline code
+  html = html.replace(/`(.+?)`/g, '<code style="background:#f1f5f9;padding:0.1rem 0.3rem;border-radius:3px;font-size:0.85em;">$1</code>');
+  // Line breaks
+  html = html.replace(/\n/g, '<br>');
+  return html;
+}
+
+// Normalize signal type for consistency
+function normalizeSignalType(signalType) {
+  if (!signalType) return '';
+  const normalized = signalType.toLowerCase().trim();
+  const mapping = {
+    'action': 'action_item',
+    'action_items': 'action_item',
+    'actions': 'action_item',
+    'decisions': 'decision',
+    'blockers': 'blocker',
+    'risks': 'risk',
+    'ideas': 'idea',
+    'insights': 'insight'
+  };
+  return mapping[normalized] || normalized;
+}
+
 function showToast(message, isError = false) {
   const toast = document.createElement('div');
   toast.className = `dikw-toast ${isError ? 'error' : ''}`;
@@ -1312,12 +1783,203 @@ document.getElementById('dikwModal').addEventListener('click', (e) => {
   }
 });
 
+// Compress and dedupe items
+async function compressDedupe() {
+  const btn = document.getElementById('compressDedupeToolBtn');
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = '<div class="spinner-small"></div>';
+  btn.classList.add('processing');
+  
+  try {
+    const response = await fetch('/api/dikw/compress-dedupe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin'
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok) {
+      showToast(result.message || `Compressed: ${result.merged} items merged, ${result.normalized} normalized`);
+      await loadDIKWItems(); // Reload to show changes
+    } else {
+      showToast(result.error || 'Failed to compress items', true);
+    }
+  } catch (err) {
+    console.error('Compress error:', err);
+    showToast('Error compressing items', true);
+  } finally {
+    btn.innerHTML = originalHtml;
+    btn.classList.remove('processing');
+  }
+}
+
+// Backfill tags for existing items without tags
+async function backfillTags() {
+  const btn = document.getElementById('backfillTagsToolBtn');
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = '<div class="spinner-small"></div>';
+  btn.classList.add('processing');
+  
+  try {
+    const response = await fetch('/api/dikw/backfill-tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin'
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok) {
+      showToast(`Tags backfilled: ${result.updated} of ${result.total_without_tags} items updated`);
+      await loadDIKWItems(); // Reload to show new tags
+    } else {
+      showToast(result.error || 'Failed to backfill tags', true);
+    }
+  } catch (err) {
+    console.error('Backfill error:', err);
+    showToast('Error backfilling tags', true);
+  } finally {
+    btn.innerHTML = originalHtml;
+    btn.classList.remove('processing');
+  }
+}
+
+// AI Review: Review and update nugget names and summaries
+async function aiReviewNuggets() {
+  const btn = document.getElementById('aiReviewToolBtn');
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = '<div class="spinner-small"></div>';
+  btn.classList.add('processing');
+  
+  try {
+    const response = await fetch('/api/dikw/ai-review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ pyramid: dikwData })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      if (data.reviews && data.reviews.length > 0) {
+        showReviewResults(data.reviews);
+        showToast(`Found ${data.reviews.length} improvement suggestions`);
+      } else {
+        showToast('All nuggets look good! No improvements suggested.');
+      }
+    } else {
+      showToast(data.error || 'Failed to review', true);
+    }
+  } catch (err) {
+    console.error('Review error:', err);
+    showToast('Failed to review items', true);
+  } finally {
+    btn.innerHTML = originalHtml;
+    btn.classList.remove('processing');
+  }
+}
+
+function showReviewResults(reviews) {
+  window._reviewItems = reviews;
+  
+  let modal = document.getElementById('reviewModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'reviewModal';
+    modal.className = 'dikw-modal';
+    modal.innerHTML = `
+      <div class="dikw-modal-content auto-process-results" style="max-width: 700px;">
+        <div class="dikw-modal-header">
+          <h3>📝 AI Review Results</h3>
+          <button class="dikw-modal-close" onclick="closeReviewModal()">×</button>
+        </div>
+        <div class="dikw-modal-body" id="reviewModalBody"></div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+  
+  const body = document.getElementById('reviewModalBody');
+  let html = '<div class="auto-process-results-content">';
+  html += '<p style="font-size:0.85rem;color:#6b7280;margin-bottom:1rem;">Review suggested improvements to nugget names and summaries. Apply changes individually.</p>';
+  
+  reviews.forEach((review, idx) => {
+    html += `
+      <div class="auto-process-item" id="review-${idx}" style="border-left:3px solid #3b82f6;">
+        <div class="item-level">${review.level} (ID: ${review.id})</div>
+        <div style="margin:0.5rem 0;">
+          <div style="font-size:0.75rem;color:#6b7280;">Current content:</div>
+          <div style="color:#64748b;text-decoration:line-through;">${escapeHtml(review.current_content)}</div>
+          <div style="font-size:0.75rem;color:#6b7280;margin-top:0.5rem;">Improved content:</div>
+          <div style="color:#059669;font-weight:500;">${escapeHtml(review.improved_content)}</div>
+        </div>
+        ${review.improved_summary ? `
+          <div style="margin:0.5rem 0;">
+            <div style="font-size:0.75rem;color:#6b7280;">Improved summary:</div>
+            <div style="font-size:0.85rem;color:#374151;font-style:italic;">${escapeHtml(review.improved_summary)}</div>
+          </div>
+        ` : ''}
+        <div style="font-size:0.75rem;color:#6b7280;margin-top:0.5rem;">Reason: ${escapeHtml(review.reason)}</div>
+        <div class="item-action">
+          <button class="skip" onclick="skipReview(${idx})">Skip</button>
+          <button class="accept" onclick="applyReview(${idx})">✓ Apply</button>
+        </div>
+      </div>
+    `;
+  });
+  
+  html += '</div>';
+  body.innerHTML = html;
+  modal.classList.add('active');
+}
+
+function closeReviewModal() {
+  const modal = document.getElementById('reviewModal');
+  if (modal) modal.classList.remove('active');
+}
+
+function skipReview(idx) {
+  document.getElementById(`review-${idx}`).style.display = 'none';
+}
+
+async function applyReview(idx) {
+  const review = window._reviewItems?.[idx];
+  if (!review) {
+    showToast('Review data not found', true);
+    return;
+  }
+  
+  try {
+    const response = await fetch(`/api/dikw/${review.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        content: review.improved_content,
+        summary: review.improved_summary
+      })
+    });
+    
+    if (response.ok) {
+      document.getElementById(`review-${idx}`).style.display = 'none';
+      showToast('Nugget updated');
+      loadDIKWItems();
+    } else {
+      showToast('Failed to update nugget', true);
+    }
+  } catch (err) {
+    showToast('Failed to update nugget', true);
+  }
+}
+
 // AI Auto-Process: suggest new items, promote existing, adjust confidence
 async function aiAutoProcess() {
-  const btn = document.getElementById('aiAutoProcessBtn');
+  const btn = document.getElementById('aiAutoProcessToolBtn');
   const originalHtml = btn.innerHTML;
-  btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border:2px solid #e5e7eb;border-top-color:#667eea;border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block;"></span> Processing...';
-  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner-small"></div>';
+  btn.classList.add('processing');
   
   try {
     const response = await fetch('/api/dikw/auto-process', {
@@ -1333,7 +1995,9 @@ async function aiAutoProcess() {
     
     if (response.ok) {
       showAutoProcessResults(data);
-      showToast(`Processed: ${data.suggested?.length || 0} suggestions, ${data.promoted?.length || 0} promotions, ${data.confidence_updates?.length || 0} confidence updates`);
+      const total = (data.suggested?.length || 0) + (data.promoted?.length || 0) + 
+                    (data.confidence_updates?.length || 0) + (data.wisdom_candidates?.length || 0);
+      showToast(`Found ${total} recommendations`);
     } else {
       showToast(data.error || 'Failed to auto-process', true);
     }
@@ -1342,7 +2006,7 @@ async function aiAutoProcess() {
     showToast('Failed to auto-process items', true);
   } finally {
     btn.innerHTML = originalHtml;
-    btn.disabled = false;
+    btn.classList.remove('processing');
   }
 }
 
@@ -1394,18 +2058,20 @@ function showAutoProcessResults(data) {
     `;
   }
   
-  // Promoted items
+  // Promoted items - store data in global for button handlers
   if (data.promoted && data.promoted.length > 0) {
+    window._promotedItems = data.promoted;
     html += `
       <div class="auto-process-section">
         <h4>⬆️ Promoted Items (${data.promoted.length})</h4>
         ${data.promoted.map((item, idx) => `
           <div class="auto-process-item" id="promoted-${idx}">
-            <div class="item-level">${item.from_level} → ${item.to_level}</div>
-            <div class="item-content">${escapeHtml(item.promoted_content)}</div>
+            <div class="item-level">${escapeHtml(item.from_level)} → ${escapeHtml(item.to_level)}</div>
+            <div class="item-content">${renderSimpleMarkdown(item.promoted_content.substring(0, 200))}${item.promoted_content.length > 200 ? '...' : ''}</div>
+            ${item.summary ? `<div style="font-size:0.75rem;color:#6b7280;margin-top:0.5rem;font-style:italic;">${renderSimpleMarkdown(item.summary.substring(0, 100))}${item.summary.length > 100 ? '...' : ''}</div>` : ''}
             <div class="item-action">
               <button class="skip" onclick="skipPromotion(${idx})">Skip</button>
-              <button class="accept" onclick="acceptPromotion(${item.id}, '${item.to_level}', '${escapeJs(item.promoted_content)}', '${escapeJs(item.summary || '')}')">✓ Apply</button>
+              <button class="accept" onclick="applyPromotion(${idx})">✓ Apply</button>
             </div>
           </div>
         `).join('')}
@@ -1425,7 +2091,7 @@ function showAutoProcessResults(data) {
             <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem;">Reason: ${escapeHtml(item.reason)}</div>
             <div class="item-action">
               <button class="skip" onclick="skipConfidence(${idx})">Skip</button>
-              <button class="accept" onclick="acceptConfidence(${item.id}, ${item.new_confidence})">✓ Apply</button>
+              <button class="accept" onclick="acceptConfidence(${idx}, ${item.id}, ${item.new_confidence})">✓ Apply</button>
             </div>
           </div>
         `).join('')}
@@ -1433,7 +2099,32 @@ function showAutoProcessResults(data) {
     `;
   }
   
-  if (!data.suggested?.length && !data.promoted?.length && !data.confidence_updates?.length) {
+  // Wisdom candidates - store data in global for button handlers
+  if (data.wisdom_candidates && data.wisdom_candidates.length > 0) {
+    window._wisdomCandidates = data.wisdom_candidates;
+    html += `
+      <div class="auto-process-section">
+        <h4>🌟 Wisdom Candidates (${data.wisdom_candidates.length})</h4>
+        <p style="font-size: 0.8rem; color: #6b7280; margin-bottom: 0.75rem;">These knowledge items show potential to become timeless wisdom principles.</p>
+        ${data.wisdom_candidates.map((item, idx) => `
+          <div class="auto-process-item" id="wisdom-${idx}" style="border-left: 3px solid #8b5cf6;">
+            <div class="item-level">Knowledge → Wisdom • Readiness: ${item.readiness_score}/10</div>
+            <div style="font-size: 0.75rem; color: #6b7280; margin-bottom: 0.5rem;">Original: ${renderSimpleMarkdown(item.original_content.substring(0, 100))}${item.original_content.length > 100 ? '...' : ''}</div>
+            <div class="item-content" style="background: #f5f3ff; padding: 0.75rem; border-radius: 6px; font-style: italic; color: #5b21b6;">
+              "${renderSimpleMarkdown(item.potential_wisdom)}"
+            </div>
+            <div style="font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem;">Why: ${escapeHtml(item.reason)}</div>
+            <div class="item-action">
+              <button class="skip" onclick="skipWisdom(${idx})">Skip</button>
+              <button class="accept" style="background: #8b5cf6; border-color: #8b5cf6;" onclick="applyWisdom(${idx})">🌟 Promote to Wisdom</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  if (!data.suggested?.length && !data.promoted?.length && !data.confidence_updates?.length && !data.wisdom_candidates?.length) {
     html += '<div class="dikw-empty">No suggestions at this time. Your DIKW pyramid is well-organized! 🎉</div>';
   }
   
@@ -1472,24 +2163,37 @@ function skipSuggestion(idx) {
   document.getElementById(`suggested-${idx}`).style.display = 'none';
 }
 
-async function acceptPromotion(itemId, toLevel, content, summary) {
+// New promotion handler using stored data
+async function applyPromotion(idx) {
+  const item = window._promotedItems?.[idx];
+  if (!item) {
+    showToast('Promotion data not found', true);
+    return;
+  }
+  
   try {
     const response = await fetch('/api/dikw/promote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ item_id: itemId, to_level: toLevel, promoted_content: content, summary })
+      body: JSON.stringify({ 
+        item_id: item.id, 
+        to_level: item.to_level, 
+        promoted_content: item.promoted_content, 
+        summary: item.summary || '' 
+      })
     });
     
     if (response.ok) {
-      const el = document.querySelector(`[id^="promoted-"][onclick*="${itemId}"]`)?.parentElement?.parentElement;
-      if (el) el.style.display = 'none';
+      document.getElementById(`promoted-${idx}`).style.display = 'none';
       showToast('Item promoted successfully');
       loadDIKWItems();
     } else {
-      showToast('Failed to promote item', true);
+      const data = await response.json();
+      showToast(data.error || 'Failed to promote item', true);
     }
   } catch (err) {
+    console.error('Promotion error:', err);
     showToast('Failed to promote item', true);
   }
 }
@@ -1498,7 +2202,7 @@ function skipPromotion(idx) {
   document.getElementById(`promoted-${idx}`).style.display = 'none';
 }
 
-async function acceptConfidence(itemId, newConfidence) {
+async function acceptConfidence(idx, itemId, newConfidence) {
   try {
     const response = await fetch(`/api/dikw/${itemId}`, {
       method: 'PUT',
@@ -1508,8 +2212,7 @@ async function acceptConfidence(itemId, newConfidence) {
     });
     
     if (response.ok) {
-      const el = document.querySelector(`[id^="confidence-"][onclick*="${itemId}"]`)?.parentElement?.parentElement;
-      if (el) el.style.display = 'none';
+      document.getElementById(`confidence-${idx}`).style.display = 'none';
       showToast('Confidence updated');
       loadDIKWItems();
     } else {
@@ -1522,6 +2225,46 @@ async function acceptConfidence(itemId, newConfidence) {
 
 function skipConfidence(idx) {
   document.getElementById(`confidence-${idx}`).style.display = 'none';
+}
+
+// Wisdom candidate handlers
+function skipWisdom(idx) {
+  document.getElementById(`wisdom-${idx}`).style.display = 'none';
+}
+
+// New wisdom handler using stored data
+async function applyWisdom(idx) {
+  const item = window._wisdomCandidates?.[idx];
+  if (!item) {
+    showToast('Wisdom data not found', true);
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/dikw/promote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ 
+        item_id: item.id, 
+        to_level: 'wisdom', 
+        promoted_content: item.potential_wisdom,
+        summary: item.potential_wisdom.substring(0, 100)
+      })
+    });
+    
+    if (response.ok) {
+      document.getElementById(`wisdom-${idx}`).style.display = 'none';
+      showToast('🌟 Promoted to Wisdom!');
+      loadDIKWItems();
+    } else {
+      const data = await response.json();
+      showToast(data.error || 'Failed to promote to wisdom', true);
+    }
+  } catch (err) {
+    console.error('Wisdom promotion error:', err);
+    showToast('Failed to promote to wisdom', true);
+  }
 }
 </script>
 {% endblock %}

@@ -1,47 +1,50 @@
 ---
-description: Documents the core data models and their relationships for meeting and document management
+description: Reference for data model structures in meeting and document management system
 ---
 
 
 # data-models
 
-Two primary data models form the core of the system:
+The system implements two primary data models with specialized domain relationships:
 
-## Meetings Model (Importance: 90/100)
+## Meeting Model
+Importance Score: 85
 
-Key attributes and relationships:
-- Hierarchical signal storage (decisions, actions, blockers, risks, ideas)
-- Synthesized content mapping with embedded metadata
-- Knowledge graph connections tracking relationships between meetings
-- Sprint cycle association and temporal context tracking
-- Screenshot analysis results with vision AI metadata
+Key Attributes:
+- Title and synthesized content from meeting notes
+- Extracted signals (decisions, actions, blockers, risks, ideas)
+- Screenshot references with AI-processed context
+- Relationships to source documents and transcripts
+- Vector embeddings for semantic search
 
-## Documents Model (Importance: 85/100)
+## Document Model
+Importance Score: 80
 
-Key attributes and relationships:
-- Signal extraction mappings for structured knowledge
-- DIKW pyramid classification level
-- Promotion history between pyramid levels
-- Related meeting references and context chain
-- Document category metadata for domain classification
+Key Attributes:
+- Source content with hierarchical section structure
+- Signal classification metadata
+- Related meeting references
+- Vector-based content representation
+- Knowledge graph node relationships
 
-Cross-Model Relationships:
-1. Meeting-Document Connections
-- Bi-directional references for context preservation
-- Signal inheritance and promotion tracking
-- Knowledge graph relationship types for semantic connections
+## Relationship Structure
 
-2. Signal Propagation
-- Shared signal categorization system
-- Cross-reference tracking between source documents/meetings
-- Hierarchical organization of extracted knowledge
+Meetings and Documents are connected through:
+1. Signal Extraction Links
+- Signals extracted from documents link to source meetings
+- Meeting signals reference original document contexts
 
-3. Knowledge Classification
-- DIKW pyramid implementation across both models
-- Promotion workflows between levels
-- Validation rules for level transitions
+2. Knowledge Graph Integration
+- DIKW pyramid organization
+- Hierarchical categorization between docs and meetings
+- Tag-based clustering relationships
+- Time-based evolution tracking
 
-The models implement a sophisticated knowledge management system focused on extracting and organizing business intelligence from meetings and documents while maintaining semantic relationships and context.
+3. Context Preservation
+- Meeting screenshots link to document sections
+- Document sections maintain meeting reference history
+- Signal merging across related items
+- Embedded vector relationships for semantic connections
 
 $END$
 

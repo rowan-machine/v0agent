@@ -480,6 +480,127 @@ Return bullet points only."""
     return JSONResponse({"status": "ok", "response": response, "summary": summary})
 
 
+# ----------------------
+# Career Insights API
+# ----------------------
+
+@router.post("/api/career/generate-insights")
+async def generate_career_insights(request: Request):
+    """Generate AI insights based on skills, projects, and profile."""
+    from app.llm import get_llm_response
+    
+    with connect() as conn:
+        # Gather context
+        profile = conn.execute("SELECT * FROM career_profile WHERE id = 1").fetchone()
+        skills = conn.execute("""
+            SELECT skill_name, category, proficiency_level 
+            FROM skill_tracker 
+            WHERE proficiency_level > 0 
+            ORDER BY proficiency_level DESC 
+            LIMIT 15
+        """).fetchall()
+        projects = conn.execute("""
+            SELECT title, description, technologies, impact 
+            FROM completed_projects_bank 
+            ORDER BY completed_date DESC 
+            LIMIT 10
+        """).fetchall()
+        ai_memories = conn.execute("""
+            SELECT title, description, technologies 
+            FROM ai_implementation_memories 
+            ORDER BY created_at DESC 
+            LIMIT 5
+        """).fetchall()
+        
+        # Format context
+        profile_ctx = f"""
+Current Role: {profile['current_role'] if profile else 'Not set'}
+Target Role: {profile['target_role'] if profile else 'Not set'}
+Strengths: {profile['strengths'] if profile else 'Not set'}
+Goals: {profile['goals'] if profile else 'Not set'}
+""" if profile else "No profile set"
+        
+        skills_ctx = "\n".join([f"- {s['skill_name']} ({s['category']}): {s['proficiency_level']}%" for s in skills]) if skills else "No skills tracked"
+        projects_ctx = "\n".join([f"- {p['title']}: {p['description'][:100]}..." for p in projects]) if projects else "No projects"
+        ai_ctx = "\n".join([f"- {m['title']}: {m['technologies']}" for m in ai_memories]) if ai_memories else "No AI implementations"
+        
+        prompt = f"""Based on this career profile and tracked data, generate a concise career insight summary (3-5 bullet points max).
+
+PROFILE:
+{profile_ctx}
+
+TOP SKILLS:
+{skills_ctx}
+
+RECENT PROJECTS:
+{projects_ctx}
+
+AI/ML IMPLEMENTATIONS:
+{ai_ctx}
+
+Generate actionable insights in this format:
+## 🎯 Career Focus
+- Key strength to leverage
+- Skill gap to address  
+- Next recommended step
+
+Keep it brief, actionable, and encouraging. Use markdown formatting."""
+
+        insights = await get_llm_response(prompt, model="gpt-4o-mini")
+        
+        return JSONResponse({"status": "ok", "insights": insights})
+
+
+# ----------------------
+# Career Tweaks Safe API
+# ----------------------
+
+@router.get("/api/career/tweaks")
+async def get_career_tweaks(request: Request):
+    """Get saved career tweaks."""
+    with connect() as conn:
+        # Ensure table exists
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS career_tweaks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+        """)
+        tweaks = conn.execute("SELECT * FROM career_tweaks ORDER BY created_at DESC").fetchall()
+    return JSONResponse({"tweaks": [dict(t) for t in tweaks]})
+
+
+@router.post("/api/career/tweaks")
+async def save_career_tweak(request: Request):
+    """Save a new career tweak."""
+    data = await request.json()
+    content = (data.get("content") or "").strip()
+    if not content:
+        return JSONResponse({"error": "Content required"}, status_code=400)
+    
+    with connect() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS career_tweaks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
+            )
+        """)
+        conn.execute("INSERT INTO career_tweaks (content) VALUES (?)", (content,))
+        conn.commit()
+    return JSONResponse({"status": "ok"})
+
+
+@router.delete("/api/career/tweaks/{tweak_id}")
+async def delete_career_tweak(tweak_id: int):
+    """Delete a career tweak."""
+    with connect() as conn:
+        conn.execute("DELETE FROM career_tweaks WHERE id = ?", (tweak_id,))
+        conn.commit()
+    return JSONResponse({"status": "ok"})
+
+
 @router.post("/api/career/suggestions/{suggestion_id}/status")
 async def update_suggestion_status(suggestion_id: int, request: Request):
     """Update the status of a career suggestion."""
@@ -541,6 +662,88 @@ async def convert_suggestion_to_ticket(suggestion_id: int, request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+@router.post("/api/career/suggestions/compress")
+async def compress_suggestions(request: Request):
+    """Compress/deduplicate AI suggestions using LLM analysis."""
+    from app.llm import get_llm_response
+    
+    try:
+        with connect() as conn:
+            # Get all active suggestions
+            rows = conn.execute("""
+                SELECT id, title, description, suggestion_type, rationale
+                FROM career_suggestions 
+                WHERE status = 'pending'
+                ORDER BY created_at DESC
+            """).fetchall()
+            
+            if len(rows) < 2:
+                return JSONResponse({"status": "ok", "merged": 0, "removed": 0, "message": "Not enough suggestions to compress"})
+            
+            # Prepare for LLM analysis
+            suggestions_text = "\n".join([
+                f"[ID:{r['id']}] {r['title']}: {r['description'][:200]}"
+                for r in rows
+            ])
+            
+            prompt = f"""Analyze these career suggestions and identify duplicates or very similar items.
+Return a JSON object with:
+- "groups": array of arrays, each containing IDs that should be merged (keep first, remove rest)
+- "remove": array of IDs to remove entirely (low quality or superseded)
+
+Suggestions:
+{suggestions_text}
+
+Rules:
+1. Group suggestions that have the same core advice or recommendation
+2. Mark as remove any that are vague, unhelpful, or completely duplicated
+3. Only group items that are truly about the same thing
+4. Return valid JSON only, no markdown"""
+
+            response = await get_llm_response(prompt, model="gpt-4o-mini")
+            
+            # Parse response
+            try:
+                import json
+                # Clean response
+                response = response.strip()
+                if response.startswith("```"):
+                    response = response.split("```")[1]
+                    if response.startswith("json"):
+                        response = response[4:]
+                result = json.loads(response)
+            except:
+                return JSONResponse({"status": "ok", "merged": 0, "removed": 0, "message": "Could not parse LLM response"})
+            
+            merged = 0
+            removed = 0
+            
+            # Process groups - keep first, remove rest
+            for group in result.get("groups", []):
+                if len(group) > 1:
+                    # Keep first ID, remove rest
+                    to_remove = group[1:]
+                    for rid in to_remove:
+                        conn.execute("UPDATE career_suggestions SET status = 'dismissed' WHERE id = ?", (rid,))
+                        merged += 1
+            
+            # Process removals
+            for rid in result.get("remove", []):
+                conn.execute("UPDATE career_suggestions SET status = 'dismissed' WHERE id = ?", (rid,))
+                removed += 1
+            
+            conn.commit()
+            
+            return JSONResponse({
+                "status": "ok", 
+                "merged": merged, 
+                "removed": removed
+            })
+    
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 # ----------------------
 # Standup Updates API
 # ----------------------
@@ -583,11 +786,6 @@ async def get_today_standup(request: Request):
     return JSONResponse(None)
 
 
-@router.post("/api/career/standups")
-async def create_standup(request: Request):
-    """Upload a standup update and generate AI feedback."""
-    data = await request.json()
-
 # Backend learning from feedback (placeholder)
 @router.get("/api/signals/feedback-learn")
 async def learn_from_feedback():
@@ -597,6 +795,12 @@ async def learn_from_feedback():
         summary = [dict(row) for row in rows]
     # TODO: Use this data to filter, re-rank, or improve future suggestions
     return JSONResponse({"learning_summary": summary})
+
+
+@router.post("/api/career/standups")
+async def create_standup(request: Request):
+    """Upload a standup update and generate AI feedback."""
+    data = await request.json()
     content = (data.get("content") or "").strip()
     standup_date = data.get("date")  # Optional, defaults to today
     skip_feedback = data.get("skip_feedback", False)
@@ -1356,3 +1560,593 @@ Keep the response conversational and not too long (2-4 paragraphs typically). Be
         "response": response
     })
 
+
+# ============================================
+# Career Memories and Completed Projects
+# ============================================
+
+@router.get("/api/career/memories")
+async def get_career_memories(memory_type: str = None, include_unpinned: bool = True):
+    """Get career memories, optionally filtered by type."""
+    with connect() as conn:
+        if memory_type:
+            if include_unpinned:
+                rows = conn.execute("""
+                    SELECT * FROM career_memories 
+                    WHERE memory_type = ?
+                    ORDER BY is_pinned DESC, created_at DESC
+                """, (memory_type,)).fetchall()
+            else:
+                rows = conn.execute("""
+                    SELECT * FROM career_memories 
+                    WHERE memory_type = ? AND is_pinned = 1
+                    ORDER BY created_at DESC
+                """, (memory_type,)).fetchall()
+        else:
+            rows = conn.execute("""
+                SELECT * FROM career_memories 
+                ORDER BY is_pinned DESC, created_at DESC
+            """).fetchall()
+    return JSONResponse([dict(r) for r in rows])
+
+
+@router.post("/api/career/memories")
+async def create_career_memory(request: Request):
+    """Create a new career memory."""
+    data = await request.json()
+    memory_type = data.get("memory_type", "achievement")
+    title = data.get("title")
+    description = data.get("description")
+    source_type = data.get("source_type")
+    source_id = data.get("source_id")
+    skills = data.get("skills", "")
+    is_pinned = 1 if data.get("is_pinned") else 0
+    is_ai_work = 1 if data.get("is_ai_work") else 0
+    metadata = json.dumps(data.get("metadata", {}))
+    
+    if not title:
+        return JSONResponse({"error": "Title is required"}, status_code=400)
+    
+    with connect() as conn:
+        cur = conn.execute("""
+            INSERT INTO career_memories (memory_type, title, description, source_type, source_id, skills, is_pinned, is_ai_work, metadata)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (memory_type, title, description, source_type, source_id, skills, is_pinned, is_ai_work, metadata))
+        conn.commit()
+        memory_id = cur.lastrowid
+    
+    return JSONResponse({"status": "ok", "id": memory_id})
+
+
+@router.post("/api/career/memories/{memory_id}/pin")
+async def toggle_pin_memory(memory_id: int):
+    """Toggle pin status of a memory."""
+    with connect() as conn:
+        row = conn.execute("SELECT is_pinned FROM career_memories WHERE id = ?", (memory_id,)).fetchone()
+        if not row:
+            return JSONResponse({"error": "Memory not found"}, status_code=404)
+        
+        new_status = 0 if row["is_pinned"] else 1
+        conn.execute("UPDATE career_memories SET is_pinned = ?, updated_at = datetime('now') WHERE id = ?", (new_status, memory_id))
+        conn.commit()
+    
+    return JSONResponse({"status": "ok", "is_pinned": bool(new_status)})
+
+
+@router.delete("/api/career/memories/{memory_id}")
+async def delete_career_memory(memory_id: int):
+    """Delete a career memory (only if not pinned)."""
+    with connect() as conn:
+        row = conn.execute("SELECT is_pinned FROM career_memories WHERE id = ?", (memory_id,)).fetchone()
+        if row and row["is_pinned"]:
+            return JSONResponse({"error": "Cannot delete pinned memory. Unpin first."}, status_code=400)
+        
+        conn.execute("DELETE FROM career_memories WHERE id = ?", (memory_id,))
+        conn.commit()
+    
+    return JSONResponse({"status": "ok"})
+
+
+@router.get("/api/career/completed-projects")
+async def get_completed_projects():
+    """Get completed projects from tickets and career memories."""
+    with connect() as conn:
+        # Get completed tickets
+        tickets = conn.execute("""
+            SELECT t.*, 
+                   GROUP_CONCAT(DISTINCT tf.filename) as files
+            FROM tickets t
+            LEFT JOIN ticket_files tf ON tf.ticket_id = t.id
+            WHERE t.status IN ('done', 'complete', 'completed')
+            GROUP BY t.id
+            ORDER BY t.updated_at DESC
+            LIMIT 50
+        """).fetchall()
+        
+        # Get pinned completed project memories
+        memories = conn.execute("""
+            SELECT * FROM career_memories 
+            WHERE memory_type = 'completed_project'
+            ORDER BY is_pinned DESC, created_at DESC
+        """).fetchall()
+    
+    return JSONResponse({
+        "tickets": [dict(t) for t in tickets],
+        "memories": [dict(m) for m in memories]
+    })
+
+
+@router.post("/api/career/sync-completed-projects")
+async def sync_completed_projects():
+    """Sync completed tickets to career memories (without overwriting pinned ones)."""
+    with connect() as conn:
+        # Get completed tickets not already in memories
+        tickets = conn.execute("""
+            SELECT t.* FROM tickets t
+            WHERE t.status IN ('done', 'complete', 'completed')
+            AND NOT EXISTS (
+                SELECT 1 FROM career_memories cm 
+                WHERE cm.source_type = 'ticket' AND cm.source_id = t.id
+            )
+        """).fetchall()
+        
+        added = 0
+        for t in tickets:
+            # Create memory for completed ticket
+            skills = t["tags"] if t["tags"] else ""
+            metadata = json.dumps({
+                "ticket_id": t["ticket_id"],
+                "status": t["status"],
+                "completed_at": t["updated_at"]
+            })
+            
+            conn.execute("""
+                INSERT INTO career_memories (memory_type, title, description, source_type, source_id, skills, is_pinned, metadata)
+                VALUES ('completed_project', ?, ?, 'ticket', ?, ?, 0, ?)
+            """, (t["title"], t["ai_summary"] or t["description"], t["id"], skills, metadata))
+            added += 1
+        
+        conn.commit()
+    
+    return JSONResponse({"status": "ok", "added": added})
+
+
+# ============================================
+# Skills Tracker
+# ============================================
+
+# Pre-defined skill categories with initial skills
+SKILL_CATEGORIES = {
+    "ddd": ["Domain Driven Design", "Bounded Contexts", "Aggregates", "Event Sourcing", "CQRS"],
+    "python": ["Python Advanced", "Hexagonal Architecture", "Clean Architecture", "Design Patterns", "Type Hints"],
+    "analytics": ["Analytics Engineering", "Data Modeling", "dbt", "Data Quality", "Metrics Layer"],
+    "backend": ["Backend Development", "API Design", "REST APIs", "GraphQL", "Microservices"],
+    "airflow": ["Apache Airflow", "DAG Design", "Task Dependencies", "Operators", "Sensors"],
+    "aws": ["AWS Services", "S3", "Lambda", "Step Functions", "Glue", "Redshift"],
+    "ai": ["AI/ML Integration", "LLM APIs", "Prompt Engineering", "RAG", "Vector Databases"],
+    "agentic": ["Agentic AI Design", "MCP Servers", "Tool Calling", "Agent Orchestration", "ReAct Patterns", "Chain of Thought", "Function Calling", "Multi-Agent Systems"],
+    "data": ["Data Engineering", "ETL/ELT", "Data Pipelines", "Data Governance", "Apache Atlas", "Data Catalog"],
+    "knowledge": ["Knowledge Engineering", "Knowledge Graphs", "Ontologies", "Semantic Web", "DIKW Framework"]
+}
+
+
+@router.get("/api/career/skills")
+async def get_skills():
+    """Get all tracked skills with categories."""
+    with connect() as conn:
+        skills = conn.execute("""
+            SELECT * FROM skill_tracker
+            ORDER BY category, proficiency_level DESC
+        """).fetchall()
+    
+    # Group by category
+    by_category = {}
+    for s in skills:
+        cat = s["category"] or "other"
+        if cat not in by_category:
+            by_category[cat] = []
+        by_category[cat].append(dict(s))
+    
+    return JSONResponse({
+        "skills": [dict(s) for s in skills],
+        "by_category": by_category,
+        "categories": list(SKILL_CATEGORIES.keys())
+    })
+
+
+@router.post("/api/career/skills/initialize")
+async def initialize_skills(request: Request):
+    """Initialize skill tracker with pre-defined categories or custom skills."""
+    try:
+        body = await request.json()
+        skills_with_categories = body.get("skills_with_categories", [])
+        custom_skills = body.get("skills", [])  # Legacy format
+    except:
+        skills_with_categories = []
+        custom_skills = []
+    
+    with connect() as conn:
+        added = 0
+        
+        if skills_with_categories:
+            # New format: skills with their categories
+            for item in skills_with_categories:
+                skill_name = item.get("name") if isinstance(item, dict) else item
+                category = item.get("category", "Custom") if isinstance(item, dict) else "Custom"
+                try:
+                    conn.execute("""
+                        INSERT OR IGNORE INTO skill_tracker (skill_name, category, proficiency_level)
+                        VALUES (?, ?, 0)
+                    """, (skill_name, category))
+                    if conn.execute("SELECT changes()").fetchone()[0] > 0:
+                        added += 1
+                except:
+                    pass
+        elif custom_skills:
+            # Legacy format: just skill names (default to Custom category)
+            for skill in custom_skills:
+                try:
+                    conn.execute("""
+                        INSERT OR IGNORE INTO skill_tracker (skill_name, category, proficiency_level)
+                        VALUES (?, ?, 0)
+                    """, (skill, "Custom"))
+                    if conn.execute("SELECT changes()").fetchone()[0] > 0:
+                        added += 1
+                except:
+                    pass
+        else:
+            # Add default skill categories
+            for category, skills in SKILL_CATEGORIES.items():
+                for skill in skills:
+                    try:
+                        conn.execute("""
+                            INSERT OR IGNORE INTO skill_tracker (skill_name, category, proficiency_level)
+                            VALUES (?, ?, 0)
+                        """, (skill, category))
+                        if conn.execute("SELECT changes()").fetchone()[0] > 0:
+                            added += 1
+                    except:
+                        pass
+        conn.commit()
+    
+    return JSONResponse({"status": "ok", "initialized": added})
+
+
+@router.post("/api/career/skills/reset")
+async def reset_skills():
+    """Reset all skill data (delete all skills)."""
+    with connect() as conn:
+        conn.execute("DELETE FROM skill_tracker")
+        conn.commit()
+    return JSONResponse({"status": "ok", "message": "All skills reset"})
+
+
+@router.post("/api/career/skills/assess-from-codebase")
+async def assess_skills_from_codebase(request: Request):
+    """Analyze codebase and update skill levels based on code evidence."""
+    import os
+    import glob
+    
+    # Define patterns to look for each skill category
+    skill_patterns = {
+        "ddd": ["domain", "aggregate", "entity", "value_object", "repository", "bounded_context", "event_source"],
+        "python": ["hexagonal", "adapter", "port", "typing", "dataclass", "protocol", "abstract"],
+        "analytics": ["dbt", "model", "metric", "dimension", "fact", "data_quality"],
+        "backend": ["api", "route", "endpoint", "fastapi", "flask", "rest", "graphql"],
+        "airflow": ["dag", "task", "operator", "sensor", "airflow", "pipeline"],
+        "aws": ["boto3", "s3", "lambda", "glue", "redshift", "step_function"],
+        "ai": ["openai", "llm", "embedding", "vector", "prompt", "rag", "langchain"],
+        "data": ["etl", "transform", "pipeline", "data_quality", "lineage", "catalog"],
+        "knowledge": ["dikw", "knowledge", "ontology", "semantic", "graph", "taxonomy"]
+    }
+    
+    # Scan codebase
+    workspace_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    py_files = glob.glob(os.path.join(workspace_root, "**/*.py"), recursive=True)
+    
+    # Exclude common non-project directories
+    py_files = [f for f in py_files if not any(x in f for x in ['__pycache__', '.venv', 'venv', 'node_modules', '.git'])]
+    
+    skill_evidence = {cat: {"files": [], "count": 0, "patterns_found": []} for cat in skill_patterns}
+    
+    for filepath in py_files[:100]:  # Limit to first 100 files
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read().lower()
+                
+            for category, patterns in skill_patterns.items():
+                for pattern in patterns:
+                    if pattern in content:
+                        rel_path = os.path.relpath(filepath, workspace_root)
+                        if rel_path not in skill_evidence[category]["files"]:
+                            skill_evidence[category]["files"].append(rel_path)
+                        skill_evidence[category]["count"] += content.count(pattern)
+                        if pattern not in skill_evidence[category]["patterns_found"]:
+                            skill_evidence[category]["patterns_found"].append(pattern)
+        except Exception:
+            pass
+    
+    # Map pattern categories to skill names that exist in skill_tracker
+    pattern_to_skills = {
+        "ddd": ["Domain Driven Design", "Bounded Contexts", "Aggregates", "Event Sourcing"],
+        "python": ["Python", "typing", "Hexagonal Architecture"],
+        "analytics": ["Data Analysis", "SQL/Databases", "Data Visualization"],
+        "backend": ["REST APIs", "FastAPI", "Backend Development", "Microservices"],
+        "airflow": ["Airflow", "Data Pipelines", "ETL"],
+        "aws": ["AWS", "Cloud Platforms", "Lambda", "S3"],
+        "ai": ["OpenAI", "LLM Integration", "RAG", "Embeddings", "AI/ML"],
+        "data": ["ETL", "Data Pipelines", "Data Quality", "Data Lineage"],
+        "knowledge": ["Knowledge Graphs", "DIKW", "Semantic", "Ontology"]
+    }
+    
+    # Update skill levels based on evidence
+    ai_memories_added = []
+    skills_updated = 0
+    with connect() as conn:
+        for category, evidence in skill_evidence.items():
+            file_count = len(evidence["files"])
+            pattern_count = len(evidence["patterns_found"])
+            
+            if file_count > 0:
+                # More gradual proficiency scale: max ~70% from codebase alone
+                # Requires manual validation/projects to reach higher levels
+                base_score = 15
+                file_bonus = min(20, file_count * 2)  # Cap at 20
+                pattern_bonus = min(15, pattern_count * 3)  # Cap at 15
+                usage_bonus = min(20, evidence["count"] // 50)  # Much slower scaling
+                proficiency = min(70, base_score + file_bonus + pattern_bonus + usage_bonus)
+                
+                # Update all skills matching this pattern category
+                skills_to_update = pattern_to_skills.get(category, [])
+                evidence_json = json.dumps(evidence["files"][:10])
+                
+                for skill in skills_to_update:
+                    # First, ensure the skill exists
+                    conn.execute("""
+                        INSERT OR IGNORE INTO skill_tracker (skill_name, category, proficiency_level, evidence)
+                        VALUES (?, ?, 0, '[]')
+                    """, (skill, category))
+                    
+                    # Then update with evidence
+                    result = conn.execute("""
+                        UPDATE skill_tracker 
+                        SET proficiency_level = MAX(proficiency_level, ?),
+                            evidence = ?,
+                            last_used_at = datetime('now'),
+                            updated_at = datetime('now')
+                        WHERE skill_name = ? OR LOWER(skill_name) LIKE LOWER(?)
+                    """, (proficiency, evidence_json, skill, f"%{skill}%"))
+                    skills_updated += result.rowcount
+                
+                # Also update by category match
+                conn.execute("""
+                    UPDATE skill_tracker 
+                    SET proficiency_level = MAX(proficiency_level, ?),
+                        evidence = ?,
+                        last_used_at = datetime('now'),
+                        updated_at = datetime('now')
+                    WHERE LOWER(category) = LOWER(?)
+                """, (proficiency, json.dumps(evidence["files"][:10]), category))
+                
+                # Auto-add AI implementation memories for AI-related patterns
+                if category == "ai" and evidence["count"] > 5:
+                    # Check if we haven't already added this
+                    existing = conn.execute(
+                        "SELECT id FROM ai_implementation_memories WHERE title LIKE ?",
+                        (f"%{category.upper()} - Auto-discovered%",)
+                    ).fetchone()
+                    if not existing:
+                        patterns_found = ", ".join(evidence["patterns_found"][:5])
+                        files_found = "\n".join([f"- {f}" for f in evidence["files"][:5]])
+                        conn.execute("""
+                            INSERT INTO ai_implementation_memories (title, description, technologies, impact, lessons_learned)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (
+                            "AI/ML - Auto-discovered from codebase",
+                            f"Automatically detected AI implementation patterns in codebase.\n\nPatterns found: {patterns_found}\n\nKey files:\n{files_found}",
+                            patterns_found,
+                            "Codebase analysis",
+                            "Auto-generated from assess codebase feature"
+                        ))
+                        ai_memories_added.append(category)
+        
+        conn.commit()
+    
+    return JSONResponse({
+        "status": "ok",
+        "skills_updated": skills_updated,
+        "evidence": {k: {"files": v["files"][:5], "patterns": v["patterns_found"]} for k, v in skill_evidence.items() if v["count"] > 0},
+        "ai_memories_added": ai_memories_added
+    })
+
+
+@router.post("/api/career/skills/update-from-tickets")
+async def update_skills_from_tickets():
+    """Update skill counts based on completed tickets."""
+    with connect() as conn:
+        # Get tags from completed tickets
+        tickets = conn.execute("""
+            SELECT tags FROM tickets
+            WHERE status IN ('done', 'complete', 'completed')
+            AND tags IS NOT NULL AND tags != ''
+        """).fetchall()
+        
+        # Count occurrences of each skill/tag
+        tag_counts = {}
+        for t in tickets:
+            for tag in (t["tags"] or "").split(","):
+                tag = tag.strip().lower()
+                if tag:
+                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
+        
+        # Update skill tracker
+        updated = 0
+        for tag, count in tag_counts.items():
+            # Try to match tag to skill
+            conn.execute("""
+                UPDATE skill_tracker 
+                SET tickets_count = tickets_count + ?,
+                    last_used_at = datetime('now'),
+                    updated_at = datetime('now')
+                WHERE LOWER(skill_name) LIKE ?
+            """, (count, f"%{tag}%"))
+            updated += 1
+        
+        conn.commit()
+    
+    return JSONResponse({"status": "ok", "tags_processed": len(tag_counts)})
+
+
+# ============================================
+# AI Implementation Memories
+# ============================================
+
+@router.post("/api/career/add-ai-memory")
+async def add_ai_implementation_memory(request: Request):
+    """Add a memory specifically for AI implementation work in this app."""
+    data = await request.json()
+    title = data.get("title")
+    description = data.get("description")
+    skills = data.get("skills", "AI/ML Integration, LLM APIs, Prompt Engineering")
+    
+    if not title:
+        return JSONResponse({"error": "Title is required"}, status_code=400)
+    
+    metadata = json.dumps({
+        "app": "v0agent",
+        "type": "ai_implementation",
+        "features": data.get("features", [])
+    })
+    
+    with connect() as conn:
+        cur = conn.execute("""
+            INSERT INTO career_memories (memory_type, title, description, source_type, skills, is_pinned, is_ai_work, metadata)
+            VALUES ('ai_implementation', ?, ?, 'codebase', ?, 0, 1, ?)
+        """, (title, description, skills, metadata))
+        conn.commit()
+        memory_id = cur.lastrowid
+    
+    return JSONResponse({"status": "ok", "id": memory_id})
+
+
+@router.get("/api/career/ai-memories")
+async def get_ai_memories():
+    """Get all AI implementation memories."""
+    with connect() as conn:
+        rows = conn.execute("""
+            SELECT * FROM career_memories 
+            WHERE is_ai_work = 1
+            ORDER BY is_pinned DESC, created_at DESC
+        """).fetchall()
+    return JSONResponse([dict(r) for r in rows])
+
+
+@router.delete("/api/career/ai-memories/{memory_id}")
+async def delete_ai_memory(memory_id: int):
+    """Delete an AI implementation memory."""
+    with connect() as conn:
+        conn.execute("DELETE FROM career_memories WHERE id = ? AND is_ai_work = 1", (memory_id,))
+        conn.commit()
+    return JSONResponse({"status": "ok", "deleted": memory_id})
+
+
+@router.post("/api/career/assess-codebase-ai")
+async def assess_codebase_with_ai(request: Request):
+    """Use AI to analyze codebase and generate technical implementation memories."""
+    import os
+    import glob
+    from ..llm_new import ask_llm
+    
+    workspace_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    
+    # Scan for key technical files
+    py_files = glob.glob(os.path.join(workspace_root, "src/**/*.py"), recursive=True)
+    py_files = [f for f in py_files if not any(x in f for x in ['__pycache__', '.venv', 'venv', '.git'])][:30]
+    
+    # Build code context
+    code_samples = []
+    for filepath in py_files:
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read()
+                # Look for interesting patterns
+                if any(term in content.lower() for term in ['llm', 'openai', 'embedding', 'prompt', 'async def', 'fastapi', 'router', 'sqlite', 'langchain', 'anthropic']):
+                    rel_path = os.path.relpath(filepath, workspace_root)
+                    # Get first 100 lines or key functions
+                    lines = content.split('\n')[:80]
+                    code_samples.append(f"### {rel_path}\n```python\n{''.join(lines[:60]) if len(lines) > 60 else chr(10).join(lines)}\n```")
+        except Exception:
+            pass
+    
+    if not code_samples:
+        return JSONResponse({"status": "error", "message": "No relevant code found"})
+    
+    # Limit context
+    context = "\n\n".join(code_samples[:10])
+    
+    prompt = f"""Analyze this codebase and identify 3-5 **technical** AI/ML implementation patterns. Focus on:
+1. LLM integration patterns (API usage, prompt engineering, streaming)
+2. Architecture decisions (async patterns, caching, error handling)
+3. Data flow and state management
+4. Performance optimizations
+5. Security/best practices
+
+For each pattern found, provide:
+- A technical title (e.g., "Async LLM Streaming with Fallback", "Multi-Provider Model Routing")
+- Technical description of how it's implemented
+- Key technologies/libraries used
+- Code-level insights
+
+Codebase samples:
+{context}
+
+Respond in JSON format:
+{{
+  "patterns": [
+    {{
+      "title": "Technical pattern name",
+      "description": "Detailed technical description of implementation",
+      "technologies": "tech1, tech2, tech3",
+      "code_insight": "Specific code-level observation"
+    }}
+  ]
+}}"""
+    
+    try:
+        response = ask_llm(prompt, model="gpt-4o-mini")
+        # Parse JSON from response
+        import re
+        json_match = re.search(r'\{[\s\S]*\}', response)
+        if json_match:
+            data = json.loads(json_match.group())
+            patterns = data.get("patterns", [])
+            
+            added = []
+            with connect() as conn:
+                for pattern in patterns[:5]:
+                    title = pattern.get("title", "Unknown Pattern")
+                    description = pattern.get("description", "")
+                    technologies = pattern.get("technologies", "")
+                    code_insight = pattern.get("code_insight", "")
+                    
+                    full_desc = f"{description}\n\n**Code Insight:** {code_insight}" if code_insight else description
+                    
+                    # Check for duplicates
+                    existing = conn.execute(
+                        "SELECT id FROM career_memories WHERE title = ? AND is_ai_work = 1",
+                        (title,)
+                    ).fetchone()
+                    
+                    if not existing:
+                        conn.execute("""
+                            INSERT INTO career_memories (memory_type, title, description, source_type, skills, is_pinned, is_ai_work)
+                            VALUES ('ai_implementation', ?, ?, 'codebase_ai', ?, 0, 1)
+                        """, (title, full_desc, technologies))
+                        added.append(title)
+                conn.commit()
+            
+            return JSONResponse({"status": "ok", "added": added, "count": len(added)})
+    except Exception as e:
+        return JSONResponse({"status": "error", "message": str(e)})
+    
+    return JSONResponse({"status": "error", "message": "Failed to parse AI response"})
