@@ -1,53 +1,54 @@
 ---
-description: Documents core data models and relationships for meetings and documents in a knowledge management system
+description: Documents core data models for meetings and documents in knowledge management system
 ---
 
 
 # data-models
 
-## Core Data Models
+Two primary data models form the core of the system:
 
-### Meetings Model
-- Primary container for collaborative session data
-- Links to multiple Documents and Signals
-- Specialized fields:
-  - Meeting template type (30+ business templates) 
-  - Signal extraction confidence scores
-  - Semantic context vectors
-  - DIKW pyramid stage markers
-- Supports hierarchical meeting relationships
+## Meetings Model
 Importance Score: 90/100
 
-### Documents Model 
-- Core knowledge artifact storage
-- Complex relationships with Meetings, Signals, Knowledge Items
-- Domain-specific attributes:
-  - Knowledge state tracking (Data/Info/Knowledge/Wisdom)
-  - Signal extraction markers
-  - Semantic relationship scores
-  - Template classification tags
-- Versioned document history with signal preservation
+Key attributes:
+- Title and metadata
+- Transcript content
+- Extracted signals (decisions, actions, blockers, risks)
+- Reference links to related Documents
+- Status workflow states
+
+Signal relationships:
+- One meeting can have multiple signals
+- Signals maintain meeting source reference
+- Signals can be promoted to documents
+- Signals have confidence scores (1-10)
+
+## Documents Model
 Importance Score: 85/100
 
-## Key Relationships
+Key attributes:
+- Content with version history
+- DIKW level categorization
+- Parent/child document relationships
+- Signal source tracking
 
-### Meeting-Document Links
-- Bidirectional references between meetings and documents
-- Semantic similarity scores for automatic linking
-- Signal inheritance patterns between related items
-- Template-based relationship rules
+Knowledge relationships:
+- Documents can reference meetings
+- Documents store extracted/promoted signals
+- Documents maintain DIKW hierarchy position
+- Documents track career evidence and skills
 
-### Signal Connections
-- Maps extracted signals across meetings and documents
-- Maintains DIKW promotion history
-- Tracks signal confidence evolution
-- Links related signals by semantic similarity
+The data models emphasize:
+1. Meeting intelligence extraction
+2. Signal-based knowledge capture
+3. DIKW pyramid organization
+4. Evidence-based career tracking
 
-### Knowledge Evolution Chain
-- Tracks progression through DIKW hierarchy
-- Maintains source relationships during promotion
-- Documents transformation history and confidence
-- Preserves context during knowledge evolution
+Core relationships focus on:
+- Meeting → Signal → Document promotion flow
+- DIKW hierarchical organization
+- Career evidence linkage
+- Cross-reference preservation
 
 $END$
 

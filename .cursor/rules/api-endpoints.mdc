@@ -1,52 +1,64 @@
 ---
-description: Documents FastAPI routes implementing CRUD operations for meetings, documents, and business signals
+description: Documents FastAPI routes implementing core business logic for meetings and documents management
 ---
 
 
 # api-endpoints
 
-Core FastAPI routes implement domain-specific CRUD operations for:
+Key API Endpoints:
 
-1. Meeting Signal Management (src/app/api/v1/signals.py)
+1. Meeting Intelligence API (/api/v1/meetings/)
 Importance Score: 85/100
-- Extracts and classifies business signals from meetings:
-  - Decisions 
-  - Action items
+
+- Signal extraction from transcripts with categorization:
+  - Decisions
+  - Action Items 
   - Blockers
   - Risks
   - Ideas
-- Handles signal status transitions with custom workflow rules
-- Implements signal merging and deduplication logic
-- Tracks signal confidence scores and user feedback
+- Meeting template detection (30+ types)
+- Context preservation across sessions
+- Automated metadata enrichment
 
-2. Document Intelligence Routes (src/app/api/v1/documents.py)
-Importance Score: 75/100  
-- Manages automatic document linking based on semantic similarity
-- Handles multi-source transcript merging (Teams + Pocket)
-- Processes 30+ meeting templates with specialized extraction rules
-- Integrates screenshot analysis for context enrichment
-
-3. Knowledge Graph Endpoints (src/app/api/knowledge_graph.py)
-Importance Score: 90/100
-- Implements DIKW (Data/Information/Knowledge/Wisdom) pyramid operations
-- Manages semantic relationships between knowledge items
-- Handles entity linking across meetings, docs, tickets
-- Processes tag clustering and knowledge classification
-
-4. AI Memory Integration (src/app/api/v1/ai_memory.py)
+2. Knowledge Graph API (/api/v1/knowledge/)
 Importance Score: 80/100
-- Manages contextual memory for AI responses
-- Implements importance-based retrieval with semantic search
-- Handles memory validation and confidence scoring
 
-5. Career Development API (src/app/api/v1/career.py)
+- DIKW hierarchy management endpoints
+- Content synthesis across knowledge levels
+- Relationship mapping between entities:
+  - semantic_similar
+  - derived_from
+  - referenced
+  - blocks
+  - depends_on
+- Automated relationship suggestions
+
+3. Career Development API (/api/v1/career/)
 Importance Score: 75/100
-- Processes standup analytics for career insights
-- Tracks skill development patterns
-- Generates career growth suggestions
-- Integrates meeting signals with development tracking
 
-The endpoints implement a sophisticated knowledge management system centered around meeting intelligence, career development tracking, and knowledge relationship management.
+- Skill progression tracking
+- Career insight generation
+- Standup analysis integration
+- Pattern recognition for growth opportunities
+- Evidence-based proficiency scoring
+
+4. AI Memory Management (/api/v1/memory/)
+Importance Score: 90/100
+
+- Contextual memory retrieval system
+- Confidence-based memory scoring
+- Semantic search capabilities
+- Memory importance prioritization
+- Token-aware context injection
+
+5. Feedback Loop API (/api/v1/feedback/)
+Importance Score: 70/100
+
+- Signal validation workflows
+- Confidence boosting mechanisms
+- Pattern-based learning system
+- DIKW promotion triggers
+- Historical feedback tracking
 
 $END$
 
