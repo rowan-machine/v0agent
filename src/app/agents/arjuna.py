@@ -1776,6 +1776,66 @@ def quick_ask_sync(topic: Optional[str] = None, query: Optional[str] = None) -> 
         return {"response": f"AI Error: {str(e)}", "success": False}
 
 
+async def interpret_user_status_adapter(status_text: str) -> Dict[str, Any]:
+    """
+    Adapter: Interpret user status text into structured data.
+    
+    Migration Note (P1.8): Centralizes status interpretation logic.
+    
+    Args:
+        status_text: Raw status text from user
+    
+    Returns:
+        Dict with mode, activity, context fields
+    """
+    if not status_text:
+        return {"mode": "implementation", "activity": "", "context": ""}
+    
+    prompt = f"""Interpret this user status and extract structured data:
+Status: "{status_text}"
+
+Return ONLY a JSON object with these fields:
+- mode: one of [grooming, planning, standup, implementation]
+- activity: short description of what they're doing
+- context: any relevant context or details
+
+Examples:
+"Working on the airflow DAG refactor" -> {{"mode": "implementation", "activity": "refactoring airflow DAG", "context": "airflow"}}
+"Preparing for sprint planning" -> {{"mode": "planning", "activity": "sprint planning prep", "context": "sprint planning"}}
+"In standup" -> {{"mode": "standup", "activity": "daily standup", "context": "standup meeting"}}
+
+Return only valid JSON, no markdown or explanation."""
+
+    agent = get_arjuna_agent()
+    
+    try:
+        result = await agent.ask_llm(prompt, task_type="classification")
+        # Clean up markdown if present
+        result = result.strip()
+        if result.startswith("```json"):
+            result = result.split("```json")[1].split("```")[0].strip()
+        elif result.startswith("```"):
+            result = result.split("```")[1].split("```")[0].strip()
+        
+        import json
+        parsed = json.loads(result)
+        
+        return {
+            "mode": parsed.get("mode", "implementation"),
+            "activity": parsed.get("activity", status_text),
+            "context": parsed.get("context", ""),
+            "success": True
+        }
+    except Exception as e:
+        logger.error(f"Status interpretation failed: {e}")
+        return {
+            "mode": "implementation",
+            "activity": status_text,
+            "context": "",
+            "success": False
+        }
+
+
 # Export constants for backward compatibility
 __all__ = [
     "ArjunaAgent",
@@ -1798,4 +1858,5 @@ __all__ = [
     "execute_intent",
     "quick_ask",
     "quick_ask_sync",
+    "interpret_user_status_adapter",
 ]

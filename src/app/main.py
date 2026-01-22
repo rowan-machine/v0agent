@@ -1736,8 +1736,14 @@ async def calculate_mode_statistics():
 
 @app.post("/api/user-status/update")
 async def update_user_status(request: Request):
-    """AI-interpret user status and auto-start timer."""
-    from .llm import ask
+    """
+    AI-interpret user status and auto-start timer.
+    
+    Migration Note (P1.8): Uses ArjunaAgent adapter for status interpretation.
+    Lazy imports ensure backward compatibility.
+    """
+    # Lazy import for backward compatibility
+    from .agents.arjuna import interpret_user_status_adapter
     
     data = await request.json()
     status_text = data.get("status", "").strip()
@@ -1745,43 +1751,11 @@ async def update_user_status(request: Request):
     if not status_text:
         return JSONResponse({"error": "Status text required"}, status_code=400)
     
-    # Use AI to interpret the status
-    prompt = f"""Interpret this user status and extract structured data:
-Status: "{status_text}"
-
-Return ONLY a JSON object with these fields:
-- mode: one of [grooming, planning, standup, implementation]
-- activity: short description of what they're doing
-- context: any relevant context or details
-
-Examples:
-"Working on the airflow DAG refactor" -> {{"mode": "implementation", "activity": "refactoring airflow DAG", "context": "airflow"}}
-"Preparing for sprint planning" -> {{"mode": "planning", "activity": "sprint planning prep", "context": "sprint planning"}}
-"In standup" -> {{"mode": "standup", "activity": "daily standup", "context": "standup meeting"}}
-
-Return only valid JSON, no markdown or explanation."""
-    
-    try:
-        result = ask(prompt, model="gpt-4o-mini")
-        # Clean up markdown if present
-        result = result.strip()
-        if result.startswith("```json"):
-            result = result.split("```json")[1].split("```")[0].strip()
-        elif result.startswith("```"):
-            result = result.split("```")[1].split("```")[0].strip()
-        
-        import json
-        parsed = json.loads(result)
-        
-        mode = parsed.get("mode", "implementation")
-        activity = parsed.get("activity", "")
-        context_str = parsed.get("context", "")
-        
-    except Exception as e:
-        # Fallback: default to implementation mode
-        mode = "implementation"
-        activity = status_text
-        context_str = ""
+    # Use ArjunaAgent adapter for AI interpretation
+    interpreted = await interpret_user_status_adapter(status_text)
+    mode = interpreted.get("mode", "implementation")
+    activity = interpreted.get("activity", status_text)
+    context_str = interpreted.get("context", "")
     
     # Save status
     with connect() as conn:
