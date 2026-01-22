@@ -1,64 +1,60 @@
 ---
-description: FastAPI route specifications for managing meetings and documents with domain-specific CRUD operations
+description: Documents FastAPI routes implementing CRUD operations for meetings and documents with custom signal processing
 ---
 
 
 # api-endpoints
 
-Meeting Management Routes
-Importance Score: 85/100
+## Meeting Management Routes
+Path: src/app/api/meetings.py
+Importance Score: 85
 
-1. Meeting Creation
-- Custom signal extraction during meeting creation
-- Automatic tagging based on participant roles and content analysis
-- Integration with knowledge graph for relationship mapping
-- Source tracking for hybrid/remote meeting contexts
+- Meeting signal extraction endpoints:
+  - Extract structured signals (decisions, actions, blockers) from meeting content
+  - Process multi-modal inputs including text and screenshots
+  - Maintain context links between transcripts and extracted signals
+  - Handle signal validation and classification
 
-2. Meeting Update
-- Version control for meeting notes with change tracking
-- Signal diff generation between versions
-- Automatic notification triggers on signal changes
-- Meeting type-specific validation rules
+## Document Processing Routes 
+Path: src/app/api/documents.py
+Importance Score: 80
 
-3. Meeting Retrieval
-- Context-aware meeting search with signal filtering
-- Custom sorting based on signal importance scores
-- Relationship-based meeting recommendations
-- Temporal clustering of related meetings
+- Document intelligence endpoints:
+  - Semantic similarity-based document linking
+  - Intelligent document categorization
+  - Signal extraction from document content
+  - Version tracking with semantic diff
 
-4. Meeting Deletion
-- Soft delete with signal preservation
-- Knowledge graph relationship cleanup
-- Signal reference management
-- Meeting archive protocol
+## Signal Management Routes
+Path: src/app/api/signals.py
+Importance Score: 90
 
-Document Management Routes
-Importance Score: 80/100
+- Signal processing endpoints:
+  - Multi-level signal validation workflow
+  - Signal status transitions (approve/reject/archive)
+  - Date-aware signal aggregation 
+  - Cross-reference management between signals
+  - Signal promotion through DIKW hierarchy
 
-1. Document Processing
-- DIKW hierarchy integration for document classification
-- Automatic relationship detection with existing content
-- Signal extraction from document content
-- Version-aware document storage
+## Knowledge Graph Routes
+Path: src/app/api/knowledge.py
+Importance Score: 85
 
-2. Document Retrieval
-- Context-based document recommendations
-- Signal-based document filtering
-- Knowledge graph traversal for related documents
-- Custom relevance scoring
+- Knowledge management endpoints:
+  - Entity relationship tracking with typed connections
+  - Semantic similarity-based linking
+  - Auto-suggestion for entity connections
+  - DIKW hierarchy promotion rules
 
-3. Document Updates
-- Change tracking with signal impact analysis
-- Relationship update propagation
-- Version management with signal preservation
-- Content validation against domain rules
+## Career Development Routes
+Path: src/app/api/career.py
+Importance Score: 75
 
-Core Signal Processing
-Importance Score: 90/100
-- Multi-source signal aggregation
-- Signal type classification (decisions, actions, risks)
-- Temporal signal tracking
-- Signal relationship mapping
+- Career tracking endpoints:
+  - Technical specialization monitoring
+  - Multi-timeline goal management
+  - Skills progression framework
+  - Development metrics calculation
 
 $END$
 

@@ -1,47 +1,41 @@
 ---
-description: Documentation of core data models for meetings and documents, including their relationship structures and business rules
+description: Defines data model structure and relationships for meetings and documents in project management context
 ---
 
 
 # data-models
 
-## Primary Data Models
+Two primary data models form the core business structure:
 
-### Meeting Model (Importance: 90/100)
-- Core fields:
-  - `signals`: List of extracted business signals (decisions, actions, blockers, risks)
-  - `summary`: AI-generated meeting synopsis
-  - `participants`: Attendee tracking with roles
-  - `context`: Related sprint/project references
-  - `linked_documents`: Bidirectional document relationships
+1. Meeting Model
+Importance Score: 90
+- Complex meeting data structure incorporating:
+  - Structured signals (decisions, actions, blockers, risks) 
+  - Relationships to Documents and other Meetings
+  - Signal status tracking and progression
+  - Meeting bundle concept for grouped sessions
+  - Multi-source transcript merging
 
-### Document Model (Importance: 85/100) 
-- Key attributes:
-  - `document_type`: Categorization (specification, design, report)
-  - `status`: Workflow state tracking
-  - `relationships`: Knowledge graph connections
-  - `extracted_signals`: Auto-detected business signals
-  - `version_info`: Document evolution tracking
+2. Document Model  
+Importance Score: 85
+- Document hierarchy system with:
+  - Knowledge graph connections
+  - DIKW pyramid classification
+  - Signal extraction capabilities
+  - Version control tracking
+  - Semantic relationship mapping
 
-## Relationship Structure
+Key Relationships:
+- Meetings <-> Documents: Bidirectional references for context preservation
+- Meetings <-> Signals: One-to-many relationship with signal categorization
+- Documents <-> DIKW: Hierarchical progression tracking
+- Documents <-> Documents: Knowledge graph connections
 
-### Document-Meeting Links (Importance: 80/100)
-- Bidirectional relationship tracking
-- Confidence scoring for auto-detected relationships
-- Signal-based relationship inference
-- Context-aware linking rules
-
-### Signal Relationships (Importance: 85/100)
-- Cross-entity signal propagation
-- Signal categorization hierarchy 
-- Signal merging rules
-- Temporal signal tracking
-
-### Knowledge Graph Integration (Importance: 90/100)
-- DIKW hierarchy implementation
-- Semantic relationship scoring
-- Source attribution tracking
-- Promotion/demotion rules between levels
+The models implement a sophisticated knowledge management system focused on:
+- Signal extraction and categorization
+- Context preservation across related items
+- Knowledge hierarchy progression
+- Semantic relationship tracking
 
 $END$
 

@@ -18,51 +18,46 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The system implements a sophisticated AI-assisted project management and knowledge organization platform with several key business components:
+The system implements a sophisticated knowledge management and workflow platform with several key business components:
 
-## Core Business Logic Areas
+1. Knowledge Graph & DIKW System (Importance: 95/100)
+- DIKW pyramid implementation for transforming data through information and knowledge into wisdom
+- Custom promotion logic between hierarchy levels
+- Multi-view graph visualization with tag-based clustering
+- Signal extraction and categorization system
 
-### AI Assistant Framework (85/100)
-- Stateful conversation management with 24-hour context expiration
-- Intelligent command categorization using emoji mapping
-- Rotating contextual suggestion system with 4 sets of domain-specific actions
-- Model switching logic between GPT-4 and Claude with conversation persistence
+2. Meeting Intelligence Pipeline (Importance: 90/100) 
+- Structured signal extraction from meetings (decisions, actions, blockers, risks)
+- Multi-source transcript merging
+- Automated summary generation
+- Meeting bundle processing system
 
-### Knowledge Management System (90/100)
-- DIKW (Data-Information-Knowledge-Wisdom) hierarchy implementation
-- Custom knowledge synthesis and promotion algorithms
-- Multi-level signal merging with confidence scoring
-- Semantic deduplication of knowledge items
-- Tag-based clustering for knowledge organization
+3. Workflow Management (Importance: 85/100)
+- Configurable workflow modes with step tracking
+- Sprint points burndown visualization
+- Task-based progress calculation 
+- Custom mode-specific checklists
 
-### Meeting Intelligence Platform (85/100)
-- Signal extraction system for 5 core types: decisions, actions, blockers, risks, ideas
-- Custom signal lifecycle management with approval workflows
-- Meeting-based signal grouping and organization
-- Multi-source transcript processing with adaptive format parsing
+4. Assistant Intelligence (Importance: 85/100)
+- Context-aware command suggestions
+- Conversation history with 24-hour expiration
+- Intelligent command categorization
+- Command frequency/recency hybrid sorting
 
-### Career Development Framework (80/100)
-- Standup management with sentiment analysis
-- AI-powered feedback system with themed categorization
-- Sprint coach integration for career guidance
-- Skills-based progression tracking
-- Role-based performance evaluation
+5. Career Development Framework (Importance: 80/100)
+- Technical specialization tracking
+- Multi-timeline goal management
+- Skills progression framework 
+- Career metrics dashboard
 
-### Agent Communication Infrastructure (85/100)
-- Multi-agent message routing with priority levels
-- Domain-specific message types for coordination
-- Status tracking with persistence
-- Custom retry logic and TTL handling
+Core Business Concepts:
+- Knowledge hierarchy management through DIKW model
+- Sprint-based workflow system with configurable modes
+- Meeting signal extraction and processing
+- Career development and skills tracking
+- Command-driven workflow automation
 
-## Critical Implementation Files
-
-- src/app/agents/dikw_synthesizer.py: Knowledge hierarchy implementation
-- src/app/mcp/extract.py: Signal processing system
-- src/app/agents/meeting_analyzer.py: Meeting intelligence core
-- src/app/agents/career_coach.py: Career development logic
-- src/app/services/agent_bus.py: Agent communication system
-
-The system's unique value lies in its integrated approach to knowledge management, meeting intelligence, and career development, with sophisticated AI assistance throughout all workflows.
+The system's primary value lies in its sophisticated knowledge management capabilities, particularly the DIKW implementation and meeting intelligence features. These are tightly integrated with workflow automation and career development tracking to create a comprehensive professional development platform.
 
 $END$
 
