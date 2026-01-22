@@ -3,17 +3,29 @@ Agents Module - AI agents for SignalFlow.
 
 Clean exports for agent functionality without circular dependencies.
 AgentRegistry implementation is in registry.py.
+ModelRouter implementation is in model_router.py.
 
 Usage:
     from src.app.agents import get_registry, BaseAgent, AgentConfig
+    from src.app.agents import get_model_router, ModelRouter
     
     registry = get_registry()
     arjuna = registry.get("arjuna")
+    
+    router = get_model_router()
+    model = router.select("classification", agent_name="arjuna")
 """
 
 from typing import Optional
 from .base import BaseAgent, AgentConfig
 from .registry import AgentRegistry
+from .model_router import (
+    ModelRouter,
+    ModelSelectionResult,
+    TaskTypeConfig,
+    get_model_router,
+    initialize_model_router,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -69,4 +81,9 @@ __all__ = [
     "AgentRegistry",
     "get_registry",
     "initialize_registry",
+    "ModelRouter",
+    "ModelSelectionResult",
+    "TaskTypeConfig",
+    "get_model_router",
+    "initialize_model_router",
 ]

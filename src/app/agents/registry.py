@@ -3,7 +3,7 @@ Agent Registry - Central management of all AI agents in SignalFlow.
 Handles agent registration, configuration loading, and instantiation.
 
 This module contains the AgentRegistry class which manages agent lifecycle,
-configuration, and dependency injection.
+configuration, and dependency injection including the ModelRouter.
 """
 
 from typing import Dict, Type, Optional, Any
@@ -24,7 +24,7 @@ class AgentRegistry:
     - Load and manage agent configurations from YAML
     - Register agent classes
     - Create and cache agent instances (singleton per agent)
-    - Manage dependencies (LLM client, tool registry)
+    - Manage dependencies (LLM client, tool registry, model router)
     - Support hot-reloading configurations in development
     """
     
@@ -41,8 +41,10 @@ class AgentRegistry:
         self.config_path = Path(config_path)
         self.llm_client = None
         self.tool_registry = None
+        self.model_router = None
         
         self._load_configurations()
+        self._init_model_router()
     
     def _load_configurations(self):
         """
@@ -84,6 +86,22 @@ class AgentRegistry:
         
         except Exception as e:
             logger.error(f"Failed to load agent configurations: {e}")
+    
+    def _init_model_router(self):
+        """Initialize the model router with policy from config directory."""
+        try:
+            from .model_router import ModelRouter
+            
+            # Look for routing policy in same directory as agent config
+            policy_path = self.config_path.parent / "model_routing.yaml"
+            if policy_path.exists():
+                self.model_router = ModelRouter(str(policy_path))
+                logger.info(f"Model router initialized from {policy_path}")
+            else:
+                self.model_router = ModelRouter()  # Use embedded default
+                logger.info("Model router initialized with embedded default policy")
+        except Exception as e:
+            logger.warning(f"Failed to initialize model router: {e}")
     
     def register(self, agent_class: Type[BaseAgent]):
         """
@@ -138,6 +156,7 @@ class AgentRegistry:
             config=config,
             llm_client=self.llm_client,
             tool_registry=self.tool_registry,
+            model_router=self.model_router,
         )
         
         self.agents[agent_name] = agent
@@ -185,6 +204,21 @@ class AgentRegistry:
         for agent in self.agents.values():
             agent.tool_registry = tool_registry
     
+    def set_model_router(self, model_router: Any):
+        """
+        Set the model router for all agents (dependency injection).
+        
+        Args:
+            model_router: ModelRouter instance
+        """
+        self.model_router = model_router
+        for agent in self.agents.values():
+            agent.model_router = model_router
+    
+    def get_model_router(self):
+        """Get the current model router."""
+        return self.model_router
+    
     def list_agents(self) -> Dict[str, Dict[str, Any]]:
         """
         List all registered agents and their configs.
@@ -216,4 +250,9 @@ class AgentRegistry:
         """
         self.configs.clear()
         self._load_configurations()
-        logger.info("Agent configurations reloaded")
+        
+        # Also reload model router policy
+        if self.model_router:
+            self.model_router.reload_policy()
+        
+        logger.info("Agent configurations and model routing policy reloaded")

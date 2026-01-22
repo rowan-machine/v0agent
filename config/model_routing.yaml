@@ -1,0 +1,148 @@
+# Model Routing Policy for SignalFlow
+# Version: 1.0
+# 
+# This declarative policy defines model selection per task type.
+# Designed for future LangChain/LangGraph/LangSmith swap without code changes.
+#
+# Priority order:
+# 1. Explicit override (user request)
+# 2. Agent config override
+# 3. Task type default (from this file)
+# 4. Agent default task type
+# 5. Global fallback
+
+version: "1.0"
+description: "Model routing policy for SignalFlow agents"
+
+# Task type → model mapping
+# Organized by cost tier: low → standard → premium
+task_types:
+  # ============================================
+  # LOW COST TIER - Fast, cheap operations
+  # ============================================
+  
+  classification:
+    default_model: gpt-4o-mini
+    fallback_models:
+      - gpt-3.5-turbo
+    latency_budget_ms: 2000
+    max_tokens: 500
+    cost_tier: low
+    description: "Intent classification, routing, simple parsing"
+  
+  routing:
+    default_model: gpt-4o-mini
+    fallback_models:
+      - gpt-3.5-turbo
+    latency_budget_ms: 1500
+    max_tokens: 300
+    cost_tier: low
+    description: "Agent routing, query classification"
+  
+  parsing:
+    default_model: gpt-4o-mini
+    fallback_models:
+      - gpt-3.5-turbo
+    latency_budget_ms: 2000
+    max_tokens: 500
+    cost_tier: low
+    description: "Structured extraction, JSON parsing"
+
+  # ============================================
+  # STANDARD COST TIER - Medium complexity
+  # ============================================
+  
+  summarization:
+    default_model: gpt-4o-mini
+    fallback_models:
+      - gpt-3.5-turbo
+    latency_budget_ms: 5000
+    max_tokens: 1000
+    cost_tier: standard
+    description: "Meeting summaries, document summaries"
+  
+  extraction:
+    default_model: gpt-4o-mini
+    fallback_models:
+      - gpt-3.5-turbo
+    latency_budget_ms: 5000
+    max_tokens: 1500
+    cost_tier: standard
+    description: "Signal extraction, entity extraction"
+  
+  conversation:
+    default_model: gpt-4o-mini
+    fallback_models:
+      - gpt-3.5-turbo
+    latency_budget_ms: 4000
+    max_tokens: 1000
+    cost_tier: standard
+    description: "Chat responses, Q&A"
+
+  # ============================================
+  # PREMIUM COST TIER - Complex reasoning
+  # ============================================
+  
+  synthesis:
+    default_model: gpt-4o
+    fallback_models:
+      - gpt-4o-mini
+      - gpt-3.5-turbo
+    latency_budget_ms: 15000
+    max_tokens: 2000
+    cost_tier: premium
+    description: "DIKW synthesis, knowledge graph updates, complex reasoning"
+  
+  analysis:
+    default_model: gpt-4o
+    fallback_models:
+      - gpt-4o-mini
+    latency_budget_ms: 10000
+    max_tokens: 2000
+    cost_tier: premium
+    description: "Deep analysis, career insights, pattern detection"
+  
+  long_context:
+    default_model: gpt-4o
+    fallback_models:
+      - gpt-4o-mini
+    latency_budget_ms: 20000
+    max_tokens: 4000
+    cost_tier: premium
+    description: "Multi-document synthesis, meeting bundles"
+  
+  vision:
+    default_model: gpt-4o
+    fallback_models: []  # No fallback for vision
+    latency_budget_ms: 10000
+    max_tokens: 1000
+    cost_tier: premium
+    description: "Image analysis, screenshot extraction"
+
+# Agent → default task type mapping
+# When an agent doesn't specify task_type, use this default
+agent_defaults:
+  arjuna: conversation
+  career_coach: analysis
+  meeting_analyzer: extraction
+  dikw_synthesizer: synthesis
+
+# Global fallback when task type is unknown
+global_fallback:
+  model: gpt-4o-mini
+  reason: "Unknown task type, using global fallback"
+
+# User override rules (optional)
+# Allows specific users or contexts to always use certain models
+user_overrides:
+  # Example: specific user always gets gpt-4o
+  # user_123:
+  #   model: gpt-4o
+  #   reason: "Premium user override"
+
+# Cost guards (optional)
+# Prevent runaway costs by setting limits
+cost_guards:
+  enabled: false
+  daily_premium_limit: 100  # Max premium tier calls per day
+  fallback_on_limit: gpt-4o-mini
