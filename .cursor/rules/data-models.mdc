@@ -1,54 +1,47 @@
 ---
-description: Data models specification for meeting and document management with knowledge graph integration
+description: Documents the core data models and their relationships for meeting and document management
 ---
 
 
 # data-models
 
-Two primary data models drive the system's knowledge management capabilities:
+Two primary data models form the core of the system:
 
-## Meetings Model
-Importance Score: 90
-- Structured representation of meeting intelligence:
-  - Core meeting metadata (title, date, duration)
-  - Extracted signals categorized as:
-    - Decisions
-    - Action items
-    - Blockers
-    - Risks
-    - Ideas
-  - Signal status tracking (approved, rejected, waiting, archived)
-  - Knowledge graph relationships to related documents and other meetings
-  - Vector embeddings for semantic search
+## Meetings Model (Importance: 90/100)
 
-## Documents Model 
-Importance Score: 85
-- Knowledge artifact representation:
-  - Document classification within DIKW hierarchy
-    - Data tier
-    - Information tier
-    - Knowledge tier
-    - Wisdom tier
-  - Confidence scoring for knowledge promotion
-  - Automated signal extraction
-  - Relationship mappings to meetings and other documents
-  - Classification tags for domain organization
+Key attributes and relationships:
+- Hierarchical signal storage (decisions, actions, blockers, risks, ideas)
+- Synthesized content mapping with embedded metadata
+- Knowledge graph connections tracking relationships between meetings
+- Sprint cycle association and temporal context tracking
+- Screenshot analysis results with vision AI metadata
 
-## Model Relationships
-- Meetings and Documents are connected through:
-  - Signal references
-  - Knowledge graph edges
-  - Temporal proximity
-  - Content similarity scores
-  - Shared context tags
+## Documents Model (Importance: 85/100)
 
-## Signal Classification System
-- Standardized signal types across both models:
-  - Decision signals (meeting outcomes, document conclusions)
-  - Action signals (tasks, next steps)
-  - Risk signals (identified issues, potential problems)
-  - Blocker signals (impediments, dependencies)
-  - Idea signals (proposals, suggestions)
+Key attributes and relationships:
+- Signal extraction mappings for structured knowledge
+- DIKW pyramid classification level
+- Promotion history between pyramid levels
+- Related meeting references and context chain
+- Document category metadata for domain classification
+
+Cross-Model Relationships:
+1. Meeting-Document Connections
+- Bi-directional references for context preservation
+- Signal inheritance and promotion tracking
+- Knowledge graph relationship types for semantic connections
+
+2. Signal Propagation
+- Shared signal categorization system
+- Cross-reference tracking between source documents/meetings
+- Hierarchical organization of extracted knowledge
+
+3. Knowledge Classification
+- DIKW pyramid implementation across both models
+- Promotion workflows between levels
+- Validation rules for level transitions
+
+The models implement a sophisticated knowledge management system focused on extracting and organizing business intelligence from meetings and documents while maintaining semantic relationships and context.
 
 $END$
 

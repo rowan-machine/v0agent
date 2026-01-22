@@ -42,6 +42,7 @@
                         <option value="in_progress" {{ 'selected' if ticket and ticket.status == 'in_progress' else '' }}>In Progress</option>
                         <option value="in_review" {{ 'selected' if ticket and ticket.status == 'in_review' else '' }}>In Review</option>
                         <option value="done" {{ 'selected' if ticket and ticket.status == 'done' else '' }}>Done</option>
+                        <option value="complete" {{ 'selected' if ticket and ticket.status == 'complete' else '' }}>Complete</option>
                         <option value="blocked" {{ 'selected' if ticket and ticket.status == 'blocked' else '' }}>Blocked</option>
                     </select>
                 </div>
@@ -262,6 +263,146 @@
         </div>
         {% endif %}
 
+        <!-- Code Files Section (Available for both new and existing tickets) -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                    </svg>
+                    Code Files
+                </h2>
+                <button type="button" onclick="showAddCodeFileModal()"
+                        class="px-3 py-1.5 text-sm font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
+                    + Add File
+                </button>
+            </div>
+            
+            <p class="text-sm text-gray-500 mb-4">
+                Add files that need to be created or modified for this ticket. Base content is used for diff comparisons in standups.
+            </p>
+            
+            <!-- Code Files List -->
+            <div id="code-files-list" class="space-y-2">
+                <div class="text-gray-400 text-sm py-4 text-center" id="no-code-files-msg">
+                    {% if ticket %}Loading files...{% else %}No files added yet. Add files after creating the ticket, or add them now and they'll be saved with the ticket.{% endif %}
+                </div>
+            </div>
+            
+            <!-- Pending files for new tickets (stored in JS until ticket is created) -->
+            <input type="hidden" name="pending_code_files" id="pending-code-files-input" value="[]">
+        </div>
+
+        <!-- Add Code File Modal -->
+        <div id="addCodeFileModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50" onclick="if(event.target === this) closeAddCodeFileModal()">
+            <div class="bg-white rounded-xl p-6 w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto">
+                <h3 class="text-lg font-semibold mb-4">Add Code File</h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">File Path <span class="text-red-500">*</span></label>
+                        <input type="text" id="codeFileNameInput" placeholder="src/app/example.py" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">File Type</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer p-3 border rounded-lg hover:bg-gray-50 flex-1">
+                                <input type="radio" name="codeFileType" value="update" checked class="text-blue-600">
+                                <div>
+                                    <span class="font-medium text-sm">📝 Update Existing</span>
+                                    <p class="text-xs text-gray-500">Modify an existing file (paste original below)</p>
+                                </div>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer p-3 border rounded-lg hover:bg-gray-50 flex-1">
+                                <input type="radio" name="codeFileType" value="new" class="text-blue-600">
+                                <div>
+                                    <span class="font-medium text-sm">✨ Create New</span>
+                                    <p class="text-xs text-gray-500">New file that doesn't exist yet</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div id="baseContentSection">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Base/Original Content
+                            <span class="text-gray-400 font-normal">(for update files - used for diff)</span>
+                        </label>
+                        <textarea id="codeFileBaseContent" rows="12" placeholder="Paste the original file content here..."
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500"></textarea>
+                        <p class="text-xs text-gray-500 mt-1">This will be stored as v1 in the code locker for comparison</p>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Description <span class="text-gray-400 font-normal">(optional)</span></label>
+                        <input type="text" id="codeFileDescription" placeholder="Brief description of changes needed"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                
+                <div class="flex justify-end gap-3 mt-6">
+                    <button type="button" onclick="closeAddCodeFileModal()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+                    <button type="button" onclick="saveCodeFile()" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Add File</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Code File Modal -->
+        <div id="editCodeFileModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50" onclick="if(event.target === this) closeEditCodeFileModal()">
+            <div class="bg-white rounded-xl p-6 w-full max-w-3xl mx-4 max-h-[90vh] overflow-y-auto">
+                <h3 class="text-lg font-semibold mb-4">Edit Code File</h3>
+                <input type="hidden" id="editCodeFileId">
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">File Path</label>
+                        <input type="text" id="editCodeFileName" disabled
+                               class="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">File Type</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer p-3 border rounded-lg hover:bg-gray-50 flex-1">
+                                <input type="radio" name="editCodeFileType" value="update" class="text-blue-600">
+                                <div>
+                                    <span class="font-medium text-sm">📝 Update Existing</span>
+                                </div>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer p-3 border rounded-lg hover:bg-gray-50 flex-1">
+                                <input type="radio" name="editCodeFileType" value="new" class="text-blue-600">
+                                <div>
+                                    <span class="font-medium text-sm">✨ Create New</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div id="editBaseContentSection">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Base/Original Content
+                        </label>
+                        <textarea id="editCodeFileBaseContent" rows="12" placeholder="Paste the original file content here..."
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <input type="text" id="editCodeFileDescription" placeholder="Brief description of changes needed"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                
+                <div class="flex justify-end gap-3 mt-6">
+                    <button type="button" onclick="closeEditCodeFileModal()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+                    <button type="button" onclick="updateCodeFile()" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save Changes</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Actions -->
         <div class="flex items-center justify-between">
             <a href="/tickets" class="text-gray-500 hover:text-gray-700">Cancel</a>
@@ -372,13 +513,18 @@ function renderTasks() {
     }
     
     container.innerHTML = tasks.map((task, i) => `
-        <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg group" data-idx="${i}">
+        <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg group task-item" data-idx="${i}" draggable="true">
+            <div class="drag-handle cursor-grab text-gray-300 hover:text-gray-500 mt-1" title="Drag to reorder">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"/>
+                </svg>
+            </div>
             <input type="checkbox" ${task.done ? 'checked' : ''} 
                    onchange="toggleTask(${i})"
                    class="mt-1 h-5 w-5 rounded border-gray-300 text-violet-600 cursor-pointer">
             <div class="flex-1 min-w-0">
-                <p class="text-sm ${task.done ? 'line-through text-gray-400' : 'text-gray-700'}">${task.text}</p>
-                ${task.estimate ? `<span class="text-xs text-gray-400">${task.estimate}</span>` : ''}
+                <p class="text-sm ${task.done ? 'line-through text-gray-400' : 'text-gray-700'}">${escapeHtml(task.text)}</p>
+                ${task.estimate ? `<span class="text-xs text-gray-400">${escapeHtml(task.estimate)}</span>` : ''}
             </div>
             <button type="button" onclick="removeTask(${i})"
                     class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -390,6 +536,61 @@ function renderTasks() {
     `).join('');
     
     updateTasksInput();
+    initTaskDragDrop();
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function initTaskDragDrop() {
+    const container = document.getElementById('tasks-container');
+    const items = container.querySelectorAll('.task-item');
+    let draggedItem = null;
+    
+    items.forEach(item => {
+        item.addEventListener('dragstart', (e) => {
+            draggedItem = item;
+            item.classList.add('opacity-50');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        
+        item.addEventListener('dragend', () => {
+            item.classList.remove('opacity-50');
+            draggedItem = null;
+            // Remove all drag-over styles
+            items.forEach(i => i.classList.remove('border-t-2', 'border-violet-500'));
+        });
+        
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (draggedItem && draggedItem !== item) {
+                item.classList.add('border-t-2', 'border-violet-500');
+            }
+        });
+        
+        item.addEventListener('dragleave', () => {
+            item.classList.remove('border-t-2', 'border-violet-500');
+        });
+        
+        item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (draggedItem && draggedItem !== item) {
+                const fromIdx = parseInt(draggedItem.dataset.idx);
+                const toIdx = parseInt(item.dataset.idx);
+                
+                // Reorder tasks array
+                const [movedTask] = tasks.splice(fromIdx, 1);
+                tasks.splice(toIdx, 0, movedTask);
+                
+                renderTasks();
+            }
+        });
+    });
 }
 
 function updateTasksInput() {
@@ -432,15 +633,6 @@ document.getElementById('generate-decomposition-btn').addEventListener('click', 
     try {
         const resp = await fetch(`/api/tickets/${ticketId}/generate-decomposition`, { method: 'POST' });
         const data = await resp.json();
-        
-        if (data.ai_response) {
-            // Display formatted AI response
-            const responseDiv = document.createElement('div');
-            responseDiv.className = 'ai-response-display';
-            responseDiv.style.cssText = 'margin: 1rem 0; padding: 1rem; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3498db;';
-            responseDiv.innerHTML = marked.parse(data.ai_response);
-            btn.parentElement.appendChild(responseDiv);
-        }
         
         if (data.tasks && data.tasks.length > 0) {
             tasks = data.tasks.map(t => typeof t === 'string' ? { text: t, done: false } : { text: t.text, estimate: t.estimate, done: false });
@@ -531,6 +723,346 @@ function confirmDelete() {
         document.getElementById('delete-form').submit();
     }
 }
+
+// =====================
+// Code Files Management
+// =====================
+
+let codeFiles = [];
+
+// Load code files for existing ticket
+async function loadCodeFiles() {
+    try {
+        const res = await fetch(`/api/career/ticket-files/${ticketId}`);
+        codeFiles = await res.json();
+        renderCodeFiles();
+    } catch (err) {
+        console.error('Failed to load code files:', err);
+        document.getElementById('code-files-list').innerHTML = 
+            '<div class="text-red-500 text-sm py-4 text-center">Failed to load files</div>';
+    }
+}
+
+function renderCodeFiles() {
+    const container = document.getElementById('code-files-list');
+    const noFilesMsg = document.getElementById('no-code-files-msg');
+    
+    if (codeFiles.length === 0) {
+        if (noFilesMsg) noFilesMsg.style.display = 'block';
+        container.innerHTML = '<div class="text-gray-400 text-sm py-4 text-center">No files added yet</div>';
+        return;
+    }
+    
+    if (noFilesMsg) noFilesMsg.style.display = 'none';
+    
+    const updateFiles = codeFiles.filter(f => f.file_type === 'update');
+    const newFiles = codeFiles.filter(f => f.file_type === 'new');
+    
+    let html = '';
+    
+    if (updateFiles.length > 0) {
+        html += `<div class="mb-3"><div class="text-xs font-medium text-gray-500 mb-2">📝 Files to Update</div>`;
+        html += updateFiles.map(f => renderCodeFileItem(f)).join('');
+        html += '</div>';
+    }
+    
+    if (newFiles.length > 0) {
+        html += `<div><div class="text-xs font-medium text-gray-500 mb-2">✨ New Files to Create</div>`;
+        html += newFiles.map(f => renderCodeFileItem(f)).join('');
+        html += '</div>';
+    }
+    
+    container.innerHTML = html;
+}
+
+function renderCodeFileItem(file) {
+    const hasBase = file.base_content && file.base_content.length > 0;
+    const versionInfo = file.locker_version ? `v${file.locker_version}` : (hasBase ? 'base set' : 'no base');
+    const versionClass = file.locker_version ? 'bg-green-100 text-green-700' : (hasBase ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500');
+    
+    return `
+        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 mb-2">
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+                <span class="text-lg">${file.file_type === 'new' ? '✨' : '📄'}</span>
+                <div class="min-w-0 flex-1">
+                    <div class="font-mono text-sm text-gray-800 truncate">${file.filename}</div>
+                    ${file.description ? `<div class="text-xs text-gray-500 truncate">${file.description}</div>` : ''}
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 text-xs ${versionClass} rounded">${versionInfo}</span>
+                <button type="button" onclick="editCodeFile(${file.id})" 
+                        class="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200" title="Edit">
+                    ✏️
+                </button>
+                <button type="button" onclick="deleteCodeFile(${file.id})" 
+                        class="px-2 py-1 text-xs text-red-600 hover:text-red-800" title="Remove">
+                    ✕
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function showAddCodeFileModal() {
+    document.getElementById('addCodeFileModal').classList.remove('hidden');
+    document.getElementById('addCodeFileModal').classList.add('flex');
+    document.getElementById('codeFileNameInput').focus();
+}
+
+function closeAddCodeFileModal() {
+    document.getElementById('addCodeFileModal').classList.add('hidden');
+    document.getElementById('addCodeFileModal').classList.remove('flex');
+    // Reset form
+    document.getElementById('codeFileNameInput').value = '';
+    document.getElementById('codeFileBaseContent').value = '';
+    document.getElementById('codeFileDescription').value = '';
+    document.querySelector('input[name="codeFileType"][value="update"]').checked = true;
+    document.getElementById('baseContentSection').style.display = 'block';
+}
+
+// Toggle base content visibility based on file type
+document.querySelectorAll('input[name="codeFileType"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        document.getElementById('baseContentSection').style.display = 
+            this.value === 'update' ? 'block' : 'none';
+    });
+});
+
+async function saveCodeFile() {
+    const filename = document.getElementById('codeFileNameInput').value.trim();
+    const fileType = document.querySelector('input[name="codeFileType"]:checked').value;
+    const baseContent = document.getElementById('codeFileBaseContent').value;
+    const description = document.getElementById('codeFileDescription').value.trim();
+    
+    if (!filename) {
+        alert('Please enter a filename');
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/career/ticket-files/${ticketId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                filename,
+                file_type: fileType,
+                base_content: baseContent,
+                description
+            })
+        });
+        
+        const data = await res.json();
+        
+        if (data.status === 'ok') {
+            closeAddCodeFileModal();
+            loadCodeFiles();
+        } else {
+            alert(data.error || 'Failed to add file');
+        }
+    } catch (err) {
+        console.error('Error adding file:', err);
+        alert('Failed to add file');
+    }
+}
+
+async function editCodeFile(fileId) {
+    const file = codeFiles.find(f => f.id === fileId);
+    if (!file) return;
+    
+    document.getElementById('editCodeFileId').value = fileId;
+    document.getElementById('editCodeFileName').value = file.filename;
+    document.getElementById('editCodeFileBaseContent').value = file.base_content || '';
+    document.getElementById('editCodeFileDescription').value = file.description || '';
+    document.querySelector(`input[name="editCodeFileType"][value="${file.file_type}"]`).checked = true;
+    
+    document.getElementById('editBaseContentSection').style.display = 
+        file.file_type === 'update' ? 'block' : 'none';
+    
+    document.getElementById('editCodeFileModal').classList.remove('hidden');
+    document.getElementById('editCodeFileModal').classList.add('flex');
+}
+
+function closeEditCodeFileModal() {
+    document.getElementById('editCodeFileModal').classList.add('hidden');
+    document.getElementById('editCodeFileModal').classList.remove('flex');
+}
+
+// Toggle base content in edit modal
+document.querySelectorAll('input[name="editCodeFileType"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        document.getElementById('editBaseContentSection').style.display = 
+            this.value === 'update' ? 'block' : 'none';
+    });
+});
+
+async function updateCodeFile() {
+    const fileId = document.getElementById('editCodeFileId').value;
+    const fileType = document.querySelector('input[name="editCodeFileType"]:checked').value;
+    const baseContent = document.getElementById('editCodeFileBaseContent').value;
+    const description = document.getElementById('editCodeFileDescription').value.trim();
+    
+    try {
+        // Update file type and description
+        const res = await fetch(`/api/career/ticket-files/${fileId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                file_type: fileType,
+                base_content: baseContent,
+                description
+            })
+        });
+        
+        const data = await res.json();
+        
+        if (data.status === 'ok') {
+            closeEditCodeFileModal();
+            loadCodeFiles();
+        } else {
+            alert(data.error || 'Failed to update file');
+        }
+    } catch (err) {
+        console.error('Error updating file:', err);
+        alert('Failed to update file');
+    }
+}
+
+async function deleteCodeFile(fileId) {
+    if (!confirm('Remove this file from the ticket?')) return;
+    
+    try {
+        await fetch(`/api/career/ticket-files/${fileId}`, { method: 'DELETE' });
+        loadCodeFiles();
+    } catch (err) {
+        console.error('Error deleting file:', err);
+        alert('Failed to delete file');
+    }
+}
+
+// Load code files on page load
+loadCodeFiles();
+</script>
+{% endif %}
+
+<!-- Code files JS for new tickets (no ticketId yet) -->
+{% if not ticket %}
+<script>
+// For new tickets, store pending files in memory until ticket is created
+let pendingCodeFiles = [];
+
+function renderCodeFiles() {
+    const container = document.getElementById('code-files-list');
+    
+    if (pendingCodeFiles.length === 0) {
+        container.innerHTML = '<div class="text-gray-400 text-sm py-4 text-center">No files added yet. Files will be saved when you create the ticket.</div>';
+        return;
+    }
+    
+    const updateFiles = pendingCodeFiles.filter(f => f.file_type === 'update');
+    const newFiles = pendingCodeFiles.filter(f => f.file_type === 'new');
+    
+    let html = '';
+    
+    if (updateFiles.length > 0) {
+        html += `<div class="mb-3"><div class="text-xs font-medium text-gray-500 mb-2">📝 Files to Update</div>`;
+        html += updateFiles.map((f, i) => renderPendingFileItem(f, i)).join('');
+        html += '</div>';
+    }
+    
+    if (newFiles.length > 0) {
+        html += `<div><div class="text-xs font-medium text-gray-500 mb-2">✨ New Files to Create</div>`;
+        html += newFiles.map((f, i) => renderPendingFileItem(f, i)).join('');
+        html += '</div>';
+    }
+    
+    container.innerHTML = html;
+    
+    // Update hidden input
+    document.getElementById('pending-code-files-input').value = JSON.stringify(pendingCodeFiles);
+}
+
+function renderPendingFileItem(file, index) {
+    const hasBase = file.base_content && file.base_content.length > 0;
+    
+    return `
+        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 mb-2">
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+                <span class="text-lg">${file.file_type === 'new' ? '✨' : '📄'}</span>
+                <div class="min-w-0 flex-1">
+                    <div class="font-mono text-sm text-gray-800 truncate">${file.filename}</div>
+                    ${file.description ? `<div class="text-xs text-gray-500 truncate">${file.description}</div>` : ''}
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="px-2 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded">pending</span>
+                <button type="button" onclick="removePendingFile(${index})" 
+                        class="px-2 py-1 text-xs text-red-600 hover:text-red-800" title="Remove">
+                    ✕
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function showAddCodeFileModal() {
+    document.getElementById('addCodeFileModal').classList.remove('hidden');
+    document.getElementById('addCodeFileModal').classList.add('flex');
+    document.getElementById('codeFileNameInput').focus();
+}
+
+function closeAddCodeFileModal() {
+    document.getElementById('addCodeFileModal').classList.add('hidden');
+    document.getElementById('addCodeFileModal').classList.remove('flex');
+    document.getElementById('codeFileNameInput').value = '';
+    document.getElementById('codeFileBaseContent').value = '';
+    document.getElementById('codeFileDescription').value = '';
+    document.querySelector('input[name="codeFileType"][value="update"]').checked = true;
+    document.getElementById('baseContentSection').style.display = 'block';
+}
+
+document.querySelectorAll('input[name="codeFileType"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        document.getElementById('baseContentSection').style.display = 
+            this.value === 'update' ? 'block' : 'none';
+    });
+});
+
+function saveCodeFile() {
+    const filename = document.getElementById('codeFileNameInput').value.trim();
+    const fileType = document.querySelector('input[name="codeFileType"]:checked').value;
+    const baseContent = document.getElementById('codeFileBaseContent').value;
+    const description = document.getElementById('codeFileDescription').value.trim();
+    
+    if (!filename) {
+        alert('Please enter a filename');
+        return;
+    }
+    
+    // Check for duplicate
+    if (pendingCodeFiles.some(f => f.filename === filename)) {
+        alert('A file with this name already exists');
+        return;
+    }
+    
+    pendingCodeFiles.push({
+        filename,
+        file_type: fileType,
+        base_content: baseContent,
+        description
+    });
+    
+    closeAddCodeFileModal();
+    renderCodeFiles();
+}
+
+function removePendingFile(index) {
+    pendingCodeFiles.splice(index, 1);
+    renderCodeFiles();
+}
+
+// Initial render
+renderCodeFiles();
 </script>
 {% endif %}
 {% endblock %}

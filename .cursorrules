@@ -10,48 +10,59 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The system implements an intelligent knowledge management and meeting analytics platform with four core business domains:
+The system implements a specialized AI assistant platform for organizational task and knowledge management with several key business components:
 
-1. Knowledge Management System (Importance: 85/100)
-- DIKW pyramid implementation for organizational knowledge
-- 4-tier knowledge classification hierarchy
-- Real-time AI knowledge refinement
-- Knowledge promotion workflow with confidence scoring
+## Core Knowledge Management
+Importance Score: 95/100
 
-2. Knowledge Graph Intelligence (Importance: 90/100)
-- Neo4j-based knowledge construction from meetings/documents
-- Custom relationship inference engine
-- Automated node classification
-- Signal-based knowledge mapping
-- Graph-based insight extraction
+DIKW pyramid implementation for organizational knowledge:
+- Hierarchical knowledge promotion workflow
+- Signal extraction from meetings and documents
+- Custom categorization: decisions, actions, blockers, risks, ideas
+- Context-aware merging of related knowledge items
+- AI-assisted validation for knowledge promotion
 
-3. Meeting Intelligence Pipeline (Importance: 85/100)
-- Structured signal extraction (decisions, actions, blockers, risks)
-- Multi-category signal classification system
-- State management with approval workflows
-- Screenshot analysis with AI vision integration
-- Vector embedding generation for search
+## Task Management System
+Importance Score: 85/100
 
-4. Career Development Platform (Importance: 75/100)
-- AI-driven career tracking
-- Personalized suggestion generation
-- Career memory context building
-- Automated task decomposition
-- Dynamic career path recommendations
+Specialized workflow integrating:
+- Sprint-based task decomposition
+- Accountability tracking with responsible party assignment
+- Context preservation across task lifecycle
+- AI-assisted implementation planning
+- Custom status progression rules
 
-Key Integration Points:
-- Signal extraction feeds knowledge graph construction
-- Meeting intelligence populates career development context
-- Knowledge classification drives career recommendations
-- Graph relationships enhance signal categorization
+## Career Development Framework 
+Importance Score: 80/100
 
-Core Business Value Centers:
-1. Automated knowledge extraction and classification
-2. Intelligent meeting signal processing
-3. Career development through knowledge mapping
-4. Sprint-aligned workflow management
+Domain-specific career tracking:
+- AI-powered suggestion generation
+- Code change analysis for skill development
+- Progress tracking with organizational context
+- Custom promotion workflows
+- Sprint-integrated performance metrics
 
-The system uniquely combines meeting intelligence, knowledge management, and career development through an integrated signal processing and knowledge graph architecture.
+## Meeting Intelligence
+Importance Score: 75/100
+
+Business-specific meeting processing:
+- Structured signal extraction pipeline
+- Domain categorization of key points
+- Integration with knowledge graph
+- Screenshot analysis with vision AI
+- Contextual relationship mapping
+
+## Workflow Mode Management
+Importance Score: 70/100
+
+Custom organizational workflow modes:
+- Context distillation phase handling
+- Implementation planning workflows
+- Time-aware state transitions
+- Checklist progression tracking
+- Sprint alignment rules
+
+The system uniquely combines AI assistance with organizational knowledge management through structured workflows and contextual processing, maintaining relationships between meetings, tasks, career development, and knowledge assets.
 
 $END$
 

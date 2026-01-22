@@ -60,6 +60,11 @@
                   {{ 'bg-green-100 text-green-700 font-medium' if filter_status == 'done' else 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
             Done
         </a>
+        <a href="/tickets?status=complete"
+           class="px-3 py-1.5 text-sm rounded-lg transition-colors
+                  {{ 'bg-emerald-100 text-emerald-700 font-medium' if filter_status == 'complete' else 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}">
+            Complete
+        </a>
     </div>
 
     <!-- Tickets Grid -->
@@ -79,6 +84,8 @@
                         <span class="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded">To Do</span>
                         {% elif ticket.status == 'done' %}
                         <span class="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded">Done</span>
+                        {% elif ticket.status == 'complete' %}
+                        <span class="px-2 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700 rounded">Complete</span>
                         {% else %}
                         <span class="px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-600 rounded">{{ ticket.status }}</span>
                         {% endif %}

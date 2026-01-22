@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS meeting_summaries (
   synthesized_notes TEXT NOT NULL,
   meeting_date TEXT,
   created_at TEXT DEFAULT (datetime('now')),
-  signals_json TEXT
+  signals_json TEXT,
+  source_document_id INTEGER,
+  FOREIGN KEY (source_document_id) REFERENCES docs(id) ON DELETE SET NULL
 );
 
 -- Meeting screenshots/images with AI-generated summaries
@@ -86,7 +88,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   ticket_id TEXT NOT NULL UNIQUE,  -- e.g. JIRA-1234
   title TEXT NOT NULL,
   description TEXT,                 -- pasted ticket details
-  status TEXT DEFAULT 'todo',       -- todo, in_progress, done
+  status TEXT DEFAULT 'todo',       -- todo, in_progress, in_review, blocked, done, complete
   priority TEXT,
   sprint_points INTEGER DEFAULT 0,  -- story points for sprint tracking
   in_sprint INTEGER DEFAULT 1,      -- 1 if assigned to current sprint
@@ -297,6 +299,50 @@ CREATE TABLE IF NOT EXISTS career_chat_updates (
 CREATE INDEX IF NOT EXISTS idx_career_suggestions_type ON career_suggestions(suggestion_type);
 CREATE INDEX IF NOT EXISTS idx_career_suggestions_status ON career_suggestions(status);
 
+-- Standup updates for career tracking and auto-generated feedback
+CREATE TABLE IF NOT EXISTS standup_updates (
+  id INTEGER PRIMARY KEY,
+  standup_date TEXT NOT NULL,      -- date of the standup (YYYY-MM-DD)
+  content TEXT NOT NULL,           -- the standup update text
+  feedback TEXT,                   -- AI-generated feedback/advice
+  sentiment TEXT,                  -- 'positive' | 'neutral' | 'blocked' | 'struggling'
+  key_themes TEXT,                 -- comma-separated main themes
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_standup_date ON standup_updates(standup_date);
+
+-- Ticket files (files to be created or updated as part of a ticket)
+CREATE TABLE IF NOT EXISTS ticket_files (
+  id INTEGER PRIMARY KEY,
+  ticket_id INTEGER NOT NULL,
+  filename TEXT NOT NULL,          -- file path/name
+  file_type TEXT DEFAULT 'update', -- 'new' (to create) or 'update' (to modify)
+  base_content TEXT,               -- original content for 'update' files (for diffing)
+  description TEXT,                -- brief description of changes needed
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
+  UNIQUE(ticket_id, filename)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ticket_files_ticket ON ticket_files(ticket_id);
+
+-- Code locker for tracking file changes per ticket throughout sprint
+CREATE TABLE IF NOT EXISTS code_locker (
+  id INTEGER PRIMARY KEY,
+  ticket_id INTEGER,               -- which ticket this file relates to (NULL for unassigned)
+  filename TEXT NOT NULL,          -- name of the file
+  content TEXT NOT NULL,           -- file content/code
+  version INTEGER DEFAULT 1,       -- version number (increments with each upload)
+  notes TEXT,                      -- optional notes about this version
+  is_initial INTEGER DEFAULT 0,   -- 1 if this is the initial/baseline version
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_code_locker_ticket ON code_locker(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_code_locker_filename ON code_locker(filename);
+
 CREATE TABLE IF NOT EXISTS documents (
   id INTEGER PRIMARY KEY,
   meeting_id INTEGER,
@@ -328,6 +374,12 @@ def init_db():
         # Migration: Add in_sprint column to tickets if it doesn't exist
         try:
             conn.execute("ALTER TABLE tickets ADD COLUMN in_sprint INTEGER DEFAULT 1")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Migration: Add source_document_id column to meeting_summaries if it doesn't exist
+        try:
+            conn.execute("ALTER TABLE meeting_summaries ADD COLUMN source_document_id INTEGER")
         except sqlite3.OperationalError:
             pass  # Column already exists
         
