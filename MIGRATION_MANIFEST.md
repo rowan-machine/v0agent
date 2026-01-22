@@ -627,96 +627,76 @@ jobs:
 
 ---
 
-### Phase F7: External MCP Tool Integrations (Priority: MEDIUM)
-**Goal:** Extend agent capabilities with external service integrations
+### Phase F7: Internal Agent Infrastructure (Priority: HIGH)
+**Goal:** Enhance internal agent capabilities without external integrations
 
-**Current MCP Tools (in `src/app/mcp/`):**
+> **Note:** External MCP integrations (Google Drive, Slack, Linear, GitHub, Calendar) are intentionally 
+> excluded to keep this application private and avoid internal system alerts.
+
+**Internal MCP Tools (in `src/app/mcp/`):**
 | Tool | Purpose | Status |
 |------|---------|--------|
 | `store_meeting_synthesis` | Save meeting + extract signals | ✅ Working |
 | `store_doc` | Save document with embeddings | ✅ Working |
 | `query_memory` | RAG query across meetings/docs | ✅ Working |
-| `load_meeting_bundle` | Bulk import meeting + transcript | ✅ Working |
+| `load_meeting_bundle` | Bulk import meeting + transcript + Pocket AI summary | ✅ Enhanced |
 | `collect_meeting_signals` | Extract signals from text | ✅ Working |
 | `get_meeting_signals` | Retrieve signals | ✅ Working |
 | `update_meeting_signals` | Modify signals | ✅ Working |
 | `export_meeting_signals` | Export signals to formats | ✅ Working |
 | `draft_summary_from_transcript` | AI summary generation | ✅ Working |
 
-**Recommended External MCP Integrations:**
+**Recent Enhancements (v2.1):**
 
-#### Tier 1: High Value (Implement Q1-Q2 2026)
+#### 1. Load Meeting Bundle Improvements
+- ✅ **Pocket AI Summary field** - Separate field for AI-generated summaries
+- ✅ **Dynamic template detection** - Supports 30+ Pocket template formats
+- ✅ **Screenshot upload** - Drag-and-drop screenshot attachment
+- ✅ **Document generation** - Pocket summary creates searchable document
 
-| Integration | Use Case | MCP Server | Priority |
-|-------------|----------|------------|----------|
-| **Google Drive** | Import Pocket transcripts/summaries without mobile upload | `@anthropic/google-drive-mcp` | 🔴 High |
-| **Google Calendar** | Auto-create meetings from calendar events | `@anthropic/google-calendar-mcp` | 🔴 High |
-| **Linear/Jira** | Sync tickets bidirectionally | Custom or `@anthropic/linear-mcp` | 🔴 High |
-| **Slack** | Import messages as signals, send notifications | `@anthropic/slack-mcp` | 🟡 Medium |
-| **GitHub** | Link PRs to tickets, track commits | `@anthropic/github-mcp` | 🟡 Medium |
-
-**Google Drive Integration (Pocket Replacement):**
-```yaml
-# config/mcp_servers.yaml
-mcp_servers:
-  google_drive:
-    enabled: true
-    server: "@anthropic/google-drive-mcp"
-    credentials:
-      client_id: "${GOOGLE_CLIENT_ID}"
-      client_secret: "${GOOGLE_CLIENT_SECRET}"
-    
-    # Auto-import rules
-    auto_import:
-      folder_id: "1234abcd..."  # Pocket sync folder
-      file_types: ["md", "txt", "pdf", "docx"]
-      on_new_file: "import_as_meeting"
-      
-    # Agent permissions
-    agent_access:
-      arjuna:
-        - read_files
-        - search_files
-      meeting_analyzer:
-        - read_files
-        - import_transcript
+**Supported Pocket Templates:**
+```
+All-Hands Meeting, Sprint Retrospective, Sprint Planning, Project Kickoff,
+1:1 Meeting, Sales Call, Interview, Standup, Board Meeting, Product Review,
+Design Review, Customer Feedback, Brainstorming, Workshop, Training Session,
+Incident Review, Performance Review, Strategy Session, Team Sync, Client Meeting,
+Technical Discussion, Release Planning, Budget Review, Hiring Committee,
+Vendor Meeting, Executive Summary, General Meeting
 ```
 
-#### Tier 2: Career & Productivity (Implement Q2-Q3 2026)
+#### 2. Human-in-the-Loop Notification Queue
+- ✅ **NotificationQueue service** - `src/app/services/notification_queue.py`
+- ✅ **Signal review workflow** - AI-extracted signals pending approval
+- ✅ **Action due alerts** - Deadline tracking with priority
+- ✅ **Coach recommendations** - Weekly digest notifications
+- ✅ **Feedback loop** - Approved/rejected signals feed SignalLearningService
 
-| Integration | Use Case | MCP Server | Priority |
-|-------------|----------|------------|----------|
-| **LinkedIn** | Job search, profile updates for career page | Custom scraper or API | 🟡 Medium |
-| **Indeed/Glassdoor** | Job recommendations, salary data | Custom API wrapper | 🟡 Medium |
-| **Notion** | Alternative knowledge base sync | `@anthropic/notion-mcp` | 🟢 Low |
-| **Obsidian** | Personal knowledge graph sync | Custom file watcher | 🟢 Low |
+**Notification Types:**
+| Type | Description | Priority |
+|------|-------------|----------|
+| `signal_review` | AI-extracted signal needs approval | Normal |
+| `action_due` | Action item approaching deadline | High/Urgent |
+| `transcript_match` | Auto-suggested transcript-ticket pairing | Normal |
+| `missed_criteria` | Items in transcript not in ticket | Normal |
+| `mention` | User mentioned in transcript | Normal |
+| `coach` | Career coach suggestion | Low |
+| `dikw_synthesis` | Knowledge synthesis needs review | Normal |
 
-**Career Page Job Search Integration:**
-```python
-# src/app/agents/career_coach.py - Extension
+#### 3. Neo4j Removal
+- ✅ **Removed `api/neo4j_graph.py`** - Not used, replaced by Supabase knowledge graph
+- ✅ **Cleaned up main.py** - Removed init_neo4j_background(), router
+- ✅ **Cleaned up documents.py** - Removed sync_single_document calls
+- ✅ **Knowledge graph via Supabase** - `api/knowledge_graph.py` uses entity_links table
 
-class JobSearchTool:
-    """MCP tool for job search integration."""
-    
-    async def search_jobs(
-        self,
-        skills: List[str],
-        location: str = "remote",
-        experience_level: str = "senior",
-    ) -> List[JobPosting]:
-        """Search jobs matching user's DIKW skills."""
-        # Use LinkedIn/Indeed APIs
-        pass
-    
-    async def match_to_profile(
-        self,
-        job_posting: JobPosting,
-        user_profile: DIKWProfile,
-    ) -> JobMatch:
-        """Score job fit against user's knowledge graph."""
-        # Embedding similarity between job requirements and user skills
-        pass
-```
+#### 4. Signal Learning Service Tests
+- ✅ **11 tests passing** - `tests/test_signal_learning.py`
+- ✅ **Pattern analysis** - Rejection/approval pattern detection
+- ✅ **Learning context** - Generated guidelines for signal extraction
+- ✅ **API endpoints** - `/api/signals/feedback-learn`, `/api/signals/quality-hints/{type}`
+
+---
+
+### Phase F8: Automated Workflows (Priority: MEDIUM)
 
 #### Tier 3: Automation & Workflow (Implement Q3-Q4 2026)
 

@@ -260,7 +260,8 @@ def update_meeting(
     linked_transcript_id: int = Form(None),
     linked_transcript_content: str = Form(None),
     pocket_transcript: str = Form(None),
-    teams_transcript: str = Form(None)
+    teams_transcript: str = Form(None),
+    pocket_ai_summary: str = Form(None)
 ):
     # Clean the text (remove aside tags and markdown headers)
     cleaned_notes = clean_meeting_text(synthesized_notes)
@@ -295,10 +296,10 @@ def update_meeting(
         conn.execute(
             """
             UPDATE meeting_summaries
-            SET meeting_name = ?, synthesized_notes = ?, meeting_date = ?, signals_json = ?, raw_text = ?
+            SET meeting_name = ?, synthesized_notes = ?, meeting_date = ?, signals_json = ?, raw_text = ?, pocket_ai_summary = ?
             WHERE id = ?
             """,
-            (meeting_name, cleaned_notes, meeting_date, json.dumps(signals), merged_raw_text, meeting_id),
+            (meeting_name, cleaned_notes, meeting_date, json.dumps(signals), merged_raw_text, pocket_ai_summary or "", meeting_id),
         )
         
         # Also update linked transcript document if provided

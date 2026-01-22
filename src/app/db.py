@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS meeting_summaries (
   signals_json TEXT,
   source_document_id INTEGER,
   raw_text TEXT,
+  pocket_ai_summary TEXT,
+  pocket_template_type TEXT,
   FOREIGN KEY (source_document_id) REFERENCES docs(id) ON DELETE SET NULL
 );
 
@@ -504,6 +506,18 @@ def init_db():
         # Migration: Add raw_text column to meeting_summaries if it doesn't exist
         try:
             conn.execute("ALTER TABLE meeting_summaries ADD COLUMN raw_text TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Migration: Add pocket_ai_summary column to meeting_summaries if it doesn't exist
+        try:
+            conn.execute("ALTER TABLE meeting_summaries ADD COLUMN pocket_ai_summary TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Migration: Add pocket_template_type column to meeting_summaries if it doesn't exist
+        try:
+            conn.execute("ALTER TABLE meeting_summaries ADD COLUMN pocket_template_type TEXT")
         except sqlite3.OperationalError:
             pass  # Column already exists
         

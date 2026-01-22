@@ -1,43 +1,49 @@
 ---
-description: Documents core data models and relationships for a project management system with focus on meetings and documents
+description: Documentation of database models and relationships for meetings and documents with their associated metadata
 ---
 
 
 # data-models
 
-Two primary data models form the core of the system:
+Primary Data Models:
 
 1. Meeting Model
-Importance Score: 90/100
-- Central entity for knowledge capture and signal extraction
-- Contains:
-  - Transcript data with speaker identification
-  - Extracted signals (decisions, actions, blockers, risks)
-  - Knowledge relationships to documents and tickets
-  - Contextual metadata for AI analysis
-- Maintains bidirectional references with Documents model
+Importance Score: 95/100
+- Title and metadata tracking
+- Multiple note formats support (markdown, plain text)
+- Signal tracking (decisions, actions, risks)
+- Participant list with roles
+- Integration with sprint/project context
+- Link to knowledge graph nodes
+- Custom fields for meeting intelligence
 
 2. Document Model
-Importance Score: 85/100
-- Knowledge artifact container with versioning support
-- Contains:
-  - Content with version history
-  - Signal annotations and extractions
-  - Related meeting references
-  - DIKW hierarchy classification tags
-- Links to Meetings through contextual relationships
+Importance Score: 90/100 
+- Versioned content storage
+- Signal extraction results
+- Tag-based categorization
+- DIKW level classification
+- Knowledge graph connections
+- Source attribution tracking
+- Custom metadata fields
 
-Relationship Structure:
-- Meetings ⟷ Documents: Many-to-many with context metadata
-- Both models support the DIKW (Data-Information-Knowledge-Wisdom) hierarchy
-- Signal extraction flows from Meetings to Documents
-- Knowledge synthesis occurs across both model types
+Relationships:
+- Meetings <-> Documents (many-to-many)
+  - Meeting notes as documents
+  - Referenced documents in meetings
+  - Shared signal context
 
-Key File Paths:
-- src/app/models/meetings.py
-- src/app/models/documents.py
-- src/app/schemas/meeting_schema.py
-- src/app/schemas/document_schema.py
+- Meetings <-> Signals (one-to-many)
+  - Extracted decisions
+  - Action items
+  - Risks and blockers
+  - Ideas and suggestions
+
+- Documents <-> DIKW Items (one-to-many)
+  - Knowledge hierarchy classification
+  - Confidence scoring
+  - Promotion tracking
+  - Version history
 
 $END$
 

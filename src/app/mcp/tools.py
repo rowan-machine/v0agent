@@ -1,5 +1,6 @@
 from typing import Dict, Any
 from datetime import datetime
+import re
 from .parser import parse_meeting_summary
 
 from ..db import connect
@@ -9,6 +10,62 @@ import json
 
 from .extract import extract_structured_signals
 from .cleaner import clean_meeting_text
+
+
+# Pocket template detection patterns - supports 30+ templates
+POCKET_TEMPLATE_PATTERNS = {
+    "All-Hands Meeting": [r"Company Updates", r"Team Announcements", r"Q&A Session"],
+    "Sprint Retrospective": [r"What Went Well", r"What Could Be Improved", r"Action Items"],
+    "Sprint Planning": [r"Sprint Goals", r"User Stories", r"Story Points", r"Capacity"],
+    "Project Kickoff": [r"Project Overview", r"Stakeholders", r"Timeline", r"Deliverables"],
+    "1:1 Meeting": [r"Topics Discussed", r"Feedback", r"Goals Progress", r"Next Steps"],
+    "Sales Call": [r"Client Information", r"Pain Points", r"Proposed Solutions", r"Next Steps"],
+    "Interview": [r"Candidate", r"Technical Assessment", r"Culture Fit", r"Recommendation"],
+    "Standup": [r"Yesterday", r"Today", r"Blockers"],
+    "Board Meeting": [r"Financial Report", r"Strategic Updates", r"Resolutions"],
+    "Product Review": [r"Demo", r"Feedback", r"Priorities", r"Roadmap"],
+    "Design Review": [r"Design Overview", r"Feedback", r"Iterations"],
+    "Customer Feedback": [r"User Insights", r"Feature Requests", r"Pain Points"],
+    "Brainstorming": [r"Ideas Generated", r"Top Ideas", r"Next Steps"],
+    "Workshop": [r"Objectives", r"Activities", r"Outcomes"],
+    "Training Session": [r"Topics Covered", r"Exercises", r"Takeaways"],
+    "Incident Review": [r"Incident Summary", r"Root Cause", r"Remediation"],
+    "Performance Review": [r"Achievements", r"Areas for Growth", r"Goals"],
+    "Strategy Session": [r"Strategic Goals", r"OKRs", r"Initiatives"],
+    "Team Sync": [r"Updates", r"Dependencies", r"Action Items"],
+    "Client Meeting": [r"Agenda", r"Discussion Points", r"Follow-ups"],
+    "Technical Discussion": [r"Problem Statement", r"Solutions", r"Decision"],
+    "Release Planning": [r"Release Scope", r"Milestones", r"Dependencies"],
+    "Budget Review": [r"Current Spend", r"Forecast", r"Recommendations"],
+    "Hiring Committee": [r"Candidates", r"Evaluation", r"Decision"],
+    "Vendor Meeting": [r"Vendor", r"Proposal", r"Negotiation", r"Terms"],
+    "Executive Summary": [r"Key Points", r"Decisions", r"Action Items"],
+    "General Meeting": [r"Agenda", r"Discussion", r"Next Steps"],
+}
+
+
+def _detect_pocket_template(content: str) -> str:
+    """
+    Detect the Pocket template type from content headings.
+    
+    Scans for known heading patterns and returns the best matching template name.
+    Falls back to "General Meeting" if no specific template is detected.
+    """
+    content_lower = content.lower()
+    best_match = "General Meeting"
+    best_score = 0
+    
+    for template_name, patterns in POCKET_TEMPLATE_PATTERNS.items():
+        score = 0
+        for pattern in patterns:
+            if re.search(pattern, content, re.IGNORECASE):
+                score += 1
+        
+        if score > best_score:
+            best_score = score
+            best_match = template_name
+    
+    return best_match
 
 
 def store_meeting_synthesis(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -90,16 +147,26 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
     """
     Load a full meeting bundle:
     - Structured summary (your canonical format)
+    - Optional Pocket AI summary (creates document for signal extraction)
     - Optional transcript
     - Persist authoritative synthesis + structured signals
-    - Auto-generates embeddings for both meeting and transcript
+    - Auto-generates embeddings for meeting, transcript, and Pocket summary
     - Idempotent: skips if (meeting_name, meeting_date) already exists
+    
+    Pocket AI Summary Handling:
+    - Detects Pocket template type from heading patterns
+    - Creates a separate document with "Pocket Summary:" prefix
+    - Supports 30+ template formats including:
+      - All-Hands Meeting, Sprint Retrospective, Project Kickoff
+      - 1:1 Meeting, Sales Call, Interview, Standup
+      - Board Meeting, Product Review, etc.
     """
 
     meeting_name = args["meeting_name"]
     meeting_date = args.get("meeting_date")
     summary_text = args["summary_text"]
     transcript_text = args.get("transcript_text")
+    pocket_ai_summary = args.get("pocket_ai_summary")
 
     # -----------------------------
     # 0. Idempotency check - skip duplicates
@@ -185,6 +252,28 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
                 ),
             )
             transcript_id = cur.lastrowid
+        
+        # ---- Insert Pocket AI summary as document (if provided)
+        pocket_summary_id = None
+        if pocket_ai_summary and pocket_ai_summary.strip():
+            # Detect Pocket template type from content
+            pocket_template = _detect_pocket_template(pocket_ai_summary)
+            pocket_source = f"Pocket Summary ({pocket_template}): {meeting_name}"
+            
+            cur = conn.execute(
+                """
+                INSERT INTO docs
+                    (meeting_id, source, content, document_date)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    meeting_id,
+                    pocket_source,
+                    pocket_ai_summary.strip(),
+                    meeting_date,
+                ),
+            )
+            pocket_summary_id = cur.lastrowid
 
     # -----------------------------
     # 6. Generate embeddings immediately
@@ -202,6 +291,12 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
         transcript_embed_text = f"Transcript: {meeting_name}\n{transcript_text[:8000]}"
         transcript_vector = embed_text(transcript_embed_text)
         upsert_embedding("doc", transcript_id, EMBED_MODEL, transcript_vector)
+    
+    # Embed Pocket AI summary if provided
+    if pocket_summary_id and pocket_ai_summary:
+        pocket_embed_text = f"Pocket Summary: {meeting_name}\n{pocket_ai_summary[:8000]}"
+        pocket_vector = embed_text(pocket_embed_text)
+        upsert_embedding("doc", pocket_summary_id, EMBED_MODEL, pocket_vector)
 
     # -----------------------------
     # 7. Return structured response
@@ -210,6 +305,7 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
         "status": "ok",
         "meeting_id": meeting_id,
         "transcript_id": transcript_id,
+        "pocket_summary_id": pocket_summary_id,
         "embedded": True,
         "signals_extracted": {
             "decisions": len(signals.get("decisions", [])),

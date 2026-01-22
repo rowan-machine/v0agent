@@ -9,11 +9,7 @@ from .db import connect
 from .memory.embed import embed_text, EMBED_MODEL
 from .memory.vector_store import upsert_embedding
 
-# Neo4j sync (optional - fails silently if unavailable)
-try:
-    from .api.neo4j_graph import sync_single_document
-except ImportError:
-    sync_single_document = None
+# NOTE: Neo4j removed - using Supabase knowledge graph instead (Phase 5.10)
 
 logger = logging.getLogger(__name__)
 
@@ -138,13 +134,6 @@ def store_doc(
     text_for_embedding = f"{source}\n{content}"
     vector = embed_text(text_for_embedding)
     upsert_embedding("doc", doc_id, EMBED_MODEL, vector)
-
-    # ---- Auto-sync to Neo4j knowledge graph ----
-    if sync_single_document:
-        try:
-            sync_single_document(doc_id, source, content, document_date)
-        except Exception:
-            pass  # Neo4j sync is optional
 
     # ---- P5.11: Intelligent document linking ----
     auto_link_document(doc_id, content)

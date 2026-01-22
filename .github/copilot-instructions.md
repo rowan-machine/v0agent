@@ -18,47 +18,45 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The SignalFlow system implements an AI-powered knowledge management and project intelligence platform with four core business domains:
+AI Assistant Business Logic Overview
+Importance Score: 85/100
 
-1. Conversation & Memory Management (75/100)
-- 24-hour conversation persistence with cleanup
-- Contextual history for AI interactions
-- Command frequency tracking and sorting
-- Custom suggestion rotation system
-- Smart emoji categorization based on content
+Core Components:
 
-2. Knowledge Graph Intelligence (90/100)
-- Multi-level DIKW hierarchy implementation
-- Graph-based information organization 
-- Custom node relationship handling
-- Domain-specific knowledge synthesis rules
-- Tag clustering for knowledge organization
+1. Conversation Management System
+- Role-based message tracking (user/assistant)
+- 24-hour conversation persistence
+- Full context restoration
+- Integrated history preservation
 
-3. Meeting Signal Processing (85/100)
-- Signal extraction from meeting content
-- Classification into decisions, actions, blockers, risks
-- Contextual signal categorization
-- Signal approval/rejection workflows
-- Meeting intelligence synthesis
+2. Contextual Suggestion Engine
+- Rotating themed suggestion sets
+  - Task management suggestions
+  - Workflow recommendations
+  - Sprint coordination hints
+- Frequency/recency based prioritization
+- Auto-categorization with emoji mapping
 
-4. Career Development Analytics (80/100)
-- Sprint performance visualization
-- Career milestone tracking
-- Growth suggestion generation
-- Capability analysis
-- Professional development metrics
+3. Command Intelligence Layer
+- Usage pattern analysis
+- Smart history tracking
+- Type-based command categorization
+- Cross-session context preservation
 
-Key Integration Points:
-- Knowledge synthesis between DIKW levels
-- Signal extraction feeding knowledge graph
-- Career analytics linked to meeting signals
-- Contextual suggestion management
+4. Response Processing Pipeline
+- Structured response handling
+  - Clarification workflows
+  - Follow-up generation
+  - Navigation suggestions
+- Domain-specific content formatting
 
-Core Files:
-- src/app/agents/dikw_synthesizer.py: Knowledge hierarchy implementation
-- src/app/agents/meeting_analyzer.py: Signal extraction system
-- src/app/api/knowledge_graph.py: Graph relationship management
-- src/app/services/signal_learning.py: Signal quality improvement
+Integration Architecture:
+- Bidirectional context flow between components
+- Persistent state management across sessions
+- Smart suggestion rotation with usage adaptation
+- Command categorization feedback loop
+
+The system emphasizes continuous learning through usage patterns while maintaining contextual awareness across interactions. The suggestion engine adapts to user behavior while the conversation management ensures coherent multi-turn interactions.
 
 $END$
 

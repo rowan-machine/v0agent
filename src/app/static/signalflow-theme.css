@@ -47,25 +47,28 @@
   --sf-transition: 0.2s ease;
 }
 
-/* Dark Mode - Swapped bg/fg */
+/* Dark Mode - Expo-style Dark Blue/Purple theme */
 [data-theme="dark"] {
-  --sf-bg: #1a1a1a;
-  --sf-surface: #2d2d2d;
-  --sf-card-bg: #2d2d2d;
-  --sf-nav-bg: #0d0d0d;
-  --sf-border: #4a4a4a;
-  --sf-text: #faf6f1;
-  --sf-text-muted: #c9b99a;
-  --sf-link: #daa520;
-  --sf-link-hover: #f0c040;
+  /* Core dark colors - inspired by Expo dashboard */
+  --sf-bg: #0a0e1a;           /* Very dark blue-black */
+  --sf-surface: #111827;       /* Dark blue-gray */
+  --sf-card-bg: #1a2234;       /* Card blue */
+  --sf-nav-bg: #0d1117;        /* Sidebar dark */
+  --sf-border: #2d3748;        /* Subtle border */
+  --sf-text: #f0f4f8;          /* Light text */
+  --sf-text-muted: #8b9dc3;    /* Muted blue-gray */
+  
+  /* Links - teal/cyan accent like Expo */
+  --sf-link: #38bdf8;
+  --sf-link-hover: #7dd3fc;
   
   /* Override hardcoded grays/whites in dark mode */
-  --dark-card-bg: #2d2d2d;
-  --dark-text: #faf6f1;
-  --dark-text-muted: #a0a0a0;
-  --dark-border: #4a4a4a;
-  --dark-input-bg: #3a3a3a;
-  --dark-hover-bg: #3a3a3a;
+  --dark-card-bg: #1a2234;
+  --dark-text: #f0f4f8;
+  --dark-text-muted: #8b9dc3;
+  --dark-border: #2d3748;
+  --dark-input-bg: #1e293b;
+  --dark-hover-bg: #243044;
 }
 
 /* Dark mode: Override all common hardcoded colors */
@@ -77,9 +80,9 @@
 [data-theme="dark"] .sf-card,
 [data-theme="dark"] [class*="-card"],
 [data-theme="dark"] [class*="-container"]:not(.career-container):not(.skills-container) {
-  background: #2d2d2d !important;
-  border-color: #4a4a4a !important;
-  color: #faf6f1 !important;
+  background: #1a2234 !important;
+  border-color: #2d3748 !important;
+  color: #f0f4f8 !important;
 }
 
 [data-theme="dark"] .card-header,
@@ -87,8 +90,8 @@
 [data-theme="dark"] .career-chat-footer,
 [data-theme="dark"] [class*="-header"],
 [data-theme="dark"] [class*="-footer"] {
-  border-color: #4a4a4a !important;
-  color: #faf6f1 !important;
+  border-color: #2d3748 !important;
+  color: #f0f4f8 !important;
 }
 
 [data-theme="dark"] h1,
@@ -100,24 +103,24 @@
 [data-theme="dark"] .career-header h1,
 [data-theme="dark"] .card-header h2,
 [data-theme="dark"] .suggestion-title {
-  color: #faf6f1 !important;
+  color: #f0f4f8 !important;
 }
 
-/* Form inputs in dark mode */
+/* Form inputs in dark mode - Expo style */
 [data-theme="dark"] input,
 [data-theme="dark"] textarea,
 [data-theme="dark"] select,
 [data-theme="dark"] .form-group input,
 [data-theme="dark"] .form-group textarea,
 [data-theme="dark"] .career-chat-input {
-  background: #3a3a3a !important;
-  border-color: #4a4a4a !important;
-  color: #faf6f1 !important;
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f0f4f8 !important;
 }
 
 [data-theme="dark"] input::placeholder,
 [data-theme="dark"] textarea::placeholder {
-  color: #888 !important;
+  color: #64748b !important;
 }
 
 /* Suggestions/items in dark mode */
@@ -126,126 +129,126 @@
 [data-theme="dark"] .project-item,
 [data-theme="dark"] .ticket-item,
 [data-theme="dark"] [class*="-item"] {
-  background: #3a3a3a !important;
-  border-color: #4a4a4a !important;
-  color: #faf6f1 !important;
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f0f4f8 !important;
 }
 
 [data-theme="dark"] .suggestion-content,
 [data-theme="dark"] .memory-body,
 [data-theme="dark"] [class*="-content"],
 [data-theme="dark"] [class*="-body"] {
-  color: #c9b99a !important;
+  color: #94a3b8 !important;
 }
 
 /* Chat messages in dark mode */
 [data-theme="dark"] .career-chat-message.assistant,
 [data-theme="dark"] .chat-message.assistant {
-  background: #3a3a3a !important;
-  color: #faf6f1 !important;
+  background: #1e293b !important;
+  color: #f0f4f8 !important;
 }
 
 /* Buttons - secondary/gray buttons */
 [data-theme="dark"] .career-btn-secondary,
 [data-theme="dark"] .btn-secondary,
 [data-theme="dark"] .suggestion-btn.dismiss {
-  background: #3a3a3a !important;
-  color: #faf6f1 !important;
-  border-color: #4a4a4a !important;
+  background: #1e293b !important;
+  color: #f0f4f8 !important;
+  border-color: #334155 !important;
 }
 
-/* Primary buttons - use warm accent instead of purple */
+/* Primary buttons - use cyan/teal like Expo */
 [data-theme="dark"] .career-btn-primary,
 [data-theme="dark"] .btn-primary {
-  background: linear-gradient(135deg, #a0522d 0%, #8b4513 100%) !important;
+  background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%) !important;
 }
 
 [data-theme="dark"] .career-chat-message.user,
 [data-theme="dark"] .chat-message.user {
-  background: linear-gradient(135deg, #a0522d 0%, #8b4513 100%) !important;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
 }
 
-/* Skill tags - use warm colors instead of purple */
+/* Skill tags - use purple/indigo */
 [data-theme="dark"] .skill-tag,
 [data-theme="dark"] .tag {
-  background: #4a3728 !important;
-  color: #daa520 !important;
+  background: #312e81 !important;
+  color: #a5b4fc !important;
 }
 
-/* Convert purple accents to warm brown/gold */
+/* Accent colors - purple/cyan like Expo */
 [data-theme="dark"] .suggestion-item {
-  border-left-color: #a0522d !important;
+  border-left-color: #6366f1 !important;
 }
 
 [data-theme="dark"] .suggestion-btn.convert {
-  background: #4a3728 !important;
-  color: #daa520 !important;
+  background: #312e81 !important;
+  color: #a5b4fc !important;
 }
 
 [data-theme="dark"] .suggestion-btn.accept {
-  background: #2d4a2d !important;
-  color: #6b8e23 !important;
+  background: #064e3b !important;
+  color: #34d399 !important;
 }
 
 /* Form labels */
 [data-theme="dark"] label,
 [data-theme="dark"] .form-group label {
-  color: #c9b99a !important;
+  color: #94a3b8 !important;
 }
 
-/* Links in dark mode */
+/* Links in dark mode - cyan accent */
 [data-theme="dark"] a:not(.career-btn):not(.btn) {
-  color: #daa520 !important;
+  color: #38bdf8 !important;
 }
 
 [data-theme="dark"] a:not(.career-btn):not(.btn):hover {
-  color: #f0c040 !important;
+  color: #7dd3fc !important;
 }
 
 /* Tables in dark mode */
 [data-theme="dark"] table,
 [data-theme="dark"] th,
 [data-theme="dark"] td {
-  border-color: #4a4a4a !important;
+  border-color: #334155 !important;
 }
 
 [data-theme="dark"] th {
-  background: #3a3a3a !important;
-  color: #faf6f1 !important;
+  background: #1e293b !important;
+  color: #f0f4f8 !important;
 }
 
 [data-theme="dark"] td {
-  background: #2d2d2d !important;
-  color: #faf6f1 !important;
+  background: #1a2234 !important;
+  color: #f0f4f8 !important;
 }
 
 [data-theme="dark"] tr:hover td {
-  background: #3a3a3a !important;
+  background: #243044 !important;
 }
 
-/* Focus states */
+/* Focus states - cyan */
 [data-theme="dark"] input:focus,
 [data-theme="dark"] textarea:focus,
 [data-theme="dark"] select:focus {
-  border-color: #a0522d !important;
-  box-shadow: 0 0 0 3px rgba(160, 82, 45, 0.2) !important;
+  border-color: #0ea5e9 !important;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2) !important;
 }
 
 /* Empty states */
 [data-theme="dark"] .empty-state {
-  color: #888 !important;
+  color: #64748b !important;
 }
 
 /* Stat cards */
 [data-theme="dark"] .stat-card,
 [data-theme="dark"] .stats-grid .stat-card {
-  background: #2d2d2d !important;
-  border-color: #4a4a4a !important;
+  background: #1a2234 !important;
+  border-color: #2d3748 !important;
 }
 
 [data-theme="dark"] .stat-value,
 [data-theme="dark"] .stat-label {
-  color: #faf6f1 !important;
+  color: #f0f4f8 !important;
 }
 
 /* Graph/visualization containers */
@@ -255,29 +258,29 @@
 [data-theme="dark"] #graph,
 [data-theme="dark"] #mindmap,
 [data-theme="dark"] #visualizationContainer {
-  background: #2d2d2d !important;
-  border-color: #4a4a4a !important;
+  background: #0f172a !important;
+  border-color: #334155 !important;
 }
 
 /* DIKW specific */
 [data-theme="dark"] .dikw-card,
 [data-theme="dark"] .dikw-level,
 [data-theme="dark"] .dikw-item {
-  background: #2d2d2d !important;
-  border-color: #4a4a4a !important;
-  color: #faf6f1 !important;
+  background: #1a2234 !important;
+  border-color: #334155 !important;
+  color: #f0f4f8 !important;
 }
 
 [data-theme="dark"] .dikw-content,
 [data-theme="dark"] .dikw-item-content {
-  color: #c9b99a !important;
+  color: #94a3b8 !important;
 }
 
 /* Level cards/badges in dark mode */
 [data-theme="dark"] .level-card,
 [data-theme="dark"] .level-header {
-  background: #3a3a3a !important;
-  border-color: #4a4a4a !important;
+  background: #1e293b !important;
+  border-color: #334155 !important;
 }
 
 /* Panels */
@@ -285,69 +288,69 @@
 [data-theme="dark"] .side-panel,
 [data-theme="dark"] .details-panel,
 [data-theme="dark"] .info-panel {
-  background: #2d2d2d !important;
-  border-color: #4a4a4a !important;
-  color: #faf6f1 !important;
+  background: #1a2234 !important;
+  border-color: #334155 !important;
+  color: #f0f4f8 !important;
 }
 
 /* Legend */
 [data-theme="dark"] .legend,
 [data-theme="dark"] .graph-legend {
-  background: #2d2d2d !important;
-  border-color: #4a4a4a !important;
+  background: #1a2234 !important;
+  border-color: #334155 !important;
 }
 
 [data-theme="dark"] .legend-item,
 [data-theme="dark"] .legend-label {
-  color: #c9b99a !important;
+  color: #94a3b8 !important;
 }
 
 /* Select/dropdown */
 [data-theme="dark"] select,
 [data-theme="dark"] .select,
 [data-theme="dark"] .dropdown {
-  background: #3a3a3a !important;
-  border-color: #4a4a4a !important;
-  color: #faf6f1 !important;
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f0f4f8 !important;
 }
 
 /* Modals */
 [data-theme="dark"] .modal,
 [data-theme="dark"] .modal-content,
 [data-theme="dark"] .dialog {
-  background: #2d2d2d !important;
-  border-color: #4a4a4a !important;
-  color: #faf6f1 !important;
+  background: #1a2234 !important;
+  border-color: #334155 !important;
+  color: #f0f4f8 !important;
 }
 
 /* Tabs */
 [data-theme="dark"] .tab,
 [data-theme="dark"] .tab-button,
 [data-theme="dark"] .tabs {
-  background: #2d2d2d !important;
-  border-color: #4a4a4a !important;
-  color: #c9b99a !important;
+  background: #1a2234 !important;
+  border-color: #334155 !important;
+  color: #94a3b8 !important;
 }
 
 [data-theme="dark"] .tab.active,
 [data-theme="dark"] .tab-button.active {
-  background: #3a3a3a !important;
-  color: #faf6f1 !important;
+  background: #1e293b !important;
+  color: #f0f4f8 !important;
 }
 
 /* Lists */
 [data-theme="dark"] ul,
 [data-theme="dark"] ol,
 [data-theme="dark"] li {
-  color: #c9b99a !important;
+  color: #94a3b8 !important;
 }
 
 /* Code blocks */
 [data-theme="dark"] pre,
 [data-theme="dark"] code {
-  background: #1a1a1a !important;
-  border-color: #4a4a4a !important;
-  color: #daa520 !important;
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #38bdf8 !important;
 }
 
 /* Control rows and headers */
@@ -355,95 +358,185 @@
 [data-theme="dark"] .controls-row,
 [data-theme="dark"] .control-panel,
 [data-theme="dark"] .header-controls {
-  background: #2d2d2d !important;
-  border-color: #4a4a4a !important;
+  background: #1a2234 !important;
+  border-color: #334155 !important;
 }
 
 /* Node details/info areas */
 [data-theme="dark"] .node-details,
 [data-theme="dark"] .item-details {
-  background: #2d2d2d !important;
-  border-color: #4a4a4a !important;
-  color: #faf6f1 !important;
+  background: #1a2234 !important;
+  border-color: #334155 !important;
+  color: #f0f4f8 !important;
 }
 
-/* Drawer/sidebar in dark mode */
+/* Drawer/sidebar in dark mode - Expo style */
 [data-theme="dark"] .drawer,
 [data-theme="dark"] .sidebar,
 [data-theme="dark"] .nav-menu {
-  background: #1a1a1a !important;
-  border-color: #4a4a4a !important;
+  background: #0d1117 !important;
+  border-color: #21262d !important;
 }
 
 [data-theme="dark"] .drawer-header,
 [data-theme="dark"] .drawer-section,
 [data-theme="dark"] .nav-item {
-  border-color: #4a4a4a !important;
+  border-color: #21262d !important;
 }
 
 [data-theme="dark"] .nav-link,
 [data-theme="dark"] .drawer a,
 [data-theme="dark"] .drawer-link {
-  color: #c9b99a !important;
+  color: #8b9dc3 !important;
 }
 
 [data-theme="dark"] .nav-link:hover,
 [data-theme="dark"] .drawer a:hover,
 [data-theme="dark"] .drawer-link:hover {
-  background: #3a3a3a !important;
-  color: #daa520 !important;
+  background: #161b22 !important;
+  color: #38bdf8 !important;
+}
+
+[data-theme="dark"] .nav-section-title {
+  color: #6e7681 !important;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
 }
 
 /* Pin button in dark mode */
 [data-theme="dark"] .pin-btn {
-  background: #3a3a3a !important;
-  border-color: #4a4a4a !important;
-  color: #c9b99a !important;
+  background: #161b22 !important;
+  border-color: #21262d !important;
+  color: #8b9dc3 !important;
 }
 
 /* Session/toast notifications */
 [data-theme="dark"] .toast,
 [data-theme="dark"] .notification {
-  background: #2d2d2d !important;
-  border-color: #4a4a4a !important;
-  color: #faf6f1 !important;
+  background: #1a2234 !important;
+  border-color: #334155 !important;
+  color: #f0f4f8 !important;
 }
 
 /* Mode indicator */
 [data-theme="dark"] .mode-indicator {
-  background: #2d2d2d !important;
-  border-color: #4a4a4a !important;
+  background: #1a2234 !important;
+  border-color: #334155 !important;
 }
 
 /* Bottom controls in dark mode */
 [data-theme="dark"] .bottom-controls,
 [data-theme="dark"] .chat-controls {
-  background: #2d2d2d !important;
-  border-color: #4a4a4a !important;
+  background: #1a2234 !important;
+  border-color: #334155 !important;
 }
 
 /* Metrics/stats in dark mode */
 [data-theme="dark"] .metrics-card,
 [data-theme="dark"] .metrics-row {
-  background: #2d2d2d !important;
-  border-color: #4a4a4a !important;
+  background: #1a2234 !important;
+  border-color: #334155 !important;
 }
 
 [data-theme="dark"] .metric-value,
 [data-theme="dark"] .metric-label {
-  color: #faf6f1 !important;
+  color: #f0f4f8 !important;
 }
 
 /* Action buttons/icons in dark mode */
 [data-theme="dark"] .action-btn,
 [data-theme="dark"] .icon-btn {
-  color: #c9b99a !important;
+  color: #8b9dc3 !important;
 }
 
 [data-theme="dark"] .action-btn:hover,
 [data-theme="dark"] .icon-btn:hover {
-  background: #3a3a3a !important;
-  color: #daa520 !important;
+  background: #1e293b !important;
+  color: #38bdf8 !important;
+}
+
+/* Three-dots menu styling */
+.kebab-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.kebab-menu-btn {
+  background: transparent;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--sf-text-muted);
+  transition: all 0.15s ease;
+}
+
+.kebab-menu-btn:hover {
+  background: var(--sf-surface);
+  color: var(--sf-text);
+}
+
+[data-theme="dark"] .kebab-menu-btn:hover {
+  background: #1e293b !important;
+  color: #f0f4f8 !important;
+}
+
+.kebab-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  min-width: 160px;
+  background: var(--sf-card-bg);
+  border: 1px solid var(--sf-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: all 0.15s ease;
+}
+
+.kebab-menu:hover .kebab-menu-dropdown,
+.kebab-menu.open .kebab-menu-dropdown {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+[data-theme="dark"] .kebab-menu-dropdown {
+  background: #1a2234 !important;
+  border-color: #334155 !important;
+}
+
+.kebab-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.875rem;
+  color: var(--sf-text);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.kebab-menu-item:hover {
+  background: var(--sf-surface);
+}
+
+[data-theme="dark"] .kebab-menu-item:hover {
+  background: #243044 !important;
+}
+
+.kebab-menu-item.danger {
+  color: #ef4444;
+}
+
+.kebab-menu-divider {
+  height: 1px;
+  background: var(--sf-border);
+  margin: 0.25rem 0;
 }
 
 /* Apply theme to body */
@@ -674,4 +767,129 @@ th, td {
   .layout-controls {
     display: none !important;
   }
+}
+/* ================================
+   User Profile Section (Expo-style)
+   ================================ */
+
+.user-profile-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  border-radius: var(--sf-radius);
+  background: var(--sf-surface);
+  transition: background 0.15s ease;
+}
+
+.user-profile-section:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .user-profile-section {
+  background: #161b22 !important;
+}
+
+[data-theme="dark"] .user-profile-section:hover {
+  background: #1e293b !important;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #38bdf8, #a855f7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.user-avatar svg {
+  width: 18px;
+  height: 18px;
+  color: white;
+}
+
+.user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-name {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--sf-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-theme="dark"] .user-name {
+  color: #f0f4f8 !important;
+}
+
+.user-role-badge {
+  font-size: 0.7rem;
+  color: var(--sf-text-muted);
+  background: rgba(56, 189, 248, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+[data-theme="dark"] .user-role-badge {
+  background: rgba(56, 189, 248, 0.15) !important;
+  color: #38bdf8 !important;
+}
+
+.nav-bottom-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* ================================
+   Three-Dots Menu (Kebab Menu)
+   ================================ */
+
+.item-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Meeting/Document list items with kebab menu */
+.list-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-bottom: 1px solid var(--sf-border);
+  transition: background 0.15s ease;
+}
+
+.list-item-row:hover {
+  background: var(--sf-surface);
+}
+
+[data-theme="dark"] .list-item-row:hover {
+  background: #1e293b !important;
+}
+
+.list-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Signal cards with kebab */
+.signal-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
 }

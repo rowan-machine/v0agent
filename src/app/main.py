@@ -24,7 +24,6 @@ from .api.accountability import router as accountability_router
 from .api.settings import router as settings_router
 from .api.assistant import router as assistant_router
 from .api.career import router as career_router
-from .api.neo4j_graph import router as neo4j_router
 from .api.v1 import router as v1_router  # API v1 (Phase 3.1)
 from .api.mobile import router as mobile_router  # Mobile sync (Phase 3.2)
 from .api.admin import router as admin_router  # Admin endpoints (Phase 4.1)
@@ -130,41 +129,7 @@ templates = Jinja2Templates(directory="src/app/templates")
 templates.env.globals['env'] = os.environ
 
 
-def init_neo4j_background():
-    """Initialize Neo4j schema and backfill data in background (non-blocking)."""
-    import threading
-    def _init():
-        try:
-            from .api.neo4j_graph import is_neo4j_available, run_write, SCHEMA_QUERIES
-            if not is_neo4j_available():
-                print("Neo4j not available - skipping knowledge graph initialization")
-                return
-            
-            # Initialize schema
-            for query in SCHEMA_QUERIES:
-                try:
-                    run_write(query)
-                except Exception as e:
-                    print(f"Schema query failed (may already exist): {e}")
-            
-            # Trigger background sync
-            from .api.neo4j_graph import sync_meetings_to_neo4j, sync_documents_to_neo4j
-            import asyncio
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                loop.run_until_complete(sync_meetings_to_neo4j())
-                loop.run_until_complete(sync_documents_to_neo4j())
-                print("Neo4j knowledge graph synced successfully")
-            except Exception as e:
-                print(f"Neo4j sync failed: {e}")
-            finally:
-                loop.close()
-        except Exception as e:
-            print(f"Neo4j initialization skipped: {e}")
-    
-    thread = threading.Thread(target=_init, daemon=True)
-    thread.start()
+# NOTE: Neo4j removed - using Supabase knowledge graph instead (Phase 5.10)
 
 
 @app.on_event("startup")
@@ -177,9 +142,6 @@ def startup():
     migration_result = run_all_migrations()
     if migration_result["applied"] > 0:
         print(f"✅ Applied {migration_result['applied']} database migrations")
-    
-    # Initialize Neo4j in background (non-blocking)
-    init_neo4j_background()
 
 
 # -------------------------
@@ -3167,13 +3129,22 @@ def load_meeting_bundle_page(request: Request):
     )
 
 @app.post("/meetings/load")
-def load_meeting_bundle_ui(
+async def load_meeting_bundle_ui(
+    request: Request,
     meeting_name: str = Form(...),
     meeting_date: str = Form(None),
     summary_text: str = Form(...),
+    pocket_ai_summary: str = Form(None),
     pocket_transcript: str = Form(None),
     teams_transcript: str = Form(None),
 ):
+    """
+    Load a complete meeting bundle with:
+    - Structured summary (canonical format)
+    - Optional Pocket AI summary (creates document for signal extraction)
+    - Optional transcripts (merged into searchable document)
+    - Optional screenshots (attached to meeting)
+    """
     tool = TOOL_REGISTRY["load_meeting_bundle"]
     
     # Merge transcripts if provided
@@ -3185,13 +3156,47 @@ def load_meeting_bundle_ui(
     
     merged_transcript = "\n\n".join(transcript_parts) if transcript_parts else None
 
-    tool({
+    result = tool({
         "meeting_name": meeting_name,
         "meeting_date": meeting_date,
         "summary_text": summary_text,
         "transcript_text": merged_transcript,
+        "pocket_ai_summary": pocket_ai_summary,
         "format": "plain",
     })
+    
+    meeting_id = result.get("meeting_id")
+    
+    # Handle screenshot uploads if meeting was created successfully
+    if meeting_id:
+        form = await request.form()
+        screenshots = form.getlist("screenshots")
+        
+        for screenshot in screenshots:
+            if hasattr(screenshot, 'file') and screenshot.filename:
+                try:
+                    import uuid
+                    import os
+                    
+                    # Generate unique filename
+                    ext = os.path.splitext(screenshot.filename)[1] or '.png'
+                    unique_name = f"{uuid.uuid4().hex}{ext}"
+                    file_path = os.path.join(UPLOAD_DIR, unique_name)
+                    
+                    # Save file
+                    content = await screenshot.read()
+                    with open(file_path, 'wb') as f:
+                        f.write(content)
+                    
+                    # Record in database
+                    with connect() as conn:
+                        conn.execute("""
+                            INSERT INTO attachments (ref_type, ref_id, filename, file_path, mime_type, file_size)
+                            VALUES ('meeting', ?, ?, ?, ?, ?)
+                        """, (meeting_id, screenshot.filename, f"uploads/{unique_name}", 
+                              screenshot.content_type or 'image/png', len(content)))
+                except Exception as e:
+                    logger.warning(f"Failed to upload screenshot: {e}")
 
     return RedirectResponse(
         url="/meetings?success=meeting_loaded",
@@ -3214,7 +3219,6 @@ app.include_router(accountability_router)
 app.include_router(settings_router)
 app.include_router(assistant_router)
 app.include_router(career_router)
-app.include_router(neo4j_router)
 app.include_router(v1_router)  # API v1 versioned endpoints (Phase 3.1)
 app.include_router(mobile_router)  # Mobile sync endpoints (Phase 3.2)
 app.include_router(admin_router)  # Admin endpoints (Phase 4.1)

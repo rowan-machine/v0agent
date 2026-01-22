@@ -139,6 +139,60 @@
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
   }
   
+  /* Drop zone for screenshots */
+  .drop-zone {
+    border: 2px dashed var(--sf-border, #ddd);
+    border-radius: 8px;
+    padding: 2rem;
+    text-center: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .drop-zone:hover,
+  .drop-zone.dragover {
+    border-color: var(--sf-primary, #667eea);
+    background: rgba(102, 126, 234, 0.05);
+  }
+  
+  .drop-zone-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .screenshot-preview {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+  
+  .screenshot-item {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
+  .screenshot-item img {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+  }
+  
+  .screenshot-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: rgba(255,0,0,0.8);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  
   @media (max-width: 768px) {
     .form-row,
     .transcript-grid {
@@ -150,10 +204,10 @@
 <div class="bundle-form">
   <div class="bundle-header">
     <h2>📦 Load Meeting Bundle</h2>
-    <p>Load a complete meeting with summary and optional transcripts in one step</p>
+    <p>Load a complete meeting with summary, AI notes, and optional transcripts</p>
   </div>
 
-  <form method="post" action="/meetings/load">
+  <form method="post" action="/meetings/load" enctype="multipart/form-data" id="bundle-form">
     <div class="form-section">
       <h3>📋 Meeting Details</h3>
       <div class="form-row">
@@ -171,9 +225,28 @@
     <div class="form-section">
       <h3>📝 Summarized Notes *</h3>
       <div class="form-group">
-        <label>Structured Summary</label>
+        <label>Structured Summary (your canonical format)</label>
         <textarea name="summary_text" rows="12" required placeholder="Paste your structured meeting summary here..."></textarea>
         <p class="hint">Use your canonical format with sections for decisions, action items, blockers, etc.</p>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>🤖 Pocket AI Summary (Optional)</h3>
+      <p class="hint" style="margin-bottom: 1rem;">Paste the AI-generated summary from Pocket. Supports 30+ template formats with dynamic heading extraction.</p>
+      <div class="form-group">
+        <label>Pocket AI Summary</label>
+        <textarea name="pocket_ai_summary" rows="10" placeholder="Paste Pocket AI summary here...
+
+Supports templates like:
+• All-Hands Meeting
+• Sprint Retrospective
+• Project Kickoff
+• 1:1 Meeting
+• Sales Call
+• Interview
+• And 25+ more templates..."></textarea>
+        <p class="hint">This will be processed separately to extract signals using Pocket's template structure.</p>
       </div>
     </div>
     
@@ -185,7 +258,7 @@
         <div class="transcript-box">
           <h4>📱 Pocket Transcript</h4>
           <div class="form-group" style="margin-bottom: 0;">
-            <textarea name="pocket_transcript" class="short" placeholder="Paste Pocket/mobile transcript here..."></textarea>
+            <textarea name="pocket_transcript" class="short" placeholder="Paste Pocket/mobile raw transcript here..."></textarea>
           </div>
         </div>
         
@@ -198,8 +271,80 @@
       </div>
     </div>
 
+    <div class="form-section">
+      <h3>📸 Screenshots (Optional)</h3>
+      <p class="hint" style="margin-bottom: 1rem;">Drag and drop or click to add screenshots from the meeting.</p>
+      
+      <div class="drop-zone" id="drop-zone">
+        <div class="drop-zone-icon">📁</div>
+        <p>Drag & drop screenshots here</p>
+        <p class="hint">or click to browse</p>
+        <input type="file" id="file-input" name="screenshots" multiple accept="image/*" style="display: none;">
+      </div>
+      
+      <div class="screenshot-preview" id="screenshot-preview"></div>
+    </div>
+
     <button type="submit" class="submit-btn">Load Meeting Bundle</button>
   </form>
 </div>
+
+<script>
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const preview = document.getElementById('screenshot-preview');
+let selectedFiles = [];
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+function handleFiles(files) {
+    for (const file of files) {
+        if (file.type.startsWith('image/')) {
+            selectedFiles.push(file);
+            addPreview(file, selectedFiles.length - 1);
+        }
+    }
+    updateFileInput();
+}
+
+function addPreview(file, index) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const div = document.createElement('div');
+        div.className = 'screenshot-item';
+        div.dataset.index = index;
+        div.innerHTML = `
+            <img src="${e.target.result}" alt="${file.name}">
+            <button type="button" class="screenshot-remove" onclick="removeScreenshot(${index})">×</button>
+        `;
+        preview.appendChild(div);
+    };
+    reader.readAsDataURL(file);
+}
+
+function removeScreenshot(index) {
+    selectedFiles[index] = null;
+    const item = preview.querySelector(`[data-index="${index}"]`);
+    if (item) item.remove();
+    updateFileInput();
+}
+
+function updateFileInput() {
+    const dt = new DataTransfer();
+    selectedFiles.filter(f => f !== null).forEach(f => dt.items.add(f));
+    fileInput.files = dt.files;
+}
+</script>
 
 {% endblock %}
