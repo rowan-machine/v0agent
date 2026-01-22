@@ -36,16 +36,71 @@
             </div>
 
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Synthesized Notes</label>
-                <textarea name="synthesized_notes" rows="20"
+                <label class="block text-sm font-medium text-gray-700 mb-2">Synthesized Notes / Summary</label>
+                <textarea name="synthesized_notes" rows="15"
                           class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm font-mono
                                  focus:ring-2 focus:ring-violet-500 focus:border-violet-500">{{ meeting['synthesized_notes'] }}</textarea>
+                <p class="text-xs text-gray-500 mt-1">AI-synthesized meeting summary with extracted signals</p>
+            </div>
+        </div>
+
+        <!-- Pocket Transcript Section -->
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-6 space-y-5">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-amber-900">📱 Pocket Transcript</h2>
+                <button type="button" onclick="toggleSection('pocketTranscriptSection')" class="text-sm text-amber-600 hover:text-amber-800">
+                    Show/Hide
+                </button>
+            </div>
+            <div id="pocketTranscriptSection" style="display: {{ 'block' if meeting['pocket_transcript'] else 'none' }};">
+                <textarea name="pocket_transcript" rows="12"
+                          placeholder="Paste Pocket/mobile transcript here..."
+                          class="w-full px-4 py-3 border border-amber-300 rounded-lg text-sm font-mono bg-white
+                                 focus:ring-2 focus:ring-amber-500 focus:border-amber-500">{{ meeting['pocket_transcript'] or '' }}</textarea>
+                <p class="text-xs text-amber-600 mt-1">Transcript from Pocket or mobile recording app</p>
+            </div>
+        </div>
+
+        <!-- Teams Transcript Section -->
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-6 space-y-5">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-blue-900">💼 Teams Transcript</h2>
+                <button type="button" onclick="toggleSection('teamsTranscriptSection')" class="text-sm text-blue-600 hover:text-blue-800">
+                    Show/Hide
+                </button>
+            </div>
+            <div id="teamsTranscriptSection" style="display: {{ 'block' if meeting['teams_transcript'] else 'none' }};">
+                <textarea name="teams_transcript" rows="12"
+                          placeholder="Paste Microsoft Teams transcript here..."
+                          class="w-full px-4 py-3 border border-blue-300 rounded-lg text-sm font-mono bg-white
+                                 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{ meeting['teams_transcript'] or '' }}</textarea>
+                <p class="text-xs text-blue-600 mt-1">Transcript from Microsoft Teams meeting</p>
+            </div>
+        </div>
+
+        <!-- Signals JSON Section (Advanced) -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-gray-900">🎯 Extracted Signals (Advanced)</h2>
+                <button type="button" onclick="toggleSection('signalsSection')" class="text-sm text-violet-600 hover:text-violet-800">
+                    Show/Hide
+                </button>
+            </div>
+            <div id="signalsSection" style="display: none;">
+                <textarea name="signals_json" rows="10"
+                          placeholder='{"decisions": [], "action_items": [], "blockers": [], "risks": [], "ideas": []}'
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm font-mono
+                                 focus:ring-2 focus:ring-violet-500 focus:border-violet-500">{{ meeting['signals_json'] or '{}' }}</textarea>
+                <p class="text-xs text-gray-500 mt-1">JSON structure for extracted signals. Edit with caution.</p>
+                <button type="button" onclick="reExtractSignals()" class="mt-2 px-3 py-1.5 text-sm bg-violet-100 text-violet-700 rounded-lg hover:bg-violet-200">
+                    🔄 Re-extract Signals from Notes
+                </button>
             </div>
         </div>
 
         <!-- Attachments Section -->
         <div class="bg-white border border-gray-200 rounded-xl p-6">
-            <h2 class="text-lg font-semibold text-gray-900 mb-4">Screenshots & Files</h2>
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">📸 Screenshots & Files</h2>
             
             <!-- Drop Zone -->
             <div id="drop-zone" 
@@ -103,6 +158,37 @@ const fileInput = document.getElementById('file-input');
 const progressDiv = document.getElementById('upload-progress');
 const attachmentsList = document.getElementById('attachments-list');
 const attachmentsContainer = document.getElementById('attachments-container');
+
+function toggleSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    section.style.display = section.style.display === 'none' ? 'block' : 'none';
+}
+
+async function reExtractSignals() {
+    const notes = document.querySelector('textarea[name="synthesized_notes"]').value;
+    if (!notes.trim()) {
+        alert('No notes to extract signals from');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/meetings/extract-signals', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: notes })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            document.querySelector('textarea[name="signals_json"]').value = JSON.stringify(data.signals, null, 2);
+            alert('Signals extracted successfully!');
+        } else {
+            alert('Failed to extract signals');
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+    }
+}
 
 async function loadAttachments() {
     try {

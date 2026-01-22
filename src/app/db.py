@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS meeting_summaries (
   created_at TEXT DEFAULT (datetime('now')),
   signals_json TEXT,
   source_document_id INTEGER,
+  raw_text TEXT,
   FOREIGN KEY (source_document_id) REFERENCES docs(id) ON DELETE SET NULL
 );
 
@@ -88,7 +89,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   ticket_id TEXT NOT NULL UNIQUE,  -- e.g. JIRA-1234
   title TEXT NOT NULL,
   description TEXT,                 -- pasted ticket details
-  status TEXT DEFAULT 'todo',       -- todo, in_progress, in_review, blocked, done, complete
+  status TEXT DEFAULT 'backlog',       -- backlog, todo, in_progress, in_review, blocked, done, complete
   priority TEXT,
   sprint_points INTEGER DEFAULT 0,  -- story points for sprint tracking
   in_sprint INTEGER DEFAULT 1,      -- 1 if assigned to current sprint
@@ -234,6 +235,26 @@ CREATE TABLE IF NOT EXISTS mode_sessions (
 CREATE INDEX IF NOT EXISTS idx_mode_sessions_mode ON mode_sessions(mode);
 CREATE INDEX IF NOT EXISTS idx_mode_sessions_date ON mode_sessions(date);
 
+-- Archived mode sessions (for completed sprints)
+CREATE TABLE IF NOT EXISTS archived_mode_sessions (
+  id INTEGER PRIMARY KEY,
+  original_id INTEGER,              -- original mode_sessions id
+  mode TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  ended_at TEXT,
+  duration_seconds INTEGER,
+  date TEXT NOT NULL,
+  notes TEXT,
+  sprint_name TEXT,                 -- name of the sprint when archived
+  sprint_start_date TEXT,           -- start date of the archived sprint
+  sprint_end_date TEXT,             -- end date of the archived sprint
+  archived_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_archived_sessions_mode ON archived_mode_sessions(mode);
+CREATE INDEX IF NOT EXISTS idx_archived_sessions_sprint ON archived_mode_sessions(sprint_name);
+CREATE INDEX IF NOT EXISTS idx_archived_sessions_date ON archived_mode_sessions(date);
+
 -- Mode statistics (calculated periodically)
 CREATE TABLE IF NOT EXISTS mode_statistics (
   id INTEGER PRIMARY KEY,
@@ -287,6 +308,24 @@ CREATE TABLE IF NOT EXISTS career_profile (
   weaknesses TEXT,                 -- areas for improvement
   interests TEXT,                  -- topics/technologies of interest
   goals TEXT,                      -- career goals description
+  certifications TEXT,             -- current certifications held
+  education TEXT,                  -- education background
+  years_experience INTEGER,        -- years of professional experience
+  preferred_work_style TEXT,       -- remote/hybrid/office, team size preferences
+  industry_focus TEXT,             -- industries of interest/experience
+  leadership_experience TEXT,      -- management/leadership experience
+  notable_projects TEXT,           -- key projects/accomplishments
+  learning_priorities TEXT,        -- current learning priorities
+  career_timeline TEXT,            -- target timeline for career goals
+  technical_specializations TEXT,  -- core technical domains
+  soft_skills TEXT,                -- communication, leadership skills
+  work_achievements TEXT,          -- quantified achievements/metrics
+  career_values TEXT,              -- work-life balance, impact, compensation priorities
+  short_term_goals TEXT,           -- 6-12 month goals
+  long_term_goals TEXT,            -- 3-5 year vision
+  mentorship TEXT,                 -- mentoring relationships
+  networking TEXT,                 -- professional communities/groups
+  languages TEXT,                  -- spoken and programming languages
   updated_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -383,6 +422,7 @@ CREATE TABLE IF NOT EXISTS career_memories (
   source_type TEXT,                 -- 'ticket' | 'standup' | 'codebase' | 'manual'
   source_id INTEGER,                -- reference to source (ticket id, etc.)
   skills TEXT,                      -- comma-separated skills related to this memory
+  technologies TEXT,                -- comma-separated technologies used
   is_pinned INTEGER DEFAULT 0,      -- 1 if pinned (protected from refresh)
   is_ai_work INTEGER DEFAULT 0,     -- 1 if this is AI implementation work
   metadata TEXT,                    -- JSON for additional metadata
@@ -400,6 +440,7 @@ CREATE TABLE IF NOT EXISTS skill_tracker (
   category TEXT,                    -- 'ddd' | 'python' | 'analytics' | 'backend' | 'api' | 'airflow' | 'aws' | 'ai' | 'data'
   proficiency_level INTEGER DEFAULT 0,  -- 0-100
   tickets_count INTEGER DEFAULT 0,  -- number of tickets involving this skill
+  projects_count INTEGER DEFAULT 0, -- number of projects involving this skill
   last_used_at TEXT,
   evidence TEXT,                    -- JSON array of evidence (ticket ids, code files, etc.)
   created_at TEXT DEFAULT (datetime('now')),
@@ -433,6 +474,57 @@ def init_db():
         # Migration: Add source_document_id column to meeting_summaries if it doesn't exist
         try:
             conn.execute("ALTER TABLE meeting_summaries ADD COLUMN source_document_id INTEGER")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Migration: Add raw_text column to meeting_summaries if it doesn't exist
+        try:
+            conn.execute("ALTER TABLE meeting_summaries ADD COLUMN raw_text TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Migration: Add projects_count column to skill_tracker if it doesn't exist
+        try:
+            conn.execute("ALTER TABLE skill_tracker ADD COLUMN projects_count INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Migration: Add new career_profile columns if they don't exist
+        career_profile_columns = [
+            ("certifications", "TEXT"),
+            ("education", "TEXT"),
+            ("years_experience", "INTEGER"),
+            ("preferred_work_style", "TEXT"),
+            ("industry_focus", "TEXT"),
+            ("leadership_experience", "TEXT"),
+            ("notable_projects", "TEXT"),
+            ("learning_priorities", "TEXT"),
+            ("career_timeline", "TEXT"),
+            ("technical_specializations", "TEXT"),
+            ("soft_skills", "TEXT"),
+            ("work_achievements", "TEXT"),
+            ("career_values", "TEXT"),
+            ("short_term_goals", "TEXT"),
+            ("long_term_goals", "TEXT"),
+            ("mentorship", "TEXT"),
+            ("networking", "TEXT"),
+            ("languages", "TEXT"),
+        ]
+        for col_name, col_type in career_profile_columns:
+            try:
+                conn.execute(f"ALTER TABLE career_profile ADD COLUMN {col_name} {col_type}")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+        
+        # Migration: Add technologies column to career_memories if it doesn't exist
+        try:
+            conn.execute("ALTER TABLE career_memories ADD COLUMN technologies TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Migration: Add meeting_id column to docs table if it doesn't exist
+        try:
+            conn.execute("ALTER TABLE docs ADD COLUMN meeting_id INTEGER REFERENCES meeting_summaries(id)")
         except sqlite3.OperationalError:
             pass  # Column already exists
         

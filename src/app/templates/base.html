@@ -288,6 +288,292 @@
       background: var(--sf-bg, #f5f5f5);
     }
 
+    /* Arjuna Quick Actions Drawer (Right Side, near chat bubble) */
+    .arjuna-drawer {
+      position: fixed;
+      right: 20px;
+      bottom: 120px;
+      width: 48px;
+      background: var(--sf-card-bg, white);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      z-index: 100;
+      transition: width 0.2s ease;
+      border: 1px solid var(--sf-border, #e5e7eb);
+      display: flex;
+      flex-direction: column;
+      max-height: 260px;
+      overflow: visible;
+    }
+
+    .arjuna-drawer.collapsed {
+      width: 48px;
+      height: 48px;
+      max-height: 48px;
+      bottom: 90px; /* sit just above the Arjuna chat bubble */
+      border-radius: 999px;
+      overflow: visible;
+      cursor: pointer;
+    }
+
+    .arjuna-drawer.expanded {
+      width: 180px;
+    }
+
+    .arjuna-drawer .drawer-header {
+      padding: 0.5rem;
+      border-bottom: 1px solid var(--sf-border, #e5e7eb);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      flex-shrink: 0;
+    }
+
+    .arjuna-drawer.expanded .drawer-header {
+      justify-content: space-between;
+      padding: 0.5rem 0.75rem;
+    }
+
+    .arjuna-drawer.collapsed .drawer-header {
+      border-bottom: none;
+      padding: 0;
+      justify-content: center;
+      width: 100%;
+      height: 48px;
+    }
+
+    .arjuna-drawer .drawer-title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--sf-text, #1f2937);
+      white-space: nowrap;
+      display: none;
+    }
+
+    .arjuna-drawer.expanded .drawer-title {
+      display: block;
+    }
+
+    .arjuna-drawer.collapsed .drawer-title {
+      display: none;
+    }
+
+    .arjuna-drawer .drawer-icon {
+      font-size: 1.1rem;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .arjuna-drawer.collapsed .drawer-icon {
+      display: flex;
+    }
+
+    .arjuna-drawer .drawer-controls {
+      display: flex;
+      gap: 0.25rem;
+      flex-shrink: 0;
+    }
+
+    .arjuna-drawer .drawer-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      border: none;
+      background: transparent;
+      color: var(--sf-text-muted, #6b7280);
+      cursor: pointer;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .arjuna-drawer .drawer-btn:hover {
+      background: var(--sf-surface, #f3f4f6);
+      color: var(--sf-primary, #667eea);
+    }
+
+    .arjuna-drawer.editing .drawer-btn.edit-btn {
+      background: var(--sf-surface, #e5e7eb);
+      color: var(--sf-primary, #4b5563);
+    }
+
+    .arjuna-drawer.collapsed .drawer-btn {
+      display: none;
+    }
+
+    .arjuna-drawer .drawer-btn.expand-btn {
+      font-size: 0.65rem;
+    }
+
+    .arjuna-drawer .drawer-content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: visible;
+      padding: 0.5rem;
+    }
+
+    .arjuna-drawer.collapsed .drawer-content {
+      display: none;
+    }
+
+    .arjuna-drawer .drawer-shortcut.editable {
+      border-style: dashed;
+      opacity: 0.9;
+    }
+
+    .arjuna-drawer .drawer-section {
+      margin-bottom: 0.5rem;
+    }
+
+    .arjuna-drawer .drawer-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .arjuna-drawer .drawer-section-title {
+      font-size: 0.55rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--sf-text-muted, #9ca3af);
+      padding: 0.25rem 0.25rem 0.4rem;
+      font-weight: 600;
+      text-align: center;
+      display: none;
+    }
+
+    .arjuna-drawer.expanded .drawer-section-title {
+      display: block;
+      text-align: left;
+    }
+
+    .arjuna-drawer .drawer-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .arjuna-drawer.expanded .drawer-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+    }
+
+    .arjuna-drawer .drawer-shortcut {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 6px;
+      border: 1px solid var(--sf-border, #e5e7eb);
+      background: var(--sf-surface, #f9fafb);
+      cursor: pointer;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .arjuna-drawer .drawer-shortcut.dragging {
+      opacity: 0.6;
+      border-style: dashed;
+    }
+
+    .arjuna-drawer .drawer-shortcut:hover {
+      background: var(--sf-primary, #667eea);
+      border-color: var(--sf-primary, #667eea);
+    }
+
+    .arjuna-drawer .drawer-shortcut[title]:hover::after {
+      content: attr(title);
+      position: fixed;
+      left: calc(var(--drawer-right, 20px) + 60px);
+      top: var(--tooltip-top, 50%);
+      transform: translateY(-50%);
+      background: #1f2937;
+      color: white;
+      padding: 0.35rem 0.5rem;
+      border-radius: 6px;
+      font-size: 0.65rem;
+      white-space: nowrap;
+      z-index: 1001;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      pointer-events: none;
+    }
+
+    .arjuna-drawer .drawer-shortcut[title]:hover::before {
+      content: '';
+      position: fixed;
+      left: calc(var(--drawer-right, 20px) + 52px);
+      top: var(--tooltip-top, 50%);
+      transform: translateY(-50%);
+      border: 5px solid transparent;
+      border-right-color: #1f2937;
+      z-index: 1001;
+      pointer-events: none;
+    }
+
+    .arjuna-drawer .drawer-empty {
+      text-align: center;
+      padding: 0.5rem 0.25rem;
+      color: var(--sf-text-muted, #9ca3af);
+      font-size: 0.6rem;
+      font-style: italic;
+    }
+
+    .arjuna-drawer .drawer-expand-hint {
+      text-align: center;
+      padding: 0.5rem;
+      color: var(--sf-text-muted);
+      font-size: 0.6rem;
+      border-top: 1px solid var(--sf-border, #e5e7eb);
+      margin-top: auto;
+      flex-shrink: 0;
+    }
+
+    .arjuna-drawer.expanded .drawer-expand-hint {
+      display: none;
+    }
+
+    /* Dark mode for Arjuna drawer */
+    [data-theme="dark"] .arjuna-drawer {
+      background: #1e1e1e;
+      border-color: #3a3a3a;
+    }
+
+    [data-theme="dark"] .arjuna-drawer .drawer-header {
+      border-bottom-color: #3a3a3a;
+    }
+
+    [data-theme="dark"] .arjuna-drawer .drawer-btn:hover {
+      background: #3a3a3a;
+      color: #a78bfa;
+    }
+
+    [data-theme="dark"] .arjuna-drawer .drawer-shortcut {
+      background: #2d2d2d;
+      border-color: #3a3a3a;
+    }
+
+    [data-theme="dark"] .arjuna-drawer .drawer-shortcut:hover {
+      background: #8b5cf6;
+      border-color: #8b5cf6;
+    }
+
+    [data-theme="dark"] .arjuna-drawer .drawer-expand-hint {
+      border-top-color: #3a3a3a;
+    }
+
+    /* Hide Arjuna drawer on smaller screens */
+    @media (max-width: 1100px) {
+      .arjuna-drawer {
+        display: none;
+      }
+    }
+
     /* Top Header Bar - Minimal */
     .top-header {
       background: var(--sf-nav-bg, #2c3e50);
@@ -499,6 +785,12 @@
       background: #e8f4fc;
       color: #3498db;
       font-weight: 500;
+    }
+
+    /* Dark mode nav link active state */
+    [data-theme="dark"] .nav-link.active {
+      background: rgba(52, 152, 219, 0.2) !important;
+      color: #5dade2 !important;
     }
 
     .nav-link svg {
@@ -909,6 +1201,12 @@
 
       <div class="nav-section">
         <div class="nav-section-title">Sprint</div>
+        <a href="/settings/sprint" class="nav-link" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.1)); border: 1px solid rgba(34, 197, 94, 0.3);">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="color: #22c55e;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+          </svg>
+          End Sprint
+        </a>
         <a href="/tickets/new" class="nav-link">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -1241,7 +1539,42 @@
       }
     }
     
-    // Initialize toggle state
+    // Highlight current navigation link
+    function highlightCurrentNavLink() {
+      const currentPath = window.location.pathname;
+      const navLinks = document.querySelectorAll('.nav-link');
+      
+      navLinks.forEach(link => {
+        const href = link.getAttribute('href');
+        if (!href) return;
+        
+        // For exact matches
+        if (currentPath === href) {
+          link.classList.add('active');
+        } 
+        // For nested routes, but exclude parent paths that are also nav items
+        // e.g., don't highlight /career when on /career/standups
+        else if (href !== '/' && currentPath.startsWith(href + '/')) {
+          // Only highlight if this is NOT a case where a more specific nav link exists
+          const moreSpecificLinkExists = Array.from(navLinks).some(otherLink => {
+            const otherHref = otherLink.getAttribute('href');
+            return otherHref && otherHref !== href && 
+                   otherHref.startsWith(href) && 
+                   (currentPath === otherHref || currentPath.startsWith(otherHref + '/'));
+          });
+          
+          if (!moreSpecificLinkExists) {
+            link.classList.add('active');
+          } else {
+            link.classList.remove('active');
+          }
+        } else {
+          link.classList.remove('active');
+        }
+      });
+    }
+    
+    // Initialize toggle state and global UI helpers
     document.addEventListener('DOMContentLoaded', () => {
       const toggle = document.getElementById('autoTrackingToggle');
       if (toggle) {
@@ -1249,6 +1582,12 @@
       }
       // Check for active tracking session
       checkActiveTracking();
+      // Highlight current navigation link
+      highlightCurrentNavLink();
+      // Initialize Arjuna quick actions drawer on all pages
+      if (typeof initArjunaShortcuts === 'function') {
+        initArjunaShortcuts();
+      }
     });
     
     async function checkActiveTracking() {
@@ -1493,9 +1832,268 @@
         overlay.classList.remove('open');
       }
     }
+
+    // ===== ARJUNA SHORTCUTS DRAWER =====
+    function initArjunaShortcuts() {
+      // Load collapsed state (legacy panel support)
+      const isCollapsed = localStorage.getItem('arjuna-shortcuts-collapsed') === 'true';
+      const panel = document.getElementById('arjunaShortcutsPanel');
+      if (panel && isCollapsed) {
+        panel.classList.add('collapsed');
+        const toggle = panel.querySelector('.shortcuts-toggle');
+        if (toggle) toggle.textContent = '🏹';
+      }
+
+      // Load recent commands if helper is available (from assistant widget)
+      if (typeof loadRecentShortcuts === 'function') {
+        loadRecentShortcuts();
+      }
+
+      // Restore drawer expanded state
+      const expanded = localStorage.getItem('arjuna-drawer-expanded') === 'true';
+      const arjunaDrawer = document.getElementById('arjunaDrawer');
+      const collapsed = localStorage.getItem('arjuna-drawer-collapsed') === 'true';
+
+      if (arjunaDrawer) {
+        if (collapsed) {
+          arjunaDrawer.classList.add('collapsed');
+        } else if (expanded) {
+          arjunaDrawer.classList.add('expanded');
+        }
+      }
+
+      // Restore quick edit mode state
+      arjunaQuickEditMode = localStorage.getItem('arjuna-quick-edit') === 'true';
+      if (arjunaDrawer) {
+        arjunaDrawer.classList.toggle('editing', arjunaQuickEditMode);
+      }
+
+      // Initialize draggable quick actions
+      setupDraggableQuickActions();
+
+      // Initialize personal shortcuts from recent Arjuna commands
+      setupPersonalShortcuts();
+    }
+
+    function toggleDrawerExpand() {
+      const arjunaDrawer = document.getElementById('arjunaDrawer');
+      if (!arjunaDrawer) return;
+      // If fully collapsed, uncollapse first so expansion is visible
+      if (arjunaDrawer.classList.contains('collapsed')) {
+        arjunaDrawer.classList.remove('collapsed');
+        localStorage.setItem('arjuna-drawer-collapsed', 'false');
+      }
+      arjunaDrawer.classList.toggle('expanded');
+      localStorage.setItem('arjuna-drawer-expanded', arjunaDrawer.classList.contains('expanded'));
+    }
+
+    function toggleDrawerCollapse(event) {
+      const arjunaDrawer = document.getElementById('arjunaDrawer');
+      if (!arjunaDrawer) return;
+
+      // Ignore clicks on control buttons so they still work normally
+      if (event && event.target && event.target.closest && event.target.closest('.drawer-btn')) {
+        return;
+      }
+
+      arjunaDrawer.classList.toggle('collapsed');
+      const isCollapsed = arjunaDrawer.classList.contains('collapsed');
+      localStorage.setItem('arjuna-drawer-collapsed', isCollapsed ? 'true' : 'false');
+
+      // When fully collapsed, also clear expanded state for consistency
+      if (isCollapsed) {
+        arjunaDrawer.classList.remove('expanded');
+        localStorage.setItem('arjuna-drawer-expanded', 'false');
+      }
+    }
+
+    let draggingKey = null;
+    let arjunaQuickEditMode = false;
+
+    function setupDraggableQuickActions() {
+      const container = document.getElementById('frequentShortcuts');
+      if (!container) return;
+
+      const buttons = Array.from(container.querySelectorAll('.drawer-shortcut'));
+      if (!buttons.length) return;
+
+      // Restore saved order
+      try {
+        const savedOrder = JSON.parse(localStorage.getItem('arjuna-quick-order') || '[]');
+        if (Array.isArray(savedOrder) && savedOrder.length) {
+          savedOrder.forEach(key => {
+            const btn = buttons.find(b => b.dataset.key === key);
+            if (btn) container.appendChild(btn);
+          });
+        }
+      } catch (e) {
+        console.warn('Failed to restore quick action order', e);
+      }
+
+      Array.from(container.querySelectorAll('.drawer-shortcut')).forEach(btn => {
+        btn.addEventListener('dragstart', (e) => {
+          draggingKey = btn.dataset.key;
+          btn.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        btn.addEventListener('dragend', () => {
+          draggingKey = null;
+          btn.classList.remove('dragging');
+          saveQuickActionOrder();
+        });
+        btn.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+        });
+        btn.addEventListener('drop', (e) => {
+          e.preventDefault();
+          if (!draggingKey || draggingKey === btn.dataset.key) return;
+          const dragged = container.querySelector(`.drawer-shortcut[data-key="${draggingKey}"]`);
+          if (dragged) {
+            container.insertBefore(dragged, btn);
+          }
+        });
+      });
+
+      applyQuickActionEditableState();
+    }
+
+    function saveQuickActionOrder() {
+      const container = document.getElementById('frequentShortcuts');
+      if (!container) return;
+      const order = Array.from(container.querySelectorAll('.drawer-shortcut'))
+        .map(btn => btn.dataset.key)
+        .filter(Boolean);
+      localStorage.setItem('arjuna-quick-order', JSON.stringify(order));
+    }
+
+    function applyQuickActionEditableState() {
+      const container = document.getElementById('frequentShortcuts');
+      if (!container) return;
+      const buttons = Array.from(container.querySelectorAll('.drawer-shortcut'));
+      buttons.forEach(btn => {
+        if (arjunaQuickEditMode) {
+          btn.setAttribute('draggable', 'true');
+          btn.classList.add('editable');
+        } else {
+          btn.removeAttribute('draggable');
+          btn.classList.remove('editable');
+        }
+      });
+    }
+
+    function toggleQuickEdit(event) {
+      if (event && event.stopPropagation) {
+        event.stopPropagation();
+      }
+      const arjunaDrawer = document.getElementById('arjunaDrawer');
+      if (!arjunaDrawer) return;
+
+      arjunaQuickEditMode = !arjunaQuickEditMode;
+      arjunaDrawer.classList.toggle('editing', arjunaQuickEditMode);
+      localStorage.setItem('arjuna-quick-edit', arjunaQuickEditMode ? 'true' : 'false');
+      applyQuickActionEditableState();
+    }
+
+    function setupPersonalShortcuts() {
+      if (typeof getRecentCommands !== 'function') return;
+      const recent = getRecentCommands();
+      const section = document.getElementById('personalShortcutsSection');
+      const container = document.getElementById('personalShortcuts');
+      if (!section || !container) return;
+
+      if (!recent || !recent.length) {
+        section.style.display = 'none';
+        return;
+      }
+
+      // Build a set of messages already covered by the main quick shortcuts
+      const quickContainer = document.getElementById('frequentShortcuts');
+      const quickMessages = new Set();
+      if (quickContainer) {
+        quickContainer.querySelectorAll('.drawer-shortcut').forEach(btn => {
+          const msg = btn.dataset.message;
+          if (msg) quickMessages.add(msg);
+        });
+      }
+
+      // Filter out any recent commands that are already in the quick section
+      const filtered = recent.filter(item => {
+        const msg = item && item.message;
+        if (!msg) return false;
+        return !quickMessages.has(msg);
+      });
+
+      if (!filtered.length) {
+        section.style.display = 'none';
+        return;
+      }
+
+      // Sort by frequency (desc) then recency before taking top commands
+      filtered.sort((a, b) => {
+        const ac = a.count || 1;
+        const bc = b.count || 1;
+        if (bc !== ac) return bc - ac;
+        return (b.timestamp || 0) - (a.timestamp || 0);
+      });
+
+      const top = filtered.slice(0, 4);
+      container.innerHTML = top.map((item) => {
+        const safeMessage = (item.message || '').replace(/'/g, "\\'");
+        const emoji = item.emoji || '💬';
+        return `<button class="drawer-shortcut" title="${item.tooltip || item.message}" onclick="sendArjunaCommand('${safeMessage}')">${emoji}</button>`;
+      }).join('');
+
+      section.style.display = 'block';
+    }
+
+    function sendArjunaCommand(message) {
+      const chat = document.getElementById('assistantChat');
+      const toggle = document.getElementById('assistantToggle');
+
+      if (chat && toggle && !chat.classList.contains('active')) {
+        chat.classList.add('active');
+        toggle.classList.add('active');
+      }
+
+      const input = document.getElementById('assistantInput');
+      if (!input) return;
+      input.value = message;
+      input.focus();
+
+      if (!message.endsWith(' ') && typeof sendAssistantMessage === 'function') {
+        sendAssistantMessage();
+      }
+    }
   </script>
 
   <!-- Include assistant chatbot widget -->
+  <div class="arjuna-drawer" id="arjunaDrawer">
+    <div class="drawer-header" onclick="toggleDrawerCollapse(event)">
+      <span class="drawer-icon" title="Arjuna shortcuts">⌨️</span>
+      <span class="drawer-title">🏹 Arjuna</span>
+      <div class="drawer-controls">
+        <button class="drawer-btn edit-btn" onclick="toggleQuickEdit(event)" title="Edit quick shortcuts">✎</button>
+        <button class="drawer-btn expand-btn" onclick="toggleDrawerExpand()" title="Expand/collapse">≡</button>
+      </div>
+    </div>
+    <div class="drawer-content" id="drawerContent">
+      <div class="drawer-section">
+        <div class="drawer-section-title">Quick</div>
+        <div class="drawer-grid" id="frequentShortcuts">
+          <button class="drawer-shortcut" data-key="focus" data-message="What should I focus on?" onclick="sendArjunaCommand('What should I focus on?')" title="Focus help">🎯</button>
+          <button class="drawer-shortcut" data-key="blocked" data-message="What are my blocked tickets?" onclick="sendArjunaCommand('What are my blocked tickets?')" title="Blocked">🚫</button>
+          <button class="drawer-shortcut" data-key="tickets" data-message="What are my open tickets?" onclick="sendArjunaCommand('What are my open tickets?')" title="Tickets">📋</button>
+          <button class="drawer-shortcut" data-key="new-task" data-message="Create a task for " onclick="sendArjunaCommand('Create a task for ')" title="New task">➕</button>
+        </div>
+      </div>
+      <div class="drawer-section" id="personalShortcutsSection" style="display: none;">
+        <div class="drawer-section-title">Personal</div>
+        <div class="drawer-grid" id="personalShortcuts"></div>
+      </div>
+    </div>
+  </div>
+
   {% include 'components/assistant_widget.html' %}
 
 </body>

@@ -30,37 +30,113 @@ def hash_password(password: str) -> str:
 
 
 def create_session(user_agent: str = "") -> str:
-    """Create a new session and return token."""
+    """Create a new session and return token. Also persist to database."""
     token = secrets.token_urlsafe(32)
+    created = datetime.now()
     _sessions[token] = {
-        "created": datetime.now(),
+        "created": created,
         "user_agent": user_agent,
-        "last_active": datetime.now(),
+        "last_active": created,
     }
+    
+    # Persist to database for server restarts
+    try:
+        from .db import connect
+        with connect() as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS sessions (
+                    token TEXT PRIMARY KEY,
+                    created TEXT NOT NULL,
+                    user_agent TEXT,
+                    last_active TEXT
+                )
+            """)
+            conn.execute("""
+                INSERT OR REPLACE INTO sessions (token, created, user_agent, last_active)
+                VALUES (?, ?, ?, ?)
+            """, (token, created.isoformat(), user_agent, created.isoformat()))
+            conn.commit()
+            print(f"Session saved to DB: {token[:20]}...")
+    except Exception as e:
+        print(f"Failed to save session to DB: {e}")
+    
     return token
 
 
 def validate_session(token: str) -> bool:
-    """Check if session is valid."""
-    if not token or token not in _sessions:
+    """Check if session is valid. Check memory first, then database."""
+    if not token:
         return False
     
-    session = _sessions[token]
-    expiry = session["created"] + timedelta(hours=SESSION_DURATION_HOURS)
+    # Check in-memory cache first
+    if token in _sessions:
+        session = _sessions[token]
+        expiry = session["created"] + timedelta(hours=SESSION_DURATION_HOURS)
+        
+        if datetime.now() > expiry:
+            del _sessions[token]
+            _delete_session_from_db(token)
+            return False
+        
+        session["last_active"] = datetime.now()
+        return True
     
-    if datetime.now() > expiry:
-        del _sessions[token]
-        return False
+    # Check database (for server restarts)
+    try:
+        from .db import connect
+        with connect() as conn:
+            # Ensure sessions table exists
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS sessions (
+                    token TEXT PRIMARY KEY,
+                    created TEXT NOT NULL,
+                    user_agent TEXT,
+                    last_active TEXT
+                )
+            """)
+            
+            row = conn.execute(
+                "SELECT created, user_agent FROM sessions WHERE token = ?",
+                (token,)
+            ).fetchone()
+            
+            if row:
+                created = datetime.fromisoformat(row["created"])
+                expiry = created + timedelta(hours=SESSION_DURATION_HOURS)
+                
+                if datetime.now() > expiry:
+                    _delete_session_from_db(token)
+                    return False
+                
+                # Restore to memory cache
+                _sessions[token] = {
+                    "created": created,
+                    "user_agent": row["user_agent"] or "",
+                    "last_active": datetime.now(),
+                }
+                return True
+    except Exception as e:
+        print(f"Session validation error: {e}")
     
-    # Update last active
-    session["last_active"] = datetime.now()
-    return True
+    return False
+
+
+def _delete_session_from_db(token: str):
+    """Helper to remove session from database."""
+    try:
+        from .db import connect
+        with connect() as conn:
+            conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+            conn.commit()
+    except Exception:
+        pass
 
 
 def destroy_session(token: str):
-    """Logout - destroy session."""
+    """Logout - destroy session from memory and database."""
     if token in _sessions:
         del _sessions[token]
+    _delete_session_from_db(token)
 
 
 # Public routes that don't need auth
@@ -69,6 +145,12 @@ PUBLIC_ROUTES = [
     "/auth/login",
     "/static",
     "/favicon.ico",
+    "/api/mindmap/tags",
+    "/api/mindmap/generate",
+    "/api/mindmap/data",
+    "/api/mindmap/status",
+    "/api/dikw",
+    "/api/career",  # Allow all career APIs
 ]
 
 

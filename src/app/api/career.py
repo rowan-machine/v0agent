@@ -53,15 +53,6 @@ async def update_signal_status(request: Request):
 
     return JSONResponse({"status": "ok"})
 
-# Place the delete_standup endpoint after router is defined
-@router.delete("/api/career/standups/{standup_id}")
-async def delete_standup(standup_id: int):
-    """Delete a standup update by ID."""
-    with connect() as conn:
-        conn.execute("DELETE FROM standup_updates WHERE id = ?", (standup_id,))
-        conn.commit()
-    return JSONResponse({"status": "ok"})
-
 def get_code_locker_code_for_sprint_tickets(conn, tickets, max_lines=40, max_chars=2000):
     """Return a dict: {ticket_id: {filename: code}} for latest code locker entries for each file in current sprint tickets."""
     code_by_ticket = {}
@@ -194,6 +185,15 @@ router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
 
 
+@router.delete("/api/career/standups/{standup_id}")
+async def delete_standup(standup_id: int):
+    """Delete a standup update by ID."""
+    with connect() as conn:
+        conn.execute("DELETE FROM standup_updates WHERE id = ?", (standup_id,))
+        conn.commit()
+    return JSONResponse({"status": "ok"})
+
+
 @router.get("/api/career/profile")
 async def get_career_profile(request: Request):
     """Get the current career profile."""
@@ -201,13 +201,33 @@ async def get_career_profile(request: Request):
         profile = conn.execute("SELECT * FROM career_profile WHERE id = 1").fetchone()
     
     if profile:
+        keys = profile.keys()
         return JSONResponse({
             "current_role": profile["current_role"],
             "target_role": profile["target_role"],
             "strengths": profile["strengths"],
             "weaknesses": profile["weaknesses"],
             "interests": profile["interests"],
-            "goals": profile["goals"]
+            "goals": profile["goals"],
+            "certifications": profile["certifications"] if "certifications" in keys else None,
+            "education": profile["education"] if "education" in keys else None,
+            "years_experience": profile["years_experience"] if "years_experience" in keys else None,
+            "preferred_work_style": profile["preferred_work_style"] if "preferred_work_style" in keys else None,
+            "industry_focus": profile["industry_focus"] if "industry_focus" in keys else None,
+            "leadership_experience": profile["leadership_experience"] if "leadership_experience" in keys else None,
+            "notable_projects": profile["notable_projects"] if "notable_projects" in keys else None,
+            "learning_priorities": profile["learning_priorities"] if "learning_priorities" in keys else None,
+            "career_timeline": profile["career_timeline"] if "career_timeline" in keys else None,
+            # New fields
+            "technical_specializations": profile["technical_specializations"] if "technical_specializations" in keys else None,
+            "soft_skills": profile["soft_skills"] if "soft_skills" in keys else None,
+            "work_achievements": profile["work_achievements"] if "work_achievements" in keys else None,
+            "career_values": profile["career_values"] if "career_values" in keys else None,
+            "short_term_goals": profile["short_term_goals"] if "short_term_goals" in keys else None,
+            "long_term_goals": profile["long_term_goals"] if "long_term_goals" in keys else None,
+            "mentorship": profile["mentorship"] if "mentorship" in keys else None,
+            "networking": profile["networking"] if "networking" in keys else None,
+            "languages": profile["languages"] if "languages" in keys else None,
         })
     return JSONResponse({}, status_code=404)
 
@@ -219,8 +239,12 @@ async def update_career_profile(request: Request):
     
     with connect() as conn:
         conn.execute("""
-            INSERT INTO career_profile (id, current_role, target_role, strengths, weaknesses, interests, goals)
-            VALUES (1, ?, ?, ?, ?, ?, ?)
+            INSERT INTO career_profile (id, current_role, target_role, strengths, weaknesses, interests, goals,
+                certifications, education, years_experience, preferred_work_style, industry_focus,
+                leadership_experience, notable_projects, learning_priorities, career_timeline,
+                technical_specializations, soft_skills, work_achievements, career_values,
+                short_term_goals, long_term_goals, mentorship, networking, languages)
+            VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 current_role = excluded.current_role,
                 target_role = excluded.target_role,
@@ -228,6 +252,24 @@ async def update_career_profile(request: Request):
                 weaknesses = excluded.weaknesses,
                 interests = excluded.interests,
                 goals = excluded.goals,
+                certifications = excluded.certifications,
+                education = excluded.education,
+                years_experience = excluded.years_experience,
+                preferred_work_style = excluded.preferred_work_style,
+                industry_focus = excluded.industry_focus,
+                leadership_experience = excluded.leadership_experience,
+                notable_projects = excluded.notable_projects,
+                learning_priorities = excluded.learning_priorities,
+                career_timeline = excluded.career_timeline,
+                technical_specializations = excluded.technical_specializations,
+                soft_skills = excluded.soft_skills,
+                work_achievements = excluded.work_achievements,
+                career_values = excluded.career_values,
+                short_term_goals = excluded.short_term_goals,
+                long_term_goals = excluded.long_term_goals,
+                mentorship = excluded.mentorship,
+                networking = excluded.networking,
+                languages = excluded.languages,
                 updated_at = datetime('now')
         """, (
             data.get("current_role"),
@@ -235,7 +277,25 @@ async def update_career_profile(request: Request):
             data.get("strengths"),
             data.get("weaknesses"),
             data.get("interests"),
-            data.get("goals")
+            data.get("goals"),
+            data.get("certifications"),
+            data.get("education"),
+            data.get("years_experience"),
+            data.get("preferred_work_style"),
+            data.get("industry_focus"),
+            data.get("leadership_experience"),
+            data.get("notable_projects"),
+            data.get("learning_priorities"),
+            data.get("career_timeline"),
+            data.get("technical_specializations"),
+            data.get("soft_skills"),
+            data.get("work_achievements"),
+            data.get("career_values"),
+            data.get("short_term_goals"),
+            data.get("long_term_goals"),
+            data.get("mentorship"),
+            data.get("networking"),
+            data.get("languages")
         ))
     
     return JSONResponse({"status": "ok"})
@@ -487,30 +547,44 @@ Return bullet points only."""
 @router.post("/api/career/generate-insights")
 async def generate_career_insights(request: Request):
     """Generate AI insights based on skills, projects, and profile."""
-    from app.llm import get_llm_response
+    # Use ask_llm from module-level import
     
     with connect() as conn:
-        # Gather context
+        # Gather context - handle missing tables gracefully
         profile = conn.execute("SELECT * FROM career_profile WHERE id = 1").fetchone()
-        skills = conn.execute("""
-            SELECT skill_name, category, proficiency_level 
-            FROM skill_tracker 
-            WHERE proficiency_level > 0 
-            ORDER BY proficiency_level DESC 
-            LIMIT 15
-        """).fetchall()
-        projects = conn.execute("""
-            SELECT title, description, technologies, impact 
-            FROM completed_projects_bank 
-            ORDER BY completed_date DESC 
-            LIMIT 10
-        """).fetchall()
-        ai_memories = conn.execute("""
-            SELECT title, description, technologies 
-            FROM ai_implementation_memories 
-            ORDER BY created_at DESC 
-            LIMIT 5
-        """).fetchall()
+        
+        try:
+            skills = conn.execute("""
+                SELECT skill_name, category, proficiency_level 
+                FROM skill_tracker 
+                WHERE proficiency_level > 0 
+                ORDER BY proficiency_level DESC 
+                LIMIT 15
+            """).fetchall()
+        except:
+            skills = []
+        
+        # Check if completed_projects_bank table exists
+        try:
+            projects = conn.execute("""
+                SELECT title, description, technologies, impact 
+                FROM completed_projects_bank 
+                ORDER BY completed_date DESC 
+                LIMIT 10
+            """).fetchall()
+        except:
+            projects = []
+        
+        # Check if ai_implementation_memories table exists
+        try:
+            ai_memories = conn.execute("""
+                SELECT title, description, technologies 
+                FROM ai_implementation_memories 
+                ORDER BY created_at DESC 
+                LIMIT 5
+            """).fetchall()
+        except:
+            ai_memories = []
         
         # Format context
         profile_ctx = f"""
@@ -546,7 +620,7 @@ Generate actionable insights in this format:
 
 Keep it brief, actionable, and encouraging. Use markdown formatting."""
 
-        insights = await get_llm_response(prompt, model="gpt-4o-mini")
+        insights = ask_llm(prompt, model="gpt-4o-mini")
         
         return JSONResponse({"status": "ok", "insights": insights})
 
@@ -634,7 +708,7 @@ async def convert_suggestion_to_ticket(suggestion_id: int, request: Request):
             ticket_id = f"CAREER-{suggestion_id}"
             cur = conn.execute("""
                 INSERT INTO tickets (ticket_id, title, description, status, priority, tags)
-                VALUES (?, ?, ?, 'todo', 'medium', 'career,growth')
+                VALUES (?, ?, ?, 'backlog', 'medium', 'career,growth')
             """, (
                 ticket_id,
                 suggestion["title"],
@@ -665,15 +739,15 @@ async def convert_suggestion_to_ticket(suggestion_id: int, request: Request):
 @router.post("/api/career/suggestions/compress")
 async def compress_suggestions(request: Request):
     """Compress/deduplicate AI suggestions using LLM analysis."""
-    from app.llm import get_llm_response
+    # Use ask_llm from module-level import (from ..llm import ask as ask_llm)
     
     try:
         with connect() as conn:
-            # Get all active suggestions
+            # Get all active suggestions (status is 'suggested' not 'pending')
             rows = conn.execute("""
                 SELECT id, title, description, suggestion_type, rationale
                 FROM career_suggestions 
-                WHERE status = 'pending'
+                WHERE status = 'suggested'
                 ORDER BY created_at DESC
             """).fetchall()
             
@@ -700,7 +774,7 @@ Rules:
 3. Only group items that are truly about the same thing
 4. Return valid JSON only, no markdown"""
 
-            response = await get_llm_response(prompt, model="gpt-4o-mini")
+            response = ask_llm(prompt, model="gpt-4o-mini")
             
             # Parse response
             try:
@@ -741,6 +815,9 @@ Rules:
             })
     
     except Exception as e:
+        import traceback
+        print(f"Compress error: {e}")
+        traceback.print_exc()
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
@@ -1651,19 +1728,24 @@ async def delete_career_memory(memory_id: int):
 async def get_completed_projects():
     """Get completed projects from tickets and career memories."""
     with connect() as conn:
-        # Get completed tickets
+        # Get completed tickets that haven't been synced to memories yet
         tickets = conn.execute("""
             SELECT t.*, 
                    GROUP_CONCAT(DISTINCT tf.filename) as files
             FROM tickets t
             LEFT JOIN ticket_files tf ON tf.ticket_id = t.id
             WHERE t.status IN ('done', 'complete', 'completed')
+              AND NOT EXISTS (
+                  SELECT 1 FROM career_memories cm 
+                  WHERE cm.source_type = 'ticket' 
+                    AND cm.source_id = CAST(t.id AS TEXT)
+              )
             GROUP BY t.id
             ORDER BY t.updated_at DESC
             LIMIT 50
         """).fetchall()
         
-        # Get pinned completed project memories
+        # Get completed project memories (includes synced tickets)
         memories = conn.execute("""
             SELECT * FROM career_memories 
             WHERE memory_type = 'completed_project'
@@ -1728,6 +1810,64 @@ SKILL_CATEGORIES = {
     "data": ["Data Engineering", "ETL/ELT", "Data Pipelines", "Data Governance", "Apache Atlas", "Data Catalog"],
     "knowledge": ["Knowledge Engineering", "Knowledge Graphs", "Ontologies", "Semantic Web", "DIKW Framework"]
 }
+
+
+@router.get("/api/career/development-tracker")
+async def get_development_tracker():
+    """Get development tracker data - skill progress and learning activities."""
+    with connect() as conn:
+        # Get recent skill changes (skills with evidence or high proficiency)
+        skills = conn.execute("""
+            SELECT skill_name, category, proficiency_level, evidence, updated_at, projects_count
+            FROM skill_tracker
+            WHERE proficiency_level > 0
+            ORDER BY 
+                CASE WHEN updated_at IS NOT NULL THEN 0 ELSE 1 END,
+                updated_at DESC,
+                proficiency_level DESC
+            LIMIT 20
+        """).fetchall()
+        
+        # Get recent career memories as learning activities
+        memories = conn.execute("""
+            SELECT id, memory_type, title, description, skills, created_at
+            FROM career_memories
+            WHERE memory_type IN ('skill_milestone', 'achievement')
+            ORDER BY created_at DESC
+            LIMIT 10
+        """).fetchall()
+        
+        # Get completed projects from career_memories
+        projects = conn.execute("""
+            SELECT id, title, skills as technologies, description as impact, created_at as completed_date
+            FROM career_memories
+            WHERE memory_type = 'completed_project' OR is_ai_work = 1
+            ORDER BY created_at DESC
+            LIMIT 5
+        """).fetchall()
+        
+        # Calculate summary stats
+        total_skills = conn.execute("SELECT COUNT(*) FROM skill_tracker WHERE proficiency_level > 0").fetchone()[0]
+        avg_proficiency = conn.execute("SELECT AVG(proficiency_level) FROM skill_tracker WHERE proficiency_level > 0").fetchone()[0] or 0
+        
+        # Skills by proficiency level
+        skill_levels = {
+            "beginner": conn.execute("SELECT COUNT(*) FROM skill_tracker WHERE proficiency_level BETWEEN 1 AND 30").fetchone()[0],
+            "intermediate": conn.execute("SELECT COUNT(*) FROM skill_tracker WHERE proficiency_level BETWEEN 31 AND 60").fetchone()[0],
+            "advanced": conn.execute("SELECT COUNT(*) FROM skill_tracker WHERE proficiency_level BETWEEN 61 AND 85").fetchone()[0],
+            "expert": conn.execute("SELECT COUNT(*) FROM skill_tracker WHERE proficiency_level > 85").fetchone()[0],
+        }
+        
+    return JSONResponse({
+        "skills": [dict(s) for s in skills],
+        "activities": [dict(m) for m in memories],
+        "projects": [dict(p) for p in projects],
+        "summary": {
+            "total_skills": total_skills,
+            "avg_proficiency": round(avg_proficiency, 1),
+            "skill_levels": skill_levels
+        }
+    })
 
 
 @router.get("/api/career/skills")
@@ -1821,23 +1961,279 @@ async def reset_skills():
     return JSONResponse({"status": "ok", "message": "All skills reset"})
 
 
+@router.post("/api/career/skills/remove-by-categories")
+async def remove_skills_by_categories(request: Request):
+    """Remove skills belonging to unselected categories."""
+    data = await request.json()
+    categories_to_remove = data.get("categories", [])
+    
+    if not categories_to_remove:
+        return JSONResponse({"status": "ok", "removed": 0})
+    
+    with connect() as conn:
+        placeholders = ",".join(["?" for _ in categories_to_remove])
+        result = conn.execute(f"""
+            DELETE FROM skill_tracker 
+            WHERE category IN ({placeholders})
+        """, categories_to_remove)
+        removed = result.rowcount
+        conn.commit()
+    
+    return JSONResponse({"status": "ok", "removed": removed, "categories": categories_to_remove})
+
+
+@router.post("/api/career/skills/from-resume")
+async def extract_skills_from_resume(request: Request):
+    """Extract skills from uploaded resume text using AI."""
+    data = await request.json()
+    resume_text = data.get("resume_text", "")
+    update_profile = data.get("update_profile", False)
+    
+    if not resume_text.strip():
+        return JSONResponse({"error": "No resume text provided"}, status_code=400)
+    
+    # Use AI to extract skills from resume
+    prompt = f"""Analyze this resume and extract technical skills with estimated proficiency levels.
+
+Resume:
+{resume_text[:8000]}
+
+Return a JSON object with this structure:
+{{
+    "skills": [
+        {{"name": "Skill Name", "category": "category_name", "proficiency": 50, "evidence": "Brief reason from resume"}}
+    ]
+}}
+
+Categories should be one of: python, backend, data, analytics, aws, Agentic AI, ddd, knowledge, Custom
+Proficiency should be 1-100 based on the level of experience shown.
+
+Return ONLY the JSON object, no other text."""
+
+    profile_updated = False
+    try:
+        response = ask_llm(prompt, model="gpt-4o-mini")
+        # Parse JSON from response
+        import re
+        json_match = re.search(r'\{[\s\S]*\}', response)
+        if json_match:
+            skills_data = json.loads(json_match.group())
+            
+            # Insert skills into database
+            skills_added = 0
+            with connect() as conn:
+                for skill in skills_data.get("skills", []):
+                    conn.execute("""
+                        INSERT INTO skill_tracker (skill_name, category, proficiency_level, evidence)
+                        VALUES (?, ?, ?, ?)
+                        ON CONFLICT(skill_name) DO UPDATE SET
+                            proficiency_level = MAX(proficiency_level, excluded.proficiency_level),
+                            evidence = excluded.evidence,
+                            updated_at = datetime('now')
+                    """, (
+                        skill.get("name"),
+                        skill.get("category", "Custom"),
+                        skill.get("proficiency", 30),
+                        json.dumps([skill.get("evidence", "Extracted from resume")])
+                    ))
+                    skills_added += 1
+                conn.commit()
+            
+            # If update_profile is requested, extract and update profile info
+            if update_profile:
+                profile_prompt = f"""Analyze this resume and extract profile information.
+
+Resume:
+{resume_text[:8000]}
+
+Return a JSON object with these fields (include only what you can find):
+{{
+    "current_role": "current or most recent job title",
+    "target_role": "next career goal if mentioned",
+    "years_experience": number or null,
+    "education": "degrees, schools",
+    "certifications": "certifications mentioned",
+    "technical_specializations": "main technical focus areas",
+    "strengths": "key strengths shown",
+    "short_term_goals": "any short-term goals mentioned",
+    "long_term_goals": "any long-term career aspirations",
+    "soft_skills": "leadership, communication skills etc",
+    "languages": "programming or spoken languages",
+    "work_achievements": "notable achievements"
+}}
+
+Return ONLY valid JSON, no other text. Use null for fields you can't determine."""
+
+                try:
+                    profile_response = ask_llm(profile_prompt, model="gpt-4o-mini")
+                    profile_match = re.search(r'\{[\s\S]*\}', profile_response)
+                    if profile_match:
+                        profile_data = json.loads(profile_match.group())
+                        
+                        # Build update query for non-null fields
+                        with connect() as conn:
+                            updates = []
+                            values = []
+                            for field in ['current_role', 'target_role', 'years_experience', 'education', 
+                                         'certifications', 'technical_specializations', 'strengths',
+                                         'short_term_goals', 'long_term_goals', 'soft_skills', 
+                                         'languages', 'work_achievements']:
+                                if field in profile_data and profile_data[field]:
+                                    updates.append(f"{field} = ?")
+                                    values.append(str(profile_data[field]))
+                            
+                            if updates:
+                                # Check if profile exists
+                                existing = conn.execute("SELECT id FROM career_profile LIMIT 1").fetchone()
+                                if existing:
+                                    values.append(existing['id'])
+                                    conn.execute(f"""
+                                        UPDATE career_profile 
+                                        SET {', '.join(updates)}, updated_at = datetime('now')
+                                        WHERE id = ?
+                                    """, values)
+                                else:
+                                    # Insert new profile
+                                    fields = [u.split(' = ')[0] for u in updates]
+                                    conn.execute(f"""
+                                        INSERT INTO career_profile ({', '.join(fields)})
+                                        VALUES ({', '.join(['?' for _ in values])})
+                                    """, values)
+                                conn.commit()
+                                profile_updated = True
+                except Exception as pe:
+                    print(f"Profile update error: {pe}")
+            
+            return JSONResponse({
+                "status": "ok",
+                "skills_added": skills_added,
+                "skills": skills_data.get("skills", []),
+                "profile_updated": profile_updated
+            })
+        else:
+            return JSONResponse({"error": "Could not parse AI response"}, status_code=500)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.post("/api/career/extract-resume-text")
+async def extract_resume_text(request: Request):
+    """Extract text from uploaded PDF resume file."""
+    from fastapi import UploadFile, File
+    import tempfile
+    
+    form = await request.form()
+    file = form.get("file")
+    
+    if not file:
+        return JSONResponse({"error": "No file uploaded"}, status_code=400)
+    
+    filename = file.filename.lower()
+    
+    # Read file content
+    content = await file.read()
+    
+    # For PDF files, try to extract text
+    if filename.endswith('.pdf'):
+        try:
+            # Try PyPDF2 first
+            try:
+                import PyPDF2
+                import io
+                pdf_reader = PyPDF2.PdfReader(io.BytesIO(content))
+                text_parts = []
+                for page in pdf_reader.pages:
+                    text_parts.append(page.extract_text() or '')
+                text = '\n'.join(text_parts)
+                if text.strip():
+                    return JSONResponse({"status": "ok", "text": text})
+            except ImportError:
+                pass
+            
+            # Fallback: try pdfplumber
+            try:
+                import pdfplumber
+                import io
+                with pdfplumber.open(io.BytesIO(content)) as pdf:
+                    text_parts = []
+                    for page in pdf.pages:
+                        text_parts.append(page.extract_text() or '')
+                    text = '\n'.join(text_parts)
+                    if text.strip():
+                        return JSONResponse({"status": "ok", "text": text})
+            except ImportError:
+                pass
+            
+            return JSONResponse({
+                "error": "PDF parsing libraries not available. Please install PyPDF2 or pdfplumber, or paste the text manually."
+            }, status_code=500)
+            
+        except Exception as e:
+            return JSONResponse({"error": f"Failed to parse PDF: {str(e)}"}, status_code=500)
+    
+    # For text files
+    if filename.endswith('.txt'):
+        try:
+            text = content.decode('utf-8')
+            return JSONResponse({"status": "ok", "text": text})
+        except:
+            return JSONResponse({"error": "Failed to decode text file"}, status_code=500)
+    
+    return JSONResponse({"error": "Unsupported file type"}, status_code=400)
+
+
 @router.post("/api/career/skills/assess-from-codebase")
 async def assess_skills_from_codebase(request: Request):
     """Analyze codebase and update skill levels based on code evidence."""
     import os
     import glob
+    import random
     
-    # Define patterns to look for each skill category
+    # Define patterns to look for each skill - now with per-skill patterns
     skill_patterns = {
-        "ddd": ["domain", "aggregate", "entity", "value_object", "repository", "bounded_context", "event_source"],
-        "python": ["hexagonal", "adapter", "port", "typing", "dataclass", "protocol", "abstract"],
-        "analytics": ["dbt", "model", "metric", "dimension", "fact", "data_quality"],
-        "backend": ["api", "route", "endpoint", "fastapi", "flask", "rest", "graphql"],
-        "airflow": ["dag", "task", "operator", "sensor", "airflow", "pipeline"],
-        "aws": ["boto3", "s3", "lambda", "glue", "redshift", "step_function"],
-        "ai": ["openai", "llm", "embedding", "vector", "prompt", "rag", "langchain"],
-        "data": ["etl", "transform", "pipeline", "data_quality", "lineage", "catalog"],
-        "knowledge": ["dikw", "knowledge", "ontology", "semantic", "graph", "taxonomy"]
+        # Domain Driven Design
+        "Domain Driven Design": ["domain", "aggregate", "bounded_context", "ubiquitous"],
+        "Bounded Contexts": ["bounded_context", "context_map", "anti_corruption"],
+        "Aggregates": ["aggregate", "aggregate_root", "entity"],
+        "Event Sourcing": ["event_source", "event_store", "cqrs", "event_driven"],
+        # Python
+        "Python": ["def ", "class ", "import ", "async def", "__init__"],
+        "typing": ["typing", "Optional", "List[", "Dict[", "Union[", "Callable"],
+        "Hexagonal Architecture": ["hexagonal", "adapter", "port", "driven_adapter"],
+        # Analytics
+        "Data Analysis": ["pandas", "numpy", "analysis", "dataframe"],
+        "SQL/Databases": ["sqlite", "postgresql", "execute(", "SELECT", "INSERT"],
+        "Data Visualization": ["matplotlib", "plotly", "chart", "visualization"],
+        # Backend
+        "REST APIs": ["@app.get", "@app.post", "@router", "endpoint", "api/"],
+        "FastAPI": ["fastapi", "FastAPI", "APIRouter", "Depends"],
+        "Backend Development": ["middleware", "authentication", "authorization"],
+        "Microservices": ["microservice", "service_mesh", "container"],
+        # AI/ML - Agentic AI specific
+        "LLM Integration": ["openai", "anthropic", "llm", "chat_completion", "gpt"],
+        "RAG": ["rag", "retrieval", "embedding", "vector_store", "chromadb"],
+        "Embeddings": ["embedding", "embed_text", "vector", "cosine_similarity"],
+        "Prompt Engineering": ["prompt", "system_message", "user_message", "few_shot"],
+        "MCP Servers": ["mcp", "model_context_protocol", "mcp_server", "@mcp", "McpServer"],
+        "Tool Calling": ["tool_call", "function_call", "@tool", "tools=", "tool_registry", "TOOL_REGISTRY"],
+        "Agent Orchestration": ["agent", "orchestrat", "workflow", "chain_of_thought"],
+        "ReAct Patterns": ["react", "reason", "act", "observation", "thought"],
+        "Function Calling": ["function_call", "functions=", "@function", "call_function"],
+        "Multi-Agent Systems": ["multi_agent", "agent_team", "collaboration", "delegate"],
+        # Data Engineering
+        "ETL": ["etl", "extract", "transform", "load", "pipeline"],
+        "Data Pipelines": ["pipeline", "dag", "workflow", "orchestration"],
+        "Data Quality": ["data_quality", "validation", "schema", "constraint"],
+        "Data Lineage": ["lineage", "provenance", "tracking", "metadata"],
+        # Cloud/AWS
+        "AWS": ["boto3", "aws", "s3_client", "lambda_handler"],
+        "Cloud Platforms": ["cloud", "gcp", "azure", "terraform"],
+        "Lambda": ["lambda_handler", "serverless", "aws_lambda", "lambda_function", "@lambda"],
+        "S3": ["s3", "bucket", "s3_client", "upload_file"],
+        # Knowledge
+        "Knowledge Graphs": ["knowledge_graph", "neo4j", "graph_db", "triplet"],
+        "DIKW": ["dikw", "data_information", "knowledge_wisdom"],
+        "Semantic": ["semantic", "ontology", "rdf", "sparql"],
     }
     
     # Scan codebase
@@ -1847,116 +2243,183 @@ async def assess_skills_from_codebase(request: Request):
     # Exclude common non-project directories
     py_files = [f for f in py_files if not any(x in f for x in ['__pycache__', '.venv', 'venv', 'node_modules', '.git'])]
     
-    skill_evidence = {cat: {"files": [], "count": 0, "patterns_found": []} for cat in skill_patterns}
+    # Track evidence per skill (not per category)
+    skill_evidence = {skill: {"files": [], "count": 0, "patterns_found": []} for skill in skill_patterns}
     
-    for filepath in py_files[:100]:  # Limit to first 100 files
+    for filepath in py_files[:150]:  # Increase limit to 150 files
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
-                content = f.read().lower()
+                content = f.read()
+                content_lower = content.lower()
                 
-            for category, patterns in skill_patterns.items():
+            for skill, patterns in skill_patterns.items():
                 for pattern in patterns:
-                    if pattern in content:
+                    pattern_lower = pattern.lower()
+                    if pattern_lower in content_lower:
                         rel_path = os.path.relpath(filepath, workspace_root)
-                        if rel_path not in skill_evidence[category]["files"]:
-                            skill_evidence[category]["files"].append(rel_path)
-                        skill_evidence[category]["count"] += content.count(pattern)
-                        if pattern not in skill_evidence[category]["patterns_found"]:
-                            skill_evidence[category]["patterns_found"].append(pattern)
+                        if rel_path not in skill_evidence[skill]["files"]:
+                            skill_evidence[skill]["files"].append(rel_path)
+                        skill_evidence[skill]["count"] += content_lower.count(pattern_lower)
+                        if pattern not in skill_evidence[skill]["patterns_found"]:
+                            skill_evidence[skill]["patterns_found"].append(pattern)
         except Exception:
             pass
     
-    # Map pattern categories to skill names that exist in skill_tracker
-    pattern_to_skills = {
-        "ddd": ["Domain Driven Design", "Bounded Contexts", "Aggregates", "Event Sourcing"],
-        "python": ["Python", "typing", "Hexagonal Architecture"],
-        "analytics": ["Data Analysis", "SQL/Databases", "Data Visualization"],
-        "backend": ["REST APIs", "FastAPI", "Backend Development", "Microservices"],
-        "airflow": ["Airflow", "Data Pipelines", "ETL"],
-        "aws": ["AWS", "Cloud Platforms", "Lambda", "S3"],
-        "ai": ["OpenAI", "LLM Integration", "RAG", "Embeddings", "AI/ML"],
-        "data": ["ETL", "Data Pipelines", "Data Quality", "Data Lineage"],
-        "knowledge": ["Knowledge Graphs", "DIKW", "Semantic", "Ontology"]
+    # Map skills to their categories for the database
+    skill_categories = {
+        "Domain Driven Design": "ddd", "Bounded Contexts": "ddd", "Aggregates": "ddd", "Event Sourcing": "ddd",
+        "Python": "python", "typing": "python", "Hexagonal Architecture": "python",
+        "Data Analysis": "analytics", "SQL/Databases": "analytics", "Data Visualization": "analytics",
+        "REST APIs": "backend", "FastAPI": "backend", "Backend Development": "backend", "Microservices": "backend",
+        "LLM Integration": "Agentic AI", "RAG": "Agentic AI", "Embeddings": "Agentic AI", "Prompt Engineering": "Agentic AI",
+        "MCP Servers": "Agentic AI", "Tool Calling": "Agentic AI", "Agent Orchestration": "Agentic AI",
+        "ReAct Patterns": "Agentic AI", "Function Calling": "Agentic AI", "Multi-Agent Systems": "Agentic AI",
+        "ETL": "data", "Data Pipelines": "data", "Data Quality": "data", "Data Lineage": "data",
+        "AWS": "aws", "Cloud Platforms": "aws", "Lambda": "aws", "S3": "aws",
+        "Knowledge Graphs": "knowledge", "DIKW": "knowledge", "Semantic": "knowledge",
     }
     
-    # Update skill levels based on evidence
-    ai_memories_added = []
+    # Update skill levels based on evidence - now per-skill with variance
     skills_updated = 0
     with connect() as conn:
-        for category, evidence in skill_evidence.items():
+        for skill, evidence in skill_evidence.items():
             file_count = len(evidence["files"])
             pattern_count = len(evidence["patterns_found"])
+            total_count = evidence["count"]
             
-            if file_count > 0:
-                # More gradual proficiency scale: max ~70% from codebase alone
-                # Requires manual validation/projects to reach higher levels
-                base_score = 15
-                file_bonus = min(20, file_count * 2)  # Cap at 20
-                pattern_bonus = min(15, pattern_count * 3)  # Cap at 15
-                usage_bonus = min(20, evidence["count"] // 50)  # Much slower scaling
-                proficiency = min(70, base_score + file_bonus + pattern_bonus + usage_bonus)
+            if file_count > 0 or total_count > 0:
+                # Calculate proficiency with more variance
+                # Base score depends on pattern matches
+                base_score = min(25, pattern_count * 8)  # 0-25 based on pattern variety
+                file_bonus = min(20, file_count * 3)  # 0-20 based on file spread
+                usage_bonus = min(25, total_count // 10)  # 0-25 based on usage frequency
                 
-                # Update all skills matching this pattern category
-                skills_to_update = pattern_to_skills.get(category, [])
+                # Add some controlled variance (+/- 5) to avoid identical scores
+                variance = random.randint(-5, 5)
+                
+                proficiency = max(5, min(70, base_score + file_bonus + usage_bonus + variance))
+                
+                category = skill_categories.get(skill, "Custom")
                 evidence_json = json.dumps(evidence["files"][:10])
                 
-                for skill in skills_to_update:
-                    # First, ensure the skill exists
-                    conn.execute("""
-                        INSERT OR IGNORE INTO skill_tracker (skill_name, category, proficiency_level, evidence)
-                        VALUES (?, ?, 0, '[]')
-                    """, (skill, category))
-                    
-                    # Then update with evidence
-                    result = conn.execute("""
-                        UPDATE skill_tracker 
-                        SET proficiency_level = MAX(proficiency_level, ?),
-                            evidence = ?,
-                            last_used_at = datetime('now'),
-                            updated_at = datetime('now')
-                        WHERE skill_name = ? OR LOWER(skill_name) LIKE LOWER(?)
-                    """, (proficiency, evidence_json, skill, f"%{skill}%"))
-                    skills_updated += result.rowcount
-                
-                # Also update by category match
+                # Insert or update the specific skill
                 conn.execute("""
-                    UPDATE skill_tracker 
-                    SET proficiency_level = MAX(proficiency_level, ?),
-                        evidence = ?,
+                    INSERT INTO skill_tracker (skill_name, category, proficiency_level, evidence)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(skill_name) DO UPDATE SET
+                        proficiency_level = MAX(proficiency_level, excluded.proficiency_level),
+                        evidence = excluded.evidence,
                         last_used_at = datetime('now'),
                         updated_at = datetime('now')
-                    WHERE LOWER(category) = LOWER(?)
-                """, (proficiency, json.dumps(evidence["files"][:10]), category))
-                
-                # Auto-add AI implementation memories for AI-related patterns
-                if category == "ai" and evidence["count"] > 5:
-                    # Check if we haven't already added this
-                    existing = conn.execute(
-                        "SELECT id FROM ai_implementation_memories WHERE title LIKE ?",
-                        (f"%{category.upper()} - Auto-discovered%",)
-                    ).fetchone()
-                    if not existing:
-                        patterns_found = ", ".join(evidence["patterns_found"][:5])
-                        files_found = "\n".join([f"- {f}" for f in evidence["files"][:5]])
+                """, (skill, category, proficiency, evidence_json))
+                skills_updated += 1
+        
+        conn.commit()
+    
+    # Build evidence summary for response
+    evidence_summary = {
+        skill: {
+            "files": evidence["files"][:5],
+            "patterns": evidence["patterns_found"],
+            "count": evidence["count"]
+        }
+        for skill, evidence in skill_evidence.items()
+        if evidence["count"] > 0
+    }
+    
+    return JSONResponse({
+        "status": "ok",
+        "skills_updated": skills_updated,
+        "evidence": evidence_summary
+    })
+
+
+@router.post("/api/career/skills/populate-from-projects")
+async def populate_skills_from_projects():
+    """Populate skill tracker from completed projects and AI implementation memories."""
+    with connect() as conn:
+        skills_updated = 0
+        projects_processed = 0
+        memories_processed = 0
+        
+        # 1. Get skills/tags from completed project memories
+        project_memories = conn.execute("""
+            SELECT skills, title FROM career_memories 
+            WHERE memory_type = 'completed_project' AND skills IS NOT NULL AND skills != ''
+        """).fetchall()
+        
+        for mem in project_memories:
+            projects_processed += 1
+            for skill in (mem["skills"] or "").split(","):
+                skill = skill.strip()
+                if skill:
+                    # Insert or update skill
+                    conn.execute("""
+                        INSERT INTO skill_tracker (skill_name, category, proficiency_level, projects_count)
+                        VALUES (?, 'projects', 20, 1)
+                        ON CONFLICT(skill_name) DO UPDATE SET
+                            projects_count = projects_count + 1,
+                            proficiency_level = MIN(100, proficiency_level + 5),
+                            last_used_at = datetime('now'),
+                            updated_at = datetime('now')
+                    """, (skill,))
+                    skills_updated += 1
+        
+        # 2. Get technologies from AI implementation memories (if table exists)
+        try:
+            ai_memories = conn.execute("""
+                SELECT technologies, title FROM ai_implementation_memories 
+                WHERE technologies IS NOT NULL AND technologies != ''
+            """).fetchall()
+            
+            for mem in ai_memories:
+                memories_processed += 1
+                for tech in (mem["technologies"] or "").split(","):
+                    tech = tech.strip()
+                    if tech:
+                        # Insert or update skill with AI category
                         conn.execute("""
-                            INSERT INTO ai_implementation_memories (title, description, technologies, impact, lessons_learned)
-                            VALUES (?, ?, ?, ?, ?)
-                        """, (
-                            "AI/ML - Auto-discovered from codebase",
-                            f"Automatically detected AI implementation patterns in codebase.\n\nPatterns found: {patterns_found}\n\nKey files:\n{files_found}",
-                            patterns_found,
-                            "Codebase analysis",
-                            "Auto-generated from assess codebase feature"
-                        ))
-                        ai_memories_added.append(category)
+                            INSERT INTO skill_tracker (skill_name, category, proficiency_level, projects_count)
+                            VALUES (?, 'ai', 25, 1)
+                            ON CONFLICT(skill_name) DO UPDATE SET
+                                projects_count = projects_count + 1,
+                                proficiency_level = MIN(100, proficiency_level + 8),
+                                last_used_at = datetime('now'),
+                                updated_at = datetime('now')
+                        """, (tech,))
+                        skills_updated += 1
+        except Exception:
+            pass  # ai_implementation_memories table may not exist
+        
+        # 3. Also process completed tickets with tags
+        tickets = conn.execute("""
+            SELECT tags FROM tickets
+            WHERE status IN ('done', 'complete', 'completed')
+            AND tags IS NOT NULL AND tags != ''
+        """).fetchall()
+        
+        for ticket in tickets:
+            for tag in (ticket["tags"] or "").split(","):
+                tag = tag.strip()
+                if tag:
+                    conn.execute("""
+                        INSERT INTO skill_tracker (skill_name, category, proficiency_level, tickets_count)
+                        VALUES (?, 'tickets', 15, 1)
+                        ON CONFLICT(skill_name) DO UPDATE SET
+                            tickets_count = tickets_count + 1,
+                            proficiency_level = MIN(100, proficiency_level + 3),
+                            last_used_at = datetime('now'),
+                            updated_at = datetime('now')
+                    """, (tag,))
+                    skills_updated += 1
         
         conn.commit()
     
     return JSONResponse({
         "status": "ok",
-        "skills_updated": skills_updated,
-        "evidence": {k: {"files": v["files"][:5], "patterns": v["patterns_found"]} for k, v in skill_evidence.items() if v["count"] > 0},
-        "ai_memories_added": ai_memories_added
+        "projects_processed": projects_processed,
+        "memories_processed": memories_processed,
+        "skills_updated": skills_updated
     })
 
 
@@ -2050,12 +2513,86 @@ async def delete_ai_memory(memory_id: int):
     return JSONResponse({"status": "ok", "deleted": memory_id})
 
 
+@router.post("/api/career/ai-memories/compress")
+async def compress_ai_memories(request: Request):
+    """Compress AI memories by removing duplicates and merging similar entries."""
+    with connect() as conn:
+        # Get all AI memories
+        memories = conn.execute("""
+            SELECT id, title, description, technologies, skills 
+            FROM career_memories 
+            WHERE is_ai_work = 1
+            ORDER BY created_at DESC
+        """).fetchall()
+        
+        if len(memories) <= 1:
+            return JSONResponse({"status": "ok", "removed": 0, "merged": 0, "message": "Not enough memories to compress"})
+        
+        removed = 0
+        merged = 0
+        
+        # Find and remove exact duplicates (same title)
+        seen_titles = {}
+        for mem in memories:
+            title_lower = (mem['title'] or '').lower().strip()
+            if title_lower in seen_titles:
+                # Delete duplicate
+                conn.execute("DELETE FROM career_memories WHERE id = ?", (mem['id'],))
+                removed += 1
+            else:
+                seen_titles[title_lower] = mem['id']
+        
+        # Find similar entries (same technologies) and merge their skills
+        if len(memories) > 3:
+            tech_groups = {}
+            for mem in memories:
+                tech = (mem['technologies'] or '').lower().strip()
+                if tech:
+                    if tech not in tech_groups:
+                        tech_groups[tech] = []
+                    tech_groups[tech].append(mem)
+            
+            # Merge groups with same technology
+            for tech, group in tech_groups.items():
+                if len(group) > 1:
+                    # Keep the first one, merge skills from others
+                    keeper = group[0]
+                    all_skills = set((keeper['skills'] or '').split(','))
+                    all_skills = {s.strip() for s in all_skills if s.strip()}
+                    
+                    for other in group[1:]:
+                        other_skills = (other['skills'] or '').split(',')
+                        for s in other_skills:
+                            if s.strip():
+                                all_skills.add(s.strip())
+                        # Delete the duplicate
+                        conn.execute("DELETE FROM career_memories WHERE id = ?", (other['id'],))
+                        removed += 1
+                    
+                    # Update the keeper with merged skills
+                    if all_skills:
+                        conn.execute("""
+                            UPDATE career_memories 
+                            SET skills = ?, updated_at = datetime('now')
+                            WHERE id = ?
+                        """, (','.join(sorted(all_skills)), keeper['id']))
+                        merged += 1
+        
+        conn.commit()
+    
+    return JSONResponse({
+        "status": "ok",
+        "removed": removed,
+        "merged": merged,
+        "message": f"Removed {removed} duplicates, merged {merged} entries"
+    })
+
+
 @router.post("/api/career/assess-codebase-ai")
 async def assess_codebase_with_ai(request: Request):
     """Use AI to analyze codebase and generate technical implementation memories."""
     import os
     import glob
-    from ..llm_new import ask_llm
     
     workspace_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
     

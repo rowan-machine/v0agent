@@ -1,50 +1,44 @@
 ---
-description: Reference for data model structures in meeting and document management system
+description: Specification for core data models handling meetings and documents, their relationships and business-specific attributes
 ---
 
 
 # data-models
 
-The system implements two primary data models with specialized domain relationships:
+## Core Data Models
 
-## Meeting Model
-Importance Score: 85
+### Meeting Model (Importance Score: 90)
+- Domain-specific meeting record with sophisticated signal tracking
+- Key business attributes:
+  * Signal collection with categorized types (decisions, actions, risks)
+  * Multiple transcript sources integration
+  * Knowledge graph relationship tracking
+  * Custom screenshot/artifact management
+  * Sprint context linking
 
-Key Attributes:
-- Title and synthesized content from meeting notes
-- Extracted signals (decisions, actions, blockers, risks, ideas)
-- Screenshot references with AI-processed context
-- Relationships to source documents and transcripts
-- Vector embeddings for semantic search
+### Document Model (Importance Score: 85)  
+- Business document management with specialized metadata
+- Domain attributes:
+  * Multi-level signal extraction
+  * Context propagation system
+  * Meeting relationship tracking
+  * Version control with signal preservation
+  * Knowledge state transitions
 
-## Document Model
-Importance Score: 80
+## Relationships
 
-Key Attributes:
-- Source content with hierarchical section structure
-- Signal classification metadata
-- Related meeting references
-- Vector-based content representation
-- Knowledge graph node relationships
+### Meeting-Document Graph Structure
+- Bi-directional relationship tracking between meetings and documents
+- Signal inheritance patterns across related entities
+- Custom knowledge propagation rules
+- Time-based relationship strength scoring
+- Context preservation across entity relationships
 
-## Relationship Structure
-
-Meetings and Documents are connected through:
-1. Signal Extraction Links
-- Signals extracted from documents link to source meetings
-- Meeting signals reference original document contexts
-
-2. Knowledge Graph Integration
-- DIKW pyramid organization
-- Hierarchical categorization between docs and meetings
-- Tag-based clustering relationships
-- Time-based evolution tracking
-
-3. Context Preservation
-- Meeting screenshots link to document sections
-- Document sections maintain meeting reference history
-- Signal merging across related items
-- Embedded vector relationships for semantic connections
+### Signal Cross-References
+- Inter-model signal relationships
+- Custom signal merging rules between meetings and documents 
+- Business context inheritance system
+- Automated relationship discovery through content analysis
 
 $END$
 
