@@ -31,6 +31,15 @@ from ..agents.career_coach import (
     analyze_standup_adapter,
 )
 
+# Import Supabase sync helpers for dual-write
+from .career_supabase_helper import (
+    sync_suggestion_to_supabase,
+    sync_memory_to_supabase,
+    sync_standup_to_supabase,
+    sync_chat_to_supabase,
+    sync_skill_to_supabase,
+)
+
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
 
@@ -361,6 +370,9 @@ async def generate_career_suggestions(request: Request):
                     sugg.get('related_goal', '')
                 ))
                 created_ids.append(cur.lastrowid)
+                
+                # Sync to Supabase (fire-and-forget)
+                sync_suggestion_to_supabase(sugg)
             
             return JSONResponse({
                 "status": "ok",
@@ -439,6 +451,13 @@ async def career_chat(request: Request):
                 (message, result.get("response", ""), result.get("summary", ""))
             )
             conn.commit()
+            
+            # Sync to Supabase (fire-and-forget)
+            sync_chat_to_supabase(
+                message=message,
+                response=result.get("response", ""),
+                summary=result.get("summary", "")
+            )
             
             return JSONResponse(result)
         except Exception as e:
@@ -2504,6 +2523,16 @@ Respond in JSON format:
                             VALUES ('ai_implementation', ?, ?, 'codebase_ai', ?, 0, 1)
                         """, (title, full_desc, technologies))
                         added.append(title)
+                        
+                        # Sync to Supabase (fire-and-forget)
+                        sync_memory_to_supabase({
+                            'memory_type': 'ai_implementation',
+                            'title': title,
+                            'description': full_desc,
+                            'skills': technologies,
+                            'source_type': 'codebase_ai',
+                            'is_ai_work': True,
+                        })
                 conn.commit()
             
             return JSONResponse({"status": "ok", "added": added, "count": len(added)})

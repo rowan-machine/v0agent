@@ -8,6 +8,7 @@ Components:
 - cache: Redis caching layer
 - rate_limiter: API rate limiting
 - supabase_client: Supabase cloud database client
+- supabase_agent: Supabase adapter for AI agents with write access
 
 Usage:
     from .infrastructure import (
@@ -16,6 +17,7 @@ Usage:
         CacheManager, get_cache,
         RateLimiter, get_rate_limiter,
         get_supabase_client, SupabaseSync, get_supabase_sync,
+        get_supabase_agent_client, supabase_read, supabase_write,
     )
 """
 
@@ -24,6 +26,16 @@ from .mdns import MDNSDiscovery, get_mdns_discovery
 from .cache import CacheManager, get_cache
 from .rate_limiter import RateLimiter, get_rate_limiter
 from .supabase_client import get_supabase_client, SupabaseSync, get_supabase_sync
+from .supabase_agent import (
+    SupabaseAgentClient,
+    get_supabase_agent_client,
+    supabase_read,
+    supabase_write,
+    supabase_update,
+    supabase_upsert,
+    supabase_delete,
+    supabase_search,
+)
 
 __all__ = [
     # Task Queue
@@ -42,8 +54,19 @@ __all__ = [
     "RateLimiter",
     "get_rate_limiter",
     
-    # Supabase
+    # Supabase Sync
     "get_supabase_client",
     "SupabaseSync",
     "get_supabase_sync",
+    
+    # Supabase Agent Adapter
+    "SupabaseAgentClient",
+    "get_supabase_agent_client",
+    "supabase_read",
+    "supabase_write",
+    "supabase_update",
+    "supabase_upsert",
+    "supabase_delete",
+    "supabase_search",
 ]
+

@@ -1,51 +1,49 @@
 ---
-description: Documents FastAPI routes and endpoints implementing CRUD operations for meetings, documents and related business entities
+description: Documents FastAPI endpoints implementing domain-specific meeting and document management operations with signal extraction
 ---
 
 
 # api-endpoints
 
-Core API Routes:
+API routes implementing specialized meeting and document management:
 
-1. Meeting Signal Management
+1. Meeting Signal Routes
 Path: src/app/api/meetings.py
+- Extracts and processes signals from meeting content
+- Classifies decisions, action items, blockers and risks
+- Correlates signals across meetings for pattern detection
+- Manages signal lifecycle with promotion workflow
 Importance Score: 85
-- Extracts and categorizes business signals from meetings (decisions, actions, blockers, risks)
-- Handles multi-source transcript merging with deduplication
-- Maintains signal relationships and dependencies
-- Processes meeting bundles for batch signal extraction
 
-2. Knowledge Graph Operations  
-Path: src/app/api/neo4j_graph.py
-Importance Score: 90
-- DIKW pyramid implementation for knowledge classification
-- Manages hierarchical relationships between knowledge entities
-- Tag-based clustering with weighted relationships
-- Domain-specific traversal patterns for organizational context
-
-3. Accountability System
-Path: src/app/api/accountability.py
-Importance Score: 75
-- Tracks "waiting-for" dependencies between team members
-- Custom status workflow for blocked/waiting items
-- Context preservation for accountability chains
-- Integration with sprint management system
-
-4. Career Development Tracking
-Path: src/app/api/career.py
+2. Document Processing Routes
+Path: src/app/api/documents.py  
+- Implements document-to-signal transformation pipeline
+- Extracts structured data from unstructured content
+- Links related signals across document corpus
+- Maintains document knowledge graph relationships
 Importance Score: 80
-- Career profile management with technical role specialization
-- Integration between tickets and skill progression
-- Custom fields for technical domain expertise
-- Growth metrics across different competency areas
 
-5. Sprint Management
+3. Sprint Management Routes
 Path: src/app/api/sprints.py
+- Handles sprint transitions and archival
+- Processes sprint metrics and burndown data
+- Manages workflow mode transitions (A-G modes)
+- Coordinates sprint signal consolidation
 Importance Score: 75
-- Sprint transition workflow with automated archival
-- Custom sprint length calculations (7/10/14/21 days)
-- Business-specific completion checklist validation
-- Progress tracking with working days calculation
+
+4. Career Development Routes
+Path: src/app/api/career.py
+- Processes standup updates with sentiment analysis
+- Tracks skill development patterns
+- Maps activities to career progression paths
+- Generates coaching insights
+Importance Score: 70
+
+The API implements a domain-specific knowledge management system focused on:
+- Meeting and document signal extraction
+- Sprint-based workflow management  
+- Career development tracking
+- Cross-entity relationship mapping
 
 $END$
 
