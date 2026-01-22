@@ -51,7 +51,9 @@ from .arjuna import (
     FOCUS_KEYWORDS,
     # MCP Short Notation Commands
     MCP_COMMANDS,
+    MCP_INFERENCE_PATTERNS,
     parse_mcp_command,
+    infer_mcp_command,
     get_command_help,
     # Adapter functions for backward compatibility
     get_follow_up_suggestions,
@@ -138,7 +140,9 @@ __all__ = [
     "FOCUS_KEYWORDS",
     # MCP Short Notation Commands
     "MCP_COMMANDS",
+    "MCP_INFERENCE_PATTERNS",
     "parse_mcp_command",
+    "infer_mcp_command",
     "get_command_help",
     # Adapter functions
     "get_follow_up_suggestions",

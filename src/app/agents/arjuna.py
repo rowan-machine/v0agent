@@ -389,6 +389,290 @@ MCP_COMMANDS = {
 }
 
 
+# =============================================================================
+# CONTEXT-BASED MCP COMMAND INFERENCE
+# Patterns to detect implied MCP commands from natural language
+# =============================================================================
+
+MCP_INFERENCE_PATTERNS = {
+    # Arjuna Commands Inference
+    "arjuna": {
+        "focus": {
+            "patterns": [
+                r"what\s+should\s+i\s+(work|focus)\s+on",
+                r"(prioritize|priorities)\s+(my|for)?(tasks|work|today)?",
+                r"what('?s|\s+is)?\s+next",
+                r"what\s+to\s+do\s+(first|now|next)",
+                r"help\s+me\s+(focus|prioritize)",
+                r"(most|top)\s+important\s+(task|thing|item)",
+                r"where\s+should\s+i\s+start",
+            ],
+            "keywords": ["focus", "prioritize", "what next", "work on", "start with"],
+        },
+        "ticket": {
+            "patterns": [
+                r"(create|add|make|new)\s+(a\s+)?(ticket|task|todo|item)",
+                r"i\s+need\s+to\s+(track|add)\s+(a\s+)?(task|ticket)",
+                r"add\s+this\s+to\s+my\s+(list|tickets|tasks)",
+                r"(track|log)\s+(this|that)\s+as\s+a\s+ticket",
+            ],
+            "keywords": ["create ticket", "add task", "new ticket", "make ticket"],
+            "extract": ["title", "priority", "description"],
+        },
+        "standup": {
+            "patterns": [
+                r"(log|record|add)\s+(my\s+)?standup",
+                r"daily\s+(standup|update|status)",
+                r"what\s+i\s+(did|worked\s+on)\s+yesterday",
+                r"my\s+(standup|update)\s+(is|for\s+today)",
+            ],
+            "keywords": ["standup", "daily update", "yesterday", "today plan"],
+        },
+        "waiting": {
+            "patterns": [
+                r"(waiting|wait)\s+(for|on)\s+\w+",
+                r"(need|depends)\s+(something|response|input)\s+from",
+                r"blocked\s+(by|on|waiting)",
+                r"track\s+(accountability|dependency)",
+            ],
+            "keywords": ["waiting for", "depends on", "blocked by", "accountability"],
+            "extract": ["description", "responsible_party"],
+        },
+        "model": {
+            "patterns": [
+                r"(switch|change|use|set)\s+(to\s+)?(model|llm|ai)",
+                r"(use|switch\s+to)\s+(gpt|claude|opus|sonnet|haiku)",
+            ],
+            "keywords": ["change model", "switch model", "use gpt", "use claude"],
+        },
+        "go": {
+            "patterns": [
+                r"(go|take|show|open|navigate)\s+(me\s+)?(to\s+)?(the\s+)?(\w+)\s+(page|screen|section)?",
+                r"(show|open)\s+(me\s+)?(the\s+)?(dashboard|tickets|signals|meetings|career|dikw)",
+            ],
+            "keywords": ["go to", "show me", "open", "navigate to"],
+            "extract": ["target_page"],
+        },
+        "search": {
+            "patterns": [
+                r"(search|find|look)\s+(for\s+)?(meetings?|in\s+meetings?)",
+                r"(find|search)\s+.+\s+in\s+(meetings|signals)",
+            ],
+            "keywords": ["search meetings", "find in meetings"],
+        },
+        "help": {
+            "patterns": [
+                r"(what|which)\s+commands?\s+(are|can)",
+                r"(help|commands|options|what\s+can\s+you\s+do)",
+                r"(show|list)\s+(me\s+)?(all\s+)?commands?",
+            ],
+            "keywords": ["help", "commands", "what can you do"],
+        },
+    },
+    # Query Commands Inference
+    "query": {
+        "list": {
+            "patterns": [
+                r"(list|show|get)\s+(all\s+)?(my\s+)?(tickets|meetings|signals|documents)",
+                r"what\s+(tickets|meetings|signals|documents)\s+(do\s+i\s+have|are\s+there)",
+            ],
+            "keywords": ["list tickets", "show meetings", "get signals"],
+            "extract": ["entity_type", "limit"],
+        },
+        "search": {
+            "patterns": [
+                r"(find|search)\s+(tickets|meetings|signals)\s+(with|containing|about)",
+            ],
+            "keywords": ["find tickets", "search meetings"],
+        },
+    },
+    # Semantic Search Inference
+    "semantic": {
+        "search": {
+            "patterns": [
+                r"(semantic|smart|ai)\s+search",
+                r"find\s+similar\s+to",
+                r"(search|find)\s+(by\s+)?(meaning|concept|related)",
+            ],
+            "keywords": ["semantic search", "find similar", "related to"],
+        },
+        "similar": {
+            "patterns": [
+                r"(find|show|get)\s+similar\s+(items?|tickets?|meetings?|signals?)",
+                r"what('?s|\s+is)\s+similar\s+to",
+            ],
+            "keywords": ["find similar", "what's similar"],
+        },
+    },
+    # Career Coach Inference
+    "career": {
+        "analyze": {
+            "patterns": [
+                r"(analyze|review|assess)\s+(my\s+)?career",
+                r"how\s+am\s+i\s+doing\s+(professionally|at\s+work)",
+                r"career\s+(progress|review|analysis)",
+            ],
+            "keywords": ["career analysis", "career progress", "how am i doing"],
+        },
+        "feedback": {
+            "patterns": [
+                r"(give|get)\s+(me\s+)?feedback\s+on",
+                r"feedback\s+(for|on)\s+(my\s+)?(standup|work|progress)",
+            ],
+            "keywords": ["feedback", "give feedback", "review my"],
+        },
+        "skills": {
+            "patterns": [
+                r"(assess|review|check)\s+(my\s+)?skills?",
+                r"(skill|skills)\s+(gap|assessment|review)",
+                r"what\s+skills\s+(do\s+i\s+need|am\s+i\s+missing)",
+            ],
+            "keywords": ["skills", "skill gap", "skill assessment"],
+        },
+    },
+    # Meeting Analyzer Inference
+    "meeting": {
+        "analyze": {
+            "patterns": [
+                r"(analyze|review|process)\s+(this\s+)?(meeting|notes)",
+                r"extract\s+(signals?|insights?)\s+from",
+            ],
+            "keywords": ["analyze meeting", "process notes", "extract signals"],
+        },
+        "signals": {
+            "patterns": [
+                r"(show|get|extract)\s+(the\s+)?signals?\s+(from|for)",
+                r"what\s+(signals?|decisions?|actions?)\s+(came|are)\s+from",
+            ],
+            "keywords": ["meeting signals", "extract signals", "decisions from meeting"],
+        },
+        "recent": {
+            "patterns": [
+                r"(show|list|get)\s+(recent|latest|last)\s+meetings?",
+                r"(my\s+)?recent\s+meetings?",
+            ],
+            "keywords": ["recent meetings", "latest meetings", "last meeting"],
+        },
+    },
+    # DIKW Synthesizer Inference
+    "dikw": {
+        "promote": {
+            "patterns": [
+                r"promote\s+(this|signal|it)\s+(to|up)",
+                r"(move|upgrade)\s+(to\s+)?(knowledge|wisdom|info)",
+                r"(make|turn)\s+(this|it)\s+(into\s+)?(knowledge|wisdom)",
+            ],
+            "keywords": ["promote signal", "upgrade to knowledge", "make wisdom"],
+        },
+        "synthesize": {
+            "patterns": [
+                r"(synthesize|combine|merge)\s+(these\s+)?signals?",
+                r"(create|build)\s+(a\s+)?(synthesis|summary)\s+from",
+            ],
+            "keywords": ["synthesize", "combine signals", "merge signals"],
+        },
+        "mindmap": {
+            "patterns": [
+                r"(create|generate|show|build)\s+(a\s+)?(concept\s+)?mindmap",
+                r"(visualize|map)\s+(the\s+)?(concepts?|knowledge)",
+            ],
+            "keywords": ["mindmap", "concept map", "visualize concepts"],
+        },
+    },
+}
+
+
+def infer_mcp_command(message: str, context: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+    """
+    Infer MCP command from natural language context.
+    
+    This function detects when a user implies an MCP command without using
+    explicit notation like /command or @agent.
+    
+    Args:
+        message: User's natural language message
+        context: Optional context (current page, recent commands, conversation)
+    
+    Returns:
+        Dict with inferred command, subcommand, args, confidence if detected
+        None if no command pattern matches
+    """
+    import re
+    
+    message_lower = message.lower().strip()
+    context = context or {}
+    
+    # Skip if it's already an explicit command
+    if message_lower.startswith('/') or message_lower.startswith('@'):
+        return None
+    
+    best_match = None
+    best_confidence = 0.0
+    
+    for command, subcommands in MCP_INFERENCE_PATTERNS.items():
+        for subcommand, patterns_info in subcommands.items():
+            confidence = 0.0
+            matched_pattern = None
+            extracted_args = {}
+            
+            # Check regex patterns
+            for pattern in patterns_info.get("patterns", []):
+                match = re.search(pattern, message_lower)
+                if match:
+                    confidence = max(confidence, 0.8)  # Pattern match is high confidence
+                    matched_pattern = pattern
+                    # Try to extract args from named groups
+                    if match.lastgroup:
+                        extracted_args.update(match.groupdict())
+                    break
+            
+            # Check keyword matches
+            for keyword in patterns_info.get("keywords", []):
+                if keyword.lower() in message_lower:
+                    confidence = max(confidence, 0.6)  # Keyword match is medium confidence
+                    if not matched_pattern:
+                        matched_pattern = f"keyword:{keyword}"
+            
+            # Boost confidence based on context
+            if context.get("current_page"):
+                # Boost if command matches current page context
+                page_cmd_map = {
+                    "tickets": "arjuna",
+                    "meetings": "meeting",
+                    "signals": "meeting",
+                    "career": "career",
+                    "dikw": "dikw",
+                }
+                if page_cmd_map.get(context.get("current_page")) == command:
+                    confidence *= 1.2
+            
+            if context.get("recent_command") == command:
+                # Slightly boost if user recently used this command
+                confidence *= 1.1
+            
+            # Cap confidence at 1.0
+            confidence = min(confidence, 1.0)
+            
+            if confidence > best_confidence:
+                best_confidence = confidence
+                best_match = {
+                    "command": command,
+                    "subcommand": subcommand,
+                    "args": extracted_args,
+                    "confidence": confidence,
+                    "matched_pattern": matched_pattern,
+                    "raw": message,
+                    "inferred": True,
+                    "intent": MCP_COMMANDS.get(command, {}).get("subcommands", {}).get(subcommand, {}).get("intent"),
+                }
+    
+    # Only return if confidence meets threshold
+    if best_match and best_confidence >= 0.5:
+        return best_match
+    
+    return None
+
+
 def parse_mcp_command(message: str) -> Optional[Dict[str, Any]]:
     """
     Parse MCP short notation command from user message.
@@ -683,10 +967,17 @@ asking too many questions."""
         conversation_history = conversation_history or []
         context = context or self._get_system_context()
         
-        # Check for MCP short notation commands first
+        # Check for MCP short notation commands first (explicit /command or @agent)
         mcp_cmd = parse_mcp_command(message)
         if mcp_cmd:
             return await self._handle_mcp_command(mcp_cmd, context)
+        
+        # Check for inferred MCP commands from natural language
+        inferred_cmd = infer_mcp_command(message, context)
+        if inferred_cmd and inferred_cmd.get("confidence", 0) >= 0.6:
+            # High confidence inference - execute as MCP command
+            logger.info(f"Inferred MCP command: {inferred_cmd['command']}/{inferred_cmd['subcommand']} (confidence: {inferred_cmd['confidence']:.2f})")
+            return await self._handle_mcp_command(inferred_cmd, context)
         
         # Check for focus queries (special handling)
         if self._is_focus_query(message):
@@ -1729,7 +2020,9 @@ __all__ = [
     "FOCUS_KEYWORDS",
     # MCP Short Notation Commands
     "MCP_COMMANDS",
+    "MCP_INFERENCE_PATTERNS",
     "parse_mcp_command",
+    "infer_mcp_command",
     "get_command_help",
     # Adapter functions
     "get_follow_up_suggestions",
