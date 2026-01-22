@@ -25,7 +25,7 @@ import os
 import uuid
 
 from .db import connect
-from .llm import ask
+# llm.ask removed - AI features now use TicketAgent adapters (Checkpoint 2.7)
 from .memory.embed import embed_text, EMBED_MODEL
 from .memory.vector_store import upsert_embedding
 

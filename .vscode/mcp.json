@@ -2,15 +2,49 @@
   "giga": {
     "url": "https://mcp.gigamind.dev/mcp"
   },
-  "supabase": {
-    "command": "/opt/homebrew/bin/npx",
-    "args": [
-      "-y",
-      "@supabase/mcp-server-supabase@latest",
-      "--access-token",
-      "sb_secret_20tVmxLWVyqKtrjmNW8vmg__xsMCJGy",
-      "--features",
-      "schema,sql-execution-read,sql-execution-write,database-operation"
-    ]
+  "inputs": [
+    {
+      "id": "supabase-project-ref",
+      "type": "promptString",
+      "description": "Supabase project reference ID",
+      "default": "wluchuiyhggiigcuiaya"
+    },
+    {
+      "id": "supabase-access-token",
+      "type": "promptString",
+      "description": "Supabase access token (sb_secret_...)",
+      "password": true
+    },
+    {
+      "id": "supabase-features",
+      "type": "promptString",
+      "description": "Comma-separated list of features to enable",
+      "default": "schema,sql-execution-read,sql-execution-write,database-operation"
+    },
+    {
+      "id": "supabase-api-url",
+      "type": "promptString",
+      "description": "Supabase API URL",
+      "default": "https://wluchuiyhggiigcuiaya.supabase.co"
+    }
+  ],
+  "servers": {
+    "supabase": {
+      "type": "stdio",
+      "command": "/opt/homebrew/bin/npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@0.6.1",
+        "--project-ref",
+        "${input:supabase-project-ref}",
+        "--features",
+        "${input:supabase-features}",
+        "--api-url",
+        "${input:supabase-api-url}"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "${input:supabase-access-token}"
+      }
+    }
   }
 }
