@@ -42,6 +42,24 @@ from .guardrails import (
     get_guardrails,
     initialize_guardrails,
 )
+from .arjuna import (
+    ArjunaAgent,
+    get_arjuna_agent,
+    AVAILABLE_MODELS,
+    SYSTEM_PAGES,
+    MODEL_ALIASES,
+    FOCUS_KEYWORDS,
+    # MCP Short Notation Commands
+    MCP_COMMANDS,
+    parse_mcp_command,
+    get_command_help,
+    # Adapter functions for backward compatibility
+    get_follow_up_suggestions,
+    get_focus_recommendations,
+    get_system_context,
+    parse_assistant_intent,
+    execute_intent,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -111,4 +129,21 @@ __all__ = [
     "GuardrailMetrics",
     "get_guardrails",
     "initialize_guardrails",
+    # Arjuna Agent (Checkpoint 2.2)
+    "ArjunaAgent",
+    "get_arjuna_agent",
+    "AVAILABLE_MODELS",
+    "SYSTEM_PAGES",
+    "MODEL_ALIASES",
+    "FOCUS_KEYWORDS",
+    # MCP Short Notation Commands
+    "MCP_COMMANDS",
+    "parse_mcp_command",
+    "get_command_help",
+    # Adapter functions
+    "get_follow_up_suggestions",
+    "get_focus_recommendations",
+    "get_system_context",
+    "parse_assistant_intent",
+    "execute_intent",
 ]

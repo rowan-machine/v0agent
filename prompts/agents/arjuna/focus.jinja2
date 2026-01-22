@@ -1,0 +1,17 @@
+{% raw %}
+{# Arjuna Focus Recommendations Response #}
+{# Formats prioritized work recommendations for the user #}
+
+Hare Krishna! 🙏 Here's what I recommend you focus on:
+
+{% for rec in recommendations %}
+**{{ loop.index }}. {{ rec.title }}**
+   {{ rec.text }}
+   _Why:_ {{ rec.reason }}
+
+{% endfor %}
+
+{% if total_count > 5 %}
+_Plus {{ total_count - 5 }} more items to consider..._
+{% endif %}
+{% endraw %}

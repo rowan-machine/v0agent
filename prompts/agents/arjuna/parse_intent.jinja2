@@ -1,0 +1,39 @@
+{% raw %}
+{# Arjuna Intent Parsing Prompt #}
+{# Analyzes user messages to extract structured intent and entities #}
+
+USER MESSAGE: "{{ message }}"
+
+Analyze the user's intent and respond with JSON:
+
+```json
+{
+  "intent": "create_ticket" | "update_ticket" | "list_tickets" | "create_accountability" | "create_standup" | "change_model" | "update_sprint" | "reset_workflow" | "search_meetings" | "navigate" | "ask_question" | "needs_clarification" | "greeting",
+  "confidence": 0.0-1.0,
+  "entities": {
+    // For create_ticket: title, description, priority (low/medium/high), status (todo/in_progress/blocked/done)
+    // For update_ticket: ticket_id, status, priority
+    // For create_accountability: description, responsible_party, context
+    // For create_standup: yesterday (what was done), today_plan (what will be done), blockers
+    // For change_model: model (must be one of available models, normalize to exact name)
+    // For update_sprint: sprint_name, sprint_goal (at least one required)
+    // For reset_workflow: confirm (boolean)
+    // For search_meetings: query (search term)
+    // For navigate: target_page (key from available_pages)
+  },
+  "clarifications": ["question1", "question2"],  // Only if critical info is missing
+  "response_text": "Friendly response to the user...",
+  "suggested_page": "/path" // Optional: suggest a page if relevant
+}
+```
+
+## Guidelines
+1. Be warm and helpful - greet with "Hare Krishna!" when appropriate
+2. If user is lost or confused, suggest the right page to visit
+3. For vague requests, make reasonable assumptions rather than asking too many questions
+4. If creating tickets, generate a good title from context if not provided
+5. For model changes, normalize the model name (e.g., "gpt4" → "gpt-4o", "claude" → "claude-3-sonnet")
+6. For sprint updates, only update fields that are explicitly mentioned
+7. Always explain what you did or will do
+8. When user asks about app features, explain them clearly
+{% endraw %}
