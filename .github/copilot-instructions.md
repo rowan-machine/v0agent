@@ -18,49 +18,47 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-## Core Business Architecture (Score: 85/100)
+The AI Assistant knowledge management system implements specialized logic for meeting intelligence and career development tracking.
 
-The AI assistant system is built around three primary business components:
+Core Business Logic Architecture:
+Importance Score: 85/100
 
-### 1. Conversation Management System
-- 24-hour conversation persistence with automatic cleanup
-- Contextual history tracking for AI interactions
-- Rotating suggestion sets across sessions
-- Command frequency analysis and pattern detection
-- Intelligent categorization with emoji mapping
+1. AI Assistant System
+- Persistent 24-hour conversation management
+- Context-aware suggestion cycling through predefined sets
+- Frequency/recency-based command ranking
+- Domain-specific emoji mapping for commands
+- Integration with ticket/sprint management workflows
 
-### 2. AI Memory & Signal Processing
-Key paths:
-- src/app/api/v1/ai_memory.py
-- src/app/api/v1/feedback.py
+2. Knowledge Management
+- DIKW (Data-Information-Knowledge-Wisdom) pyramid implementation
+- Signal extraction from meetings (decisions, actions, blockers, risks)
+- Custom semantic relationship builder for knowledge graphs
+- Automatic entity linking between meetings, documents, and tickets
+- Confidence-based validation system for knowledge items
 
-Components:
-- Semantic search with importance-based prioritization 
-- Memory lifecycle management with approval states
-- Self-improving signal extraction system
-- Confidence scoring with user feedback loop
-- Historical pattern recognition for confidence boosting
+3. Career Development Framework
+- Technical specialization tracking with evidence-based updates
+- Multi-dimensional goal tracking system
+- Skill progression with repository integration
+- Standup pattern analysis for performance tracking
+- AI-powered career guidance generation
 
-### 3. Knowledge Processing Pipeline
-Key paths:
-- src/app/agents/dikw_synthesizer.py
-- src/app/agents/meeting_analyzer.py
+4. Sprint Intelligence
+- Custom burndown implementation with points tracking
+- Signal extraction and categorization system
+- Multi-mode time tracking analytics
+- Workflow progress tracking across development modes
+- Meeting-specific productivity metrics
 
-Features:
-- Data-Information-Knowledge-Wisdom (DIKW) hierarchy processing
-- Signal promotion through knowledge levels
-- Domain-specific signal categorization
-- Semantic deduplication with context preservation
-- Business-specific content filtering and validation
-
-## Integration Architecture
-
-The system connects through:
-- Hybrid retrieval combining importance scores and semantic relevance
-- Token-aware context assembly for LLM injection
+5. Integration Architecture
+- Bidirectional sync with conflict detection
+- Time-based change tracking 
+- Token-aware context injection for LLM prompts
 - Pattern-based confidence boosting
-- Entity-specific sync strategies
-- Custom dismissal/restoration workflows
+- Historical validation tracking
+
+The system uniquely combines meeting intelligence with career development tracking, creating an integrated knowledge management platform focused on software development workflows and team communication patterns.
 
 $END$
 

@@ -1,43 +1,55 @@
 ---
-description: Documents the core data models and relationships for meetings and documents in a knowledge management system
+description: Documentation standards for core data models, relationships, and domain-specific data structures
 ---
 
 
 # data-models
 
-## Meeting Model
-Importance Score: 90
+## Core Data Models
 
-Primary data model for meeting records with specialized fields:
-- `signal_categories`: Enumeration of extracted signal types (decisions, actions, blockers, risks, ideas)
-- `signal_confidence`: Confidence scoring (1-10) for extracted signals
-- `signal_status`: Signal lifecycle states (raw, validated, rejected, archived)
-- `meeting_type`: Meeting classification (standup, planning, review, retro)
-- `context_chain`: Linked list of related previous meetings
-- `dikw_level`: Current position in DIKW hierarchy (Data, Information, Knowledge, Wisdom)
+### Meeting Model
+- Primary container for all meeting-related data
+- Unique fields:
+  - `signals`: Array of extracted business signals (decisions, actions, risks, blockers)
+  - `mode`: Current workflow mode (A-G) affecting signal extraction
+  - `dikw_items`: References to DIKW hierarchy items generated from meeting
+  - `confidence_score`: Signal extraction quality metric (0-100)
 
-## Document Model
-Importance Score: 85
+### Document Model
+- Knowledge artifact container with DIKW integration
+- Key attributes:
+  - `dikw_level`: Current position in Data-Information-Knowledge-Wisdom hierarchy
+  - `validation_count`: Number of confirmations before promotion
+  - `signals`: Extracted business signals linked to document
+  - `semantic_score`: Relationship strength to connected entities (0.0-1.0)
 
-Knowledge artifact storage with business-specific fields:
-- `doc_type`: Document classification (notes, specification, design, implementation)
-- `semantic_hash`: Vector representation for similarity matching
-- `source_signals`: References to originating meeting signals
-- `knowledge_stage`: Position in knowledge transformation pipeline
-- `confidence_score`: Document validation confidence (1-10)
+## Relationships
 
-## Relationship Structure
-Importance Score: 95
+### Meeting-Document Links
+- Bidirectional references between meetings and referenced documents
+- Weighted relationship scoring based on:
+  - Direct references in meeting notes
+  - Shared signals
+  - Topic similarity
+  - Temporal proximity
 
-Complex relationship mapping between meetings and documents:
-- `semantic_similar`: Documents with similarity score > 0.78
-- `derived_from`: Documents created from meeting signals
-- `referenced`: Cross-document citations and references
-- `same_topic`: Theme-based clustering
-- `blocks`: Dependency relationship for implementation
-- `depends_on`: Prerequisite relationship
+### DIKW Hierarchy
+- Progressive promotion system between levels:
+  - Data → Information: Requires 3 validations
+  - Information → Knowledge: Requires 5 validations
+  - Knowledge → Wisdom: Requires 10 validations and multi-source confirmation
+- Each promotion preserves full lineage tracking
+- Automatic relationship strength decay over time (0.1/month)
 
-Knowledge items maintain bidirectional relationships with automatic updates when either side changes, enabling sophisticated knowledge graph traversal and signal tracking through the DIKW hierarchy.
+### Signal Graph
+- Links meetings and documents through extracted signals
+- Signal types:
+  - Decisions (highest weight)
+  - Action Items
+  - Blockers
+  - Risks
+  - Ideas (lowest weight)
+- Automatic signal deduplication with 0.78 similarity threshold
 
 $END$
 

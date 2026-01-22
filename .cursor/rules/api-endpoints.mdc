@@ -1,56 +1,62 @@
 ---
-description: Documentation for FastAPI routes implementing CRUD operations and domain-specific endpoints for meetings and documents
+description: Specification for FastAPI routes implementing CRUD operations for meetings, documents, and workflow management
 ---
 
 
 # api-endpoints
 
-The API implements specialized endpoints for meeting and document management with the following key business logic components:
+FastAPI routes implementing domain-specific business logic for meeting management and knowledge workflows:
 
-## Meeting Signal Processing
-Path: /api/v1/meetings/
+## Meeting Intelligence Routes
 Importance Score: 85
-- Extracts structured signals from meeting content:
-  - Decisions
-  - Action items
-  - Blockers
-  - Risks
-  - Ideas
-- Maintains signal relationships across meetings
-- Tracks signal evolution states (draft, active, archived)
-- Associates signals with DIKW hierarchy levels
 
-## Document Knowledge Graph
-Path: /api/v1/documents/
+`/api/v1/meetings/`
+- Signal extraction with confidence scoring (0-1.0)
+- Meeting chain linking and relationship tracking
+- Hierarchical organization with parent/child meeting structures
+- Automatic tag generation from content analysis
+
+`/api/v1/meetings/signals/`
+- Signal categorization (decisions, actions, blockers, risks)
+- Signal validation workflow with approval states
+- Signal promotion through DIKW pyramid levels
+- Cross-meeting signal relationship mapping
+
+## Document Knowledge Routes  
 Importance Score: 80
-- Creates semantic relationships between documents
-- Manages document signal extraction pipeline
-- Links documents to related meetings and tickets
-- Tracks document knowledge state transitions
 
-## Signal Feedback Loop
-Path: /api/v1/signals/
+`/api/v1/documents/`
+- Document hierarchy management with knowledge graph integration
+- Semantic relationship tracking between documents
+- Version control with knowledge state tracking
+- Automatic tag clustering and organization
+
+## Career Development Routes
 Importance Score: 75
-- Implements signal confidence scoring system
-- Manages signal approval workflows
-- Tracks signal usage patterns
-- Updates signal relevance based on user interactions
 
-## DIKW Transformation API
-Path: /api/v1/dikw/
-Importance Score: 90
-- Handles promotion of content through DIKW levels
-- Manages knowledge item relationships
-- Processes signal synthesis requests
-- Controls knowledge item lifecycle states
+`/api/v1/career/`
+- Professional development tracking with evidence collection
+- Skill progression management tied to meetings/documents
+- Career insight generation from workflow patterns
+- Meeting participation impact scoring
 
-## Career Development Integration
-Path: /api/v1/career/
+## Workflow Management Routes
 Importance Score: 70
-- Links signals to skill development evidence
-- Tracks career progression through signal patterns
-- Maps knowledge items to career competencies
-- Manages career insight generation
+
+`/api/v1/workflow/`
+- Custom workflow mode system (modes A-G)
+- Mode-specific validation rules
+- State tracking and progression management
+- Integration with sprint and career systems
+
+## Status Management Routes
+Importance Score: 65
+
+`/api/v1/status/`
+- Meeting signal state machine (pending/approved/rejected)
+- Document validation workflow
+- Knowledge item maturity tracking
+- Signal confidence adjustments based on feedback
 
 $END$
 
