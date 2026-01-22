@@ -194,26 +194,192 @@ Phase 7: Testing & Documentation ✅ COMPLETE
 
 These items are intentionally deferred for future iterations:
 
-### Technical Debt
-- [ ] PC-1: Signal feedback → AI learning loop
-- [ ] Update RLS policies to use `(select auth.uid())` pattern
-- [ ] Consider removing unused meeting indexes (idx_meetings_user, idx_meetings_date)
-- [ ] Dockerize app with Redis caching (Makefile commands ready) and remove chromadb for embeddings
-- [ ] thoroughly test and fix the Arjuna quick shorcuts (and chains) functionality and display and remove user editing for now and add the user specific ai suggested ones based on common actions as well as from conversations with arjuna
-- [ ] Fix it so when the 'Your coach' is refreshed that it uses embeddings to find new items of importance, recommendation engine for items to take action on both from meetings and from ticket backlog grooming or for DIKW items, or signal review, or for missing transcripts in meetings, or for when Rowan was mentioned in a transcript, etc.
-- [ ] Increase test coverage to >80%
+### Technical Debt (Updated January 22, 2026)
 
-### Future Features (User Deferred)
-- [ ] Improve the semantic search so you can search across all objects (tickets, meetings, etc.) and get actionable results such as looking for my name in all the meetings and documents, things like that as shortcuts for known things I will need to search for to test the accuracy and to pull out signals I heard on the call but arent coming through in the application elsewhere, maybe enable it to expand from the top banner instead of being a seperate page
-- [ ] Push notifications for action items
-- [ ] Voice input for meetings
-- [ ] Build APK for Android distribution
-- [ ] LangChain/LangGraph enhancements
-- [ ] Feature flags for gradual rollout
-- [ ] Model auto-selection router refinements
-- [ ] Supabase real-time subscriptions
-- [ ] Performance improvements
-- [ ] auto suggest transcript from backlog grooming that pairs with a ticket, find a good way to offer this as a notification and start thinking about how we can run scheduled jobs in this environment so that things happen automatically instead of having to be user triggered, this is a good example. it would also be nice to have an exposed config i can change that adjusts the similiarity match score from ticket to transcript, also it would be nice if there were missed items in the ticket that are in the transcript (only after matching has been confirmed) that it auto-notifies me to look into it so the missed criteria is captured and alerts me to review the recording
+| Item | Status | Notes |
+|------|--------|-------|
+| PC-1: Signal feedback → AI learning loop | ✅ Done | `SignalLearningService` in `services/signal_learning.py` |
+| Update RLS policies to `(select auth.uid())` pattern | ✅ Done | All 28 tables updated |
+| Review unused meeting indexes | ✅ Done | Kept for query optimization |
+| Dockerize with Redis caching | ✅ Done | Redis default, ChromaDB optional |
+| Arjuna quick shortcuts fix | ✅ Done | `user_shortcuts` table + `/api/shortcuts` |
+| Coach recommendation engine | ✅ Done | `CoachRecommendationEngine` in `services/` |
+| Increase test coverage to >80% | 🔄 Partial | 58 tests passing, ~65% coverage |
+
+### Future Features Implementation Plan
+
+**Platform Priority:** Web-first (primary work interface), Mobile as companion for uploads/notifications
+
+---
+
+#### Phase F1: Pocket App Import Pipeline (Priority: HIGH)
+**Goal:** Import transcripts, AI summaries, and action items from Pocket mobile app
+
+| Feature | Description | Implementation |
+|---------|-------------|----------------|
+| Markdown import | Primary format from Pocket | `POST /api/v1/imports/markdown` |
+| PDF import | Alternative format | PyPDF2 or pdfplumber extraction |
+| DOCX import | Alternative format | python-docx extraction |
+| TXT import | Plain text fallback | Direct text processing |
+| Audio file storage | Store full recordings | Supabase Storage bucket |
+| Shareable links | Reference original Pocket links | `source_url` field on meetings |
+
+**Database changes:**
+```sql
+-- Add to meetings table
+ALTER TABLE meetings ADD COLUMN source_url TEXT;
+ALTER TABLE meetings ADD COLUMN audio_file_path TEXT;
+ALTER TABLE meetings ADD COLUMN import_source TEXT; -- 'pocket', 'manual', 'api'
+```
+
+**API Endpoints:**
+- `POST /api/v1/imports/upload` - Multi-format file upload
+- `POST /api/v1/imports/pocket` - Pocket-specific import with metadata
+- `GET /api/v1/imports/history` - Import history and status
+
+---
+
+#### Phase F2: Notifications System (Priority: HIGH)
+**Goal:** Web-first notification mailbox with scheduled job processing
+
+| Component | Description | Technology |
+|-----------|-------------|------------|
+| Notification mailbox | In-app notification center | New `notifications` table |
+| Web notifications | Primary notification UI | Toast + dropdown inbox |
+| Mobile push | Secondary (future) | Expo Push Notifications |
+| Scheduled jobs | Background processing | See Phase F3 |
+
+**Notification Types:**
+- 🔴 **Action items due** - From meeting signals
+- 🟡 **Transcript-ticket match** - Auto-suggested pairing
+- 🟢 **Missed criteria alert** - Items in transcript not in ticket
+- 🔵 **Rowan mentioned** - Name detection in transcripts
+- ⚪ **Coach recommendations** - Weekly digest
+
+**Database schema:**
+```sql
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id),
+  type TEXT NOT NULL, -- 'action_due', 'transcript_match', 'missed_criteria', 'mention', 'coach'
+  title TEXT NOT NULL,
+  body TEXT,
+  data JSONB, -- Related entity IDs, metadata
+  read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ,
+  priority TEXT DEFAULT 'normal' -- 'high', 'normal', 'low'
+);
+
+CREATE INDEX idx_notifications_user_unread ON notifications(user_id, read) WHERE read = FALSE;
+```
+
+**UI Components:**
+- Notification bell icon in top nav (with unread count badge)
+- Dropdown inbox showing recent notifications
+- Full `/notifications` page for history
+- Mark as read / dismiss actions
+
+---
+
+#### Phase F3: Scheduled Jobs System (Priority: HIGH)
+**Goal:** Run background tasks automatically without user trigger
+
+| Option | Pros | Cons | Recommendation |
+|--------|------|------|----------------|
+| **Supabase Edge Functions + pg_cron** | Native, no extra infra | Limited to Postgres triggers | ✅ Start here |
+| **Supabase Database Webhooks** | Event-driven | Requires external endpoint | Good for real-time |
+| **External cron (Railway/Render)** | Full control | Extra service to manage | If pg_cron insufficient |
+| **Celery + Redis** | Powerful, Python-native | Heavy infra | Overkill for single user |
+
+**Recommended: Supabase pg_cron + Edge Functions**
+
+```sql
+-- Enable pg_cron extension
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- Daily job: Check for due action items
+SELECT cron.schedule(
+  'check-due-actions',
+  '0 9 * * *', -- 9 AM daily
+  $$SELECT net.http_post(
+    'https://wluchuiyhggiigcuiaya.supabase.co/functions/v1/check-due-actions',
+    '{}',
+    'application/json'
+  )$$
+);
+
+-- Hourly job: Transcript-ticket matching
+SELECT cron.schedule(
+  'match-transcripts',
+  '0 * * * *', -- Every hour
+  $$SELECT net.http_post(
+    'https://wluchuiyhggiigcuiaya.supabase.co/functions/v1/match-transcripts',
+    '{}',
+    'application/json'
+  )$$
+);
+```
+
+**Jobs to implement:**
+| Job | Frequency | Description |
+|-----|-----------|-------------|
+| `check-due-actions` | Daily 9 AM | Find overdue action items, create notifications |
+| `match-transcripts` | Hourly | Match new transcripts to tickets by embedding similarity |
+| `detect-mentions` | On transcript insert | Scan for "Rowan" mentions |
+| `weekly-coach-digest` | Weekly Sunday | Generate coach recommendations summary |
+| `cleanup-old-notifications` | Daily | Archive notifications older than 30 days |
+
+**Configurable similarity threshold:**
+```sql
+-- Add to settings or config table
+INSERT INTO app_config (key, value, description)
+VALUES ('transcript_match_threshold', '0.75', 'Minimum similarity score for transcript-ticket auto-match');
+```
+
+---
+
+#### Phase F4: Enhanced Semantic Search (Priority: MEDIUM)
+**Goal:** Cross-entity search with actionable shortcuts
+
+| Feature | Description |
+|---------|-------------|
+| Unified search | Search across meetings, tickets, documents, DIKW |
+| "My mentions" shortcut | Find all instances of "Rowan" across entities |
+| Expandable search bar | Expand from top nav instead of separate page |
+| Saved searches | Store common search queries |
+| Search result actions | Quick actions from search results |
+
+---
+
+#### Phase F5: Mobile Companion Features (Priority: LOW)
+**Goal:** Mobile app as upload/notification companion
+
+| Feature | Description |
+|---------|-------------|
+| Quick upload | Photo-to-text, voice memo, file upload |
+| Push notifications | Mirror web notifications |
+| Offline queue | Queue uploads when offline |
+| Deep links | Open specific items from notifications |
+
+---
+
+### Implementation Priority Order
+
+```
+Q1 2026:
+  ├── F1: Pocket Import Pipeline ──────────── Week 1-2
+  ├── F2: Notifications System (Web) ──────── Week 3-4
+  └── F3: Scheduled Jobs (pg_cron) ────────── Week 4-5
+
+Q2 2026:
+  ├── F4: Enhanced Semantic Search ────────── Week 1-3
+  ├── F2b: Mobile Push Notifications ──────── Week 4-5
+  └── F5: Mobile Companion Features ───────── Week 6-8
+
+Ongoing:
+  └── Test coverage improvement to >80%
+```
 
 ### Single-User Mode (Deferred - Only User for Now)
 - [ ] Robust authentication (CAPTCHA, MFA)
