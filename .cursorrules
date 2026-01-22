@@ -10,38 +10,51 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The Arjuna Assistant Widget implements an intelligent project management and workflow automation system through several core components:
+The system implements a sophisticated AI-assisted project management and knowledge organization platform with several key business components:
 
-## Conversational Intelligence Framework (Score: 90)
-- Context-aware AI assistant specialized for project management workflows
-- Conversation persistence system with 24-hour automatic expiration
-- Command frequency analysis for suggestion optimization
-- Contextual follow-up generation based on workspace state
+## Core Business Logic Areas
 
-## Domain-Specific Project Management (Score: 85)
-- Task lifecycle automation with ticket creation/tracking
-- Sprint management capabilities with status querying
-- Meeting notes integration and search
-- Standup report capture and analysis
-- Blocker/dependency tracking through "waiting-for" items
+### AI Assistant Framework (85/100)
+- Stateful conversation management with 24-hour context expiration
+- Intelligent command categorization using emoji mapping
+- Rotating contextual suggestion system with 4 sets of domain-specific actions
+- Model switching logic between GPT-4 and Claude with conversation persistence
 
-## Smart Context Management (Score: 85)
-- Rotating suggestion sets based on workspace context
-- Intent-based command categorization with emoji mapping
-- Command frequency tracking with weighted prioritization
-- Clarification handling for ambiguous requests
+### Knowledge Management System (90/100)
+- DIKW (Data-Information-Knowledge-Wisdom) hierarchy implementation
+- Custom knowledge synthesis and promotion algorithms
+- Multi-level signal merging with confidence scoring
+- Semantic deduplication of knowledge items
+- Tag-based clustering for knowledge organization
 
-## Workspace Integration Hub (Score: 80)
-- Model switching between GPT-4 and Claude Sonnet
-- Sprint workflow automation
-- Meeting content search and linking
-- Task management integration
+### Meeting Intelligence Platform (85/100)
+- Signal extraction system for 5 core types: decisions, actions, blockers, risks, ideas
+- Custom signal lifecycle management with approval workflows
+- Meeting-based signal grouping and organization
+- Multi-source transcript processing with adaptive format parsing
 
-The system's core value lies in its deep integration of conversational AI with project management workflows, particularly in areas of:
-- Context-aware task automation
-- Intelligent meeting management
-- Sprint tracking
-- Knowledge persistence
+### Career Development Framework (80/100)
+- Standup management with sentiment analysis
+- AI-powered feedback system with themed categorization
+- Sprint coach integration for career guidance
+- Skills-based progression tracking
+- Role-based performance evaluation
+
+### Agent Communication Infrastructure (85/100)
+- Multi-agent message routing with priority levels
+- Domain-specific message types for coordination
+- Status tracking with persistence
+- Custom retry logic and TTL handling
+
+## Critical Implementation Files
+
+- src/app/agents/dikw_synthesizer.py: Knowledge hierarchy implementation
+- src/app/mcp/extract.py: Signal processing system
+- src/app/agents/meeting_analyzer.py: Meeting intelligence core
+- src/app/agents/career_coach.py: Career development logic
+- src/app/services/agent_bus.py: Agent communication system
+
+The system's unique value lies in its integrated approach to knowledge management, meeting intelligence, and career development, with sophisticated AI assistance throughout all workflows.
 
 $END$
 

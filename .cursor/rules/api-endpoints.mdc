@@ -1,47 +1,64 @@
 ---
-description: Documentation for FastAPI routes implementing CRUD operations for meetings and documents with domain-specific business logic
+description: FastAPI route specifications for managing meetings and documents with domain-specific CRUD operations
 ---
 
 
 # api-endpoints
 
-API routes implementing the meeting and document management system:
+Meeting Management Routes
+Importance Score: 85/100
 
-1. Meeting Signal Processing Routes
-Importance Score: 85
-- Custom signal extraction endpoints for processing meeting transcripts
-- Auto-categorization of extracted signals into decisions, blockers, risks
-- DIKW hierarchy promotion endpoints for meeting-derived knowledge
-- Meeting bundle processing with transcript correlation
+1. Meeting Creation
+- Custom signal extraction during meeting creation
+- Automatic tagging based on participant roles and content analysis
+- Integration with knowledge graph for relationship mapping
+- Source tracking for hybrid/remote meeting contexts
 
-2. Document Intelligence Routes 
-Importance Score: 80
-- Semantic similarity matching for document relationships
-- Knowledge graph integration endpoints
-- Document signal extraction and classification
-- Cross-document linking based on content relationships
+2. Meeting Update
+- Version control for meeting notes with change tracking
+- Signal diff generation between versions
+- Automatic notification triggers on signal changes
+- Meeting type-specific validation rules
 
-3. Meeting Analytics Routes
-Importance Score: 75
-- Meeting effectiveness scoring endpoints
-- Signal quality validation routes
-- Historical meeting trend analysis
-- Action item tracking and followup endpoints
+3. Meeting Retrieval
+- Context-aware meeting search with signal filtering
+- Custom sorting based on signal importance scores
+- Relationship-based meeting recommendations
+- Temporal clustering of related meetings
 
-4. Sprint Integration Routes
-Importance Score: 70
-- Meeting-to-sprint correlation endpoints
-- Sprint signal aggregation 
-- Meeting impact analysis for sprint planning
-- Action item to ticket conversion
+4. Meeting Deletion
+- Soft delete with signal preservation
+- Knowledge graph relationship cleanup
+- Signal reference management
+- Meeting archive protocol
 
-Core Business Rules:
-- Meeting signals must be categorized into predefined types (decisions, blockers, risks)
-- Documents must maintain bidirectional relationships in knowledge graph
-- Meeting bundles require correlation with all associated transcripts
-- Signals promote through DIKW hierarchy based on validation rules
+Document Management Routes
+Importance Score: 80/100
 
-The API's unique value lies in its sophisticated handling of meeting intelligence, document relationships, and knowledge promotion through the DIKW hierarchy.
+1. Document Processing
+- DIKW hierarchy integration for document classification
+- Automatic relationship detection with existing content
+- Signal extraction from document content
+- Version-aware document storage
+
+2. Document Retrieval
+- Context-based document recommendations
+- Signal-based document filtering
+- Knowledge graph traversal for related documents
+- Custom relevance scoring
+
+3. Document Updates
+- Change tracking with signal impact analysis
+- Relationship update propagation
+- Version management with signal preservation
+- Content validation against domain rules
+
+Core Signal Processing
+Importance Score: 90/100
+- Multi-source signal aggregation
+- Signal type classification (decisions, actions, risks)
+- Temporal signal tracking
+- Signal relationship mapping
 
 $END$
 
