@@ -25,6 +25,7 @@ class SyncConfig(BaseModel):
     
     # Cloud backup via Supabase
     enable_supabase: bool = True
+    supabase_reads: bool = False  # When True, read from Supabase instead of SQLite
     supabase_url: str = ""
     supabase_key: str = ""
     supabase_encryption_key: str = ""

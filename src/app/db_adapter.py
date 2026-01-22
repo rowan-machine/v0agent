@@ -2,7 +2,7 @@
 Dual-Write Database Adapter - SQLite + Supabase
 
 This module provides a dual-write pattern for the phased migration:
-1. Reads from SQLite (local-first, fast)
+1. Reads from SQLite (local-first, fast) OR Supabase (cloud-first)
 2. Writes to both SQLite and Supabase (eventual consistency)
 3. Background sync handles Supabase failures gracefully
 
@@ -11,7 +11,7 @@ Usage:
     
     db = DualWriteDB(user_id="...")
     
-    # Read from SQLite (fast)
+    # Read from configured source (SQLite or Supabase based on config)
     profile = await db.get_career_profile()
     
     # Write to both
@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 
 from .db import connect
+from .config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,7 @@ class DualWriteDB:
     
     Provides:
     - SQLite for local-first reads (fast, offline-capable)
+    - Supabase reads when supabase_reads config is enabled
     - Supabase writes for cloud sync (eventual consistency)
     - Graceful degradation if Supabase is unavailable
     """
@@ -80,12 +82,44 @@ class DualWriteDB:
             self._supabase = get_supabase_agent_client()
         return self._supabase
     
+    @property
+    def use_supabase_reads(self) -> bool:
+        """Check if reads should come from Supabase."""
+        try:
+            config = get_config()
+            return config.sync.supabase_reads and SUPABASE_AVAILABLE and self.supabase and self.supabase.is_connected
+        except Exception:
+            return False
+    
     # ==========================================================================
     # Career Profile
     # ==========================================================================
     
     def get_career_profile(self) -> Optional[Dict]:
-        """Get career profile from SQLite."""
+        """Get career profile from configured source (SQLite or Supabase)."""
+        # Try Supabase if configured
+        if self.use_supabase_reads:
+            try:
+                import asyncio
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # If in async context, create a task
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(
+                            asyncio.run,
+                            self.supabase.read("career_profiles", filters={"id": self.user_id} if self.user_id else None, limit=1)
+                        )
+                        result = future.result(timeout=5)
+                else:
+                    result = asyncio.run(self.supabase.read("career_profiles", limit=1))
+                if result:
+                    logger.debug("Read career_profile from Supabase")
+                    return result[0]
+            except Exception as e:
+                logger.warning(f"Supabase read failed, falling back to SQLite: {e}")
+        
+        # Fallback to SQLite
         with connect() as conn:
             row = conn.execute(
                 "SELECT * FROM career_profile WHERE id = 1"
@@ -142,7 +176,30 @@ class DualWriteDB:
         status: str = None,
         limit: int = 20
     ) -> List[Dict]:
-        """Get career suggestions from SQLite."""
+        """Get career suggestions from configured source."""
+        # Try Supabase if configured
+        if self.use_supabase_reads:
+            try:
+                import asyncio
+                filters = {"status": status} if status else None
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    import concurrent.futures
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(
+                            asyncio.run,
+                            self.supabase.read("career_suggestions", filters=filters, order_by="id", order_desc=True, limit=limit)
+                        )
+                        result = future.result(timeout=5)
+                else:
+                    result = asyncio.run(self.supabase.read("career_suggestions", filters=filters, order_by="id", order_desc=True, limit=limit))
+                if result is not None:
+                    logger.debug(f"Read {len(result)} suggestions from Supabase")
+                    return result
+            except Exception as e:
+                logger.warning(f"Supabase read failed, falling back to SQLite: {e}")
+        
+        # Fallback to SQLite
         with connect() as conn:
             query = "SELECT * FROM career_suggestions"
             params = []

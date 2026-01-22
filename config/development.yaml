@@ -13,5 +13,6 @@ embeddings_db_path: ./chromadb_data_dev
 # Sync configuration for development
 sync:
   use_mdns: true
-  enable_supabase: false  # Disabled by default in dev
+  enable_supabase: true  # Enabled for cutover testing
+  supabase_reads: true   # CUTOVER: Read from Supabase instead of SQLite
   mobile_enabled: true

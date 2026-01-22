@@ -1,60 +1,45 @@
 ---
-description: Documents core data models for meetings and documents, their relationships, and associated business rules
+description: Documents core data model structures and relationships for Meetings and Documents entities
 ---
 
 
 # data-models
 
-## Core Data Models
+Two primary data models form the core of the application:
 
-### Meeting Model
-Importance Score: 85
-- Structured conversation tracking with 24-hour persistence policy
-- Role-based message history management
-- Signal classification system with 5 categories:
-  - Decisions
-  - Action items 
-  - Blockers
-  - Risks
-  - Ideas
-- Meeting lifecycle states:
-  - Draft
-  - In Progress 
-  - Completed
+## Meetings Model
+- Hierarchical organization with parent/child relationship support
+- Meeting signals categorization into 5 types:
+  - Decisions (green)
+  - Action Items (orange)
+  - Blockers (red) 
+  - Risks (yellow)
+  - Ideas (purple)
+- Signal status workflow states:
+  - Pending
+  - Approved 
+  - Rejected
   - Archived
-- Integrated screenshot analysis with vision AI annotations
-- Knowledge graph relationship mappings to Documents and Tickets
+  - Waiting
+- Contains metadata for signal count tracking per meeting
+- Meeting state persistence for collapsible view management
+- Lifecycle management for working days calculation
 
-### Document Model
-Importance Score: 80
-- DIKW (Data-Information-Knowledge-Wisdom) hierarchy tracking
-- Custom confidence scoring for knowledge level progression
-- Signal extraction and categorization
-- Relationship tracking:
-  - semantic_similar
-  - derived_from
-  - blocks
-  - depends_on
-- Version control with file change tracking
-- Tag clustering with automatic categorization
+## Documents Model
+- DIKW (Data-Information-Knowledge-Wisdom) hierarchy support 
+- Bidirectional relationships between documents through knowledge graph
+- Cross-linking with meetings for contextual reference
+- Signal extraction and validation tracking
+- Version control integration for implementation tracking
+- Sprint transition validation rules
 
-## Relationships
-
-### Meeting-Document Links
-Importance Score: 75
-- Bidirectional references between related content
-- Context preservation across entities
-- Semantic similarity scoring
-- Custom title generation system
-- Cross-entity signal propagation
-
-### Knowledge Organization 
-Importance Score: 70
-- Structured knowledge progression through DIKW levels
-- Signal promotion workflow with validation
-- Relationship type inference
-- Tag-based clustering
-- Automated mindmap generation
+## Relationship Structure
+- Hierarchical parent/child organization for meetings
+- Many-to-many relationships between meetings and documents
+- Knowledge graph connections for semantic relationships
+- Signal cross-referencing between meetings and documents
+- Sprint-based archival relationships
+- Career development evidence linking
 
 $END$
 

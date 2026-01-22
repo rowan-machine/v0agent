@@ -1592,6 +1592,34 @@ Provide a concise, helpful answer. Focus on the most relevant information. Use b
 _arjuna_instance: Optional[ArjunaAgent] = None
 
 
+class SimpleLLMClient:
+    """Simple LLM client wrapper for use outside the registry."""
+    
+    async def ask(
+        self,
+        prompt: str,
+        system_prompt: str = "",
+        model: str = "gpt-4o-mini",
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+    ) -> str:
+        """Call the LLM."""
+        from ..llm import _client_once
+        
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+        
+        resp = _client_once().chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        return resp.choices[0].message.content.strip()
+
+
 def get_arjuna_agent() -> ArjunaAgent:
     """Get or create the global Arjuna agent instance."""
     global _arjuna_instance
@@ -1607,7 +1635,10 @@ def get_arjuna_agent() -> ArjunaAgent:
             system_prompt_file="prompts/agents/arjuna/system.jinja2",
             tools=["create_ticket", "update_ticket", "navigate", "search"],
         )
-        _arjuna_instance = ArjunaAgent(config=config)
+        _arjuna_instance = ArjunaAgent(
+            config=config,
+            llm_client=SimpleLLMClient(),
+        )
     
     return _arjuna_instance
 

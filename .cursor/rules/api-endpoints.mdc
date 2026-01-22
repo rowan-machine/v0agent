@@ -1,53 +1,58 @@
 ---
-description: Documents FastAPI routes implementing CRUD operations for meetings and documents with signal extraction capabilities.
+description: Documents FastAPI route implementation for meetings and documents management with business-specific CRUD operations
 ---
 
 
 # api-endpoints
 
-## Core API Routes
+Primary Business Logic Endpoints:
 
-### Signal Management Routes
-Importance Score: 85
-- Extracts structured signals from meeting content (decisions, actions, blockers, risks)
-- Signal lifecycle management with approval/rejection/archival states
-- Custom signal promotion through DIKW hierarchy levels
-- Signal sentiment analysis and theme categorization
+1. Meeting Signal Management (/api/v1/meetings/)
+Importance Score: 85/100
+- Signal extraction with categorization (decisions, action items, blockers, risks, ideas)
+- Signal validation workflow with approval states
+- Meeting-signal relationship maintenance
+- Hierarchical organization of signals within meetings
+- Persistence of signal states and transitions
 
-### Meeting Intelligence Routes
-Importance Score: 80
-- Multi-source transcript processing with heading detection
-- Meeting bundle management with screenshot analysis
-- Semantic signal grouping and deduplication
-- Context-aware knowledge extraction
+2. AI Memory System (/api/v1/ai_memory/)
+Importance Score: 90/100
+- Conversation memory with 24-hour persistence
+- Context-based memory prioritization
+- Memory importance scoring (1-10)
+- Semantic similarity search integration
+- Memory context formatting for LLM input
 
-### Knowledge Graph Routes
-Importance Score: 75
-- Custom graph relationship modeling between entities 
-- Domain-specific link types (semantic_similar, derived_from, blocks)
-- Bidirectional link propagation
-- Confidence scoring for entity relationships
+3. Signal Feedback Loop (/api/v1/feedback/)
+Importance Score: 80/100
+- Signal validation counting system
+- Confidence score adjustments based on feedback
+- DIKW confidence score updates
+- Upvote/downvote impact tracking
+- Feedback-based signal refinement
 
-### Career Development Routes
-Importance Score: 70
-- Career profile-based suggestion generation
+4. Knowledge Graph Operations (/api/v1/knowledge/)
+Importance Score: 85/100
+- Entity relationship mapping between meetings/documents/tickets
+- Custom relationship types with confidence scoring
+- Source provenance tracking
+- Semantic similarity suggestions
+- Bidirectional relationship maintenance
+
+5. Career Development Tracking (/api/v1/career/)
+Importance Score: 75/100
+- Skill proficiency mapping
+- Learning pattern recognition
+- Career progression tracking
 - Standup analysis with sentiment tracking
-- Capability repository mapping
-- Role-specific progression pathways
+- Evidence-based skill assessment
 
-### Search Integration Routes
-Importance Score: 65
-- Hybrid search combining semantic and keyword matching
-- Domain-specific result ranking
-- Cross-entity type search capabilities
-- Smart suggestion system based on content relationships
-
-Key File Paths:
-- src/app/api/v1/ai_memory.py
-- src/app/api/v1/feedback.py
-- src/app/api/knowledge_graph.py
-- src/app/api/search.py
-- src/app/api/chat.py
+Key Business Rules:
+- Signal validation requires both AI and human approval
+- Memory importance affects context retrieval priority
+- Knowledge relationships maintain bidirectional integrity
+- Career progress requires evidence-based validation
+- Signal confidence scores influence suggestion priority
 
 $END$
 

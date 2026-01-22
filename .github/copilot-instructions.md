@@ -18,45 +18,52 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The project implements an AI-assisted workflow management system with three primary business domains:
+AI Assistant and Knowledge Management System with specialized capabilities for meeting intelligence, career development, and workflow management.
 
-## Knowledge Management System (Importance: 90/100)
-- DIKW (Data-Information-Knowledge-Wisdom) pyramid implementation
-- Intelligent signal extraction and categorization
-- Knowledge synthesis algorithms for merging related items
-- Custom confidence scoring with validation metrics
-- Tag clustering and mindmap generation
-Key File: src/app/agents/dikw_synthesizer.py
+Core Business Components:
 
-## Meeting Intelligence Platform (Importance: 85/100)
-- Adaptive meeting format analysis
-- Multi-category signal extraction (decisions, actions, risks)
-- Screenshot analysis with vision AI integration
-- Semantic signal grouping and deduplication
-- Meeting bundle processing with knowledge classification
-Key File: src/app/agents/meeting_analyzer.py
+1. AI Assistant Conversation System (src/app/templates/components/assistant_widget.html)
+Importance Score: 75/100
+- Contextual conversation history with 24-hour persistence
+- Rotating suggestion sets based on workflow stages
+- Command usage frequency tracking and personalization
+- Smart emoji categorization by command context
 
-## Career Development Engine (Importance: 80/100)
-- Career profile-based suggestion generation
-- Standup analysis with sentiment detection 
-- Role-specific progression pathways
-- Skill tracking and project mapping
-- Career insight synthesis
-Key File: src/app/agents/career_coach.py
+2. DIKW Knowledge Management (src/app/agents/dikw_synthesizer.py)
+Importance Score: 85/100
+- Data-Information-Knowledge-Wisdom hierarchy progression
+- Custom knowledge synthesis rules per hierarchy level
+- Semantic merging of related knowledge items
+- Tag-based knowledge clustering system
 
-## Supporting Systems
+3. Career Development Framework (src/app/agents/career_coach.py)
+Importance Score: 75/100
+- Professional capability mapping
+- Standup-based performance analysis
+- Code change pattern matching for skill tracking
+- Evidence-based skill progression validation
 
-### Agent Communication Bus (Importance: 75/100)
-- Inter-agent message routing with priority levels
-- Message persistence and retry logic
-- Multi-type message support
-Key File: src/app/services/agent_bus.py
+4. Meeting Intelligence Pipeline
+Importance Score: 80/100
+- Signal extraction and categorization (decisions, action items, blockers, risks, ideas)
+- Multi-stage signal validation workflow
+- Meeting context propagation 
+- Cross-meeting signal relationship tracking
 
-### Conversation Management (Importance: 70/100)
-- 24-hour conversation persistence
-- Context-aware suggestion rotation
-- Command history analytics
-Key File: src/app/templates/components/assistant_widget.html
+5. Sprint Management System
+Importance Score: 70/100
+- Sprint lifecycle management with configurable lengths
+- Working days calculation and tracking
+- Time tracking archival
+- Mode-based workflow tracking (A-G system)
+
+Integration Points:
+- Knowledge graph connections between meetings, signals, and career data
+- Bi-directional sync for offline-first operation
+- Cross-entity semantic search capabilities
+- Workflow mode transitions affecting multiple subsystems
+
+The system implements a sophisticated knowledge work management platform centered around AI-assisted meeting analysis, career development tracking, and sprint management with emphasis on maintaining relationships between different knowledge artifacts.
 
 $END$
 

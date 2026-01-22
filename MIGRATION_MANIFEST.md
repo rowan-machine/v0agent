@@ -198,10 +198,12 @@ These items are intentionally deferred for future iterations:
 - [ ] PC-1: Signal feedback → AI learning loop
 - [ ] Update RLS policies to use `(select auth.uid())` pattern
 - [ ] Consider removing unused meeting indexes (idx_meetings_user, idx_meetings_date)
-- [ ] Dockerize app with Redis caching (Makefile commands ready)
+- [ ] Dockerize app with Redis caching (Makefile commands ready) and remove chromadb for embeddings
+- [ ] thoroughly test and fix the Arjuna quick shorcuts (and chains) functionality and display and remove user editing for now and add the user specific ai suggested ones based on common actions as well as from conversations with arjuna
 - [ ] Increase test coverage to >80%
 
 ### Future Features (User Deferred)
+- [ ] Improve the semantic search so you can search across all objects (tickets, meetings, etc.) and get actionable results such as looking for my name in all the meetings and documents, things like that as shortcuts for known things I will need to search for to test the accuracy and to pull out signals I heard on the call but arent coming through in the application elsewhere, maybe enable it to expand from the top banner instead of being a seperate page
 - [ ] Push notifications for action items
 - [ ] Voice input for meetings
 - [ ] Build APK for Android distribution
@@ -209,6 +211,7 @@ These items are intentionally deferred for future iterations:
 - [ ] Feature flags for gradual rollout
 - [ ] Model auto-selection router refinements
 - [ ] Supabase real-time subscriptions
+- [ ] Performance improvements
 
 ### Single-User Mode (Deferred - Only User for Now)
 - [ ] Robust authentication (CAPTCHA, MFA)
