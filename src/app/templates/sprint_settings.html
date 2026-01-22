@@ -151,139 +151,20 @@
         </div>
     </div>
 
-    <!-- AI Model Settings -->
+    <!-- AI Model Link -->
     <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mt-8">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between">
             <div>
-                <h2 class="text-lg font-semibold text-gray-900">🤖 AI Model</h2>
-                <p class="text-xs text-gray-500 mt-1">Select which AI model powers Hare Krishna</p>
+                <h2 class="text-lg font-semibold text-gray-900">🤖 AI Model Settings</h2>
+                <p class="text-xs text-gray-500 mt-1">Configure which AI model powers Hare Krishna</p>
             </div>
-            <span id="current-model-badge" class="px-3 py-1 bg-violet-100 text-violet-700 text-sm font-medium rounded-full">
-                {{ current_model or 'gpt-4o-mini' }}
-            </span>
+            <a href="/settings" class="px-4 py-2 bg-violet-100 text-violet-700 font-medium rounded-lg hover:bg-violet-200 transition-colors text-sm">
+                Go to Settings →
+            </a>
         </div>
-        
-        <div class="space-y-2" id="model-options">
-            <!-- OpenAI Models -->
-            <div class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">OpenAI</div>
-            <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors model-option">
-                <input type="radio" name="ai_model" value="gpt-4o-mini" class="w-4 h-4 text-violet-600">
-                <div class="ml-3 flex-1">
-                    <span class="font-medium text-gray-900">GPT-4o Mini</span>
-                    <span class="ml-2 text-xs text-green-600">$ Fast</span>
-                </div>
-            </label>
-            <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors model-option">
-                <input type="radio" name="ai_model" value="gpt-4.1-mini" class="w-4 h-4 text-violet-600">
-                <div class="ml-3 flex-1">
-                    <span class="font-medium text-gray-900">GPT-4.1 Mini</span>
-                    <span class="ml-2 text-xs text-green-600">$ Fast</span>
-                </div>
-            </label>
-            <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors model-option">
-                <input type="radio" name="ai_model" value="gpt-4.1" class="w-4 h-4 text-violet-600">
-                <div class="ml-3 flex-1">
-                    <span class="font-medium text-gray-900">GPT-4.1</span>
-                    <span class="ml-2 text-xs text-yellow-600">$$ Balanced</span>
-                </div>
-            </label>
-            <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors model-option">
-                <input type="radio" name="ai_model" value="gpt-5" class="w-4 h-4 text-violet-600">
-                <div class="ml-3 flex-1">
-                    <span class="font-medium text-gray-900">GPT-5</span>
-                    <span class="ml-2 text-xs text-orange-600">$$$ Premium</span>
-                </div>
-            </label>
-            
-            <!-- Anthropic Models -->
-            <div class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2 mt-4">Anthropic</div>
-            <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors model-option">
-                <input type="radio" name="ai_model" value="claude-haiku-3" class="w-4 h-4 text-violet-600">
-                <div class="ml-3 flex-1">
-                    <span class="font-medium text-gray-900">Claude Haiku 3</span>
-                    <span class="ml-2 text-xs text-green-600">$ Fast</span>
-                </div>
-            </label>
-            <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors model-option">
-                <input type="radio" name="ai_model" value="claude-sonnet-4" class="w-4 h-4 text-violet-600">
-                <div class="ml-3 flex-1">
-                    <span class="font-medium text-gray-900">Claude Sonnet 4</span>
-                    <span class="ml-2 text-xs text-yellow-600">$$ Balanced</span>
-                </div>
-            </label>
-            <label class="flex items-center p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors model-option">
-                <input type="radio" name="ai_model" value="claude-opus-4.5" class="w-4 h-4 text-violet-600">
-                <div class="ml-3 flex-1">
-                    <span class="font-medium text-gray-900">Claude Opus 4.5</span>
-                    <span class="ml-2 text-xs text-red-600">$$$$ Premium</span>
-                </div>
-            </label>
-        </div>
-        
-        <p id="model-status" class="text-sm text-gray-500 mt-3 hidden"></p>
     </div>
     
     <script>
-        // Load current model and set checked state
-        async function loadCurrentModel() {
-            try {
-                const resp = await fetch('/api/settings/ai-model');
-                const data = await resp.json();
-                const currentModel = data.model || 'gpt-4o-mini';
-                
-                document.getElementById('current-model-badge').textContent = currentModel;
-                
-                const radio = document.querySelector(`input[name="ai_model"][value="${currentModel}"]`);
-                if (radio) {
-                    radio.checked = true;
-                    radio.closest('.model-option').classList.add('border-violet-500', 'bg-violet-50');
-                }
-            } catch (err) {
-                console.log('Could not load current model');
-            }
-        }
-        loadCurrentModel();
-        
-        // Handle model selection
-        document.querySelectorAll('input[name="ai_model"]').forEach(radio => {
-            radio.addEventListener('change', async (e) => {
-                const model = e.target.value;
-                const status = document.getElementById('model-status');
-                
-                // Update visual state
-                document.querySelectorAll('.model-option').forEach(opt => {
-                    opt.classList.remove('border-violet-500', 'bg-violet-50');
-                });
-                e.target.closest('.model-option').classList.add('border-violet-500', 'bg-violet-50');
-                
-                status.textContent = 'Saving...';
-                status.classList.remove('hidden', 'text-green-600', 'text-red-600');
-                status.classList.add('text-gray-500');
-                
-                try {
-                    const resp = await fetch('/api/settings/ai-model', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ model })
-                    });
-                    
-                    if (resp.ok) {
-                        document.getElementById('current-model-badge').textContent = model;
-                        status.textContent = '✓ Model updated!';
-                        status.classList.remove('text-gray-500');
-                        status.classList.add('text-green-600');
-                        setTimeout(() => status.classList.add('hidden'), 2000);
-                    } else {
-                        throw new Error('Failed to save');
-                    }
-                } catch (err) {
-                    status.textContent = '✗ Failed to update model';
-                    status.classList.remove('text-gray-500');
-                    status.classList.add('text-red-600');
-                }
-            });
-        });
-        
         // Reset all workflow modes progress
         async function resetAllModes() {
             if (!confirm('Reset all mode checkboxes for a new sprint? This will clear all progress for modes A-G.')) {
