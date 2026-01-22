@@ -1,50 +1,43 @@
 ---
-description: Documents FastAPI route implementations for meetings and documents CRUD operations with business-specific signal processing
+description: Documentation for FastAPI routes implementing CRUD operations for meetings and documents
 ---
 
 
 # api-endpoints
 
-## Meeting Signal Routes
-Path: src/app/api/meetings.py
-Importance Score: 85/100
+The API implements specialized knowledge management endpoints for meetings and documents:
 
-- `/api/meetings/create`: Creates meeting with intelligent signal extraction
-  - Automatically extracts and categorizes decisions, actions, risks
-  - Generates embeddings for knowledge graph integration
-  - Links related meetings based on content similarity
+1. Meeting Signal Processing (Importance Score: 85/100)
+- Custom signal extraction from meeting transcripts
+- Categorizes signals into decisions, actions, blockers, risks, ideas
+- Routes for merging related signals across meetings 
+- Validates signal status transitions through approval workflow
 
-- `/api/meetings/signals`: Manages meeting signal lifecycle
-  - Custom signal state transitions (draft → approved → archived)
-  - Signal classification (decision/action/blocker/risk/idea)
-  - Automated accountability assignment
+2. Knowledge Pyramid Integration (Importance Score: 90/100)
+- Routes for promoting content through DIKW (Data, Information, Knowledge, Wisdom) levels
+- AI-assisted validation for knowledge promotion requests
+- Signal aggregation across related meetings
+- Routes for merging related knowledge nodes
 
-## Knowledge Integration Routes  
-Path: src/app/api/knowledge.py
-Importance Score: 90/100
+3. Career Development Routes (Importance Score: 80/100) 
+- Endpoints integrating career suggestions with meeting content
+- Progress tracking with AI-synthesized career context
+- Routes for code change tracking with version comparison
+- Knowledge mapping to career development themes
 
-- `/api/knowledge/graph`: Manages knowledge graph construction
-  - Creates relationships between meetings and extracted signals
-  - Infers connections based on semantic similarity
-  - Maintains DIKW hierarchy mappings
+4. Sprint Workflow Integration (Importance Score: 75/100)
+- Sprint-aware routing for meeting content organization
+- Endpoints for signal categorization within sprint context
+- Routes for accountability tracking with responsible party assignment
+- Time period customization for sprint metrics
 
-## Career Development Routes
-Path: src/app/api/career.py
-Importance Score: 80/100
-
-- `/api/career/suggestions`: Generates career insights
-  - Analyzes meeting participation patterns
-  - Maps skills mentioned in discussions
-  - Recommends growth opportunities based on meeting context
-
-## Sprint Management Routes
-Path: src/app/api/sprint.py
-Importance Score: 75/100
-
-- `/api/sprint/status`: Tracks sprint-specific signals
-  - Custom sprint cycle calculations
-  - Work mode analysis based on meeting signals
-  - Sprint performance metrics computation
+The API implements domain-specific knowledge extraction and organization through:
+- Multi-level signal categorization
+- DIKW pyramid progression
+- Career development correlation  
+- Sprint-based content organization
+- AI-assisted content synthesis
+- Accountability tracking
 
 $END$
 

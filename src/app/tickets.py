@@ -148,8 +148,11 @@ def create_ticket(
     sprint_points: int = Form(0),
     in_sprint: int = Form(1),
     tags: str = Form(None),
+    pending_code_files: str = Form(None),
 ):
     """Create a new ticket."""
+    import json
+    
     with connect() as conn:
         cursor = conn.execute(
             """INSERT INTO tickets (ticket_id, title, description, status, priority, sprint_points, in_sprint, tags)
@@ -157,6 +160,31 @@ def create_ticket(
             (ticket_id.strip(), title, description, status, priority, sprint_points, in_sprint, tags),
         )
         new_id = cursor.lastrowid
+        
+        # Handle pending code files
+        if pending_code_files:
+            try:
+                files_data = json.loads(pending_code_files)
+                for file in files_data:
+                    filename = file.get("filename", "").strip()
+                    file_type = file.get("file_type", "update")
+                    base_content = file.get("base_content", "")
+                    file_description = file.get("description", "")
+                    
+                    if filename:
+                        conn.execute("""
+                            INSERT INTO ticket_files (ticket_id, filename, file_type, base_content, description)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (new_id, filename, file_type, base_content, file_description))
+                        
+                        # If update file with base content, also add to code locker
+                        if file_type == 'update' and base_content:
+                            conn.execute("""
+                                INSERT INTO code_locker (ticket_id, filename, content, version, notes, is_initial)
+                                VALUES (?, ?, ?, 1, 'Initial/baseline version from ticket', 1)
+                            """, (new_id, filename, base_content))
+            except json.JSONDecodeError:
+                pass  # Invalid JSON, ignore
     
     # Create embedding
     text_for_embedding = f"{ticket_id} {title}\n{description or ''}"

@@ -1429,7 +1429,7 @@ async def get_sprint_burndown():
             """
             SELECT SUM(COALESCE(sprint_points, 0)) as points
             FROM tickets 
-            WHERE status = 'done'
+            WHERE status IN ('done', 'complete')
             AND in_sprint = 1
             AND updated_at >= date('now', '-14 days')
             """
@@ -2081,6 +2081,146 @@ Provide the promoted wisdom-level content:"""
         })
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/api/dikw/auto-process")
+async def dikw_auto_process(request: Request):
+    """AI auto-process: suggest new items, promote existing, adjust confidence."""
+    data = await request.json()
+    pyramid = data.get("pyramid", {})
+    
+    suggested = []
+    promoted = []
+    confidence_updates = []
+    
+    # Collect all existing items for context
+    all_items = []
+    for level in ['data', 'information', 'knowledge', 'wisdom']:
+        for item in pyramid.get(level, []):
+            all_items.append({
+                "id": item.get("id"),
+                "level": level,
+                "content": item.get("content", ""),
+                "confidence": item.get("confidence", 70),
+                "created_at": item.get("created_at", "")
+            })
+    
+    if not all_items:
+        # If no items, suggest some based on recent signals
+        with connect() as conn:
+            recent_signals = conn.execute(
+                """SELECT signals_json, meeting_name FROM meeting_summaries 
+                   WHERE signals_json IS NOT NULL 
+                   ORDER BY COALESCE(meeting_date, created_at) DESC LIMIT 5"""
+            ).fetchall()
+        
+        signal_context = ""
+        for row in recent_signals:
+            try:
+                import json
+                signals = json.loads(row["signals_json"]) if isinstance(row["signals_json"], str) else row["signals_json"]
+                for sig_type, items in signals.items():
+                    for item in items[:2]:
+                        signal_context += f"- {sig_type}: {item}\n"
+            except:
+                pass
+        
+        if signal_context:
+            try:
+                prompt = f"""Based on these recent signals from meetings, suggest 2-3 DIKW items to add:
+
+{signal_context}
+
+Return a JSON array of objects with: level (data/information/knowledge/wisdom), content, summary
+Example: [{{"level": "data", "content": "Team velocity decreased 20% this sprint", "summary": "Velocity tracking observation"}}]
+
+JSON array only:"""
+                response = ask_llm(prompt)
+                import json
+                suggestions = json.loads(response.strip().strip('```json').strip('```'))
+                suggested = suggestions[:3]
+            except Exception as e:
+                print(f"Error generating suggestions: {e}")
+    else:
+        # Analyze existing items for promotions and confidence adjustments
+        items_summary = "\n".join([
+            f"[{i['level']}] (id:{i['id']}, confidence:{i['confidence']}%) {i['content'][:200]}"
+            for i in all_items[:20]
+        ])
+        
+        try:
+            prompt = f"""Analyze these DIKW pyramid items and suggest:
+1. Which items are ready to be promoted to the next level (data->information->knowledge->wisdom)
+2. Which items need confidence adjustments based on their content quality/certainty
+
+Current items:
+{items_summary}
+
+Return JSON with three arrays:
+- "promote": items ready for promotion [{{"id": <id>, "from_level": "data", "to_level": "information", "reason": "why"}}]
+- "confidence": items needing confidence adjustment [{{"id": <id>, "old_confidence": 70, "new_confidence": 85, "reason": "why"}}]
+- "suggest": new items to add [{{"level": "knowledge", "content": "...", "summary": "..."}}]
+
+Focus on actionable improvements. JSON only:"""
+            
+            response = ask_llm(prompt)
+            import json
+            result = json.loads(response.strip().strip('```json').strip('```'))
+            
+            # Process promotions
+            for promo in result.get("promote", [])[:3]:
+                item_id = promo.get("id")
+                item = next((i for i in all_items if i["id"] == item_id), None)
+                if item:
+                    to_level = promo.get("to_level", "information")
+                    # Generate promoted content
+                    promo_result = await ai_promote_dikw(Request(scope={"type": "http"}))
+                    # Actually call the promotion logic directly
+                    promotion_prompts = {
+                        'information': f"Transform this data into structured information:\n{item['content']}",
+                        'knowledge': f"Extract actionable knowledge:\n{item['content']}",
+                        'wisdom': f"Distill strategic wisdom:\n{item['content']}"
+                    }
+                    promoted_content = ask_llm(promotion_prompts.get(to_level, promotion_prompts['information']))
+                    summary = ask_llm(f"Summarize in one sentence: {promoted_content}")
+                    
+                    promoted.append({
+                        "id": item_id,
+                        "from_level": item["level"],
+                        "to_level": to_level,
+                        "promoted_content": promoted_content,
+                        "summary": summary,
+                        "reason": promo.get("reason", "")
+                    })
+            
+            # Process confidence adjustments
+            for conf in result.get("confidence", [])[:5]:
+                item_id = conf.get("id")
+                item = next((i for i in all_items if i["id"] == item_id), None)
+                if item:
+                    confidence_updates.append({
+                        "id": item_id,
+                        "level": item["level"],
+                        "content": item["content"],
+                        "old_confidence": item["confidence"],
+                        "new_confidence": conf.get("new_confidence", item["confidence"]),
+                        "reason": conf.get("reason", "")
+                    })
+            
+            # Add new suggestions
+            suggested = result.get("suggest", [])[:3]
+            
+        except Exception as e:
+            print(f"Error in auto-process: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    return JSONResponse({
+        "status": "ok",
+        "suggested": suggested,
+        "promoted": promoted,
+        "confidence_updates": confidence_updates
+    })
 
 
 @app.get("/api/signals/unprocessed")
