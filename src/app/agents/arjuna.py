@@ -1446,6 +1446,136 @@ Analyze the user's intent and respond with JSON as specified."""
         
         return suggestions
     
+    async def _search_user_mentions_in_transcripts(self, user_name: str) -> str:
+        """
+        F2b: Search raw transcripts for user mentions using both keyword and semantic search.
+        
+        Searches:
+        1. raw_text in meeting_summaries
+        2. content in meeting_documents (Teams/Pocket transcripts)
+        
+        Returns context with snippets around user mentions.
+        """
+        context_parts = []
+        
+        try:
+            from ..db import connect
+            
+            with connect() as conn:
+                # Search meeting_summaries.raw_text for user mentions
+                meetings_raw = conn.execute(
+                    """SELECT ms.id, ms.meeting_name, ms.raw_text, ms.meeting_date
+                       FROM meeting_summaries ms
+                       WHERE LOWER(ms.raw_text) LIKE ?
+                       ORDER BY COALESCE(ms.meeting_date, ms.created_at) DESC
+                       LIMIT 10""",
+                    (f"%{user_name.lower()}%",)
+                ).fetchall()
+                
+                for m in meetings_raw:
+                    if m["raw_text"]:
+                        snippet = self._extract_mention_snippet(m["raw_text"], user_name)
+                        if snippet:
+                            date_str = m["meeting_date"] or "Unknown date"
+                            context_parts.append(f"**{m['meeting_name']}** ({date_str}):\n{snippet}")
+                
+                # Search meeting_documents.content for user mentions
+                docs = conn.execute(
+                    """SELECT md.content, md.source, md.doc_type, ms.meeting_name, ms.meeting_date
+                       FROM meeting_documents md
+                       JOIN meeting_summaries ms ON md.meeting_id = ms.id
+                       WHERE LOWER(md.content) LIKE ?
+                       ORDER BY COALESCE(ms.meeting_date, md.created_at) DESC
+                       LIMIT 10""",
+                    (f"%{user_name.lower()}%",)
+                ).fetchall()
+                
+                for d in docs:
+                    if d["content"]:
+                        snippet = self._extract_mention_snippet(d["content"], user_name)
+                        if snippet:
+                            date_str = d["meeting_date"] or "Unknown date"
+                            source = d["source"] or d["doc_type"] or "Transcript"
+                            context_parts.append(f"**{d['meeting_name']}** - {source} ({date_str}):\n{snippet}")
+                
+        except Exception as e:
+            logger.error(f"Failed to search transcripts for user mentions: {e}")
+        
+        if not context_parts:
+            return f"No mentions of {user_name} found in recent meeting transcripts."
+        
+        return "\n\n---\n\n".join(context_parts[:10])  # Limit to 10 snippets
+    
+    def _extract_mention_snippet(self, text: str, user_name: str, context_chars: int = 200) -> str:
+        """
+        Extract snippet around user mention with surrounding context.
+        
+        Returns multiple snippets if user is mentioned multiple times.
+        """
+        if not text or not user_name:
+            return ""
+        
+        lower_text = text.lower()
+        lower_name = user_name.lower()
+        snippets = []
+        
+        start_pos = 0
+        while True:
+            match_pos = lower_text.find(lower_name, start_pos)
+            if match_pos == -1:
+                break
+            
+            # Get context around match
+            snippet_start = max(0, match_pos - context_chars)
+            snippet_end = min(len(text), match_pos + len(user_name) + context_chars)
+            
+            snippet = text[snippet_start:snippet_end].strip()
+            
+            # Add ellipsis if truncated
+            if snippet_start > 0:
+                snippet = "..." + snippet
+            if snippet_end < len(text):
+                snippet = snippet + "..."
+            
+            snippets.append(snippet)
+            start_pos = match_pos + len(user_name)
+            
+            # Limit to 3 snippets per document
+            if len(snippets) >= 3:
+                break
+        
+        return "\n".join(snippets)
+    
+    async def _get_recent_meetings_context(self) -> str:
+        """Get context from recent meetings for quick_ask."""
+        try:
+            from ..db import connect
+            with connect() as conn:
+                recent = conn.execute(
+                    """SELECT meeting_name, synthesized_notes, signals_json 
+                       FROM meeting_summaries 
+                       ORDER BY COALESCE(meeting_date, created_at) DESC 
+                       LIMIT 5"""
+                ).fetchall()
+        except Exception as e:
+            logger.error(f"Failed to fetch meeting context: {e}")
+            return ""
+        
+        context_parts = []
+        for m in recent:
+            context_parts.append(f"Meeting: {m['meeting_name']}\n{m['synthesized_notes'][:1000]}")
+            if m["signals_json"]:
+                try:
+                    signals = json.loads(m["signals_json"])
+                    for stype in ["decisions", "action_items", "blockers", "risks", "ideas"]:
+                        items = signals.get(stype, [])
+                        if items:
+                            context_parts.append(f"{stype}: {', '.join(items[:3])}")
+                except Exception:
+                    pass
+        
+        return "\n\n".join(context_parts)
+    
     async def quick_ask(
         self,
         topic: Optional[str] = None,
@@ -1462,6 +1592,10 @@ Analyze the user's intent and respond with JSON as specified."""
             Dict with response and success status
         """
         # Topic prompts for common dashboard questions
+        # F2b: Get user name from environment
+        import os
+        user_name = os.getenv("USER_NAME", "Rowan")
+        
         topic_prompts = {
             "blockers": "What are the current blockers or obstacles mentioned in recent meetings?",
             "decisions": "What key decisions were made in recent meetings?",
@@ -1469,7 +1603,7 @@ Analyze the user's intent and respond with JSON as specified."""
             "ideas": "What new ideas or suggestions came up in recent meetings?",
             "risks": "What risks were identified in recent meetings?",
             "this_week": "Summarize what happened this week based on recent meetings and documents.",
-            "rowan_mentions": "What mentions of Rowan or items assigned to Rowan are there in recent meetings?",
+            "rowan_mentions": f"What mentions of {user_name} or items assigned to {user_name} are there in recent meetings?",
             "reach_outs": "Who needs to be contacted or reached out to based on recent meetings? What follow-ups are needed?",
             "announcements": "What team-wide announcements or important updates were shared in recent meetings?",
         }
@@ -1480,34 +1614,12 @@ Analyze the user's intent and respond with JSON as specified."""
         else:
             question = query or "What's most important right now?"
         
-        # Get context from recent meetings
-        try:
-            from ..db import connect
-            with connect() as conn:
-                recent = conn.execute(
-                    """SELECT meeting_name, synthesized_notes, signals_json 
-                       FROM meeting_summaries 
-                       ORDER BY COALESCE(meeting_date, created_at) DESC 
-                       LIMIT 5"""
-                ).fetchall()
-        except Exception as e:
-            logger.error(f"Failed to fetch meeting context: {e}")
-            recent = []
-        
-        context_parts = []
-        for m in recent:
-            context_parts.append(f"Meeting: {m['meeting_name']}\n{m['synthesized_notes'][:1000]}")
-            if m["signals_json"]:
-                try:
-                    signals = json.loads(m["signals_json"])
-                    for stype in ["decisions", "action_items", "blockers", "risks", "ideas"]:
-                        items = signals.get(stype, [])
-                        if items:
-                            context_parts.append(f"{stype}: {', '.join(items[:3])}")
-                except Exception:
-                    pass
-        
-        context = "\n\n".join(context_parts)
+        # F2b: Special handling for user mentions - search raw transcripts
+        if topic == "rowan_mentions":
+            context = await self._search_user_mentions_in_transcripts(user_name)
+        else:
+            # Standard context from recent meetings
+            context = await self._get_recent_meetings_context()
         
         prompt = f"""Based on this context from recent meetings and documents:
 

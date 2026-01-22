@@ -1,54 +1,51 @@
 ---
-description: Documents core data models for meetings and documents in knowledge management system
+description: Documents core data models for meetings and documents, including their relationships and business rules
 ---
 
 
 # data-models
 
-Two primary data models form the core of the system:
+## Primary Data Models
 
-## Meetings Model
-Importance Score: 90/100
+### Meeting Model
+- Core entity for tracking all meeting-related data
+- Fields:
+  - title: Meeting identifier
+  - date: Meeting occurrence timestamp
+  - type: Enumerated meeting category (standup, planning, review)
+  - status: Current meeting state (draft, active, archived)
+  - signals: One-to-many relationship with extracted meeting signals
+  - participants: Many-to-many relationship with users
+  - documents: One-to-many relationship with attached documents
 
-Key attributes:
-- Title and metadata
-- Transcript content
-- Extracted signals (decisions, actions, blockers, risks)
-- Reference links to related Documents
-- Status workflow states
+### Document Model
+- Container for meeting-related artifacts and references
+- Fields:
+  - content: Document body text
+  - format: Document type (markdown, mindmap, notes)
+  - meetings: Many-to-one relationship with parent meeting
+  - signals: One-to-many relationship with extracted document signals
+  - metadata: JSON field for format-specific properties
 
-Signal relationships:
-- One meeting can have multiple signals
-- Signals maintain meeting source reference
-- Signals can be promoted to documents
-- Signals have confidence scores (1-10)
+## Relationships
 
-## Documents Model
-Importance Score: 85/100
+### Meeting-Document Relationship
+- Documents are owned by exactly one meeting
+- Meetings can have multiple associated documents
+- Automatic document linking based on semantic similarity
+- Document inheritance through meeting hierarchies
 
-Key attributes:
-- Content with version history
-- DIKW level categorization
-- Parent/child document relationships
-- Signal source tracking
+### Meeting-Signal Relationship 
+- Signals extract key insights from meetings/documents
+- Signals maintain reference to source meeting/document
+- Signal categorization into decisions/actions/blockers
+- Signal confidence scoring based on validation counts
 
-Knowledge relationships:
-- Documents can reference meetings
-- Documents store extracted/promoted signals
-- Documents maintain DIKW hierarchy position
-- Documents track career evidence and skills
-
-The data models emphasize:
-1. Meeting intelligence extraction
-2. Signal-based knowledge capture
-3. DIKW pyramid organization
-4. Evidence-based career tracking
-
-Core relationships focus on:
-- Meeting → Signal → Document promotion flow
-- DIKW hierarchical organization
-- Career evidence linkage
-- Cross-reference preservation
+## Business Rules
+- Documents require parent meeting association
+- Meeting status transitions follow strict workflow
+- Signals maintain source tracking and validation counts
+- Document linking uses semantic similarity threshold (0.78)
 
 $END$
 

@@ -629,6 +629,41 @@ Current Jinja2 templates are functional but **lack polish**. A modern React fron
 
 ---
 
+## Backlog (Deferred Items)
+
+The following features are on the roadmap but deferred to future phases:
+
+### Web Hosting & Deployment
+**Status:** Deferred  
+**Reason:** Focus on feature development first, then productionize
+
+- Deploy FastAPI backend to Railway/Render/Fly.io
+- Configure production Supabase instance
+- Set up CI/CD pipeline for automated deployments
+- Domain configuration and SSL
+- CDN for static assets
+
+### Database Encryption for Portability
+**Status:** Deferred  
+**Reason:** Current SQLite local-only use case doesn't require encryption
+
+- Encrypt SQLite database at rest using SQLCipher
+- Secure key management for portable database
+- Support for encrypted Supabase connections
+- Data export/import with encryption
+
+### Responsive Mobile Design
+**Status:** Deferred to Docs/KB Only  
+**Reason:** Primary workflow is desktop; mobile is companion view only
+
+- Responsive layouts for Documents/Knowledge Base pages
+- Mobile-optimized search interface
+- Touch-friendly navigation
+- Offline-first PWA capabilities
+- Push notifications (via PWA)
+
+---
+
 ## Conclusion
 
 This phase transforms SignalFlow from a **functional tool** to a **proactive intelligence system**. The import pipeline removes friction, notifications surface insights automatically, and the enhanced UX makes the system a joy to use daily.

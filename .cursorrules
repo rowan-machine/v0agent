@@ -10,42 +10,47 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-Core AI Assistant System (75/100)
-- Conversation-driven interface "Arjuna" with domain workflow integration
-- 24-hour conversation persistence with role-based messaging
-- Contextual suggestion system with rotating workflow-specific sets
-- Smart command categorization with frequency tracking
-- Deep integration with tickets, sprints, and meeting workflows
+The system implements a sophisticated knowledge management and career development platform centered around meeting intelligence and organizational learning.
 
-Knowledge Management Core (85/100)
-- DIKW pyramid implementation for knowledge evolution
-- Signal extraction system across meeting types
-- Knowledge graph with specialized relationship types
-- Automated promotion system between knowledge levels
-- Multi-source synthesis with confidence scoring
+## Core Knowledge Architecture
 
-Meeting Intelligence Platform (80/100)
-- Multi-format transcript analysis system
-- Structured signal categorization (decisions, actions, blockers, risks)
-- Template detection for 30+ meeting types
-- Cross-source signal validation
-- Contextual relationship preservation
+### DIKW Pyramid System
+- Hierarchical knowledge organization following Data → Information → Knowledge → Wisdom progression
+- Custom promotion logic between levels based on validation and synthesis rules
+- Signal confidence scoring with user feedback integration
+- Domain-specific categorization using organizational tags
 
-Career Development Framework (75/100)
-- Profile-based career progression tracking
-- Skill-evidence relationship management
-- Automated career insight generation
-- Standup analysis with sentiment tracking
-- Growth suggestion engine with contextual awareness
+### Meeting Intelligence
+- Specialized signal extraction for decisions, actions, blockers, and risks
+- Template-based meeting analysis supporting 30+ meeting types
+- Multi-source transcript reconciliation system
+- Automated signal categorization with emoji-based domain mapping
 
-Agent Communication System (85/100)
-- Multi-agent message bus with priority levels
-- Feedback-driven signal learning pipeline
-- Context-aware recommendation engine
-- Human-in-the-loop review workflow
-- Hybrid context retrieval system
+### Career Development Framework
+- Sprint-based performance tracking with sentiment analysis
+- AI-powered coaching system using historical patterns
+- Skill proficiency calculation with evidence tracking
+- Custom standup analysis pipeline for growth insights
 
-Architecture centers around knowledge extraction and synthesis, with specialized agents handling different aspects of workplace intelligence gathering and organization. Core value derives from automated understanding of business communications and structured knowledge evolution.
+## Integration Architecture
+
+### Knowledge Graph Management
+- Entity linking across meetings, documents, and tickets
+- Semantic similarity-based relationship detection
+- Custom graph traversal for organizational knowledge
+- Auto-suggestion system for content relationships
+
+### Assistant Intelligence
+- Context-aware chat system with meeting/document injection
+- Domain-specific intent parsing for organizational tasks
+- Smart workflow state management
+- Priority-based suggestion engine
+
+### Signal Learning System
+- Feedback-driven improvement loop for signal extraction
+- Pattern analysis for signal quality assessment
+- Custom scoring based on historical acceptance rates
+- Learning context generation for analyzer prompts
 
 $END$
 

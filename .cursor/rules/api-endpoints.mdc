@@ -1,64 +1,50 @@
 ---
-description: Documents FastAPI routes implementing core business logic for meetings and documents management
+description: Defines FastAPI routes implementing business-critical CRUD operations for meetings and document management
 ---
 
 
 # api-endpoints
 
-Key API Endpoints:
+## Meeting Management Endpoints
 
-1. Meeting Intelligence API (/api/v1/meetings/)
-Importance Score: 85/100
+1. Signal Extraction API
+Path: `src/app/api/v1/meetings.py`
+Importance Score: 85
+- Extracts business signals (decisions, actions, blockers, risks) from meeting content
+- Implements domain-specific signal categorization with confidence scoring
+- Auto-tags signals based on content analysis and meeting context
+- Maintains signal state transitions (draft, approved, archived)
 
-- Signal extraction from transcripts with categorization:
-  - Decisions
-  - Action Items 
-  - Blockers
-  - Risks
-  - Ideas
-- Meeting template detection (30+ types)
-- Context preservation across sessions
-- Automated metadata enrichment
+2. Document Integration API
+Path: `src/app/api/v1/documents.py` 
+Importance Score: 80
+- Knowledge graph integration for document-meeting relationships
+- Semantic similarity linking between related content
+- DIKW hierarchy promotion workflow endpoints
+- Document version control with business context preservation
 
-2. Knowledge Graph API (/api/v1/knowledge/)
-Importance Score: 80/100
+3. Sprint Integration
+Path: `src/app/api/v1/sprints.py`
+Importance Score: 75
+- Meeting-sprint relationship management
+- Sprint progress tracking through meeting signals
+- Career development signal extraction from sprint meetings
+- Sprint timeline synchronization with meeting schedules
 
-- DIKW hierarchy management endpoints
-- Content synthesis across knowledge levels
-- Relationship mapping between entities:
-  - semantic_similar
-  - derived_from
-  - referenced
-  - blocks
-  - depends_on
-- Automated relationship suggestions
+4. Knowledge Synthesis
+Path: `src/app/api/v1/knowledge.py`
+Importance Score: 90
+- Implements DIKW pyramid progression endpoints
+- Signal merging and promotion validation
+- Knowledge relationship mapping through meetings
+- Confidence scoring for synthesized knowledge items
 
-3. Career Development API (/api/v1/career/)
-Importance Score: 75/100
-
-- Skill progression tracking
-- Career insight generation
-- Standup analysis integration
-- Pattern recognition for growth opportunities
-- Evidence-based proficiency scoring
-
-4. AI Memory Management (/api/v1/memory/)
-Importance Score: 90/100
-
-- Contextual memory retrieval system
-- Confidence-based memory scoring
-- Semantic search capabilities
-- Memory importance prioritization
-- Token-aware context injection
-
-5. Feedback Loop API (/api/v1/feedback/)
-Importance Score: 70/100
-
-- Signal validation workflows
-- Confidence boosting mechanisms
-- Pattern-based learning system
-- DIKW promotion triggers
-- Historical feedback tracking
+Core Business Features:
+- Meeting signal extraction and categorization
+- Knowledge graph relationship management
+- Sprint integration and progress tracking
+- DIKW hierarchy implementation
+- Career development tracking through meetings
 
 $END$
 
