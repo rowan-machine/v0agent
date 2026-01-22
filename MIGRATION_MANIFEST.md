@@ -3,8 +3,8 @@
 **Purpose:** Track migration progress from monolithic Jinja2 app to decoupled agentic system with multi-agent queues and semantic embeddings.
 
 **Last Updated:** January 22, 2026  
-**Current Phase:** 1 - Foundation Complete  
-**Next Phase:** 2 - Agent Refactoring
+**Current Phase:** 2 - Agent Refactoring (Embedded Agent Adapters)  
+**Next Phase:** 2.5 - Complete Adapter Layer
 
 ---
 
@@ -12,7 +12,7 @@
 
 ```
 Phase 1: Foundation Infrastructure ✅ COMPLETE
-├── Agent Registry System          ✅ agents/__init__.py
+├── Agent Registry System          ✅ agents/registry.py
 ├── Base Agent Class               ✅ agents/base.py
 ├── YAML Configuration System      ✅ config/*.yaml
 ├── ChromaDB Embedding Service     ✅ services/embeddings.py
@@ -20,11 +20,26 @@ Phase 1: Foundation Infrastructure ✅ COMPLETE
 ├── Multi-Device Sync Foundation   ✅ config/sync.yaml
 └── Dependencies Installed         ✅ requirements.txt
 
-Phase 2: Agent Refactoring (IN PROGRESS)
-├── Arjuna Assistant              ⏳ api/assistant.py → agents/arjuna.py
-├── Career Coach                  ⏳ api/career.py → agents/career_coach.py
-├── DIKW Synthesizer              ⏳ main.py → agents/dikw_synthesizer.py
-└── Meeting Analyzer              ⏳ signals.py → agents/meeting_analyzer.py
+Phase 1.5: Refactoring Foundation ✅ COMPLETE
+├── AgentRegistry in registry.py   ✅ Moved from __init__.py
+├── Best Practices Advanced Doc    ✅ REFACTORING_BEST_PRACTICES_ADVANCED.md
+└── Phased Migration Rollout Doc   ✅ PHASED_MIGRATION_ROLLOUT.md
+
+Phase 2: Agent Extraction 🔄 IN PROGRESS
+├── Arjuna Assistant              ✅ agents/arjuna.py (extracted + adapters)
+├── Career Coach                  ✅ agents/career_coach.py (extracted + adapters)
+├── DIKW Synthesizer              ✅ agents/dikw_synthesizer.py (extracted, partial adapters)
+├── Meeting Analyzer              ✅ agents/meeting_analyzer.py (extracted)
+├── Embedded Agent Adapters       🔄 IN PROGRESS
+│   ├── Dashboard quick-ask       ✅ ArjunaAgent.quick_ask()
+│   ├── Standup feedback          ✅ CareerCoachAgent.analyze_standup()
+│   ├── Standup suggest           ✅ CareerCoachAgent.suggest_standup()
+│   ├── Career chat               ✅ CareerCoachAgent.chat()
+│   ├── Ticket summary            🔴 PENDING → TicketAgent
+│   ├── Implementation plan       🔴 PENDING → PlanningAgent
+│   ├── Task decomposition        🔴 PENDING → TaskDecompAgent
+│   └── DIKW routes (14 calls)    🔴 PENDING → DIKWSynthesizerAgent
+└── Modular Agent Design          🔴 PENDING
 
 Phase 3: API Extraction
 ├── /api/v1/ Endpoints            ⏳ PENDING
@@ -51,6 +66,36 @@ Phase 7: Testing & Optimization
 
 ---
 
+## Embedded Agent Adapter Status
+
+### ✅ Completed Adapters
+| Endpoint | File:Line | Agent | Adapter Function |
+|----------|-----------|-------|------------------|
+| POST /api/dashboard/quick-ask | main.py:564 | ArjunaAgent | quick_ask() |
+| POST /api/career/standups | career.py:782 | CareerCoachAgent | analyze_standup_adapter() |
+| POST /api/career/standups/suggest | career.py:881 | CareerCoachAgent | suggest_standup_adapter() |
+| POST /api/career/chat | career.py | CareerCoachAgent | career_chat_adapter() |
+
+### 🔴 Pending Adapters
+| Endpoint | File:Line | Current Implementation | Proposed Agent |
+|----------|-----------|----------------------|----------------|
+| POST /api/tickets/{id}/generate-summary | tickets.py:359 | ask(prompt) | TicketAgent |
+| POST /api/tickets/{id}/generate-plan | tickets.py:404 | ask(prompt, claude-opus) | PlanningAgent |
+| POST /api/tickets/{id}/generate-decomposition | tickets.py:473 | ask(prompt) + JSON parse | TaskDecompAgent |
+| POST /api/dikw/{id}/promote | main.py:1924 | ask_llm(level_prompts) | DIKWSynthesizerAgent |
+| POST /api/dikw/{id}/synthesize | main.py:1993 | ask_llm(synthesis_prompts) | DIKWSynthesizerAgent |
+| POST /api/dikw/{id}/merge | main.py:2096 | ask_llm(merge_prompt) | DIKWSynthesizerAgent |
+| POST /api/dikw/generate-tags | main.py:2335 | ask_llm(prompt) | DIKWSynthesizerAgent |
+| POST /api/dikw/{id}/refine | main.py:2373 | ask_llm(prompt) | DIKWSynthesizerAgent |
+| POST /api/dikw/summarize | main.py:2397 | ask_llm(level_prompts) | DIKWSynthesizerAgent |
+| POST /api/dikw/{id}/auto-promote | main.py:2433 | ask_llm(promotion_prompts) | DIKWSynthesizerAgent |
+| POST /api/query | main.py:2739 | ask_llm(prompt) | QueryAgent |
+| POST /api/ai-review | main.py:2965 | ask_llm(prompt) | ReviewAgent |
+| POST /api/signals/{id}/interpret | main.py:3016 | ask_llm(prompt) | SignalsAgent |
+| POST /api/wisdom/generate | main.py:3098 | ask_llm(wisdom_prompt) | DIKWSynthesizerAgent |
+
+---
+
 ## File-by-File Migration Status
 
 ### REFACTORED (Already Migrated ✅)
@@ -63,44 +108,46 @@ Phase 7: Testing & Optimization
 - ✅ `src/app/config.py` - ConfigLoader system with YAML + env vars
 
 **Agent Foundation:**
-- ✅ `src/app/agents/base.py` - BaseAgent abstract class
-- ✅ `src/app/agents/__init__.py` - AgentRegistry singleton
+- ✅ `src/app/agents/base.py` - BaseAgent abstract class with guardrails
+- ✅ `src/app/agents/registry.py` - AgentRegistry singleton (moved from __init__)
+- ✅ `src/app/agents/__init__.py` - Clean exports only
+- ✅ `src/app/agents/model_router.py` - Task-based model selection
+- ✅ `src/app/agents/guardrails.py` - Pre/post-call safety guardrails
 - ✅ `src/app/services/embeddings.py` - ChromaDB wrapper (6 collections)
 - ✅ `src/app/services/encryption.py` - Fernet encryption service
 - ✅ `src/app/services/__init__.py` - Services module exports
 - ✅ `.env.example` - Environment variable template
 
+**Extracted Agents:**
+- ✅ `src/app/agents/arjuna.py` - Smart assistant agent with intent parsing
+- ✅ `src/app/agents/career_coach.py` - Career development coach agent
+- ✅ `src/app/agents/meeting_analyzer.py` - Meeting signal extraction agent
+- ✅ `src/app/agents/dikw_synthesizer.py` - Knowledge synthesis agent
+
+**Agent Prompts (Jinja2 Templates):**
+- ✅ `prompts/agents/arjuna/system.jinja2` - Arjuna system prompt
+- ✅ `prompts/agents/career_coach/*.jinja2` - Career coach prompts
+- ✅ `prompts/agents/meeting_analyzer/*.jinja2` - Meeting analysis prompts
+- ✅ `prompts/agents/dikw_synthesizer/*.jinja2` - DIKW synthesis prompts
+
 **Infrastructure:**
 - ✅ `requirements.txt` - Updated with new dependencies
 - ✅ `PHASE_1_COMPLETE.md` - Phase 1 documentation
 - ✅ `MIGRATION_MANIFEST.md` - This file (tracking document)
+- ✅ `REFACTORING_BEST_PRACTICES_ADVANCED.md` - 12 advanced patterns
+- ✅ `PHASED_MIGRATION_ROLLOUT.md` - Phase-by-phase rollout strategy
 
 ### IN PROGRESS (Currently Being Migrated 🔄)
 
-**Agent Extraction - Phase 2:**
-- 🔄 `src/app/api/assistant.py` (941 lines) → Extract to `agents/arjuna.py`
-  - Status: Waiting for refactoring start
-  - Dependencies: AgentRegistry ✅, BaseAgent ✅, config system ✅
-  - Blocker: None
-  - Estimated: 2-3 hours
-
-- 🔄 `src/app/api/career.py` (2690 lines) → Extract to `agents/career_coach.py`
-  - Status: Waiting for refactoring start
-  - Dependencies: Semantic search (Phase 5), embeddings ✅
-  - Blocker: None
-  - Estimated: 3-4 hours
-
-- 🔄 `src/app/signals.py` → Extract to `agents/meeting_analyzer.py`
-  - Status: Waiting for refactoring start
-  - Dependencies: embeddings ✅, semantic search
-  - Blocker: None
-  - Estimated: 2-3 hours
-
-- 🔄 `src/app/main.py` (DIKW logic) → Extract to `agents/dikw_synthesizer.py`
-  - Status: Waiting for refactoring start
-  - Dependencies: embeddings ✅, semantic search
-  - Blocker: None
-  - Estimated: 2-3 hours
+**Embedded Agent Adapters - Phase 2:**
+- ✅ Dashboard quick-ask → ArjunaAgent.quick_ask()
+- ✅ Standup feedback → CareerCoachAgent.analyze_standup_adapter()
+- ✅ Standup suggest → CareerCoachAgent.suggest_standup_adapter()
+- ✅ Career chat → CareerCoachAgent.career_chat_adapter()
+- 🔄 Ticket summary → TicketAgent (PENDING)
+- 🔄 Implementation plan → PlanningAgent (PENDING)
+- 🔄 Task decomposition → TaskDecompAgent (PENDING)
+- 🔄 DIKW routes → DIKWSynthesizerAgent adapters (PENDING)
 
 ### NOT STARTED (Pending Migration 🔴)
 

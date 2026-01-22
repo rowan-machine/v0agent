@@ -18,56 +18,53 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The system implements a sophisticated AI-assisted workflow management platform with several core business components:
+IMPORTANCE SCORE: 85/100
 
-## Knowledge Management Architecture (Score: 90/100)
-- DIKW (Data-Information-Knowledge-Wisdom) pyramid implementation
-- Signal synthesis and merging algorithms for knowledge promotion
-- Tag clustering and mindmap generation
-- Semantic deduplication of knowledge items
-- Custom signal validation rules per DIKW level
+Core Business Logic Architecture:
 
-## Meeting Intelligence System (Score: 85/100)
-- Signal extraction from multiple meeting formats
-- Categorization into decisions, action items, blockers, risks, ideas
-- Context-aware signal synthesis
-- Domain-specific validation patterns
-- Integration with sprint management workflows
+1. Meeting Intelligence & Signal Processing
+- Signal extraction system categorizes meeting content into decisions, actions, blockers, risks, ideas
+- Custom signal merging with deduplication and confidence scoring
+- Meeting bundle processing with authoritative synthesis
+- Domain-specific signal persistence and relationship tracking
 
-## Workflow Mode Management (Score: 85/100)
-Seven distinct operational modes:
-- Context Distillation
-- Implementation Planning
-- Assisted Draft Intake
-- Deep Review & Validation
-- Promotion Readiness
-- Controlled Ingress/Egress
-- Execution
+2. Knowledge Management Framework
+- DIKW (Data, Information, Knowledge, Wisdom) pyramid implementation
+- Hierarchical knowledge promotion with validation rules
+- Semantic deduplication and tag generation
+- Custom knowledge graph for software artifacts with specialized relationships
 
-Each mode maintains specific steps, progress tracking, and transition rules.
+3. Workflow Orchestration
+- Seven-phase workflow system (Modes A-G):
+  * Context Distillation
+  * Implementation Planning
+  * Assisted Draft Intake
+  * Testing & QA
+  * Documentation
+  * Review & Retrospective
+  * Knowledge Transfer
+- Sprint lifecycle management with mode transitions
+- Custom accountability tracking for dependencies
 
-## Career Development System (Score: 75/100)
+4. Career Development System
+- Growth suggestion generation based on role context
 - Standup analysis with sentiment detection
-- Skills-project correlation tracking
-- Career growth suggestion generation
-- Performance pattern detection
-- Multi-source insight synthesis
+- Career insight synthesis from skills/projects
+- Code locker analysis for suggestions
 
-## Command Intelligence System (Score: 80/100)
-- Auto-categorization with semantic emoji mapping
-- Weighted command history tracking
-- Adaptive suggestion cycling
-- Context-aware follow-up generation
-- Multi-model AI switching capability
+Critical Integration Points:
+- Meeting signals → Knowledge graph relationships
+- Sprint modes → Career development tracking
+- Signal extraction → Workflow state transitions
+- Knowledge synthesis → Career insights
 
-## Knowledge Graph Integration (Score: 85/100)
-- Custom schema for development workflow
-- Specialized relationship types
-- Automatic signal relationship inference
-- Person context and meeting subgraphs
-- Domain-specific graph queries
+Key Business Files:
+- src/app/mcp/extract.py: Signal extraction engine
+- src/app/agents/dikw_synthesizer.py: Knowledge management core
+- src/app/api/settings.py: Workflow mode system
+- src/app/agents/career_coach.py: Career development logic
 
-The system's core value proposition lies in its sophisticated integration of AI assistance with structured workflow management and knowledge processing, specifically tailored for software development teams.
+This system implements a sophisticated software development workflow platform with unique implementations around meeting intelligence, knowledge management, and career development tracking. The core value lies in its specialized signal processing and knowledge synthesis capabilities.
 
 $END$
 

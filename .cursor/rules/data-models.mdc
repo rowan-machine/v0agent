@@ -1,54 +1,73 @@
 ---
-description: Core data models documentation for the Meetings and Documents domain entities and their relationships
+description: Documentation of the two main data models (Meetings and Documents) and their relationship structure
 ---
 
 
 # data-models
 
-The system contains two primary data models with complex relationships and business rules:
+Core Data Models and Relationships:
 
-## Meetings Model
+1. Meeting Model
 Importance Score: 90/100
 
-Core Structure:
-- Meeting ID (UUID)
-- Meeting Type (Teams/Pocket) 
-- Signals Collection
+- Domain-specific meeting categorization:
+  - Regular standup
+  - Sprint planning
+  - Retrospective
+  - Design review
+  - Code review
+
+- Signal extraction structure:
   - Decisions
-  - Action Items
-  - Risks
+  - Action items
   - Blockers
+  - Risks
   - Ideas
-- Document References
-- Knowledge Graph Mappings
 
-Key Business Rules:
-- Maintains parent-child relationships between related meetings
-- Links extracted signals to DIKW knowledge hierarchy
-- Tracks signal promotion through knowledge levels
-- Maps meeting relationships to sprints and tickets
+- Meeting metadata:
+  - Participants
+  - Signal count by type
+  - Mode (A-G workflow phase)
+  - Sprint association
+  - Knowledge graph connections
+  - Parent/child meeting relationships
 
-## Documents Model
+2. Document Model  
 Importance Score: 85/100
 
-Core Structure:
-- Document ID (UUID)
-- Content Type
-- Related Meeting References
-- Signal Mappings
-- Knowledge Graph Position
+- Document categorization:
+  - Technical specs
+  - Implementation plans
+  - Code reviews
+  - Architecture diagrams
+  - Career development plans
 
-Key Business Rules:
-- Documents can be linked to multiple meetings
-- Maintains bidirectional references with meetings
-- Tracks document position in DIKW hierarchy
-- Maps document relationships to sprint artifacts
+- Document metadata:
+  - Author
+  - Related meetings
+  - Signal references
+  - Mode association
+  - Sprint context
+  - Knowledge level (DIKW pyramid)
 
-## Relationship Structure
-- Meetings and Documents maintain many-to-many relationships
-- Both entities connect to the Knowledge Graph through signal mappings
-- Signal promotion tracks progression through DIKW levels
-- Sprint artifacts link to both meetings and documents
+3. Model Relationships
+Importance Score: 95/100
+
+- Meeting-Document Connections:
+  - Reference type (source/derivation)
+  - Signal inheritance flow
+  - Context preservation
+  - Knowledge promotion path
+  - Mode transitions
+
+- Signal Propagation Rules:
+  - Parent-child signal inheritance
+  - Cross-document signal merging
+  - Meeting-to-document signal flow
+  - Knowledge graph edge creation
+  - Mode-based routing
+
+The data models support specialized workflows around meeting intelligence, signal extraction, and knowledge management through the DIKW hierarchy.
 
 $END$
 
