@@ -27,6 +27,7 @@ from .api.career import router as career_router
 from .api.neo4j_graph import router as neo4j_router
 from .api.v1 import router as v1_router  # API v1 (Phase 3.1)
 from .api.mobile import router as mobile_router  # Mobile sync (Phase 3.2)
+from .api.admin import router as admin_router  # Admin endpoints (Phase 4.1)
 from .mcp.registry import TOOL_REGISTRY
 from .llm import ask as ask_llm
 from .auth import (
@@ -167,6 +168,13 @@ def init_neo4j_background():
 def startup():
     init_db()
     init_chat_tables()
+    
+    # Run Phase 4.1 database migrations
+    from .db_migrations import run_all_migrations
+    migration_result = run_all_migrations()
+    if migration_result["applied"] > 0:
+        print(f"✅ Applied {migration_result['applied']} database migrations")
+    
     # Initialize Neo4j in background (non-blocking)
     init_neo4j_background()
 
@@ -3177,3 +3185,4 @@ app.include_router(career_router)
 app.include_router(neo4j_router)
 app.include_router(v1_router)  # API v1 versioned endpoints (Phase 3.1)
 app.include_router(mobile_router)  # Mobile sync endpoints (Phase 3.2)
+app.include_router(admin_router)  # Admin endpoints (Phase 4.1)
