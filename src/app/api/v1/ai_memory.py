@@ -19,7 +19,8 @@ from datetime import datetime
 
 from ...db import connect
 from ...memory.embed import embed_text, EMBED_MODEL
-from ...memory.vector_store import upsert_embedding, semantic_search
+from ...memory.vector_store import upsert_embedding
+from ...memory.semantic import semantic_search
 
 router = APIRouter()
 

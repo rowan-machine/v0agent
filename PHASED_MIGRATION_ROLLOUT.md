@@ -42,6 +42,20 @@
 - **Function Security**: search_path=public for all search functions
 - **Security Advisors**: 0 warnings
 
+### LangSmith Tracing ✅ (Enabled 2026-01-22)
+- **Status**: Enabled with `LANGCHAIN_TRACING_V2=true`
+- **Project**: signalflow-agents
+- **Features**:
+  - Agent-specific tags (`agent:Arjuna`, `agent:DIKWSynthesizer`, etc.)
+  - Conversation/thread_id tracking for multi-turn conversations
+  - Task type tagging (`task:classification`, `task:synthesis`, etc.)
+  - Model metadata tracking
+- **Files**:
+  - [src/app/tracing.py](src/app/tracing.py) - Core tracing module
+  - [src/app/agents/base.py](src/app/agents/base.py) - BaseAgent integration
+- **Usage**: All agent LLM calls automatically traced when enabled
+- **Dashboard**: https://smith.langchain.com/
+
 ---
 
 ## Executive Summary

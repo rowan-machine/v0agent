@@ -1,60 +1,53 @@
 ---
-description: Documents FastAPI routes implementing CRUD operations for meetings and documents with custom signal processing
+description: Documents FastAPI routes implementing CRUD operations for meetings and documents with signal extraction capabilities.
 ---
 
 
 # api-endpoints
 
-## Meeting Management Routes
-Path: src/app/api/meetings.py
+## Core API Routes
+
+### Signal Management Routes
 Importance Score: 85
+- Extracts structured signals from meeting content (decisions, actions, blockers, risks)
+- Signal lifecycle management with approval/rejection/archival states
+- Custom signal promotion through DIKW hierarchy levels
+- Signal sentiment analysis and theme categorization
 
-- Meeting signal extraction endpoints:
-  - Extract structured signals (decisions, actions, blockers) from meeting content
-  - Process multi-modal inputs including text and screenshots
-  - Maintain context links between transcripts and extracted signals
-  - Handle signal validation and classification
-
-## Document Processing Routes 
-Path: src/app/api/documents.py
+### Meeting Intelligence Routes
 Importance Score: 80
+- Multi-source transcript processing with heading detection
+- Meeting bundle management with screenshot analysis
+- Semantic signal grouping and deduplication
+- Context-aware knowledge extraction
 
-- Document intelligence endpoints:
-  - Semantic similarity-based document linking
-  - Intelligent document categorization
-  - Signal extraction from document content
-  - Version tracking with semantic diff
-
-## Signal Management Routes
-Path: src/app/api/signals.py
-Importance Score: 90
-
-- Signal processing endpoints:
-  - Multi-level signal validation workflow
-  - Signal status transitions (approve/reject/archive)
-  - Date-aware signal aggregation 
-  - Cross-reference management between signals
-  - Signal promotion through DIKW hierarchy
-
-## Knowledge Graph Routes
-Path: src/app/api/knowledge.py
-Importance Score: 85
-
-- Knowledge management endpoints:
-  - Entity relationship tracking with typed connections
-  - Semantic similarity-based linking
-  - Auto-suggestion for entity connections
-  - DIKW hierarchy promotion rules
-
-## Career Development Routes
-Path: src/app/api/career.py
+### Knowledge Graph Routes
 Importance Score: 75
+- Custom graph relationship modeling between entities 
+- Domain-specific link types (semantic_similar, derived_from, blocks)
+- Bidirectional link propagation
+- Confidence scoring for entity relationships
 
-- Career tracking endpoints:
-  - Technical specialization monitoring
-  - Multi-timeline goal management
-  - Skills progression framework
-  - Development metrics calculation
+### Career Development Routes
+Importance Score: 70
+- Career profile-based suggestion generation
+- Standup analysis with sentiment tracking
+- Capability repository mapping
+- Role-specific progression pathways
+
+### Search Integration Routes
+Importance Score: 65
+- Hybrid search combining semantic and keyword matching
+- Domain-specific result ranking
+- Cross-entity type search capabilities
+- Smart suggestion system based on content relationships
+
+Key File Paths:
+- src/app/api/v1/ai_memory.py
+- src/app/api/v1/feedback.py
+- src/app/api/knowledge_graph.py
+- src/app/api/search.py
+- src/app/api/chat.py
 
 $END$
 

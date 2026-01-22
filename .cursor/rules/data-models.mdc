@@ -1,41 +1,60 @@
 ---
-description: Defines data model structure and relationships for meetings and documents in project management context
+description: Documents core data models for meetings and documents, their relationships, and associated business rules
 ---
 
 
 # data-models
 
-Two primary data models form the core business structure:
+## Core Data Models
 
-1. Meeting Model
-Importance Score: 90
-- Complex meeting data structure incorporating:
-  - Structured signals (decisions, actions, blockers, risks) 
-  - Relationships to Documents and other Meetings
-  - Signal status tracking and progression
-  - Meeting bundle concept for grouped sessions
-  - Multi-source transcript merging
-
-2. Document Model  
+### Meeting Model
 Importance Score: 85
-- Document hierarchy system with:
-  - Knowledge graph connections
-  - DIKW pyramid classification
-  - Signal extraction capabilities
-  - Version control tracking
-  - Semantic relationship mapping
+- Structured conversation tracking with 24-hour persistence policy
+- Role-based message history management
+- Signal classification system with 5 categories:
+  - Decisions
+  - Action items 
+  - Blockers
+  - Risks
+  - Ideas
+- Meeting lifecycle states:
+  - Draft
+  - In Progress 
+  - Completed
+  - Archived
+- Integrated screenshot analysis with vision AI annotations
+- Knowledge graph relationship mappings to Documents and Tickets
 
-Key Relationships:
-- Meetings <-> Documents: Bidirectional references for context preservation
-- Meetings <-> Signals: One-to-many relationship with signal categorization
-- Documents <-> DIKW: Hierarchical progression tracking
-- Documents <-> Documents: Knowledge graph connections
-
-The models implement a sophisticated knowledge management system focused on:
+### Document Model
+Importance Score: 80
+- DIKW (Data-Information-Knowledge-Wisdom) hierarchy tracking
+- Custom confidence scoring for knowledge level progression
 - Signal extraction and categorization
-- Context preservation across related items
-- Knowledge hierarchy progression
-- Semantic relationship tracking
+- Relationship tracking:
+  - semantic_similar
+  - derived_from
+  - blocks
+  - depends_on
+- Version control with file change tracking
+- Tag clustering with automatic categorization
+
+## Relationships
+
+### Meeting-Document Links
+Importance Score: 75
+- Bidirectional references between related content
+- Context preservation across entities
+- Semantic similarity scoring
+- Custom title generation system
+- Cross-entity signal propagation
+
+### Knowledge Organization 
+Importance Score: 70
+- Structured knowledge progression through DIKW levels
+- Signal promotion workflow with validation
+- Relationship type inference
+- Tag-based clustering
+- Automated mindmap generation
 
 $END$
 

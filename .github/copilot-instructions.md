@@ -18,46 +18,45 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The system implements a sophisticated knowledge management and workflow platform with several key business components:
+The project implements an AI-assisted workflow management system with three primary business domains:
 
-1. Knowledge Graph & DIKW System (Importance: 95/100)
-- DIKW pyramid implementation for transforming data through information and knowledge into wisdom
-- Custom promotion logic between hierarchy levels
-- Multi-view graph visualization with tag-based clustering
-- Signal extraction and categorization system
+## Knowledge Management System (Importance: 90/100)
+- DIKW (Data-Information-Knowledge-Wisdom) pyramid implementation
+- Intelligent signal extraction and categorization
+- Knowledge synthesis algorithms for merging related items
+- Custom confidence scoring with validation metrics
+- Tag clustering and mindmap generation
+Key File: src/app/agents/dikw_synthesizer.py
 
-2. Meeting Intelligence Pipeline (Importance: 90/100) 
-- Structured signal extraction from meetings (decisions, actions, blockers, risks)
-- Multi-source transcript merging
-- Automated summary generation
-- Meeting bundle processing system
+## Meeting Intelligence Platform (Importance: 85/100)
+- Adaptive meeting format analysis
+- Multi-category signal extraction (decisions, actions, risks)
+- Screenshot analysis with vision AI integration
+- Semantic signal grouping and deduplication
+- Meeting bundle processing with knowledge classification
+Key File: src/app/agents/meeting_analyzer.py
 
-3. Workflow Management (Importance: 85/100)
-- Configurable workflow modes with step tracking
-- Sprint points burndown visualization
-- Task-based progress calculation 
-- Custom mode-specific checklists
+## Career Development Engine (Importance: 80/100)
+- Career profile-based suggestion generation
+- Standup analysis with sentiment detection 
+- Role-specific progression pathways
+- Skill tracking and project mapping
+- Career insight synthesis
+Key File: src/app/agents/career_coach.py
 
-4. Assistant Intelligence (Importance: 85/100)
-- Context-aware command suggestions
-- Conversation history with 24-hour expiration
-- Intelligent command categorization
-- Command frequency/recency hybrid sorting
+## Supporting Systems
 
-5. Career Development Framework (Importance: 80/100)
-- Technical specialization tracking
-- Multi-timeline goal management
-- Skills progression framework 
-- Career metrics dashboard
+### Agent Communication Bus (Importance: 75/100)
+- Inter-agent message routing with priority levels
+- Message persistence and retry logic
+- Multi-type message support
+Key File: src/app/services/agent_bus.py
 
-Core Business Concepts:
-- Knowledge hierarchy management through DIKW model
-- Sprint-based workflow system with configurable modes
-- Meeting signal extraction and processing
-- Career development and skills tracking
-- Command-driven workflow automation
-
-The system's primary value lies in its sophisticated knowledge management capabilities, particularly the DIKW implementation and meeting intelligence features. These are tightly integrated with workflow automation and career development tracking to create a comprehensive professional development platform.
+### Conversation Management (Importance: 70/100)
+- 24-hour conversation persistence
+- Context-aware suggestion rotation
+- Command history analytics
+Key File: src/app/templates/components/assistant_widget.html
 
 $END$
 
