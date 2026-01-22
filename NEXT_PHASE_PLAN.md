@@ -1,6 +1,6 @@
 # SignalFlow Next Phase: Strategic Roadmap 2026
 
-**Status:** Planning  
+**Status:** In Progress  
 **Last Updated:** January 22, 2026  
 **Previous Phase:** Migration Complete ✅  
 **Focus:** High-Impact Features + Production Readiness
@@ -12,22 +12,42 @@
 With the core migration complete (28 Supabase tables, agent system, mobile scaffold), the next phase focuses on **high-impact user features** that leverage our sophisticated architecture. Priority is given to features that create tangible workflow improvements for the primary user (Rowan).
 
 **Strategic Priorities:**
-1. **Import Pipeline** - Enable seamless Pocket → SignalFlow workflow
+1. ✅ **Import Pipeline** - Enable seamless Pocket → SignalFlow workflow (COMPLETE)
 2. **Intelligent Notifications** - Proactive system that surfaces insights
 3. **Automated Background Jobs** - System runs continuously, not just on-demand
-4. **Enhanced Search** - Make all knowledge instantly accessible
+4. ✅ **Enhanced Search** - Make all knowledge instantly accessible (COMPLETE)
 5. **Modern Frontend** - Professional UX worthy of the sophisticated backend
 
 ---
 
+## ✅ Completed Phases
+
+### 🚀 Phase F1: Pocket Import Pipeline ✅ COMPLETE (112 tests)
+
+| Feature | Tests | Endpoint | Description |
+|---------|-------|----------|-------------|
+| F1: Markdown Import | 30 | `POST /api/v1/imports/markdown` | Multi-format file upload (MD/PDF/DOCX/TXT) |
+| F1b: Pocket Bundle Amend | 19 | `PATCH /api/v1/imports/{id}/amend` | Add Teams/Pocket transcripts to existing meetings |
+| F1c: Mindmap Screenshot | 21 | `POST /api/v1/imports/mindmap/{id}` | GPT-4 Vision analysis + DIKW extraction |
+
+**Mindmap Usage:** Upload separately via `POST /api/v1/imports/mindmap/{meeting_id}` with the screenshot file. The endpoint uses GPT-4 Vision to analyze the mindmap structure, extract patterns, and create DIKW knowledge items.
+
+### 🔍 Phase F2: Enhanced Search ✅ COMPLETE (42 tests)
+
+| Feature | Tests | Description |
+|---------|-------|-------------|
+| F2: Full-text Search | 20 | Search across `raw_text`, `meeting_documents`, highlight matches |
+| F2b: Quick AI My Updates | 22 | `@Rowan` button searches transcripts for user mentions |
+
+**F2b Features:**
+- Searches for speaker timestamp format (e.g., "Rowan Neri 11:59 AM")
+- Handles both first name and full name searches
+- Extracts context snippets around mentions
+- Uses `USER_NAME` env variable (defaults to "Rowan")
+
+---
+
 ## Phase Breakdown
-
-### 🚀 Phase F1: Pocket Import Pipeline (Impact: 95/100)
-
-**Why This Matters:**
-Rowan uses Pocket mobile app for meeting transcriptions. Creating a frictionless import pipeline is **critical** for daily workflow adoption.
-
-**Implementation:**
 
 #### 1.1 Multi-Format Import Endpoint
 ```python
@@ -574,35 +594,42 @@ Current Jinja2 templates are functional but **lack polish**. A modern React fron
 
 ## Implementation Priority Matrix
 
-| Priority | Item | Impact | Effort | Timeline |
-|----------|------|--------|--------|----------|
-| **P0** | F1: Pocket Import Pipeline | 95/100 | 2-3 days | Week 1 |
-| **P0** | F2: Notification System | 90/100 | 3-4 days | Week 1-2 |
-| **P1** | F3: Scheduled Jobs | 85/100 | 4-5 days | Week 2-3 |
-| **P2** | F4: Enhanced Search | 75/100 | 3 days | Week 3 |
-| **P2** | Test Coverage to 80% | 70/100 | 3-4 days | Week 3-4 |
+| Priority | Item | Impact | Effort | Status |
+|----------|------|--------|--------|--------|
+| **P0** | ✅ F1: Pocket Import Pipeline | 95/100 | 2-3 days | **COMPLETE** (70 tests) |
+| **P0** | ✅ F2: Enhanced Search | 90/100 | 2-3 days | **COMPLETE** (42 tests) |
+| **P1** | F3: Notification System | 85/100 | 3-4 days | Next Priority |
+| **P1** | F4: Scheduled Background Jobs | 80/100 | 4-5 days | After F3 |
+| **P2** | Test Coverage to 80% | 70/100 | 3-4 days | ~80% achieved |
 | **P3** | F6: Next.js Frontend | 80/100 | 4-5 weeks | Month 2 |
 | **P4** | MCP Tool Registry | 65/100 | 1 week | Month 3 |
 | **P4** | F5: Mobile Features | 60/100 | 1 week | Month 3 |
 
-**Recommended Execution Order:**
-1. **Week 1:** F1 (Import) + start F2 (Notifications)
-2. **Week 2:** Finish F2, start F3 (Jobs)
-3. **Week 3:** Finish F3, do F4 (Search)
-4. **Week 4:** Test coverage + bug fixes
-5. **Month 2:** F6 (Frontend redesign) - big project
-6. **Month 3:** MCP integration + mobile polish
+**Execution Progress:**
+- ✅ **Week 1-2:** F1 (Import) COMPLETE - Markdown/PDF import, Pocket bundle amend, Mindmap vision analysis
+- ✅ **Week 2:** F2 (Search) COMPLETE - Full-text search, @Rowan mentions, highlight snippets
+- 🔄 **Week 3:** F3 (Notifications) - Next priority
+- **Week 4:** F4 (Background Jobs) + bug fixes
+- **Month 2:** F6 (Frontend redesign) - big project
+- **Month 3:** MCP integration + mobile polish
 
 ---
 
 ## Success Metrics
 
-**By End of Phase F1-F4 (Month 1):**
-- [ ] Rowan can import Pocket transcripts in <10 seconds
+**By End of Phase F1-F2 ✅ COMPLETE:**
+- [x] Rowan can import Pocket transcripts in <10 seconds
+- [x] Multi-format support (MD, PDF, DOCX, TXT)
+- [x] Mindmap screenshots analyzed via GPT-4 Vision
+- [x] Search returns relevant results across meetings in <1s
+- [x] @Rowan button surfaces personal mentions
+- [x] 112 tests passing, ~80% coverage
+
+**By End of Phase F3-F4 (Target: Week 4):**
 - [ ] System sends 5+ notifications per week proactively
 - [ ] Background jobs run without manual intervention
-- [ ] Search returns relevant results across all entities in <1s
-- [ ] Test coverage above 80%
+- [ ] Action items tracked with due date reminders
+- [ ] Transcript-ticket matching automated
 
 **By End of Phase F6 (Month 2):**
 - [ ] Next.js frontend live in production

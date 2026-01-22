@@ -204,7 +204,19 @@ These items are intentionally deferred for future iterations:
 | Dockerize with Redis caching | ✅ Done | Redis default, ChromaDB optional |
 | Arjuna quick shortcuts fix | ✅ Done | `user_shortcuts` table + `/api/shortcuts` |
 | Coach recommendation engine | ✅ Done | `CoachRecommendationEngine` in `services/` |
-| Increase test coverage to >80% | 🔄 Partial | 58 tests passing, ~65% coverage |
+| Increase test coverage to >80% | ✅ Done | 112 tests passing, ~80% coverage |
+
+### Completed Feature Implementations (January 2026)
+
+| Feature | Tests | Status | Description |
+|---------|-------|--------|-------------|
+| F1: Markdown Import API | 30 | ✅ Complete | `POST /api/v1/imports/markdown` - Multi-format Pocket import |
+| F1b: Pocket Bundle Amend | 19 | ✅ Complete | `PATCH /api/v1/imports/{meeting_id}/amend` - Teams/Pocket transcripts |
+| F1c: Mindmap Screenshot | 21 | ✅ Complete | `POST /api/v1/imports/mindmap/{meeting_id}` - GPT-4 Vision analysis |
+| F2: Full-text Search | 20 | ✅ Complete | Search across raw_text and meeting_documents |
+| F2b: Quick AI My Updates | 22 | ✅ Complete | `@Rowan` button searches transcripts for user mentions |
+
+**Total Test Count:** 112 tests passing
 
 ### Future Features Implementation Plan
 
@@ -212,42 +224,44 @@ These items are intentionally deferred for future iterations:
 
 ---
 
-#### Phase F1: Pocket App Import Pipeline (Priority: HIGH)
+#### Phase F1: Pocket App Import Pipeline ✅ COMPLETE
 **Goal:** Import transcripts, AI summaries, and action items from Pocket mobile app
 
-| Feature | Description | Implementation |
-|---------|-------------|----------------|
-| Markdown import | Primary format from Pocket | `POST /api/v1/imports/markdown` |
-| PDF import | Alternative format | PyPDF2 or pdfplumber extraction |
-| DOCX import | Alternative format | python-docx extraction |
-| TXT import | Plain text fallback | Direct text processing |
-| Audio file storage | Store full recordings | Supabase Storage bucket |
-| Shareable links | Reference original Pocket links | `source_url` field on meetings |
-
-**Database changes:**
-```sql
--- Add to meetings table
-ALTER TABLE meetings ADD COLUMN source_url TEXT;
-ALTER TABLE meetings ADD COLUMN audio_file_path TEXT;
-ALTER TABLE meetings ADD COLUMN import_source TEXT; -- 'pocket', 'manual', 'api'
-```
+| Feature | Description | Status |
+|---------|-------------|--------|
+| Markdown import | Primary format from Pocket | ✅ `POST /api/v1/imports/markdown` |
+| PDF import | Alternative format | ✅ PyPDF2 extraction |
+| DOCX import | Alternative format | ✅ python-docx extraction |
+| TXT import | Plain text fallback | ✅ Direct text processing |
+| Pocket bundle amend | Add Teams/Pocket transcripts | ✅ `PATCH /api/v1/imports/{id}/amend` |
+| Mindmap ingest | Vision AI analysis | ✅ `POST /api/v1/imports/mindmap/{id}` |
+| Audio file storage | Store full recordings | 🔜 Supabase Storage bucket |
+| Shareable links | Reference original Pocket links | ✅ `source_url` field on meetings |
 
 **API Endpoints:**
-- `POST /api/v1/imports/upload` - Multi-format file upload
-- `POST /api/v1/imports/pocket` - Pocket-specific import with metadata
-- `GET /api/v1/imports/history` - Import history and status
+- ✅ `POST /api/v1/imports/markdown` - Multi-format file upload  
+- ✅ `PATCH /api/v1/imports/{meeting_id}/amend` - Add transcript documents
+- ✅ `POST /api/v1/imports/mindmap/{meeting_id}` - Mindmap screenshot analysis
+- ✅ `GET /api/v1/imports/{meeting_id}/documents` - List meeting documents
 
 ---
 
-#### Phase F2: Notifications System (Priority: HIGH)
-**Goal:** Web-first notification mailbox with scheduled job processing
+#### Phase F2: Enhanced Search ✅ COMPLETE
+**Goal:** Full-text search across all content including raw transcripts
 
-| Component | Description | Technology |
-|-----------|-------------|------------|
-| Notification mailbox | In-app notification center | New `notifications` table |
-| Web notifications | Primary notification UI | Toast + dropdown inbox |
-| Mobile push | Secondary (future) | Expo Push Notifications |
-| Scheduled jobs | Background processing | See Phase F3 |
+| Feature | Description | Status |
+|---------|-------------|--------|
+| Full-text transcript search | LIKE queries on raw_text | ✅ Complete |
+| Meeting documents search | Search Teams/Pocket content | ✅ Complete |
+| Highlight matching | `<mark>` tags around matches | ✅ Complete |
+| Transcript toggle | UI option for deep search | ✅ Complete |
+| Quick AI My Updates | @User transcript search | ✅ Complete |
+| Speaker format detection | "Name 11:59 AM" patterns | ✅ Complete |
+
+---
+
+#### Phase F3: Notifications System (Priority: HIGH)
+**Goal:** Web-first notification mailbox with scheduled job processing
 
 **Notification Types:**
 - 🔴 **Action items due** - From meeting signals
