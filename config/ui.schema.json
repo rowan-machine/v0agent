@@ -1,0 +1,146 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "signalflow-ui-config",
+  "title": "SignalFlow UI Configuration Schema",
+  "description": "Schema for validating SignalFlow UI configuration files",
+  "type": "object",
+  "required": ["version", "layouts", "components", "themes"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$",
+      "description": "Configuration schema version"
+    },
+    "schema": {
+      "type": "string",
+      "description": "Schema identifier"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "description": {"type": "string"},
+        "lastUpdated": {"type": "string", "format": "date"},
+        "environments": {
+          "type": "array",
+          "items": {"type": "string", "enum": ["development", "staging", "production"]}
+        }
+      }
+    },
+    "layouts": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/definitions/layout"}
+    },
+    "components": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/definitions/component"}
+    },
+    "themes": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/definitions/theme"}
+    },
+    "featureFlags": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/definitions/featureFlag"}
+    }
+  },
+  "definitions": {
+    "layout": {
+      "type": "object",
+      "required": ["breakpoints"],
+      "properties": {
+        "description": {"type": "string"},
+        "breakpoints": {
+          "type": "object",
+          "properties": {
+            "desktop": {"$ref": "#/definitions/breakpoint"},
+            "tablet": {"$ref": "#/definitions/breakpoint"},
+            "mobile": {"$ref": "#/definitions/breakpoint"}
+          }
+        }
+      }
+    },
+    "breakpoint": {
+      "type": "object",
+      "required": ["sections"],
+      "properties": {
+        "width": {"type": "string"},
+        "sections": {
+          "type": "array",
+          "items": {"$ref": "#/definitions/section"}
+        }
+      }
+    },
+    "section": {
+      "type": "object",
+      "required": ["id", "component"],
+      "properties": {
+        "id": {"type": "string"},
+        "component": {"type": "string"},
+        "position": {
+          "type": "string",
+          "enum": ["top", "bottom", "left", "right", "center", "full-width", "full-screen", "bottom-right", "bottom-sheet"]
+        },
+        "props": {"type": "object"}
+      }
+    },
+    "component": {
+      "type": "object",
+      "required": ["implementations"],
+      "properties": {
+        "description": {"type": "string"},
+        "implementations": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["path", "type"],
+            "properties": {
+              "path": {"type": "string"},
+              "type": {"type": "string", "enum": ["jinja2", "react", "react-native", "vue", "svelte"]}
+            }
+          }
+        },
+        "requiredProps": {"type": "array", "items": {"type": "string"}},
+        "optionalProps": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "theme": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "colors": {
+          "type": "object",
+          "properties": {
+            "primary": {"type": "string"},
+            "secondary": {"type": "string"},
+            "background": {"type": "string"},
+            "surface": {"type": "string"},
+            "error": {"type": "string"},
+            "success": {"type": "string"},
+            "warning": {"type": "string"},
+            "info": {"type": "string"}
+          }
+        },
+        "fonts": {"type": "object"},
+        "spacing": {"type": "object"},
+        "borderRadius": {"type": "object"}
+      }
+    },
+    "featureFlag": {
+      "type": "object",
+      "required": ["enabled"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "environments": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "rolloutPercentage": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "description": {"type": "string"}
+      }
+    }
+  }
+}
