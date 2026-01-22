@@ -32,6 +32,23 @@ from .auth import (
     destroy_session, get_auth_password, hash_password
 )
 
+# Import from new DIKWSynthesizer agent (Checkpoint 2.5)
+from .agents.dikw_synthesizer import (
+    DIKWSynthesizerAgent,
+    get_dikw_synthesizer,
+    DIKW_LEVELS as AGENT_DIKW_LEVELS,
+    # Adapter functions for backward compatibility
+    promote_signal_to_dikw_adapter,
+    promote_dikw_item_adapter,
+    merge_dikw_items_adapter,
+    validate_dikw_item_adapter,
+    generate_dikw_tags_adapter,
+    ai_summarize_dikw_adapter,
+    ai_promote_dikw_adapter,
+    get_mindmap_data_adapter,
+    generate_dikw_tags,  # Sync wrapper
+)
+
 app = FastAPI(title="Hare Krishna - Memory & Signal Intelligence")
 
 # Add authentication middleware
@@ -1878,9 +1895,11 @@ async def get_current_status():
 # ============================================
 # DIKW Pyramid API Endpoints
 # Data → Information → Knowledge → Wisdom
+# DIKWSynthesizerAgent integration (Checkpoint 2.5)
 # ============================================
 
-DIKW_LEVELS = ['data', 'information', 'knowledge', 'wisdom']
+# DIKW_LEVELS now imported from agents/dikw_synthesizer.py as AGENT_DIKW_LEVELS
+DIKW_LEVELS = AGENT_DIKW_LEVELS  # Re-export for backward compatibility
 DIKW_NEXT_LEVEL = {'data': 'information', 'information': 'knowledge', 'knowledge': 'wisdom'}
 
 @app.get("/api/dikw")
@@ -2189,27 +2208,8 @@ async def validate_dikw_item(request: Request):
     return JSONResponse({"status": "ok", "action": action})
 
 
-def generate_dikw_tags(content: str, level: str, existing_tags: str = "") -> str:
-    """Generate relevant tags for DIKW content using AI."""
-    try:
-        prompt = f"""Generate 3-5 relevant, concise tags for this {level}-level DIKW item.
-
-Content: {content[:500]}
-
-Rules:
-- Tags should be lowercase, single words or hyphenated-phrases
-- Focus on: topic, domain, type of insight, actionability
-- Examples: architecture, team-process, sprint-planning, technical-debt, decision
-{f"Existing tags to consider: {existing_tags}" if existing_tags else ""}
-
-Return ONLY comma-separated tags, nothing else:"""
-        tags = ask_llm(prompt).strip()
-        # Clean up the response
-        tags = tags.replace('"', '').replace("'", '').strip()
-        return tags
-    except Exception as e:
-        print(f"Error generating tags: {e}")
-        return ""
+# generate_dikw_tags is now imported from agents/dikw_synthesizer.py (Checkpoint 2.5)
+# The imported version handles both sync and async contexts
 
 
 @app.post("/api/dikw/generate-tags")
