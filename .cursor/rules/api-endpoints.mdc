@@ -1,56 +1,56 @@
 ---
-description: Documents the FastAPI routes for managing meetings and documents with business-focused CRUD operations
+description: API endpoint documentation for meeting and document management with business-specific signal extraction and workflow integration.
 ---
 
 
 # api-endpoints
 
-## Meeting Management Endpoints
-Importance Score: 85
+FastAPI Routes for Meeting and Document Management
 
-Key routes implementing domain-specific meeting management:
+## Signal Extraction Endpoints
+Importance Score: 85/100
 
-1. Signal Extraction Pipeline
-```
-/meetings/{meeting_id}/signals
-/meetings/{meeting_id}/extract
-```
-- Processes meeting transcripts into categorized business signals
-- Extracts decisions, action items, blockers and risks
-- Maintains signal relationships and hierarchies
+/api/meetings/signals
+- Extracts structured business signals from meeting content
+- Categorizes into decisions, action items, blockers, risks, ideas
+- Associates signals with originating meetings and participants
+- Integrates with knowledge graph for relationship tracking
 
-2. Meeting Bundle Processing 
-```
-/meetings/bundle/process
-```
-- Processes uploaded meeting bundles with signal extraction
-- Performs contextual metadata enrichment
-- Links related knowledge graph entities
+/api/meetings/process
+- Implements meeting intelligence pipeline
+- Analyzes screenshots for additional context
+- Maintains signal relationships and metadata
+- Generates meeting summaries with extracted insights
 
-## Document Processing Routes
-Importance Score: 75
+## Workflow Management Endpoints
+Importance Score: 80/100
 
-Domain-specific document handling:
-```
-/documents/signals
-/documents/extract
-```
-- Custom signal classification for uploaded documents
-- Document-to-meeting relationship mapping
-- Knowledge graph integration points
+/api/workflow/mode
+- Controls 7 distinct workflow modes for sprint management
+- Handles mode-specific validations and transitions
+- Manages workflow state progression
+- Integrates with sprint settings
 
-## Knowledge Graph API
-Importance Score: 90
+/api/workflow/sprint
+- Manages sprint lifecycle operations
+- Handles ticket backlog migration
+- Implements sprint progress reset logic
+- Controls time tracking archival rules
 
-Graph traversal and relationship endpoints:
-```
-/graph/signals
-/graph/relationships
-```
-- Organizational knowledge structure endpoints
-- Signal chain management
-- Temporal relationship tracking
-- Business context propagation
+## Knowledge Management Endpoints
+Importance Score: 75/100
+
+/api/knowledge/graph
+- Creates domain-specific knowledge relationships
+- Links meetings, signals, documents, and topics
+- Implements DIKW hierarchy promotions
+- Manages semantic relationship inference
+
+/api/knowledge/context
+- Builds contextual awareness for assistant interactions
+- Merges conversation history with knowledge base
+- Handles meeting-specific context modes
+- Integrates screenshot summaries
 
 $END$
 
