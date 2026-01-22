@@ -1100,6 +1100,87 @@ Analyze the user's intent and respond with JSON as specified."""
         
         return suggestions
     
+    async def quick_ask(
+        self,
+        topic: Optional[str] = None,
+        query: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Handle quick AI questions from the dashboard.
+        
+        Args:
+            topic: Predefined topic (blockers, decisions, action_items, etc.)
+            query: Custom query string
+        
+        Returns:
+            Dict with response and success status
+        """
+        # Topic prompts for common dashboard questions
+        topic_prompts = {
+            "blockers": "What are the current blockers or obstacles mentioned in recent meetings?",
+            "decisions": "What key decisions were made in recent meetings?",
+            "action_items": "What are the outstanding action items from recent meetings?",
+            "ideas": "What new ideas or suggestions came up in recent meetings?",
+            "risks": "What risks were identified in recent meetings?",
+            "this_week": "Summarize what happened this week based on recent meetings and documents.",
+            "rowan_mentions": "What mentions of Rowan or items assigned to Rowan are there in recent meetings?",
+            "reach_outs": "Who needs to be contacted or reached out to based on recent meetings? What follow-ups are needed?",
+            "announcements": "What team-wide announcements or important updates were shared in recent meetings?",
+        }
+        
+        # Build the question
+        if topic:
+            question = topic_prompts.get(topic, f"Tell me about {topic} from recent meetings.")
+        else:
+            question = query or "What's most important right now?"
+        
+        # Get context from recent meetings
+        try:
+            from ..db import connect
+            with connect() as conn:
+                recent = conn.execute(
+                    """SELECT meeting_name, synthesized_notes, signals_json 
+                       FROM meeting_summaries 
+                       ORDER BY COALESCE(meeting_date, created_at) DESC 
+                       LIMIT 5"""
+                ).fetchall()
+        except Exception as e:
+            logger.error(f"Failed to fetch meeting context: {e}")
+            recent = []
+        
+        context_parts = []
+        for m in recent:
+            context_parts.append(f"Meeting: {m['meeting_name']}\n{m['synthesized_notes'][:1000]}")
+            if m["signals_json"]:
+                try:
+                    signals = json.loads(m["signals_json"])
+                    for stype in ["decisions", "action_items", "blockers", "risks", "ideas"]:
+                        items = signals.get(stype, [])
+                        if items:
+                            context_parts.append(f"{stype}: {', '.join(items[:3])}")
+                except Exception:
+                    pass
+        
+        context = "\n\n".join(context_parts)
+        
+        prompt = f"""Based on this context from recent meetings and documents:
+
+{context}
+
+Question: {question}
+
+Provide a concise, helpful answer. Focus on the most relevant information. Use bullet points where appropriate."""
+
+        try:
+            response = await self.ask_llm(
+                prompt=prompt,
+                task_type="synthesis",  # Use synthesis model for summarization
+            )
+            return {"response": response, "success": True}
+        except Exception as e:
+            logger.error(f"Quick ask failed: {e}")
+            return {"response": f"AI Error: {str(e)}", "success": False}
+    
     def _enhance_response(
         self,
         response_text: str,
@@ -1302,6 +1383,53 @@ def execute_intent(intent_data: dict) -> dict:
         return {"success": False, "error": str(e)}
 
 
+async def quick_ask(topic: Optional[str] = None, query: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Adapter: Quick AI questions from dashboard (delegates to ArjunaAgent).
+    
+    Args:
+        topic: Predefined topic (blockers, decisions, action_items, etc.)
+        query: Custom query string
+    
+    Returns:
+        Dict with response and success status
+    """
+    agent = get_arjuna_agent()
+    return await agent.quick_ask(topic=topic, query=query)
+
+
+def quick_ask_sync(topic: Optional[str] = None, query: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Synchronous adapter for quick_ask (for use in sync contexts).
+    
+    Args:
+        topic: Predefined topic (blockers, decisions, action_items, etc.)
+        query: Custom query string
+    
+    Returns:
+        Dict with response and success status
+    """
+    import asyncio
+    
+    agent = get_arjuna_agent()
+    
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    agent.quick_ask(topic=topic, query=query),
+                )
+                return future.result()
+        else:
+            return loop.run_until_complete(agent.quick_ask(topic=topic, query=query))
+    except Exception as e:
+        logger.error(f"Quick ask failed: {e}")
+        return {"response": f"AI Error: {str(e)}", "success": False}
+
+
 # Export constants for backward compatibility
 __all__ = [
     "ArjunaAgent",
@@ -1322,4 +1450,6 @@ __all__ = [
     "get_system_context",
     "parse_assistant_intent",
     "execute_intent",
+    "quick_ask",
+    "quick_ask_sync",
 ]

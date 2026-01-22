@@ -332,6 +332,118 @@ Keep responses conversational - think "wise friend" not "corporate HR presentati
                 "feedback": "Could not generate feedback.",
             }
     
+    async def suggest_standup(
+        self,
+        tickets: List[Dict] = None,
+        ticket_files_map: Dict[str, List[Dict]] = None,
+        code_changes: List[Dict] = None,
+        code_locker_code: Dict[str, Dict[str, str]] = None,
+        yesterday_standup: Dict = None,
+    ) -> Dict[str, Any]:
+        """
+        Generate a suggested standup based on code locker changes and ticket progress.
+        
+        Args:
+            tickets: Active sprint tickets
+            ticket_files_map: Map of ticket_id to planned files
+            code_changes: Recent code changes logged
+            code_locker_code: Current code content per ticket
+            yesterday_standup: Previous standup for continuity
+        
+        Returns:
+            Dict with suggestion text
+        """
+        tickets = tickets or []
+        ticket_files_map = ticket_files_map or {}
+        code_changes = code_changes or []
+        code_locker_code = code_locker_code or {}
+        
+        # Build context sections
+        tickets_context = "\n".join([
+            f"- {t.get('ticket_id', 'UNKNOWN')}: {t.get('title', 'Untitled')} (Status: {t.get('status', 'unknown')})"
+            for t in tickets
+        ]) or "No active sprint tickets."
+
+        # Build file context per ticket
+        files_context = ""
+        if ticket_files_map:
+            files_parts = []
+            for ticket_id, files in ticket_files_map.items():
+                update_files = [f for f in files if f.get('file_type') == 'update']
+                new_files = [f for f in files if f.get('file_type') == 'new']
+
+                parts = [f"Files for {ticket_id}:"]
+                if update_files:
+                    parts.append("  Files to modify:")
+                    for f in update_files:
+                        version_info = f"v{f.get('latest_version')}" if f.get('latest_version') else "baseline set"
+                        has_base = "has base code" if f.get('base_content') else "no base"
+                        parts.append(f"    - {f.get('filename', 'unknown')} ({version_info}, {has_base})")
+                if new_files:
+                    parts.append("  New files to create:")
+                    for f in new_files:
+                        desc = f" - {f.get('description')}" if f.get('description') else ""
+                        parts.append(f"    - {f.get('filename', 'unknown')}{desc}")
+                files_parts.append("\n".join(parts))
+            files_context = "\n\nPlanned File Changes:\n" + "\n".join(files_parts)
+
+        # Add code locker context
+        code_locker_context = ""
+        for ticket_code, files in code_locker_code.items():
+            if files:
+                code_locker_context += f"\nCode for {ticket_code}:\n"
+                for fname, code in files.items():
+                    code_locker_context += f"- {fname} (latest):\n{code}\n"
+
+        code_context = ""
+        if code_changes:
+            code_context = "\nRecent code changes logged:\n" + "\n".join([
+                f"- {c.get('filename', 'unknown')} (v{c.get('version', '?')}) for {c.get('ticket_code') or 'unassigned'}: {c.get('notes') or 'no notes'}"
+                for c in code_changes
+            ])
+        else:
+            code_context = "\nNo recent code changes logged."
+
+        yesterday_context = ""
+        if yesterday_standup:
+            yesterday_context = f"\n\nYesterday's standup:\n{yesterday_standup.get('content', '')[:500]}"
+
+        prompt = f"""Generate a suggested standup update based on the following context.
+
+Active Sprint Tickets:
+{tickets_context}
+{files_context}
+{code_locker_context}
+{code_context}
+{yesterday_context}
+
+Generate a professional standup update covering:
+1. What was accomplished since last standup (reference specific code changes if any)
+2. What's planned for today (mention specific files to modify or create)
+3. Any blockers or concerns
+
+When referencing files:
+- For "files to modify": these are existing files that need changes
+- For "new files to create": these are entirely new files being added (the diff would show everything as new)
+
+Keep it concise but informative (3-5 bullet points per section).
+Use first person (I, my, etc.)."""
+
+        try:
+            from ..llm import ask as ask_llm
+            suggestion = ask_llm(prompt, model="gpt-4o-mini")
+            return {
+                "success": True,
+                "suggestion": suggestion,
+            }
+        except Exception as e:
+            logger.error(f"Failed to generate standup suggestion: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "suggestion": "",
+            }
+    
     async def generate_insights(
         self,
         profile: Dict,
@@ -671,6 +783,37 @@ async def analyze_standup_adapter(
     }
 
 
+async def suggest_standup_adapter(
+    tickets: List[Dict] = None,
+    ticket_files_map: Dict[str, List[Dict]] = None,
+    code_changes: List[Dict] = None,
+    code_locker_code: Dict[str, Dict[str, str]] = None,
+    yesterday_standup: Dict = None,
+    db_connection=None,
+) -> Dict[str, Any]:
+    """
+    Adapter for standup suggestion generation matching api/career.py interface.
+    
+    Returns:
+        Dict with status and suggestion text
+    """
+    agent = get_career_coach_agent(db_connection=db_connection)
+    
+    result = await agent.suggest_standup(
+        tickets=tickets,
+        ticket_files_map=ticket_files_map,
+        code_changes=code_changes,
+        code_locker_code=code_locker_code,
+        yesterday_standup=yesterday_standup,
+    )
+    
+    return {
+        "status": "ok" if result.get("success") else "error",
+        "suggestion": result.get("suggestion", ""),
+        "error": result.get("error"),
+    }
+
+
 # Export constants for backward compatibility
 __all__ = [
     "CareerCoachAgent",
@@ -682,4 +825,5 @@ __all__ = [
     "career_chat_adapter",
     "generate_suggestions_adapter",
     "analyze_standup_adapter",
+    "suggest_standup_adapter",
 ]

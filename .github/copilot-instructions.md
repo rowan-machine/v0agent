@@ -18,47 +18,56 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-## Core System Components
+The system implements a sophisticated AI-assisted workflow management platform with several core business components:
 
-### Assistant Widget Intelligence
-Importance Score: 75/100
-- 24-hour conversation persistence with automatic cleanup
-- Rotating contextual suggestion system with 4 distinct suggestion sets
-- Command history tracking with frequency-based ranking
-- Contextual response handling for AI clarifications
-- Domain-specific workflow integrations for sprints and tickets
+## Knowledge Management Architecture (Score: 90/100)
+- DIKW (Data-Information-Knowledge-Wisdom) pyramid implementation
+- Signal synthesis and merging algorithms for knowledge promotion
+- Tag clustering and mindmap generation
+- Semantic deduplication of knowledge items
+- Custom signal validation rules per DIKW level
 
-### Knowledge Management System
-Importance Score: 85/100
-- DIKW (Data-Information-Knowledge-Wisdom) transformation pipeline
-- Signal promotion logic through knowledge hierarchy levels
-- Semantic merging of related knowledge items
-- Custom confidence scoring for knowledge validation
-- Business rules for DIKW level transitions
+## Meeting Intelligence System (Score: 85/100)
+- Signal extraction from multiple meeting formats
+- Categorization into decisions, action items, blockers, risks, ideas
+- Context-aware signal synthesis
+- Domain-specific validation patterns
+- Integration with sprint management workflows
 
-### Meeting Intelligence Pipeline 
-Importance Score: 90/100
-- Adaptive meeting summary parsing system
-- Signal extraction for decisions, action items, blockers, risks
-- Domain-specific signal categorization
-- Semantic deduplication of extracted content
-- Integration with career development tracking
+## Workflow Mode Management (Score: 85/100)
+Seven distinct operational modes:
+- Context Distillation
+- Implementation Planning
+- Assisted Draft Intake
+- Deep Review & Validation
+- Promotion Readiness
+- Controlled Ingress/Egress
+- Execution
 
-### Workflow Orchestration
-Importance Score: 85/100
-- Mode-based workflow engine (Modes A-G)
-- Context-aware command routing system
-- Tool discovery and capability management
-- Custom accountability tracking system
-- Sprint management with AI-assisted task breakdown
+Each mode maintains specific steps, progress tracking, and transition rules.
 
-### Agent Communication Framework
-Importance Score: 80/100
-- Priority-based message queuing
-- TTL management for agent messages
-- Directed and broadcast messaging patterns
-- Message state transition tracking
-- Context preservation across agent interactions
+## Career Development System (Score: 75/100)
+- Standup analysis with sentiment detection
+- Skills-project correlation tracking
+- Career growth suggestion generation
+- Performance pattern detection
+- Multi-source insight synthesis
+
+## Command Intelligence System (Score: 80/100)
+- Auto-categorization with semantic emoji mapping
+- Weighted command history tracking
+- Adaptive suggestion cycling
+- Context-aware follow-up generation
+- Multi-model AI switching capability
+
+## Knowledge Graph Integration (Score: 85/100)
+- Custom schema for development workflow
+- Specialized relationship types
+- Automatic signal relationship inference
+- Person context and meeting subgraphs
+- Domain-specific graph queries
+
+The system's core value proposition lies in its sophisticated integration of AI assistance with structured workflow management and knowledge processing, specifically tailored for software development teams.
 
 $END$
 

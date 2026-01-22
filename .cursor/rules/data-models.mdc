@@ -1,65 +1,54 @@
 ---
-description: Documents core data models and relationships for meetings and documents in a knowledge management system
+description: Core data models documentation for the Meetings and Documents domain entities and their relationships
 ---
 
 
 # data-models
 
-The system implements two primary data models with sophisticated relationships:
+The system contains two primary data models with complex relationships and business rules:
 
-## Meeting Model
+## Meetings Model
 Importance Score: 90/100
 
-Core fields:
-- UUID identifier
-- Title & description  
-- Meeting date/time
-- Summary content
-- Extracted signals:
+Core Structure:
+- Meeting ID (UUID)
+- Meeting Type (Teams/Pocket) 
+- Signals Collection
   - Decisions
-  - Action items 
-  - Blockers
+  - Action Items
   - Risks
+  - Blockers
   - Ideas
-- Related documents
-- Participants
-- Status tracking
+- Document References
+- Knowledge Graph Mappings
 
-## Document Model
+Key Business Rules:
+- Maintains parent-child relationships between related meetings
+- Links extracted signals to DIKW knowledge hierarchy
+- Tracks signal promotion through knowledge levels
+- Maps meeting relationships to sprints and tickets
+
+## Documents Model
 Importance Score: 85/100
 
-Core fields:
-- UUID identifier
-- Title & description
-- Document type 
-- Content/body
-- Related meetings
-- Version history
-- Signal references
-- Knowledge category
-- DIKW pyramid level
+Core Structure:
+- Document ID (UUID)
+- Content Type
+- Related Meeting References
+- Signal Mappings
+- Knowledge Graph Position
+
+Key Business Rules:
+- Documents can be linked to multiple meetings
+- Maintains bidirectional references with meetings
+- Tracks document position in DIKW hierarchy
+- Maps document relationships to sprint artifacts
 
 ## Relationship Structure
-
-Bidirectional linking between meetings and documents with:
-- Signal cross-referencing
-- Knowledge hierarchy mapping
-- Context preservation
-- Temporal relationships
-- Participant attribution
-
-Knowledge items are classified within the DIKW pyramid levels:
-- Data: Raw meeting/document content
-- Information: Structured extracts
-- Knowledge: Analyzed patterns
-- Wisdom: Strategic insights
-
-The models support:
-- Signal propagation through related items
-- Automatic knowledge categorization
-- Meeting-document context linking
-- Temporal relationship tracking
-- Multi-level attribution
+- Meetings and Documents maintain many-to-many relationships
+- Both entities connect to the Knowledge Graph through signal mappings
+- Signal promotion tracks progression through DIKW levels
+- Sprint artifacts link to both meetings and documents
 
 $END$
 

@@ -8,7 +8,7 @@
       "-y",
       "@supabase/mcp-server-supabase@latest",
       "--access-token",
-      "${env:SUPABASE_SECRET_KEY}",
+      "sb_secret_20tVmxLWVyqKtrjmNW8vmg__xsMCJGy",
       "--features",
       "schema,sql-execution-read,sql-execution-write,database-operation"
     ]

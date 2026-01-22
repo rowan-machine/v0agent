@@ -781,7 +781,13 @@ async def learn_from_feedback():
 
 @router.post("/api/career/standups")
 async def create_standup(request: Request):
-    """Upload a standup update and generate AI feedback."""
+    """
+    Upload a standup update and generate AI feedback.
+    
+    Delegates to CareerCoachAgent.analyze_standup() for AI processing.
+    """
+    from ..agents.career_coach import analyze_standup_adapter
+    
     data = await request.json()
     content = (data.get("content") or "").strip()
     standup_date = data.get("date")  # Optional, defaults to today
@@ -813,6 +819,7 @@ async def create_standup(request: Request):
         
         # Get career profile for context
         profile = conn.execute("SELECT * FROM career_profile WHERE id = 1").fetchone()
+        profile_dict = dict(profile) if profile else {}
         
         # Get recent standups for pattern analysis
         recent_standups = conn.execute("""
@@ -821,6 +828,7 @@ async def create_standup(request: Request):
             ORDER BY standup_date DESC 
             LIMIT 5
         """).fetchall()
+        recent_standups_list = [dict(s) for s in recent_standups]
         
         # Get active tickets for context
         tickets = conn.execute("""
@@ -831,74 +839,21 @@ async def create_standup(request: Request):
             ORDER BY created_at DESC
             LIMIT 10
         """).fetchall()
+        tickets_list = [dict(t) for t in tickets]
         
-        recent_context = "\n".join([
-            f"- {s['content'][:200]}... (Sentiment: {s['sentiment']})" 
-            for s in recent_standups
-        ]) or "No previous standups."
-        
-        tickets_context = "\n".join([
-            f"- {t['ticket_id']}: {t['title']} ({t['status']})"
-            for t in tickets
-        ]) or "No active sprint tickets."
-        
-        # Generate AI feedback
-        prompt = f"""You are a supportive career coach reviewing a standup update. Analyze this standup and provide helpful feedback.
-
-Career Context:
-- Current Role: {profile['current_role'] if profile else 'Unknown'}
-- Target Role: {profile['target_role'] if profile else 'Unknown'}
-- Goals: {profile['goals'] if profile else 'Not specified'}
-
-Active Sprint Tickets:
-{tickets_context}
-
-Recent Standup History:
-{recent_context}
-
-Today's Standup Update:
-{content}
-
-Provide:
-1. SENTIMENT: Classify as 'positive', 'neutral', 'blocked', or 'struggling'
-2. KEY_THEMES: 2-4 comma-separated main themes/topics
-3. FEEDBACK: 2-3 paragraphs of supportive, actionable feedback:
-   - Acknowledge what's going well
-   - If there are blockers, suggest approaches
-   - Connect work to career growth when relevant
-   - Keep it encouraging and practical
-
-Format your response as:
-SENTIMENT: <sentiment>
-KEY_THEMES: <theme1>, <theme2>, <theme3>
-FEEDBACK:
-<your feedback paragraphs>"""
-
+        # Delegate to CareerCoachAgent for AI feedback
         try:
-            response = ask_llm(prompt, model="gpt-4o-mini")
+            result = await analyze_standup_adapter(
+                content=content,
+                profile=profile_dict,
+                tickets=tickets_list,
+                recent_standups=recent_standups_list,
+                db_connection=conn,
+            )
             
-            # Parse response
-            lines = response.strip().split('\n')
-            sentiment = 'neutral'
-            key_themes = ''
-            feedback_lines = []
-            in_feedback = False
-            
-            for line in lines:
-                if line.startswith('SENTIMENT:'):
-                    sentiment = line.replace('SENTIMENT:', '').strip().lower()
-                    if sentiment not in ('positive', 'neutral', 'blocked', 'struggling'):
-                        sentiment = 'neutral'
-                elif line.startswith('KEY_THEMES:'):
-                    key_themes = line.replace('KEY_THEMES:', '').strip()
-                elif line.startswith('FEEDBACK:'):
-                    in_feedback = True
-                elif in_feedback:
-                    feedback_lines.append(line)
-            
-            feedback = '\n'.join(feedback_lines).strip()
-            if not feedback:
-                feedback = response  # Use full response if parsing failed
+            feedback = result.get("feedback", "")
+            sentiment = result.get("sentiment", "neutral")
+            key_themes = result.get("key_themes", "")
                 
         except Exception as e:
             feedback = f"Could not generate feedback: {str(e)}"
@@ -925,7 +880,13 @@ FEEDBACK:
 
 @router.post("/api/career/standups/suggest")
 async def suggest_standup(request: Request):
-    """Generate a suggested standup based on code locker changes and ticket progress."""
+    """
+    Generate a suggested standup based on code locker changes and ticket progress.
+    
+    Delegates to CareerCoachAgent.suggest_standup() for AI processing.
+    """
+    from ..agents.career_coach import suggest_standup_adapter
+    
     with connect() as conn:
         # Get active sprint tickets
         tickets = conn.execute("""
@@ -941,6 +902,7 @@ async def suggest_standup(request: Request):
                     WHEN 'todo' THEN 4
                 END
         """).fetchall()
+        tickets_list = [dict(t) for t in tickets]
         
         # Get ticket files for each active ticket
         ticket_files_map = {}
@@ -966,6 +928,7 @@ async def suggest_standup(request: Request):
             ORDER BY cl.created_at DESC
             LIMIT 20
         """).fetchall()
+        code_changes_list = [dict(c) for c in code_changes]
         
         # Get yesterday's standup for continuity
         yesterday_standup = conn.execute("""
@@ -975,81 +938,25 @@ async def suggest_standup(request: Request):
             ORDER BY standup_date DESC 
             LIMIT 1
         """).fetchone()
+        yesterday_standup_dict = dict(yesterday_standup) if yesterday_standup else None
         
-        # Build context
-        tickets_context = "\n".join([
-            f"- {t['ticket_id']}: {t['title']} (Status: {t['status']})"
-            for t in tickets
-        ]) or "No active sprint tickets."
-
-        # Build file context per ticket
-        files_context = ""
-        if ticket_files_map:
-            files_parts = []
-            for ticket_id, files in ticket_files_map.items():
-                update_files = [f for f in files if f['file_type'] == 'update']
-                new_files = [f for f in files if f['file_type'] == 'new']
-
-                parts = [f"Files for {ticket_id}:"]
-                if update_files:
-                    parts.append("  Files to modify:")
-                    for f in update_files:
-                        version_info = f"v{f['latest_version']}" if f['latest_version'] else "baseline set"
-                        has_base = "has base code" if f['base_content'] else "no base"
-                        parts.append(f"    - {f['filename']} ({version_info}, {has_base})")
-                if new_files:
-                    parts.append("  New files to create:")
-                    for f in new_files:
-                        desc = f" - {f['description']}" if f['description'] else ""
-                        parts.append(f"    - {f['filename']}{desc}")
-                files_parts.append("\n".join(parts))
-            files_context = "\n\nPlanned File Changes:\n" + "\n".join(files_parts)
-
         # Add code locker code context for current sprint tickets
         code_locker_code = get_code_locker_code_for_sprint_tickets(conn, tickets)
-        code_locker_context = ""
-        for ticket_code, files in code_locker_code.items():
-            if files:
-                code_locker_context += f"\nCode for {ticket_code}:\n"
-                for fname, code in files.items():
-                    code_locker_context += f"- {fname} (latest):\n" + code + "\n"
-
-        code_context = ""
-        if code_changes:
-            code_context = "\nRecent code changes logged:\n" + "\n".join([
-                f"- {c['filename']} (v{c['version']}) for {c['ticket_code'] or 'unassigned'}: {c['notes'] or 'no notes'}"
-                for c in code_changes
-            ])
-        else:
-            code_context = "\nNo recent code changes logged."
-
-        yesterday_context = ""
-        if yesterday_standup:
-            yesterday_context = f"\n\nYesterday's standup:\n{yesterday_standup['content'][:500]}"
-
-        prompt = f"""Generate a suggested standup update based on the following context.
-
-Active Sprint Tickets:
-{tickets_context}
-{files_context}
-{code_locker_context}
-{code_context}
-{yesterday_context}
-
-Generate a professional standup update covering:
-1. What was accomplished since last standup (reference specific code changes if any)
-2. What's planned for today (mention specific files to modify or create)
-3. Any blockers or concerns
-
-When referencing files:
-- For "files to modify": these are existing files that need changes
-- For "new files to create": these are entirely new files being added (the diff would show everything as new)
-
-Keep it concise but informative (3-5 bullet points per section).
-Use first person (I, my, etc.)."""
-
+        
+        # Delegate to CareerCoachAgent for AI suggestion
         try:
-            suggestion = ask_llm(prompt, model="gpt-4o-mini")
+            result = await suggest_standup_adapter(
+                tickets=tickets_list,
+                ticket_files_map=ticket_files_map,
+                code_changes=code_changes_list,
+                code_locker_code=code_locker_code,
+                yesterday_standup=yesterday_standup_dict,
+                db_connection=conn,
+            )
+            
+            suggestion = result.get("suggestion", "")
+            if result.get("error"):
+                suggestion = f"Could not generate suggestion: {result['error']}"
         except Exception as e:
             suggestion = f"Could not generate suggestion: {str(e)}"
     

@@ -563,63 +563,23 @@ async def signal_feedback(request: Request):
 
 @app.post("/api/dashboard/quick-ask")
 async def dashboard_quick_ask(request: Request):
-    """Handle quick AI questions from dashboard."""
+    """
+    Handle quick AI questions from dashboard.
+    
+    Delegates to ArjunaAgent.quick_ask() for centralized AI handling.
+    """
+    from .agents.arjuna import quick_ask
+    
     data = await request.json()
     topic = data.get("topic")
     query = data.get("query")
     
-    # Build the question based on topic or custom query
-    if topic:
-        topic_prompts = {
-            "blockers": "What are the current blockers or obstacles mentioned in recent meetings?",
-            "decisions": "What key decisions were made in recent meetings?",
-            "action_items": "What are the outstanding action items from recent meetings?",
-            "ideas": "What new ideas or suggestions came up in recent meetings?",
-            "risks": "What risks were identified in recent meetings?",
-            "this_week": "Summarize what happened this week based on recent meetings and documents.",
-            "rowan_mentions": "What mentions of Rowan or items assigned to Rowan are there in recent meetings?",
-            "reach_outs": "Who needs to be contacted or reached out to based on recent meetings? What follow-ups are needed?",
-            "announcements": "What team-wide announcements or important updates were shared in recent meetings?",
-        }
-        question = topic_prompts.get(topic, f"Tell me about {topic} from recent meetings.")
-    else:
-        question = query or "What's most important right now?"
-    
-    # Get context from recent meetings
-    with connect() as conn:
-        recent = conn.execute(
-            """SELECT meeting_name, synthesized_notes, signals_json 
-               FROM meeting_summaries 
-               ORDER BY COALESCE(meeting_date, created_at) DESC 
-               LIMIT 5"""
-        ).fetchall()
-    
-    context_parts = []
-    for m in recent:
-        context_parts.append(f"Meeting: {m['meeting_name']}\n{m['synthesized_notes'][:1000]}")
-        if m["signals_json"]:
-            try:
-                signals = json.loads(m["signals_json"])
-                for stype in ["decisions", "action_items", "blockers", "risks", "ideas"]:
-                    items = signals.get(stype, [])
-                    if items:
-                        context_parts.append(f"{stype}: {', '.join(items[:3])}")
-            except:
-                pass
-    
-    context = "\n\n".join(context_parts)
-    
-    prompt = f"""Based on this context from recent meetings and documents:
-
-{context}
-
-Question: {question}
-
-Provide a concise, helpful answer. Focus on the most relevant information. Use bullet points where appropriate."""
-
     try:
-        response = ask_llm(prompt)
-        return JSONResponse({"response": response})
+        result = await quick_ask(topic=topic, query=query)
+        if result.get("success"):
+            return JSONResponse({"response": result.get("response", "")})
+        else:
+            return JSONResponse({"error": result.get("response", "AI Error")}, status_code=500)
     except Exception as e:
         import traceback
         traceback.print_exc()
