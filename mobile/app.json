@@ -48,9 +48,13 @@
       ]
     ],
     "extra": {
+      "router": {
+        "origin": false
+      },
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "3ebcc30c-7cea-4962-b0d9-cf088ca0ab0e"
       }
-    }
+    },
+    "owner": "rowansal-organization"
   }
 }

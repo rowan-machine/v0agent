@@ -13,6 +13,10 @@ Analyze the following meeting notes and extract structured signals.
 Look for: {{ info.keywords | join(', ') }}
 {% endfor %}
 
+{% if learning_context %}
+{{ learning_context }}
+{% endif %}
+
 ## Instructions
 
 1. Read through the entire meeting text carefully

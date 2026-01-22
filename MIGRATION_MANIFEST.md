@@ -200,6 +200,7 @@ These items are intentionally deferred for future iterations:
 - [ ] Consider removing unused meeting indexes (idx_meetings_user, idx_meetings_date)
 - [ ] Dockerize app with Redis caching (Makefile commands ready) and remove chromadb for embeddings
 - [ ] thoroughly test and fix the Arjuna quick shorcuts (and chains) functionality and display and remove user editing for now and add the user specific ai suggested ones based on common actions as well as from conversations with arjuna
+- [ ] Fix it so when the 'Your coach' is refreshed that it uses embeddings to find new items of importance, recommendation engine for items to take action on both from meetings and from ticket backlog grooming or for DIKW items, or signal review, or for missing transcripts in meetings, or for when Rowan was mentioned in a transcript, etc.
 - [ ] Increase test coverage to >80%
 
 ### Future Features (User Deferred)

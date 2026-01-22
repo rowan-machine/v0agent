@@ -13,8 +13,9 @@ help:
 	@echo "  make build              Build production Docker image"
 	@echo "  make build-dev          Build development Docker image"
 	@echo "  make build-no-cache     Build without Docker cache"
-	@echo "  make run                Start all services (production)"
+	@echo "  make run                Start all services (app + Redis)"
 	@echo "  make run-dev            Start with development image (hot reload)"
+	@echo "  make run-with-chromadb  Start with ChromaDB (for local embeddings)"
 	@echo "  make stop               Stop all running containers"
 	@echo ""
 	@echo "$(GREEN)Testing & Quality:$(NC)"
@@ -29,7 +30,7 @@ help:
 	@echo "$(GREEN)Maintenance:$(NC)"
 	@echo "  make shell              Open bash shell in running app container"
 	@echo "  make logs               Tail app logs"
-	@echo "  make logs-chroma        Tail ChromaDB logs"
+	@echo "  make logs-redis         Tail Redis logs"
 	@echo "  make clean              Stop containers and remove volumes"
 	@echo "  make clean-all          Clean + remove images"
 	@echo ""
@@ -66,11 +67,11 @@ build-no-cache:
 
 # ===== Run Targets =====
 run:
-	@echo "$(BLUE)Starting services (production)...$(NC)"
+	@echo "$(BLUE)Starting services (production with Redis)...$(NC)"
 	docker-compose up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
 	@echo "$(BLUE)App: http://localhost:8000$(NC)"
-	@echo "$(BLUE)ChromaDB: http://localhost:8001$(NC)"
+	@echo "$(BLUE)Redis: localhost:6379$(NC)"
 
 run-dev:
 	@echo "$(BLUE)Starting services (development with hot reload)...$(NC)"
@@ -83,10 +84,15 @@ run-with-neo4j:
 	@echo "$(GREEN)✓ Services started with Neo4j$(NC)"
 	@echo "$(BLUE)Neo4j Browser: http://localhost:7474$(NC)"
 
-run-with-cache:
-	@echo "$(BLUE)Starting services with Redis cache...$(NC)"
-	docker-compose --profile with-cache up -d
-	@echo "$(GREEN)✓ Services started with Redis$(NC)"
+run-with-chromadb:
+	@echo "$(BLUE)Starting services with ChromaDB (for local embeddings)...$(NC)"
+	docker-compose --profile with-chromadb up -d
+	@echo "$(GREEN)✓ Services started with ChromaDB$(NC)"
+	@echo "$(BLUE)ChromaDB: http://localhost:8001$(NC)"
+
+logs-redis:
+	@echo "$(BLUE)Tailing Redis logs (Ctrl+C to exit)...$(NC)"
+	docker-compose logs -f redis
 
 stop:
 	@echo "$(BLUE)Stopping all services...$(NC)"
@@ -155,8 +161,12 @@ logs:
 	@echo "$(BLUE)Tailing app logs (Ctrl+C to exit)...$(NC)"
 	docker-compose logs -f app
 
+logs-redis:
+	@echo "$(BLUE)Tailing Redis logs (Ctrl+C to exit)...$(NC)"
+	docker-compose logs -f redis
+
 logs-chroma:
-	@echo "$(BLUE)Tailing ChromaDB logs (Ctrl+C to exit)...$(NC)"
+	@echo "$(BLUE)Tailing ChromaDB logs (requires --profile with-chromadb)...$(NC)"
 	docker-compose logs -f chroma
 
 clean:

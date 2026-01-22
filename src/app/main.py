@@ -30,6 +30,7 @@ from .api.mobile import router as mobile_router  # Mobile sync (Phase 3.2)
 from .api.admin import router as admin_router  # Admin endpoints (Phase 4.1)
 from .api.search import router as api_search_router  # Semantic/Hybrid search (Phase 5.2)
 from .api.knowledge_graph import router as knowledge_graph_router  # Knowledge graph (Phase 5.10)
+from .api.shortcuts import router as shortcuts_router  # Arjuna shortcuts (Technical Debt)
 from .mcp.registry import TOOL_REGISTRY
 from .llm import ask as ask_llm
 from .auth import (
@@ -864,12 +865,41 @@ async def get_highlights(request: Request):
                 "link_text": "Add Meeting"
             })
     
-    # Prioritize: blockers > risks > actions > waiting > ideas
-    priority = {'blocker': 0, 'risk': 1, 'action': 2, 'waiting': 3, 'idea': 4, 'decision': 5}
+    # ===== ENHANCED RECOMMENDATIONS FROM ENGINE (Technical Debt) =====
+    # Add embedding-based recommendations for DIKW, mentions, grooming, etc.
+    try:
+        from .services.coach_recommendations import get_coach_recommendations
+        engine_recs = get_coach_recommendations(
+            dismissed_ids=dismissed_ids,
+            user_name="Rowan"  # TODO: Get from auth context
+        )
+        # Add engine recommendations that aren't duplicates
+        existing_ids = {h['id'] for h in highlights}
+        for rec in engine_recs:
+            if rec['id'] not in existing_ids:
+                highlights.append(rec)
+    except Exception as e:
+        # Silent fail - don't break highlights if engine has issues
+        import logging
+        logging.getLogger(__name__).debug(f"Coach engine error: {e}")
+    
+    # Prioritize: blockers > mentions > risks > actions > waiting > dikw > grooming > ideas
+    priority = {
+        'blocker': 0, 
+        'mention': 1,
+        'risk': 2, 
+        'action': 3, 
+        'waiting': 4, 
+        'dikw': 5,
+        'grooming': 6,
+        'transcript': 7,
+        'idea': 8, 
+        'decision': 9
+    }
     highlights.sort(key=lambda h: priority.get(h['type'], 99))
     
-    # Return top 6 items
-    return JSONResponse({"highlights": highlights[:6]})
+    # Return top 8 items (increased from 6 for more recommendations)
+    return JSONResponse({"highlights": highlights[:8]})
 
 
 @app.post("/api/dashboard/highlight-context")
@@ -3190,3 +3220,4 @@ app.include_router(mobile_router)  # Mobile sync endpoints (Phase 3.2)
 app.include_router(admin_router)  # Admin endpoints (Phase 4.1)
 app.include_router(api_search_router)  # Semantic/Hybrid search (Phase 5.2)
 app.include_router(knowledge_graph_router)  # Knowledge graph links (Phase 5.10)
+app.include_router(shortcuts_router)  # Arjuna shortcuts (Technical Debt)

@@ -1,45 +1,43 @@
 ---
-description: Documents core data model structures and relationships for Meetings and Documents entities
+description: Documents the core data models and relationships for meetings and documents in a knowledge management system
 ---
 
 
 # data-models
 
-Two primary data models form the core of the application:
+## Meeting Model
+Importance Score: 90
 
-## Meetings Model
-- Hierarchical organization with parent/child relationship support
-- Meeting signals categorization into 5 types:
-  - Decisions (green)
-  - Action Items (orange)
-  - Blockers (red) 
-  - Risks (yellow)
-  - Ideas (purple)
-- Signal status workflow states:
-  - Pending
-  - Approved 
-  - Rejected
-  - Archived
-  - Waiting
-- Contains metadata for signal count tracking per meeting
-- Meeting state persistence for collapsible view management
-- Lifecycle management for working days calculation
+Primary data model for meeting records with specialized fields:
+- `signal_categories`: Enumeration of extracted signal types (decisions, actions, blockers, risks, ideas)
+- `signal_confidence`: Confidence scoring (1-10) for extracted signals
+- `signal_status`: Signal lifecycle states (raw, validated, rejected, archived)
+- `meeting_type`: Meeting classification (standup, planning, review, retro)
+- `context_chain`: Linked list of related previous meetings
+- `dikw_level`: Current position in DIKW hierarchy (Data, Information, Knowledge, Wisdom)
 
-## Documents Model
-- DIKW (Data-Information-Knowledge-Wisdom) hierarchy support 
-- Bidirectional relationships between documents through knowledge graph
-- Cross-linking with meetings for contextual reference
-- Signal extraction and validation tracking
-- Version control integration for implementation tracking
-- Sprint transition validation rules
+## Document Model
+Importance Score: 85
+
+Knowledge artifact storage with business-specific fields:
+- `doc_type`: Document classification (notes, specification, design, implementation)
+- `semantic_hash`: Vector representation for similarity matching
+- `source_signals`: References to originating meeting signals
+- `knowledge_stage`: Position in knowledge transformation pipeline
+- `confidence_score`: Document validation confidence (1-10)
 
 ## Relationship Structure
-- Hierarchical parent/child organization for meetings
-- Many-to-many relationships between meetings and documents
-- Knowledge graph connections for semantic relationships
-- Signal cross-referencing between meetings and documents
-- Sprint-based archival relationships
-- Career development evidence linking
+Importance Score: 95
+
+Complex relationship mapping between meetings and documents:
+- `semantic_similar`: Documents with similarity score > 0.78
+- `derived_from`: Documents created from meeting signals
+- `referenced`: Cross-document citations and references
+- `same_topic`: Theme-based clustering
+- `blocks`: Dependency relationship for implementation
+- `depends_on`: Prerequisite relationship
+
+Knowledge items maintain bidirectional relationships with automatic updates when either side changes, enabling sophisticated knowledge graph traversal and signal tracking through the DIKW hierarchy.
 
 $END$
 

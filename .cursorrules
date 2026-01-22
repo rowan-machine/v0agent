@@ -10,52 +10,49 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-AI Assistant and Knowledge Management System with specialized capabilities for meeting intelligence, career development, and workflow management.
+## Core Business Architecture (Score: 85/100)
 
-Core Business Components:
+The AI assistant system is built around three primary business components:
 
-1. AI Assistant Conversation System (src/app/templates/components/assistant_widget.html)
-Importance Score: 75/100
-- Contextual conversation history with 24-hour persistence
-- Rotating suggestion sets based on workflow stages
-- Command usage frequency tracking and personalization
-- Smart emoji categorization by command context
+### 1. Conversation Management System
+- 24-hour conversation persistence with automatic cleanup
+- Contextual history tracking for AI interactions
+- Rotating suggestion sets across sessions
+- Command frequency analysis and pattern detection
+- Intelligent categorization with emoji mapping
 
-2. DIKW Knowledge Management (src/app/agents/dikw_synthesizer.py)
-Importance Score: 85/100
-- Data-Information-Knowledge-Wisdom hierarchy progression
-- Custom knowledge synthesis rules per hierarchy level
-- Semantic merging of related knowledge items
-- Tag-based knowledge clustering system
+### 2. AI Memory & Signal Processing
+Key paths:
+- src/app/api/v1/ai_memory.py
+- src/app/api/v1/feedback.py
 
-3. Career Development Framework (src/app/agents/career_coach.py)
-Importance Score: 75/100
-- Professional capability mapping
-- Standup-based performance analysis
-- Code change pattern matching for skill tracking
-- Evidence-based skill progression validation
+Components:
+- Semantic search with importance-based prioritization 
+- Memory lifecycle management with approval states
+- Self-improving signal extraction system
+- Confidence scoring with user feedback loop
+- Historical pattern recognition for confidence boosting
 
-4. Meeting Intelligence Pipeline
-Importance Score: 80/100
-- Signal extraction and categorization (decisions, action items, blockers, risks, ideas)
-- Multi-stage signal validation workflow
-- Meeting context propagation 
-- Cross-meeting signal relationship tracking
+### 3. Knowledge Processing Pipeline
+Key paths:
+- src/app/agents/dikw_synthesizer.py
+- src/app/agents/meeting_analyzer.py
 
-5. Sprint Management System
-Importance Score: 70/100
-- Sprint lifecycle management with configurable lengths
-- Working days calculation and tracking
-- Time tracking archival
-- Mode-based workflow tracking (A-G system)
+Features:
+- Data-Information-Knowledge-Wisdom (DIKW) hierarchy processing
+- Signal promotion through knowledge levels
+- Domain-specific signal categorization
+- Semantic deduplication with context preservation
+- Business-specific content filtering and validation
 
-Integration Points:
-- Knowledge graph connections between meetings, signals, and career data
-- Bi-directional sync for offline-first operation
-- Cross-entity semantic search capabilities
-- Workflow mode transitions affecting multiple subsystems
+## Integration Architecture
 
-The system implements a sophisticated knowledge work management platform centered around AI-assisted meeting analysis, career development tracking, and sprint management with emphasis on maintaining relationships between different knowledge artifacts.
+The system connects through:
+- Hybrid retrieval combining importance scores and semantic relevance
+- Token-aware context assembly for LLM injection
+- Pattern-based confidence boosting
+- Entity-specific sync strategies
+- Custom dismissal/restoration workflows
 
 $END$
 

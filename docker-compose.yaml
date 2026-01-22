@@ -20,11 +20,12 @@ services:
       - UPLOAD_DIR=/app/uploads
       - LOG_DIR=/app/logs
       - LOG_LEVEL=INFO
-      - CHROMA_HOST=chroma
-      - CHROMA_PORT=8000
-      - CHROMA_ENABLED=true
+      # Redis for caching (now default)
+      - REDIS_URL=redis://redis:6379/0
+      # Embeddings via Supabase pgvector (no ChromaDB needed)
+      - EMBEDDINGS_PROVIDER=supabase
     depends_on:
-      chroma:
+      redis:
         condition: service_healthy
     networks:
       - v0agent_network
@@ -36,7 +37,25 @@ services:
       retries: 3
       start_period: 10s
   
-  # ChromaDB for embeddings
+  # Redis for caching (now default - removed profile requirement)
+  redis:
+    image: redis:7-alpine
+    container_name: v0agent_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - v0agent_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ChromaDB (optional - for local embeddings, prefer Supabase pgvector)
   chroma:
     image: ghcr.io/chroma-core/chroma:latest
     container_name: v0agent_chroma
@@ -51,6 +70,8 @@ services:
     networks:
       - v0agent_network
     restart: unless-stopped
+    profiles:
+      - with-chromadb
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
       interval: 30s
@@ -76,25 +97,6 @@ services:
     restart: unless-stopped
     profiles:
       - with-knowledge-graph
-
-  # Redis for caching (optional - requires --profile with-cache)
-  redis:
-    image: redis:7-alpine
-    container_name: v0agent_redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - v0agent_network
-    restart: unless-stopped
-    profiles:
-      - with-cache
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
 
   # pgAdmin for database management (dev only)
   pgadmin:

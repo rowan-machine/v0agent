@@ -48,6 +48,10 @@ def ask(prompt: str, model: str = None) -> str:
     return resp.choices[0].message.content.strip()
 
 
+# Alias for backward compatibility with LangSmith evaluations
+chat = ask
+
+
 def analyze_image(image_base64: str, prompt: str = None) -> str:
     """Analyze an image using GPT-4 Vision and return a text description."""
     if not prompt:

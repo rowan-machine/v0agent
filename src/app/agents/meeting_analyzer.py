@@ -514,6 +514,9 @@ Be thorough but avoid duplicates. Attribute actions to specific people when ment
         """
         Use AI to extract signals when rule-based parsing finds few.
         
+        Integrates with SignalLearningService (PC-1) to include user feedback
+        patterns in the extraction prompt.
+        
         Args:
             meeting_text: The meeting text
             context: Additional context
@@ -525,10 +528,19 @@ Be thorough but avoid duplicates. Attribute actions to specific people when ment
             return self._extract_signals_keyword_fallback(meeting_text)
         
         try:
+            # Get learning context from user feedback (PC-1 integration)
+            learning_context = ""
+            try:
+                from ..services.signal_learning import get_learning_context_for_extraction
+                learning_context = get_learning_context_for_extraction()
+            except Exception as e:
+                logger.debug(f"Could not load signal learning context: {e}")
+            
             template = self.jinja_env.get_template("extract_signals.jinja2")
             prompt = template.render(
                 meeting_text=meeting_text[:4000],  # Limit context size
                 signal_types=SIGNAL_TYPES,
+                learning_context=learning_context,  # Add feedback-based hints
             )
             
             response = await self.ask_llm(
