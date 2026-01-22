@@ -63,11 +63,9 @@
 <div class="doc-actions">
   <a href="/documents/{{ doc['id'] }}/edit">Edit Document</a>
   <a href="/documents">← Back to Documents</a>
-  {% if doc['source'] and 'Transcript' in doc['source'] %}
   <button onclick="extractSignals({{ doc['id'] }})" class="extract-signals-btn" id="extractBtn">
-    🔍 Extract Missing Signals
+    🔍 Extract Signals
   </button>
-  {% endif %}
 </div>
 
 <!-- Signal extraction result modal -->
@@ -81,6 +79,9 @@
       <!-- Results will be populated here -->
     </div>
     <div class="signal-modal-footer">
+      <button onclick="saveExtractedSignals({{ doc['id'] }})" id="saveSignalsBtn" class="save-signals-btn" style="display: none; margin-right: 0.5rem;">
+        💾 Save to Signals Dashboard
+      </button>
       <button onclick="closeSignalModal()">Close</button>
     </div>
   </div>
@@ -187,6 +188,16 @@
     color: var(--sf-text-muted, #999);
     font-style: italic;
   }
+  .save-signals-btn {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+  }
+  .save-signals-btn:hover {
+    background: linear-gradient(135deg, #059669, #047857) !important;
+  }
+  .save-signals-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 </style>
 
 <script>
@@ -247,15 +258,20 @@ async function extractSignals(docId) {
     alert('Failed to extract signals. Please try again.');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '🔍 Extract Missing Signals';
+    btn.innerHTML = '🔍 Extract Signals';
   }
 }
 
 function showSignalResults(signals, total) {
   const body = document.getElementById('signalModalBody');
   
+  // Store for saving
+  window.extractedSignals = signals;
+  window.signalTotal = total;
+  
   if (total === 0) {
-    body.innerHTML = '<p class="no-signals">No additional signals found in this transcript.</p>';
+    body.innerHTML = '<p class="no-signals">No signals found in this document.</p>';
+    document.getElementById('saveSignalsBtn').style.display = 'none';
   } else {
     let html = `<p style="margin-bottom: 1rem;"><strong>${total}</strong> signals extracted:</p>`;
     
@@ -280,6 +296,7 @@ function showSignalResults(signals, total) {
     }
     
     body.innerHTML = html;
+    document.getElementById('saveSignalsBtn').style.display = 'inline-block';
   }
   
   document.getElementById('signalModal').style.display = 'flex';
@@ -287,6 +304,53 @@ function showSignalResults(signals, total) {
 
 function closeSignalModal() {
   document.getElementById('signalModal').style.display = 'none';
+}
+
+async function saveExtractedSignals(docId) {
+  const btn = document.getElementById('saveSignalsBtn');
+  if (!btn || !window.extractedSignals) return;
+  
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Saving...';
+  
+  try {
+    const response = await fetch('/api/signals/save-from-document', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        document_id: docId,
+        signals: window.extractedSignals
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      alert('Error: ' + (data.error || 'Failed to save signals'));
+      return;
+    }
+    
+    btn.innerHTML = '✓ Saved!';
+    btn.style.background = '#059669';
+    
+    // Show success message
+    const body = document.getElementById('signalModalBody');
+    body.innerHTML = `
+      <div style="text-align: center; padding: 2rem;">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">✅</div>
+        <h3 style="margin-bottom: 0.5rem;">Signals Saved Successfully!</h3>
+        <p style="color: var(--sf-text-muted);">${window.signalTotal} signals have been saved and will appear in the <a href="/signals">Signals Dashboard</a>.</p>
+      </div>
+    `;
+    
+  } catch (err) {
+    console.error('Failed to save signals:', err);
+    alert('Failed to save signals. Please try again.');
+    btn.innerHTML = '💾 Save to Signals Dashboard';
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function escapeHtml(text) {

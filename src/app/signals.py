@@ -316,3 +316,86 @@ Only include signals that are clearly stated or strongly implied. Be specific an
             }, status_code=500)
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.post("/api/signals/save-from-document")
+async def save_signals_from_document(request: Request):
+    """Save extracted signals from a document to the meeting_summaries table.
+    
+    This creates a pseudo-meeting record to store signals extracted from documents,
+    making them visible in the signals dashboard.
+    """
+    data = await request.json()
+    doc_id = data.get("document_id")
+    signals = data.get("signals")
+    
+    if not doc_id or not signals:
+        return JSONResponse({"error": "document_id and signals are required"}, status_code=400)
+    
+    with connect() as conn:
+        # Get document info
+        doc = conn.execute(
+            "SELECT id, source, content, document_date FROM docs WHERE id = ?",
+            (doc_id,)
+        ).fetchone()
+        
+        if not doc:
+            return JSONResponse({"error": "Document not found"}, status_code=404)
+        
+        # Check if signals already saved for this document
+        existing = conn.execute(
+            "SELECT id FROM meeting_summaries WHERE source_document_id = ?",
+            (doc_id,)
+        ).fetchone()
+        
+        if existing:
+            # Update existing record
+            conn.execute(
+                """UPDATE meeting_summaries 
+                   SET signals_json = ?, updated_at = datetime('now')
+                   WHERE source_document_id = ?""",
+                (json.dumps(signals), doc_id)
+            )
+            conn.commit()
+            return JSONResponse({
+                "status": "ok",
+                "action": "updated",
+                "meeting_id": existing["id"]
+            })
+        
+        # Create new meeting record for document signals
+        meeting_name = f"[Document] {doc['source']}"
+        meeting_date = doc["document_date"] or datetime.now().strftime("%Y-%m-%d")
+        
+        # Count total signals
+        total_signals = sum(len(signals.get(k, [])) for k in ["decisions", "action_items", "blockers", "risks", "ideas"])
+        
+        # Generate a brief summary of the signals for synthesized_notes
+        signal_summary_parts = []
+        if signals.get("decisions"):
+            signal_summary_parts.append(f"{len(signals['decisions'])} decisions")
+        if signals.get("action_items"):
+            signal_summary_parts.append(f"{len(signals['action_items'])} action items")
+        if signals.get("blockers"):
+            signal_summary_parts.append(f"{len(signals['blockers'])} blockers")
+        if signals.get("risks"):
+            signal_summary_parts.append(f"{len(signals['risks'])} risks")
+        if signals.get("ideas"):
+            signal_summary_parts.append(f"{len(signals['ideas'])} ideas")
+        
+        synthesized_notes = f"Signals extracted from document: {', '.join(signal_summary_parts) if signal_summary_parts else 'none'}"
+        
+        cursor = conn.execute(
+            """INSERT INTO meeting_summaries 
+               (meeting_name, meeting_date, synthesized_notes, signals_json, source_document_id, created_at)
+               VALUES (?, ?, ?, ?, ?, datetime('now'))""",
+            (meeting_name, meeting_date, synthesized_notes, json.dumps(signals), doc_id)
+        )
+        conn.commit()
+        
+        return JSONResponse({
+            "status": "ok",
+            "action": "created",
+            "meeting_id": cursor.lastrowid,
+            "total_signals": total_signals
+        })

@@ -30,6 +30,8 @@
                     <span class="px-3 py-1 text-sm font-medium bg-amber-100 text-amber-700 rounded-lg">To Do</span>
                     {% elif ticket.status == 'done' %}
                     <span class="px-3 py-1 text-sm font-medium bg-green-100 text-green-700 rounded-lg">Done</span>
+                    {% elif ticket.status == 'complete' %}
+                    <span class="px-3 py-1 text-sm font-medium bg-emerald-100 text-emerald-700 rounded-lg">Complete</span>
                     {% elif ticket.status == 'in_review' %}
                     <span class="px-3 py-1 text-sm font-medium bg-purple-100 text-purple-700 rounded-lg">In Review</span>
                     {% elif ticket.status == 'blocked' %}
@@ -127,13 +129,17 @@
     <style>
         /* AI Summary Markdown Styling */
         .ai-summary-rendered { line-height: 1.7; color: #374151; }
+        .ai-summary-rendered h2 { font-size: 1.25rem; font-weight: 700; color: #1f2937; margin: 1.5rem 0 0.75rem 0; }
+        .ai-summary-rendered h3 { font-size: 1.1rem; font-weight: 600; color: #374151; margin: 1.25rem 0 0.5rem 0; }
+        .ai-summary-rendered h4 { font-size: 1rem; font-weight: 600; color: #4b5563; margin: 1rem 0 0.5rem 0; }
         .ai-summary-rendered strong { color: #4c1d95; font-weight: 600; }
-        .ai-summary-rendered ul, .ai-summary-rendered ol { margin: 0.5rem 0; padding-left: 1.25rem; }
-        .ai-summary-rendered li { margin-bottom: 0.25rem; }
+        .ai-summary-rendered ul, .ai-summary-rendered ol { margin: 0.75rem 0; padding-left: 1.5rem; }
+        .ai-summary-rendered li { margin-bottom: 0.35rem; }
         .ai-summary-rendered li::marker { color: #7c3aed; }
         .ai-summary-rendered code { background: #ede9fe; padding: 0.125rem 0.375rem; border-radius: 4px; font-size: 0.85em; color: #5b21b6; }
         .ai-summary-rendered p { margin-bottom: 0.75rem; }
         .ai-summary-rendered p:last-child { margin-bottom: 0; }
+        .ai-summary-rendered p:first-child { margin-top: 0; }
     </style>
 
     <!-- Implementation Plan -->
@@ -156,7 +162,7 @@
         </div>
         
         {% if ticket.implementation_plan %}
-        <div class="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap" id="plan-content">{{ ticket.implementation_plan }}</div>
+        <div class="prose prose-sm max-w-none text-gray-700" id="plan-content">{{ ticket.implementation_plan }}</div>
         {% else %}
         <p class="text-gray-500 text-sm" id="no-plan">No implementation plan yet. Click Generate to create one.</p>
         {% endif %}
@@ -188,6 +194,74 @@
     </div>
     {% endif %}
 
+    <!-- Ticket Files (Code Changes) -->
+    <div class="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                </svg>
+                Code Files
+            </h2>
+            <button onclick="showAddFileModal()" 
+                    class="px-3 py-1.5 text-sm font-medium bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
+                + Add File
+            </button>
+        </div>
+        
+        <div id="ticketFilesContainer">
+            <div class="text-gray-500 text-sm">Loading files...</div>
+        </div>
+    </div>
+
+    <!-- Add File Modal -->
+    <div id="addFileModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50" onclick="if(event.target === this) closeAddFileModal()">
+        <div class="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-semibold mb-4">Add File to Ticket</h3>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">File Path</label>
+                    <input type="text" id="newFileName" placeholder="src/app/example.py" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">File Type</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="fileType" value="update" checked class="text-blue-600">
+                            <span class="text-sm">Update existing file</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="fileType" value="new" class="text-blue-600">
+                            <span class="text-sm">Create new file</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div id="baseContentSection">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Base/Original Content (for diffing)</label>
+                    <textarea id="newFileBaseContent" rows="10" placeholder="Paste the original file content here..."
+                              class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">This will be stored as v1 in the code locker for comparison</p>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Description (optional)</label>
+                    <input type="text" id="newFileDescription" placeholder="Brief description of changes needed"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="closeAddFileModal()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+                <button onclick="addTicketFile()" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">Add File</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Meta -->
     <div class="text-center text-sm text-gray-400 mb-8">
         Created {{ ticket.created_at }} • Last updated {{ ticket.updated_at or ticket.created_at }}
@@ -197,22 +271,267 @@
 <script>
 const ticketId = {{ ticket.id }};
 
-// Simple markdown to HTML renderer for AI summaries
+// Load ticket files on page load
+async function loadTicketFiles() {
+    try {
+        const res = await fetch(`/api/career/ticket-files/${ticketId}`);
+        const files = await res.json();
+        
+        const container = document.getElementById('ticketFilesContainer');
+        
+        if (files.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-6 text-gray-500">
+                    <p class="mb-2">No files linked to this ticket yet</p>
+                    <button onclick="showAddFileModal()" class="text-blue-600 hover:text-blue-700">+ Add a file</button>
+                </div>
+            `;
+            return;
+        }
+        
+        const newFiles = files.filter(f => f.file_type === 'new');
+        const updateFiles = files.filter(f => f.file_type === 'update');
+        
+        let html = '';
+        
+        if (updateFiles.length > 0) {
+            html += `
+                <div class="mb-4">
+                    <h4 class="text-sm font-medium text-gray-600 mb-2">📝 Files to Update</h4>
+                    <div class="space-y-2">
+                        ${updateFiles.map(f => renderTicketFile(f)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        if (newFiles.length > 0) {
+            html += `
+                <div>
+                    <h4 class="text-sm font-medium text-gray-600 mb-2">✨ New Files to Create</h4>
+                    <div class="space-y-2">
+                        ${newFiles.map(f => renderTicketFile(f)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        container.innerHTML = html;
+        
+    } catch (err) {
+        console.error('Failed to load ticket files:', err);
+        document.getElementById('ticketFilesContainer').innerHTML = '<div class="text-red-500 text-sm">Failed to load files</div>';
+    }
+}
+
+function renderTicketFile(file) {
+    const hasVersions = file.locker_version > 0;
+    const versionBadge = hasVersions 
+        ? `<span class="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded">v${file.locker_version}</span>`
+        : `<span class="px-2 py-0.5 text-xs bg-gray-100 text-gray-500 rounded">no versions</span>`;
+    
+    return `
+        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+            <div class="flex items-center gap-3 min-w-0 flex-1">
+                <span class="text-lg">${file.file_type === 'new' ? '✨' : '📄'}</span>
+                <div class="min-w-0 flex-1">
+                    <div class="font-mono text-sm text-gray-800 truncate">${file.filename}</div>
+                    ${file.description ? `<div class="text-xs text-gray-500 truncate">${file.description}</div>` : ''}
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                ${versionBadge}
+                <button onclick="openCodeLocker('${file.filename}')" 
+                        class="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200" title="Add/update in code locker">
+                    🔐 Locker
+                </button>
+                ${hasVersions && file.locker_count > 1 ? `
+                    <button onclick="viewFileDiff('${file.filename}')" 
+                            class="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200" title="View diff">
+                        📊 Diff
+                    </button>
+                ` : ''}
+                <button onclick="deleteTicketFile(${file.id})" 
+                        class="px-2 py-1 text-xs text-red-600 hover:text-red-800" title="Remove file">
+                    ✕
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function showAddFileModal() {
+    document.getElementById('addFileModal').classList.remove('hidden');
+    document.getElementById('addFileModal').classList.add('flex');
+}
+
+function closeAddFileModal() {
+    document.getElementById('addFileModal').classList.add('hidden');
+    document.getElementById('addFileModal').classList.remove('flex');
+    // Reset form
+    document.getElementById('newFileName').value = '';
+    document.getElementById('newFileBaseContent').value = '';
+    document.getElementById('newFileDescription').value = '';
+    document.querySelector('input[name="fileType"][value="update"]').checked = true;
+    document.getElementById('baseContentSection').style.display = 'block';
+}
+
+// Toggle base content section based on file type
+document.querySelectorAll('input[name="fileType"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        document.getElementById('baseContentSection').style.display = 
+            this.value === 'update' ? 'block' : 'none';
+    });
+});
+
+async function addTicketFile() {
+    const filename = document.getElementById('newFileName').value.trim();
+    const fileType = document.querySelector('input[name="fileType"]:checked').value;
+    const baseContent = document.getElementById('newFileBaseContent').value;
+    const description = document.getElementById('newFileDescription').value.trim();
+    
+    if (!filename) {
+        alert('Please enter a filename');
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/career/ticket-files/${ticketId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                filename,
+                file_type: fileType,
+                base_content: baseContent,
+                description
+            })
+        });
+        
+        const data = await res.json();
+        
+        if (data.status === 'ok') {
+            closeAddFileModal();
+            loadTicketFiles();
+        } else {
+            alert(data.error || 'Failed to add file');
+        }
+    } catch (err) {
+        console.error('Error adding file:', err);
+        alert('Failed to add file');
+    }
+}
+
+async function deleteTicketFile(fileId) {
+    if (!confirm('Remove this file from the ticket?')) return;
+    
+    try {
+        await fetch(`/api/career/ticket-files/${fileId}`, { method: 'DELETE' });
+        loadTicketFiles();
+    } catch (err) {
+        console.error('Error deleting file:', err);
+    }
+}
+
+function openCodeLocker(filename) {
+    // Open dashboard with code locker pre-filled
+    window.open(`/?code_locker_file=${encodeURIComponent(filename)}&ticket_id=${ticketId}`, '_blank');
+}
+
+function viewFileDiff(filename) {
+    window.open(`/career?tab=code-locker&file=${encodeURIComponent(filename)}&ticket_id=${ticketId}&diff=1`, '_blank');
+}
+
+// Load files on page load
+document.addEventListener('DOMContentLoaded', loadTicketFiles);
+
+// Simple markdown to HTML renderer for AI summaries and implementation plans
 function renderMarkdown(text) {
+    if (!text) return '';
+    
+    // Process line by line for better control
+    const lines = text.split('\n');
+    let html = '';
+    let inList = false;
+    let listType = null; // 'ul' or 'ol'
+    
+    for (let i = 0; i < lines.length; i++) {
+        let line = lines[i];
+        
+        // Headers
+        if (line.startsWith('#### ')) {
+            if (inList) { html += `</${listType}>`; inList = false; listType = null; }
+            html += `<h4 class="text-md font-semibold text-gray-800 mt-4 mb-2">${line.slice(5)}</h4>`;
+            continue;
+        }
+        if (line.startsWith('### ')) {
+            if (inList) { html += `</${listType}>`; inList = false; listType = null; }
+            html += `<h3 class="text-lg font-semibold text-gray-900 mt-5 mb-2">${line.slice(4)}</h3>`;
+            continue;
+        }
+        if (line.startsWith('## ')) {
+            if (inList) { html += `</${listType}>`; inList = false; listType = null; }
+            html += `<h2 class="text-xl font-bold text-gray-900 mt-6 mb-3">${line.slice(3)}</h2>`;
+            continue;
+        }
+        
+        // Bullet list items
+        if (/^\s*[-*]\s+/.test(line)) {
+            const content = line.replace(/^\s*[-*]\s+/, '');
+            if (!inList || listType !== 'ul') {
+                if (inList) html += `</${listType}>`;
+                html += '<ul class="list-disc list-inside space-y-1 my-2 text-gray-700">';
+                inList = true;
+                listType = 'ul';
+            }
+            html += `<li>${applyInlineFormatting(content)}</li>`;
+            continue;
+        }
+        
+        // Numbered list items
+        if (/^\s*\d+\.\s+/.test(line)) {
+            const content = line.replace(/^\s*\d+\.\s+/, '');
+            if (!inList || listType !== 'ol') {
+                if (inList) html += `</${listType}>`;
+                html += '<ol class="list-decimal list-inside space-y-1 my-2 text-gray-700">';
+                inList = true;
+                listType = 'ol';
+            }
+            html += `<li>${applyInlineFormatting(content)}</li>`;
+            continue;
+        }
+        
+        // Close list if we hit a non-list line
+        if (inList && line.trim() !== '') {
+            html += `</${listType}>`;
+            inList = false;
+            listType = null;
+        }
+        
+        // Empty line or paragraph
+        if (line.trim() === '') {
+            continue;
+        }
+        
+        // Regular paragraph
+        html += `<p class="my-2 text-gray-700">${applyInlineFormatting(line)}</p>`;
+    }
+    
+    // Close any open list
+    if (inList) {
+        html += `</${listType}>`;
+    }
+    
+    return html;
+}
+
+function applyInlineFormatting(text) {
     return text
         // Bold
         .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        // Italic
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
         // Inline code
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        // Bullet lists
-        .replace(/^- (.+)$/gm, '<li>$1</li>')
-        // Wrap consecutive <li> in <ul>
-        .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
-        // Line breaks for paragraphs
-        .replace(/\n\n/g, '</p><p>')
-        // Wrap in paragraph if not already
-        .replace(/^(?!<)/, '<p>')
-        .replace(/(?!>)$/, '</p>');
+        .replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-1 py-0.5 rounded text-sm">$1</code>');
 }
 
 // Generate or regenerate summary
@@ -325,8 +644,9 @@ document.getElementById('generate-plan-btn')?.addEventListener('click', async fu
             
             document.getElementById('no-plan').remove();
             const content = document.createElement('div');
-            content.className = 'prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap';
-            content.textContent = data.plan;
+            content.className = 'prose prose-sm max-w-none text-gray-700';
+            content.id = 'plan-content';
+            content.innerHTML = renderMarkdown(data.plan);
             btn.parentElement.parentElement.querySelector('h2').insertAdjacentElement('afterend', content);
             btn.remove();
         }
@@ -337,5 +657,19 @@ document.getElementById('generate-plan-btn')?.addEventListener('click', async fu
     }
 });
 {% endif %}
+
+// Render existing implementation plan markdown on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const planContent = document.getElementById('plan-content');
+    if (planContent && planContent.textContent.trim()) {
+        planContent.innerHTML = renderMarkdown(planContent.textContent);
+    }
+    
+    // Also render AI summary markdown on page load
+    const summaryContent = document.getElementById('ai-summary-content');
+    if (summaryContent && summaryContent.textContent.trim()) {
+        summaryContent.innerHTML = renderMarkdown(summaryContent.textContent);
+    }
+});
 </script>
 {% endblock %}

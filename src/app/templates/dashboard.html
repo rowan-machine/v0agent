@@ -339,6 +339,16 @@
     color: #dc2626;
   }
   
+  .mode-g-status-badge.done {
+    background: #dcfce7;
+    color: #15803d;
+  }
+
+  .mode-g-status-badge.complete {
+    background: #a7f3d0;
+    color: #047857;
+  }
+  
   .mode-g-edit-link {
     display: flex;
     align-items: center;
@@ -520,49 +530,12 @@
   .dashboard {
     max-width: 100%;
     margin: 0 auto;
-    padding: 0 1rem;
+    padding: 0 1rem 120px 1rem;
     transition: max-width 0.3s ease;
   }
   
   .dashboard.compact {
-    max-width: 1100px;
-  }
-  
-  .dashboard.wide {
-    max-width: 2200px;
-  }
-
-  /* Layout Controls */
-  .layout-controls {
-    position: fixed;
-    bottom: 1.5rem;
-    right: 1.5rem;
-    display: flex;
-    gap: 0.5rem;
-    z-index: 50;
-  }
-  
-  .layout-btn {
-    background: var(--sf-card-bg, white);
-    border: 1px solid var(--sf-border, #e5e7eb);
-    border-radius: 8px;
-    padding: 0.5rem 0.75rem;
-    cursor: pointer;
-    font-size: 0.8rem;
-    color: var(--sf-text-muted, #6b7280);
-    transition: all 0.2s;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-  }
-  
-  .layout-btn:hover {
-    background: var(--sf-surface, #f9fafb);
-    border-color: var(--sf-border, #d1d5db);
-  }
-  
-  .layout-btn.active {
-    background: var(--sf-primary, #667eea);
-    color: white;
-    border-color: var(--sf-primary, #667eea);
+    max-width: 1600px;
   }
 
   .dashboard-header {
@@ -902,10 +875,6 @@
     gap: 1rem;
     margin-bottom: 1.5rem;
   }
-  
-  .dashboard.wide .stats-grid {
-    grid-template-columns: repeat(5, 1fr);
-  }
 
   .stat-card {
     background: var(--sf-card-bg, white);
@@ -959,10 +928,6 @@
     grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
     margin-bottom: 1.5rem;
-  }
-  
-  .dashboard.wide .main-grid {
-    grid-template-columns: repeat(3, 1fr);
   }
   
   .main-grid.three-col {
@@ -1302,12 +1267,6 @@
   }
 
   /* Responsive */
-  @media (max-width: 1400px) {
-    .dashboard.wide .main-grid {
-      grid-template-columns: 1fr 1fr;
-    }
-  }
-
   @media (max-width: 900px) {
     .main-grid {
       grid-template-columns: 1fr;
@@ -1328,9 +1287,6 @@
     }
     .chip {
       flex-shrink: 0;
-    }
-    .layout-controls {
-      display: none;
     }
   }
 
@@ -1471,12 +1427,168 @@
   .dikw-promote-option .level-dot.information { background: #22c55e; }
   .dikw-promote-option .level-dot.knowledge { background: #3b82f6; }
   .dikw-promote-option .level-dot.wisdom { background: #8b5cf6; }
+
+  /* Career Hub Styles */
+  .career-hub-section {
+    background: var(--sf-card-bg, white);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .career-hub-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 900px) {
+    .career-hub-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .standup-btn {
+    background: var(--sf-surface, #f3f4f6);
+    border: 1px solid var(--sf-border, #e5e7eb);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+
+  .standup-btn:hover {
+    background: var(--sf-border, #e5e7eb);
+  }
+
+  .standup-btn.primary {
+    background: var(--sf-primary, #667eea);
+    color: white;
+    border-color: var(--sf-primary, #667eea);
+  }
+
+  .standup-btn.primary:hover {
+    background: #5a67d8;
+  }
+
+  .standup-item {
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: var(--sf-surface, #f9fafb);
+    margin-bottom: 0.5rem;
+  }
+
+  .standup-item .date {
+    font-size: 0.75rem;
+    color: var(--sf-text-muted);
+    margin-bottom: 0.25rem;
+  }
+
+  .standup-item .content {
+    font-size: 0.85rem;
+    color: var(--sf-text);
+    line-height: 1.5;
+  }
+
+  .standup-item .sentiment {
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    margin-left: 0.5rem;
+  }
+
+  .standup-item .sentiment.positive { background: #d1fae5; color: #059669; }
+  .standup-item .sentiment.neutral { background: #e0e7ff; color: #4f46e5; }
+  .standup-item .sentiment.blocked { background: #fee2e2; color: #dc2626; }
+  .standup-item .sentiment.struggling { background: #fef3c7; color: #d97706; }
+
+  .standup-feedback {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-radius: 8px;
+    border-left: 3px solid #0ea5e9;
+    font-size: 0.85rem;
+    color: #0369a1;
+    line-height: 1.5;
+  }
+
+  .code-file-item {
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: var(--sf-surface, #f9fafb);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  .code-file-item .file-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .code-file-item .filename {
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: var(--sf-text);
+    font-weight: 500;
+  }
+
+  .code-file-item .file-meta {
+    font-size: 0.75rem;
+    color: var(--sf-text-muted);
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.25rem;
+  }
+
+  .code-file-item .version-badge {
+    background: var(--sf-primary, #667eea);
+    color: white;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .code-file-actions {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .code-file-actions button {
+    background: none;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+
+  .code-file-actions button:hover {
+    opacity: 1;
+  }
+
+  /* Ticket file selection hover */
+  .ticket-file-option:hover {
+    background: var(--sf-surface, #f9fafb);
+  }
+  
+  .ticket-file-option:last-child {
+    border-bottom: none;
+  }
 </style>
 
 <!-- Toast Container -->
 <div class="toast-container" id="toastContainer"></div>
 
-<div class="dashboard {{ 'wide' if layout == 'wide' else 'compact' }}" id="dashboard">
+<div class="dashboard compact" id="dashboard">
   <div class="dashboard-header">
     <div>
       <h1>🪷 Good {{ time_of_day }}, ready to dive in?</h1>
@@ -2105,6 +2217,8 @@
               <span style="width: 8px; height: 8px; background: #ef4444; border-radius: 50%;"></span>
               {% elif ticket.status == 'in_review' %}
               <span style="width: 8px; height: 8px; background: #8b5cf6; border-radius: 50%;"></span>
+              {% elif ticket.status == 'complete' %}
+              <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%;"></span>
               {% else %}
               <span style="width: 8px; height: 8px; background: #f59e0b; border-radius: 50%;"></span>
               {% endif %}
@@ -2127,16 +2241,123 @@
       </div>
     </div>
   </div>
-</div>
 
-<!-- Layout Controls -->
-<div class="layout-controls">
-  <button class="layout-btn" onclick="setLayout('compact')" id="btn-compact" title="Compact view">
-    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" stroke-width="2"/></svg>
-  </button>
-  <button class="layout-btn" onclick="setLayout('wide')" id="btn-wide" title="Wide view for large monitors">
-    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="1" y="5" width="22" height="14" rx="2" stroke-width="2"/></svg>
-  </button>
+  <!-- Career Hub Section -->
+  <div class="career-hub-section" style="margin-top: 2rem;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
+      <h2 style="font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+        <span>🚀</span> Career Hub
+      </h2>
+      <a href="/career" style="color: var(--sf-primary, #667eea); text-decoration: none; font-size: 0.9rem;">Full Career Page →</a>
+      <a href="/career/standups" style="color: var(--sf-primary, #667eea); text-decoration: none; font-size: 0.9rem; margin-left: 1.5rem;">Standups →</a>
+    </div>
+    
+    <div class="career-hub-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+      <!-- Standup Updates -->
+      <div class="section-card">
+        <div class="section-header">
+          <h3>📋 Daily Standup</h3>
+          <button onclick="toggleStandupForm()" style="background: none; border: none; cursor: pointer; font-size: 1.25rem;" title="Add standup">➕</button>
+        </div>
+        <div class="section-content">
+          <!-- Standup Form (hidden by default) -->
+          <div id="standupForm" style="display: none; margin-bottom: 1rem;">
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center;">
+              <label style="font-size: 0.85rem; color: var(--sf-text-muted);">Date:</label>
+              <input type="date" id="standupDate" style="padding: 0.4rem 0.75rem; border: 1px solid var(--sf-border, #e5e7eb); border-radius: 8px; font-size: 0.9rem;">
+              <button onclick="setStandupDateToday()" style="background: none; border: 1px solid var(--sf-border); padding: 0.4rem 0.75rem; border-radius: 8px; font-size: 0.8rem; cursor: pointer;">Today</button>
+            </div>
+            <textarea id="standupContent" placeholder="What did you accomplish? What are you working on? Any blockers?" style="width: 100%; min-height: 120px; padding: 0.75rem; border: 1px solid var(--sf-border, #e5e7eb); border-radius: 8px; font-size: 0.9rem; resize: vertical;"></textarea>
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+              <button id="submitStandupBtn" onclick="submitStandup()" class="standup-btn primary">Submit & Get Feedback</button>
+              <button onclick="suggestStandup()" class="standup-btn">Generate Suggestion</button>
+              <button onclick="toggleStandupForm()" class="standup-btn">Cancel</button>
+              <a href="/career/standups" class="standup-btn" style="text-decoration: none; display: inline-flex; align-items: center;">View All</a>
+            </div>
+          </div>
+          
+          <!-- Today's standup or recent standups -->
+          <div id="standupDisplay">
+            <div class="empty-section" style="text-align: center; padding: 1.5rem;">
+              <p style="color: var(--sf-text-muted); margin-bottom: 0.75rem;">No standup for today</p>
+              <button onclick="toggleStandupForm()" style="background: var(--sf-primary, #667eea); color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer;">
+                Add Today's Standup
+              </button>
+            </div>
+          </div>
+          
+          <!-- Recent standups -->
+          <div id="recentStandups" style="margin-top: 1rem; display: none;">
+            <div style="font-weight: 500; font-size: 0.85rem; color: var(--sf-text-muted); margin-bottom: 0.5rem;">Previous Standups</div>
+            <div id="recentStandupsList"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Code Locker -->
+      <div class="section-card">
+        <div class="section-header">
+          <h3>🔐 Code Locker</h3>
+          <button onclick="showCodeLockerSelector()" style="background: none; border: none; cursor: pointer; font-size: 1.25rem;" title="Add file">➕</button>
+        </div>
+        <div class="section-content">
+          <!-- Step 1: Ticket & File Selection -->
+          <div id="codeLockerSelector" style="display: none; margin-bottom: 1rem;">
+            <div style="font-weight: 500; margin-bottom: 0.5rem; font-size: 0.9rem;">Select Ticket & File</div>
+            
+            <!-- Ticket Selection -->
+            <select id="selectorTicket" onchange="loadTicketFiles()" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--sf-border, #e5e7eb); border-radius: 8px; font-size: 0.9rem; margin-bottom: 0.5rem;">
+              <option value="">-- Select a ticket --</option>
+            </select>
+            <div id="lockerTicketLink" style="margin-bottom: 0.5rem; display: none;"></div>
+            </select>
+            
+            <!-- File Selection (populated based on ticket) -->
+            <div id="selectorFilesContainer" style="display: none; margin-bottom: 0.5rem;">
+              <div style="font-size: 0.85rem; color: var(--sf-text-muted); margin-bottom: 0.25rem;">Or select from ticket files:</div>
+              <div id="selectorFilesList" style="max-height: 150px; overflow-y: auto; border: 1px solid var(--sf-border); border-radius: 8px;"></div>
+            </div>
+            
+            <!-- Manual filename entry -->
+            <div style="font-size: 0.85rem; color: var(--sf-text-muted); margin: 0.5rem 0 0.25rem;">Or enter manually:</div>
+            <input id="selectorFilename" placeholder="filename.py (or path/to/file.py)" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--sf-border, #e5e7eb); border-radius: 8px; font-size: 0.9rem;">
+            
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+              <button onclick="proceedToCodeEntry()" class="standup-btn primary">Continue →</button>
+              <button onclick="hideCodeLockerSelector()" class="standup-btn">Cancel</button>
+            </div>
+          </div>
+          
+          <!-- Step 2: Code Entry Form -->
+          <div id="codeLockerForm" style="display: none; margin-bottom: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.5rem; background: var(--sf-surface); border-radius: 8px;">
+              <span style="font-family: monospace; font-weight: 500;" id="selectedFileDisplay">-</span>
+              <span id="versionSuggestion" style="margin-left: auto; font-size: 0.8rem; color: var(--sf-text-muted);"></span>
+            </div>
+            <input type="hidden" id="codeFilename">
+            <input type="hidden" id="codeTicket">
+            <textarea id="codeContent" placeholder="Paste your code here..." style="width: 100%; min-height: 150px; padding: 0.75rem; border: 1px solid var(--sf-border, #e5e7eb); border-radius: 8px; font-size: 0.85rem; font-family: monospace; resize: vertical;"></textarea>
+            <input id="codeNotes" placeholder="Version notes (optional)" style="width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--sf-border, #e5e7eb); border-radius: 8px; font-size: 0.9rem; margin-top: 0.5rem;">
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+              <button onclick="submitCodeLocker()" class="standup-btn primary">Save to Locker</button>
+              <button onclick="backToSelector()" class="standup-btn">← Back</button>
+              <button onclick="toggleCodeLockerForm()" class="standup-btn">Cancel</button>
+            </div>
+          </div>
+          
+          <!-- Code Locker Files -->
+          <div id="codeLockerFiles">
+            <div class="empty-section" style="text-align: center; padding: 1.5rem;">
+              <p style="color: var(--sf-text-muted); margin-bottom: 0.75rem;">No files in locker</p>
+              <button onclick="showCodeLockerSelector()" style="background: var(--sf-primary, #667eea); color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer;">
+                Add First File
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Marked.js for markdown rendering -->
@@ -2184,18 +2405,8 @@ function showToast(title, message, type = 'info') {
   }, 5000);
 }
 
-// Layout management
-function setLayout(mode) {
-  dashboard.className = `dashboard ${mode}`;
-  localStorage.setItem('dashboardLayout', mode);
-  
-  document.getElementById('btn-compact').classList.toggle('active', mode === 'compact');
-  document.getElementById('btn-wide').classList.toggle('active', mode === 'wide');
-}
-
-// Load saved layout
-const savedLayout = localStorage.getItem('dashboardLayout') || 'compact';
-setLayout(savedLayout);
+// Single column layout (compact)
+dashboard.className = 'dashboard compact';
 
 // Markdown rendering for signal text
 document.querySelectorAll('.markdown-content').forEach(el => {
@@ -2518,33 +2729,38 @@ function extractAIItems(response) {
 
 function renderAIResponseItems(response) {
   currentAIItems = extractAIItems(response);
-  aiResponseContent.innerHTML = currentAIItems.map((item, index) => `
-    <div class="ai-update-item" data-ai-item-index="${index}">
-      <div class="ai-update-text">${marked.parse(item)}</div>
-      <div class="ai-update-actions">
-        <button class="ai-action-btn approve" onclick="approveAIItem(${index})" title="Save to memory">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-          Approve
-        </button>
-        <button class="ai-action-btn reject" onclick="rejectAIItem(${index})" title="Dismiss">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          Reject
-        </button>
-        <button class="ai-action-btn archive" onclick="archiveAIItem(${index})" title="Archive">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
-          Archive
-        </button>
-        <button class="ai-action-btn action" onclick="convertAIItemToTask(${index})" title="Create task">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-          Create Task
-        </button>
-        <button class="ai-action-btn waiting" onclick="convertAIItemToAccountability(${index})" title="Add to waiting-for list">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          Waiting For
-        </button>
+  // Track processed status for each item
+  if (!window.processedAIItems) window.processedAIItems = {};
+  aiResponseContent.innerHTML = currentAIItems.map((item, index) => {
+    if (window.processedAIItems[index]) return '';
+    return `
+      <div class="ai-update-item" data-ai-item-index="${index}">
+        <div class="ai-update-text">${marked.parse(item)}</div>
+        <div class="ai-update-actions">
+          <button class="ai-action-btn approve" onclick="approveAIItem(${index})" title="Save to memory">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            Approve
+          </button>
+          <button class="ai-action-btn reject" onclick="rejectAIItem(${index})" title="Dismiss">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            Reject
+          </button>
+          <button class="ai-action-btn archive" onclick="archiveAIItem(${index})" title="Archive">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+            Archive
+          </button>
+          <button class="ai-action-btn action" onclick="convertAIItemToTask(${index})" title="Create task">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+            Create Task
+          </button>
+          <button class="ai-action-btn waiting" onclick="convertAIItemToAccountability(${index})" title="Add to waiting-for list">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Waiting For
+          </button>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 function disableAIItemActions(index) {
@@ -2572,7 +2788,9 @@ async function approveAIItem(index) {
 
     if (response.ok) {
       showToast('Saved to Memory', 'AI item saved for future context', 'success');
-      disableAIItemActions(index);
+      window.processedAIItems[index] = 'approved';
+      renderAIResponseItems(currentAIResponse);
+      updateApprovedAIItems(itemText);
     } else {
       throw new Error('Failed to save');
     }
@@ -2597,7 +2815,8 @@ async function rejectAIItem(index) {
     });
 
     showToast('Dismissed', 'Item will not be saved', 'info');
-    disableAIItemActions(index);
+    window.processedAIItems[index] = 'rejected';
+    renderAIResponseItems(currentAIResponse);
   } catch (err) {
     showToast('Error', 'Could not dismiss item', 'error');
   }
@@ -2619,10 +2838,35 @@ async function archiveAIItem(index) {
     });
 
     showToast('Archived', 'Item archived', 'info');
-    disableAIItemActions(index);
+    window.processedAIItems[index] = 'archived';
+    renderAIResponseItems(currentAIResponse);
   } catch (err) {
     showToast('Error', 'Could not archive item', 'error');
   }
+// Section to show approved AI quick updates
+function updateApprovedAIItems(itemText) {
+  if (!window.approvedAIItems) window.approvedAIItems = [];
+  window.approvedAIItems.push(itemText);
+  renderApprovedAIItems();
+}
+
+function renderApprovedAIItems() {
+  let container = document.getElementById('approvedAIItems');
+  if (!container) {
+    // Create the section if not present
+    container = document.createElement('div');
+    container.id = 'approvedAIItems';
+    container.className = 'section-card';
+    container.innerHTML = `<div class="section-header"><h3>✅ Approved AI Updates</h3></div><div class="section-content" id="approvedAIItemsList"></div>`;
+    dashboard.appendChild(container);
+  }
+  const list = container.querySelector('#approvedAIItemsList');
+  if (window.approvedAIItems.length === 0) {
+    list.innerHTML = '<div class="empty-section">No approved AI updates yet.</div>';
+  } else {
+    list.innerHTML = window.approvedAIItems.map(item => `<div class="ai-update-item"><div class="ai-update-text">${marked.parse(item)}</div></div>`).join('');
+  }
+}
 }
 
 async function convertAIItemToTask(index) {
@@ -3192,7 +3436,8 @@ function formatStatus(status) {
     'in_progress': 'In Progress',
     'in_review': 'In Review',
     'blocked': 'Blocked',
-    'done': 'Done'
+    'done': 'Done',
+    'complete': 'Complete'
   };
   return map[status] || status;
 }
@@ -4046,6 +4291,437 @@ function toggleDrilldownLevel(level) {
     arrow.textContent = level.classList.contains('collapsed') ? '▶' : '▼';
   }
 }
+
+// =====================
+// Career Hub Functions
+// =====================
+
+// Standup Functions
+function toggleStandupForm() {
+  const form = document.getElementById('standupForm');
+  const isHidden = form.style.display === 'none';
+  form.style.display = isHidden ? 'block' : 'none';
+  if (isHidden) {
+    // Set default date to today when opening form
+    setStandupDateToday();
+  }
+}
+
+function setStandupDateToday() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('standupDate').value = today;
+}
+
+async function loadStandups() {
+  try {
+    // Load today's standup
+    const todayRes = await fetch('/api/career/standups/today');
+    const todayData = await todayRes.json();
+    
+    const display = document.getElementById('standupDisplay');
+    
+    if (todayData && todayData.id) {
+      // Show today's standup
+      display.innerHTML = `
+        <div class="standup-item">
+          <div class="date">
+            Today
+            <span class="sentiment ${todayData.sentiment || 'neutral'}">${todayData.sentiment || 'neutral'}</span>
+          </div>
+          <div class="content">${todayData.content}</div>
+          ${todayData.feedback ? `<div class="standup-feedback">${todayData.feedback}</div>` : ''}
+        </div>
+      `;
+    } else {
+      display.innerHTML = `
+        <div class="empty-section" style="text-align: center; padding: 1.5rem;">
+          <p style="color: var(--sf-text-muted); margin-bottom: 0.75rem;">No standup for today</p>
+          <button onclick="toggleStandupForm()" style="background: var(--sf-primary, #667eea); color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer;">
+            Add Today's Standup
+          </button>
+        </div>
+      `;
+    }
+    
+    // Load recent standups
+    const recentRes = await fetch('/api/career/standups?limit=5');
+    const standups = await recentRes.json();
+    
+    const recentSection = document.getElementById('recentStandups');
+    const recentList = document.getElementById('recentStandupsList');
+    
+    // Filter out today's standup
+    const recentOnly = standups.filter(s => s.id !== todayData?.id).slice(0, 3);
+    
+    if (recentOnly.length > 0) {
+      recentSection.style.display = 'block';
+      recentList.innerHTML = recentOnly.map(s => `
+        <div class="standup-item" style="padding: 0.5rem; font-size: 0.85rem;">
+          <div class="date">${s.standup_date} <span class="sentiment ${s.sentiment || 'neutral'}">${s.sentiment || 'neutral'}</span></div>
+          <div class="content" style="opacity: 0.8;">${s.content.substring(0, 100)}${s.content.length > 100 ? '...' : ''}</div>
+        </div>
+      `).join('');
+    } else {
+      recentSection.style.display = 'none';
+    }
+    
+  } catch (err) {
+    console.error('Failed to load standups:', err);
+  }
+}
+
+async function submitStandup() {
+  const content = document.getElementById('standupContent').value.trim();
+  const dateInput = document.getElementById('standupDate').value;
+  const btn = document.getElementById('submitStandupBtn');
+  
+  if (!content) {
+    showToast('Missing Content', 'Please enter your standup update', 'warning');
+    return;
+  }
+  
+  // Disable button and show loading state
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.innerHTML = '<span style="display: inline-flex; align-items: center; gap: 0.5rem;"><span class="spinner" style="width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>Submitting...</span>';
+  
+  try {
+    const res = await fetch('/api/career/standups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, date: dateInput || null })
+    });
+    
+    const data = await res.json();
+    
+    if (data.status === 'ok') {
+      showToast('Standup Saved', 'Your standup has been saved and feedback generated!', 'success');
+      document.getElementById('standupContent').value = '';
+      toggleStandupForm();
+      loadStandups();
+    } else {
+      showToast('Error', data.error || 'Failed to save standup', 'error');
+    }
+  } catch (err) {
+    showToast('Error', 'Failed to save standup', 'error');
+    console.error('Standup error:', err);
+  } finally {
+    // Re-enable button
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+async function suggestStandup() {
+  const textarea = document.getElementById('standupContent');
+  
+  try {
+    showToast('Generating...', 'Creating suggested standup based on your work', 'info');
+    
+    const res = await fetch('/api/career/standups/suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    const data = await res.json();
+    
+    if (data.suggestion) {
+      textarea.value = data.suggestion;
+      showToast('Suggestion Ready', `Based on ${data.tickets_count} tickets and ${data.code_changes_count} code changes`, 'success');
+    } else {
+      showToast('Error', 'Could not generate suggestion', 'error');
+    }
+  } catch (err) {
+    showToast('Error', 'Failed to generate suggestion', 'error');
+    console.error('Suggest error:', err);
+  }
+}
+
+// Code Locker Functions - Ticket/File Selection Flow
+let ticketsWithFiles = [];
+
+function lockerTicketLink(ticketId) {
+  const linkDiv = document.getElementById('lockerTicketLink');
+  if (ticketId) {
+    linkDiv.innerHTML = `<a href="/tickets/${ticketId}" target="_blank" style="color: #6366f1; text-decoration: underline; font-size: 0.92rem;">View/Edit Ticket Details →</a>`;
+    linkDiv.style.display = 'block';
+  } else {
+    linkDiv.innerHTML = '';
+    linkDiv.style.display = 'none';
+  }
+}
+
+// Patch the ticket select to show the link on change
+const selectorTicket = document.getElementById('selectorTicket');
+if (selectorTicket) {
+  selectorTicket.addEventListener('change', function() {
+    lockerTicketLink(this.value);
+  });
+}
+
+function toggleCodeLockerForm() {
+  // Hide both selector and form
+  document.getElementById('codeLockerSelector').style.display = 'none';
+  document.getElementById('codeLockerForm').style.display = 'none';
+}
+
+async function showCodeLockerSelector() {
+  // Load tickets with their files
+  try {
+    const res = await fetch('/api/career/tickets-with-files');
+    ticketsWithFiles = await res.json();
+    
+    const select = document.getElementById('selectorTicket');
+    select.innerHTML = '<option value="">-- Select a ticket --</option>' + 
+      ticketsWithFiles.map(t => `<option value="${t.id}">${t.ticket_id}: ${t.title.substring(0, 40)}${t.title.length > 40 ? '...' : ''}</option>`).join('');
+    
+    // Check for URL params (pre-fill from ticket page)
+    const urlParams = new URLSearchParams(window.location.search);
+    const prefilledFile = urlParams.get('code_locker_file');
+    const prefilledTicket = urlParams.get('ticket_id');
+    
+    if (prefilledTicket) {
+      select.value = prefilledTicket;
+      loadTicketFilesForSelector();
+      if (prefilledFile) {
+        document.getElementById('selectorFilename').value = prefilledFile;
+      }
+    }
+    
+  } catch (err) {
+    console.error('Failed to load tickets:', err);
+  }
+  
+  document.getElementById('codeLockerSelector').style.display = 'block';
+  document.getElementById('codeLockerForm').style.display = 'none';
+}
+
+function hideCodeLockerSelector() {
+  document.getElementById('codeLockerSelector').style.display = 'none';
+  // Clear URL params
+  if (window.location.search) {
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+}
+
+async function loadTicketFilesForSelector() {
+  const ticketId = document.getElementById('selectorTicket').value;
+  const container = document.getElementById('selectorFilesContainer');
+  const list = document.getElementById('selectorFilesList');
+  
+  if (!ticketId) {
+    container.style.display = 'none';
+    return;
+  }
+  
+  const ticket = ticketsWithFiles.find(t => t.id == ticketId);
+  if (!ticket || ticket.files.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
+  
+  list.innerHTML = ticket.files.map(f => `
+    <div class="ticket-file-option" style="padding: 0.5rem 0.75rem; cursor: pointer; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--sf-border);">
+      <div style="min-width: 0; flex: 1;">
+        <div style="font-family: monospace; font-size: 0.85rem; color: var(--sf-text);">${f.filename}</div>
+        <div style="font-size: 0.75rem; color: var(--sf-text-muted);">${f.file_type === 'new' ? '✨ New file' : '📝 Update'} ${f.description ? '· ' + f.description : ''}</div>
+      </div>
+      <span style="font-size: 0.75rem; padding: 0.2rem 0.5rem; background: ${f.latest_version ? '#dcfce7' : '#f3f4f6'}; color: ${f.latest_version ? '#166534' : '#6b7280'}; border-radius: 4px;">
+        ${f.latest_version ? 'v' + f.latest_version + ' → v' + (f.latest_version + 1) : 'v1 (new)'}
+      </span>
+      <button onclick="drillToTicketFile('${ticket.id}', '${f.filename}')" style="margin-left: 0.5rem; background: #e0e7ff; color: #3730a3; border: none; border-radius: 4px; font-size: 0.8rem; padding: 0.2rem 0.6rem; cursor: pointer;">Drill →</button>
+    </div>
+  `).join('');
+  
+  container.style.display = 'block';
+}
+
+// Alias for the onchange handler
+function loadTicketFiles() {
+  loadTicketFilesForSelector();
+}
+
+
+function selectTicketFile(filename, currentVersion) {
+  document.getElementById('selectorFilename').value = filename;
+  // Highlight selected
+  document.querySelectorAll('.ticket-file-option').forEach(el => {
+    el.style.background = el.querySelector('div').textContent.includes(filename) ? 'var(--sf-surface)' : '';
+  });
+}
+
+// Drill directly to code entry for a ticket file
+async function drillToTicketFile(ticketId, filename) {
+  document.getElementById('selectorTicket').value = ticketId;
+  await loadTicketFilesForSelector();
+  document.getElementById('selectorFilename').value = filename;
+  proceedToCodeEntry();
+}
+
+async function proceedToCodeEntry() {
+  const ticketId = document.getElementById('selectorTicket').value;
+  const filename = document.getElementById('selectorFilename').value.trim();
+  
+  if (!filename) {
+    showToast('Missing Filename', 'Please select or enter a filename', 'warning');
+    return;
+  }
+  
+  // Set hidden fields
+  document.getElementById('codeFilename').value = filename;
+  document.getElementById('codeTicket').value = ticketId;
+  document.getElementById('selectedFileDisplay').textContent = filename;
+  
+  // Get version suggestion
+  try {
+    const params = new URLSearchParams({ filename });
+    if (ticketId) params.append('ticket_id', ticketId);
+    
+    const res = await fetch(`/api/career/code-locker/next-version?${params}`);
+    const data = await res.json();
+    
+    document.getElementById('versionSuggestion').textContent = 
+      data.is_new_file ? 'Will be saved as v1' : `Will be saved as v${data.next_version}`;
+    
+  } catch (err) {
+    document.getElementById('versionSuggestion').textContent = '';
+  }
+  
+  // Switch to code entry form
+  document.getElementById('codeLockerSelector').style.display = 'none';
+  document.getElementById('codeLockerForm').style.display = 'block';
+  document.getElementById('codeContent').focus();
+}
+
+function backToSelector() {
+  document.getElementById('codeLockerForm').style.display = 'none';
+  document.getElementById('codeLockerSelector').style.display = 'block';
+}
+
+async function loadCodeLocker() {
+  try {
+    const res = await fetch('/api/career/code-locker/files');
+    const files = await res.json();
+    
+    const container = document.getElementById('codeLockerFiles');
+    
+    if (files.length > 0) {
+      container.innerHTML = files.map(f => `
+        <div class="code-file-item">
+          <div class="file-info">
+            <div class="filename">${f.filename}</div>
+            <div class="file-meta">
+              <span>v${f.latest_version}</span>
+              <span>${f.version_count} version${f.version_count > 1 ? 's' : ''}</span>
+              <span>${formatTimeAgo(f.last_updated)}</span>
+            </div>
+          </div>
+          <span class="version-badge">v${f.latest_version}</span>
+          <div class="code-file-actions">
+            <button onclick="viewCodeFile('${f.filename}')" title="View">👁️</button>
+            <button onclick="updateCodeFile('${f.filename}', ${f.ticket_id || 'null'})" title="Update">📝</button>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      container.innerHTML = `
+        <div class="empty-section" style="text-align: center; padding: 1.5rem;">
+          <p style="color: var(--sf-text-muted); margin-bottom: 0.75rem;">No files in locker</p>
+          <button onclick="showCodeLockerSelector()" style="background: var(--sf-primary, #667eea); color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer;">
+            Add First File
+          </button>
+        </div>
+      `;
+    }
+  } catch (err) {
+    console.error('Failed to load code locker:', err);
+  }
+}
+
+async function submitCodeLocker() {
+  const filename = document.getElementById('codeFilename').value.trim();
+  const content = document.getElementById('codeContent').value;
+  const ticketId = document.getElementById('codeTicket').value;
+  const notes = document.getElementById('codeNotes').value.trim();
+  
+  if (!filename) {
+    showToast('Missing Filename', 'Please enter a filename', 'warning');
+    return;
+  }
+  
+  try {
+    const res = await fetch('/api/career/code-locker', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filename,
+        content,
+        ticket_id: ticketId || null,
+        notes
+      })
+    });
+    
+    const data = await res.json();
+    
+    if (data.status === 'ok') {
+      showToast('File Saved', `${filename} saved as v${data.version}`, 'success');
+      document.getElementById('codeFilename').value = '';
+      document.getElementById('codeContent').value = '';
+      document.getElementById('codeTicket').value = '';
+      document.getElementById('codeNotes').value = '';
+      toggleCodeLockerForm();
+      loadCodeLocker();
+      // Clear URL params
+      if (window.location.search) {
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } else {
+      showToast('Error', data.error || 'Failed to save file', 'error');
+    }
+  } catch (err) {
+    showToast('Error', 'Failed to save file', 'error');
+    console.error('Code locker error:', err);
+  }
+}
+
+function viewCodeFile(filename) {
+  window.open(`/career?tab=code-locker&file=${encodeURIComponent(filename)}`, '_blank');
+}
+
+async function updateCodeFile(filename, ticketId) {
+  // Pre-fill selector and go straight to code entry
+  await showCodeLockerSelector();
+  if (ticketId) {
+    document.getElementById('selectorTicket').value = ticketId;
+    await loadTicketFilesForSelector();
+  }
+  document.getElementById('selectorFilename').value = filename;
+  proceedToCodeEntry();
+}
+
+function formatTimeAgo(dateStr) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = (now - date) / 1000; // seconds
+  
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return dateStr.split('T')[0];
+}
+
+// Initialize Career Hub on page load
+document.addEventListener('DOMContentLoaded', () => {
+  loadStandups();
+  loadCodeLocker();
+  
+  // Check if we should open code locker from URL params
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('code_locker_file')) {
+    showCodeLockerSelector();
+  }
+});
 </script>
 
 {% endblock %}

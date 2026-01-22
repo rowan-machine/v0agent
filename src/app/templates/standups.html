@@ -1,0 +1,710 @@
+{% extends "base.html" %}
+
+{% block title %}Standups & Career Chat{% endblock %}
+
+{% block content %}
+<style>
+  .standups-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.5rem;
+  }
+  
+  .standups-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  
+  .standups-header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--sf-text, #1f2937);
+  }
+  
+  .standups-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  
+  @media (max-width: 1024px) {
+    .standups-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  .panel {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    padding: 1.25rem;
+  }
+  
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .panel-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #374151;
+  }
+  
+  /* Standup Form */
+  .standup-form {
+    margin-bottom: 1.5rem;
+  }
+  
+  .form-row {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    align-items: center;
+  }
+  
+  .form-row label {
+    font-size: 0.875rem;
+    color: #6b7280;
+    white-space: nowrap;
+  }
+  
+  .form-row input[type="date"] {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+  }
+  
+  .standup-textarea {
+    width: 100%;
+    min-height: 150px;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    resize: vertical;
+    font-family: inherit;
+  }
+  
+  .standup-textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  }
+  
+  .form-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+  }
+  
+  .btn {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+  }
+  
+  .btn-primary {
+    background: #667eea;
+    color: white;
+  }
+  
+  .btn-primary:hover:not(:disabled) {
+    background: #5a67d8;
+  }
+  
+  .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  .btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #d1d5db;
+  }
+  
+  .btn-secondary:hover {
+    background: #e5e7eb;
+  }
+  
+  .btn-ghost {
+    background: transparent;
+    color: #6b7280;
+  }
+  
+  .btn-ghost:hover {
+    background: #f3f4f6;
+  }
+  
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: #6b7280;
+    cursor: pointer;
+  }
+  
+  .checkbox-label input {
+    width: 16px;
+    height: 16px;
+  }
+  
+  /* Standup List */
+  .standups-list {
+    max-height: 500px;
+    overflow-y: auto;
+  }
+  
+  .standup-item {
+    padding: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+  }
+  
+  .standup-item:hover {
+    border-color: #d1d5db;
+  }
+  
+  .standup-date {
+    font-size: 0.8rem;
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .sentiment-badge {
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  
+  .sentiment-badge.positive { background: #d1fae5; color: #065f46; }
+  .sentiment-badge.neutral { background: #e5e7eb; color: #4b5563; }
+  .sentiment-badge.negative { background: #fee2e2; color: #991b1b; }
+  .sentiment-badge.mixed { background: #fef3c7; color: #92400e; }
+  
+  .standup-content {
+    font-size: 0.9rem;
+    color: #374151;
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+  
+  .standup-feedback {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    background: #f0f9ff;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #0369a1;
+    border-left: 3px solid #0ea5e9;
+  }
+  
+  .standup-themes {
+    margin-top: 0.5rem;
+    display: flex;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+  }
+  
+  .theme-tag {
+    padding: 0.125rem 0.5rem;
+    background: #ede9fe;
+    color: #6d28d9;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+  }
+  
+  /* Chat Section */
+  .chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 600px;
+  }
+  
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+    background: #f9fafb;
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+  }
+  
+  .chat-message {
+    margin-bottom: 0.75rem;
+    max-width: 85%;
+  }
+  
+  .chat-message.user {
+    margin-left: auto;
+  }
+  
+  .chat-message.assistant {
+    margin-right: auto;
+  }
+  
+  .message-bubble {
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+  
+  .chat-message.user .message-bubble {
+    background: #667eea;
+    color: white;
+    border-bottom-right-radius: 4px;
+  }
+  
+  .chat-message.assistant .message-bubble {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-bottom-left-radius: 4px;
+  }
+  
+  .message-time {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    margin-top: 0.25rem;
+  }
+  
+  .chat-message.user .message-time {
+    text-align: right;
+  }
+  
+  .chat-input-area {
+    display: flex;
+    gap: 0.5rem;
+  }
+  
+  .chat-input {
+    flex: 1;
+    padding: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    resize: none;
+    font-family: inherit;
+  }
+  
+  .chat-input:focus {
+    outline: none;
+    border-color: #667eea;
+  }
+  
+  .quick-prompts {
+    display: flex;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+  }
+  
+  .quick-prompt {
+    padding: 0.375rem 0.75rem;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    color: #4b5563;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .quick-prompt:hover {
+    background: #e5e7eb;
+    border-color: #d1d5db;
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: #9ca3af;
+  }
+  
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #fff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  /* Toggle feedback visibility */
+  .toggle-feedback {
+    font-size: 0.75rem;
+    color: #6b7280;
+    cursor: pointer;
+    margin-top: 0.5rem;
+  }
+  
+  .toggle-feedback:hover {
+    color: #374151;
+  }
+</style>
+
+<div class="standups-container">
+  <div class="standups-header">
+    <h1>📝 Standups & Career Chat</h1>
+    <a href="/career" class="btn btn-secondary">← Back to Career</a>
+  </div>
+  
+  <div class="standups-grid">
+    <!-- Left: Standups -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Standup Updates</span>
+        <button onclick="toggleAddForm()" class="btn btn-ghost" id="toggleFormBtn">+ Add</button>
+      </div>
+      
+      <!-- Add Standup Form -->
+      <div id="addStandupForm" class="standup-form" style="display: none;">
+        <div class="form-row">
+          <label>Date:</label>
+          <input type="date" id="standupDate">
+          <button onclick="setToday()" class="btn btn-ghost" style="padding: 0.25rem 0.5rem;">Today</button>
+        </div>
+        <textarea id="standupContent" class="standup-textarea" placeholder="What did you accomplish? What's planned? Any blockers?"></textarea>
+        <div class="form-actions">
+          <label class="checkbox-label">
+            <input type="checkbox" id="skipFeedback">
+            Skip AI feedback (quick save)
+          </label>
+        </div>
+        <div class="form-actions">
+          <button onclick="submitStandup()" id="submitBtn" class="btn btn-primary">Save Standup</button>
+          <button onclick="generateSuggestion()" class="btn btn-secondary">Generate Suggestion</button>
+          <button onclick="toggleAddForm()" class="btn btn-ghost">Cancel</button>
+        </div>
+      </div>
+      
+      <!-- Standups List -->
+      <div class="standups-list" id="standupsList">
+        <div class="empty-state">Loading standups...</div>
+      </div>
+    </div>
+    
+    <!-- Right: Career Chat -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">💬 Career Agent</span>
+        <button onclick="clearChat()" class="btn btn-ghost">Clear</button>
+      </div>
+      
+      <div class="chat-container">
+        <div class="quick-prompts">
+          <button class="quick-prompt" onclick="askQuick('How is my sprint going?')">Sprint status</button>
+          <button class="quick-prompt" onclick="askQuick('What should I focus on today?')">Today\'s focus</button>
+          <button class="quick-prompt" onclick="askQuick('Summarize my recent standups')">Standup summary</button>
+          <button class="quick-prompt" onclick="askQuick('What are my blockers?')">Blockers</button>
+          <button class="quick-prompt" onclick="askQuick('Give me career advice based on my work')">Career advice</button>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-message assistant">
+            <div class="message-bubble">
+              Hi! I'm your career agent. I can help you with sprint progress, standup insights, career advice, and more. Ask me anything about your work!
+            </div>
+          </div>
+        </div>
+        
+        <div class="chat-input-area">
+          <textarea id="chatInput" class="chat-input" rows="2" placeholder="Ask about your sprint, standups, or career..." onkeydown="handleChatKeydown(event)"></textarea>
+          <button onclick="sendChat()" id="sendBtn" class="btn btn-primary" style="align-self: flex-end;">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let standups = [];
+let chatHistory = [];
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  loadStandups();
+  setToday();
+});
+
+function setToday() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('standupDate').value = today;
+}
+
+function toggleAddForm() {
+  const form = document.getElementById('addStandupForm');
+  const btn = document.getElementById('toggleFormBtn');
+  if (form.style.display === 'none') {
+    form.style.display = 'block';
+    btn.textContent = '− Hide';
+  } else {
+    form.style.display = 'none';
+    btn.textContent = '+ Add';
+  }
+}
+
+async function loadStandups() {
+  try {
+    const res = await fetch('/api/career/standups');
+    standups = await res.json();
+    renderStandups();
+  } catch (err) {
+    console.error('Failed to load standups:', err);
+    document.getElementById('standupsList').innerHTML = '<div class="empty-state">Failed to load standups</div>';
+  }
+}
+
+function renderStandups() {
+  const container = document.getElementById('standupsList');
+  
+  if (standups.length === 0) {
+    container.innerHTML = '<div class="empty-state">No standups yet. Add your first one!</div>';
+    return;
+  }
+  
+  container.innerHTML = standups.map(s => {
+    const themes = s.key_themes ? s.key_themes.split(',').filter(t => t.trim()) : [];
+    return `
+      <div class="standup-item">
+        <div class="standup-date">
+          ${s.standup_date}
+          ${s.sentiment ? `<span class="sentiment-badge ${s.sentiment}">${s.sentiment}</span>` : ''}
+        </div>
+        <div class="standup-content">${escapeHtml(s.content)}</div>
+        ${themes.length > 0 ? `
+          <div class="standup-themes">
+            ${themes.map(t => `<span class="theme-tag">${escapeHtml(t.trim())}</span>`).join('')}
+          </div>
+        ` : ''}
+        ${s.feedback ? `
+          <div class="standup-feedback" id="feedback-${s.id}" style="display: none;">${escapeHtml(s.feedback)}</div>
+          <div class="toggle-feedback" onclick="toggleFeedback(${s.id})">▶ Show AI feedback</div>
+        ` : '<div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem;">No feedback (quick save)</div>'}
+        <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="deleteStandup(${s.id})">Delete</button>
+      </div>
+    `;
+  }).join('');
+async function deleteStandup(id) {
+  if (!confirm('Delete this standup?')) return;
+  try {
+    const res = await fetch(`/api/career/standups/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      standups = standups.filter(s => s.id !== id);
+      renderStandups();
+    } else {
+      alert('Failed to delete standup.');
+    }
+  } catch (err) {
+    alert('Failed to delete standup.');
+  }
+}
+}
+
+function toggleFeedback(id) {
+  const fb = document.getElementById(`feedback-${id}`);
+  const toggle = fb.nextElementSibling;
+  if (fb.style.display === 'none') {
+    fb.style.display = 'block';
+    toggle.innerHTML = '▼ Hide AI feedback';
+  } else {
+    fb.style.display = 'none';
+    toggle.innerHTML = '▶ Show AI feedback';
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function submitStandup() {
+  const content = document.getElementById('standupContent').value.trim();
+  const date = document.getElementById('standupDate').value;
+  const skipFeedback = document.getElementById('skipFeedback').checked;
+  const btn = document.getElementById('submitBtn');
+  
+  if (!content) {
+    alert('Please enter standup content');
+    return;
+  }
+  
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Saving...';
+  
+  try {
+    const res = await fetch('/api/career/standups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        content, 
+        date: date || null,
+        skip_feedback: skipFeedback 
+      })
+    });
+    
+    const data = await res.json();
+    
+    if (data.status === 'ok') {
+      document.getElementById('standupContent').value = '';
+      document.getElementById('skipFeedback').checked = false;
+      toggleAddForm();
+      loadStandups();
+    } else {
+      alert(data.error || 'Failed to save standup');
+    }
+  } catch (err) {
+    console.error('Submit error:', err);
+    alert('Failed to save standup');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save Standup';
+  }
+}
+
+async function generateSuggestion() {
+  const textarea = document.getElementById('standupContent');
+  
+  try {
+    textarea.placeholder = 'Generating suggestion...';
+    
+    const res = await fetch('/api/career/standups/suggest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    const data = await res.json();
+    
+    if (data.suggestion) {
+      textarea.value = data.suggestion;
+    } else {
+      alert('Could not generate suggestion');
+    }
+  } catch (err) {
+    console.error('Suggest error:', err);
+    alert('Failed to generate suggestion');
+  } finally {
+    textarea.placeholder = 'What did you accomplish? What\'s planned? Any blockers?';
+  }
+}
+
+// Chat Functions
+function handleChatKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendChat();
+  }
+}
+
+function askQuick(prompt) {
+  document.getElementById('chatInput').value = prompt;
+  sendChat();
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const message = input.value.trim();
+  const btn = document.getElementById('sendBtn');
+  
+  if (!message) return;
+  
+  // Add user message
+  addChatMessage('user', message);
+  input.value = '';
+  
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  
+  // Add typing indicator
+  const typingId = addChatMessage('assistant', '<em style="color: #9ca3af;">Thinking...</em>', true);
+  
+  try {
+    const res = await fetch('/api/career/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        message,
+        history: chatHistory.slice(-10) // Last 10 messages for context
+      })
+    });
+    
+    const data = await res.json();
+    
+    // Remove typing indicator
+    document.getElementById(typingId)?.remove();
+    
+    if (data.response) {
+      addChatMessage('assistant', data.response);
+      chatHistory.push({ role: 'user', content: message });
+      chatHistory.push({ role: 'assistant', content: data.response });
+    } else {
+      addChatMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+    }
+  } catch (err) {
+    console.error('Chat error:', err);
+    document.getElementById(typingId)?.remove();
+    addChatMessage('assistant', 'Failed to connect. Please try again.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Send';
+  }
+}
+
+function addChatMessage(role, content, isTemp = false) {
+  const container = document.getElementById('chatMessages');
+  const id = 'msg-' + Date.now();
+  
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  
+  const html = `
+    <div class="chat-message ${role}" id="${id}">
+      <div class="message-bubble">${isTemp ? content : escapeHtml(content).replace(/\n/g, '<br>')}</div>
+      <div class="message-time">${time}</div>
+    </div>
+  `;
+  
+  container.insertAdjacentHTML('beforeend', html);
+  container.scrollTop = container.scrollHeight;
+  
+  return id;
+}
+
+function clearChat() {
+  chatHistory = [];
+  document.getElementById('chatMessages').innerHTML = `
+    <div class="chat-message assistant">
+      <div class="message-bubble">
+        Hi! I'm your career agent. I can help you with sprint progress, standup insights, career advice, and more. Ask me anything about your work!
+      </div>
+    </div>
+  `;
+}
+</script>
+{% endblock %}
