@@ -31,7 +31,7 @@ async def list_tickets(
     Status: backlog, active, in_progress, done, archived
     """
     with connect() as conn:
-        query = "SELECT * FROM ticket WHERE 1=1"
+        query = "SELECT * FROM tickets WHERE 1=1"
         params = []
         
         if status:
@@ -46,7 +46,7 @@ async def list_tickets(
         total = conn.execute(count_query, tuple(params)).fetchone()["count"]
         
         # Add pagination
-        query += " ORDER BY priority DESC, pk DESC LIMIT ? OFFSET ?"
+        query += " ORDER BY priority DESC, id DESC LIMIT ? OFFSET ?"
         params.extend([limit, skip])
         
         rows = conn.execute(query, tuple(params)).fetchall()
@@ -69,7 +69,7 @@ async def get_ticket(ticket_id: int):
     """
     with connect() as conn:
         row = conn.execute(
-            "SELECT * FROM ticket WHERE pk = ?",
+            "SELECT * FROM tickets WHERE id = ?",
             (ticket_id,)
         ).fetchone()
     
@@ -98,7 +98,7 @@ async def create_ticket(ticket: TicketCreate):
     """
     with connect() as conn:
         cursor = conn.execute(
-            """INSERT INTO ticket (title, description, status, priority, points, tags)
+            """INSERT INTO tickets (title, description, status, priority, points, tags)
                VALUES (?, ?, ?, ?, ?, ?)""",
             (ticket.title, ticket.description, ticket.status,
              ticket.priority, ticket.points, ticket.tags)
@@ -124,7 +124,7 @@ async def update_ticket(ticket_id: int, ticket: TicketUpdate):
     with connect() as conn:
         # Check if ticket exists
         existing = conn.execute(
-            "SELECT pk FROM ticket WHERE pk = ?",
+            "SELECT id FROM tickets WHERE id = ?",
             (ticket_id,)
         ).fetchone()
         
@@ -155,7 +155,7 @@ async def update_ticket(ticket_id: int, ticket: TicketUpdate):
             params.append(ticket.tags)
         
         if updates:
-            query = f"UPDATE ticket SET {', '.join(updates)} WHERE pk = ?"
+            query = f"UPDATE tickets SET {', '.join(updates)} WHERE id = ?"
             params.append(ticket_id)
             conn.execute(query, tuple(params))
             conn.commit()
@@ -177,14 +177,14 @@ async def delete_ticket(ticket_id: int):
     with connect() as conn:
         # Check if ticket exists
         existing = conn.execute(
-            "SELECT pk FROM ticket WHERE pk = ?",
+            "SELECT id FROM tickets WHERE id = ?",
             (ticket_id,)
         ).fetchone()
         
         if not existing:
             raise HTTPException(status_code=404, detail="Ticket not found")
         
-        conn.execute("DELETE FROM ticket WHERE pk = ?", (ticket_id,))
+        conn.execute("DELETE FROM tickets WHERE id = ?", (ticket_id,))
         conn.commit()
     
     return Response(status_code=204)
@@ -206,7 +206,7 @@ async def generate_ticket_summary(ticket_id: int):
     
     with connect() as conn:
         row = conn.execute(
-            "SELECT * FROM ticket WHERE pk = ?",
+            "SELECT * FROM tickets WHERE id = ?",
             (ticket_id,)
         ).fetchone()
     
@@ -235,7 +235,7 @@ async def generate_ticket_plan(ticket_id: int):
     
     with connect() as conn:
         row = conn.execute(
-            "SELECT * FROM ticket WHERE pk = ?",
+            "SELECT * FROM tickets WHERE id = ?",
             (ticket_id,)
         ).fetchone()
     
@@ -264,7 +264,7 @@ async def decompose_ticket(ticket_id: int):
     
     with connect() as conn:
         row = conn.execute(
-            "SELECT * FROM ticket WHERE pk = ?",
+            "SELECT * FROM tickets WHERE id = ?",
             (ticket_id,)
         ).fetchone()
     
