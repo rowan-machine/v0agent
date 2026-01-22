@@ -85,6 +85,7 @@ class GuardrailConfig:
     enabled: bool = False
     pre_call_enabled: bool = True
     post_call_enabled: bool = True
+    description: str = ""  # Agent description from config
     
     # Input filters
     block_patterns: List[str] = field(default_factory=list)
@@ -103,6 +104,9 @@ class GuardrailConfig:
     
     # Refusal templates
     refusal_template: str = "I'm not able to help with that request."
+    
+    # Extra fields from config (catch-all for forward compatibility)
+    extras: Dict[str, Any] = field(default_factory=dict)
 
 
 # Default guardrail rules embedded for zero-config startup
@@ -472,10 +476,22 @@ class Guardrails:
         global_config = self.config.get("global", {})
         agents_config = self.config.get("agents", {})
         
+        # Get valid field names from GuardrailConfig
+        import dataclasses
+        valid_fields = {f.name for f in dataclasses.fields(GuardrailConfig)}
+        
         for agent_name, agent_config in agents_config.items():
             # Merge global with agent-specific
             merged = {**global_config, **agent_config}
-            self.agent_configs[agent_name] = GuardrailConfig(**merged)
+            
+            # Separate known fields from extras
+            known_fields = {k: v for k, v in merged.items() if k in valid_fields}
+            extra_fields = {k: v for k, v in merged.items() if k not in valid_fields}
+            
+            if extra_fields:
+                known_fields['extras'] = extra_fields
+            
+            self.agent_configs[agent_name] = GuardrailConfig(**known_fields)
     
     def get_config(self, agent_name: str) -> GuardrailConfig:
         """Get guardrail config for an agent."""
