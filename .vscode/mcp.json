@@ -1,5 +1,16 @@
 {
   "giga": {
     "url": "https://mcp.gigamind.dev/mcp"
+  },
+  "supabase": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@supabase/mcp-server-supabase@latest",
+      "--access-token",
+      "${env:SUPABASE_SECRET_KEY}",
+      "--features",
+      "schema,sql-execution-read,sql-execution-write,database-operation"
+    ]
   }
 }
