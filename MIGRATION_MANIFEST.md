@@ -213,6 +213,7 @@ These items are intentionally deferred for future iterations:
 - [ ] Model auto-selection router refinements
 - [ ] Supabase real-time subscriptions
 - [ ] Performance improvements
+- [ ] auto suggest transcript from backlog grooming that pairs with a ticket, find a good way to offer this as a notification and start thinking about how we can run scheduled jobs in this environment so that things happen automatically instead of having to be user triggered, this is a good example. it would also be nice to have an exposed config i can change that adjusts the similiarity match score from ticket to transcript, also it would be nice if there were missed items in the ticket that are in the transcript (only after matching has been confirmed) that it auto-notifies me to look into it so the missed criteria is captured and alerts me to review the recording
 
 ### Single-User Mode (Deferred - Only User for Now)
 - [ ] Robust authentication (CAPTCHA, MFA)
@@ -236,6 +237,100 @@ These items are intentionally deferred for future iterations:
 - Have them delegate to new agents via registry
 - Maintain API compatibility
 - Gradually migrate to /api/v1 endpoints
+
+---
+
+## Legacy UI Templates Status (Detailed)
+
+**Last Audited:** January 22, 2026
+
+With the mobile app now API-first and online-first (storing directly to Supabase), the Jinja2 templates are secondary. This section documents exactly what exists and what to do during cleanup.
+
+### Templates Still Actively Served by main.py
+
+These 5 templates are rendered directly from `main.py` routes:
+
+| Template | Route | Purpose | Status |
+|----------|-------|---------|--------|
+| `career.html` | `/career` | Career development dashboard | ✅ Keep - useful dashboard view |
+| `dikw.html` | `/dikw` | DIKW pyramid visualization | ✅ Keep - useful dashboard view |
+| `knowledge_graph.html` | `/knowledge-graph` | Neo4j graph visualization | ✅ Keep - unique visualization |
+| `reports.html` | `/reports` | Sprint/productivity reports | ✅ Keep - useful dashboard view |
+| `settings.html` | `/settings` | App settings page | ✅ Keep - needed for config |
+
+### Templates Served by Module Routers (Candidates for Deprecation)
+
+These templates handle CRUD operations now available via `/api/v1/*`:
+
+| Template | Module | Route | API Replacement | Recommendation |
+|----------|--------|-------|-----------------|----------------|
+| `edit_doc.html` | `documents.py` | `/docs/{id}/edit` | `PUT /api/v1/documents/{id}` | ⚠️ Deprecate |
+| `paste_doc.html` | `main.py` | `/paste-doc` | `POST /api/v1/documents` | ⚠️ Deprecate |
+| `edit_meeting.html` | `meetings.py` | `/meetings/{id}/edit` | `PUT /api/v1/meetings/{id}` | ⚠️ Deprecate |
+| `paste_meeting.html` | `main.py` | `/paste-meeting` | `POST /api/v1/meetings` | ⚠️ Deprecate |
+| `edit_ticket.html` | `tickets.py` | `/tickets/{id}/edit` | `PUT /api/v1/tickets/{id}` | ⚠️ Deprecate |
+
+### Templates with View-Only Purpose (Keep for Now)
+
+These are read-only views that complement the mobile app:
+
+| Template | Module | Purpose | Recommendation |
+|----------|--------|---------|----------------|
+| `list_docs.html` | `documents.py` | Browse documents | ✅ Keep as web fallback |
+| `list_meetings.html` | `meetings.py` | Browse meetings | ✅ Keep as web fallback |
+| `list_tickets.html` | `tickets.py` | Browse tickets | ✅ Keep as web fallback |
+| `view_doc.html` | `documents.py` | View single doc | ✅ Keep as web fallback |
+| `view_meeting.html` | `meetings.py` | View single meeting | ✅ Keep as web fallback |
+| `view_ticket.html` | `tickets.py` | View single ticket | ✅ Keep as web fallback |
+| `dashboard.html` | `main.py` | Main dashboard | ✅ Keep - primary web entry |
+| `chat.html` | included | Arjuna chat | ✅ Keep - web chat interface |
+| `signals.html` | `signals.py` | Signal review | ✅ Keep - useful view |
+| `standups.html` | `career.py` | Standup history | ✅ Keep - useful view |
+
+### Other Templates
+
+| Template | Status | Notes |
+|----------|--------|-------|
+| `dashboard_old.html` | 🗑️ Delete | Unused backup |
+| `base.html` | ✅ Keep | Base template for all pages |
+| `components/` | ✅ Keep | Reusable UI components |
+| `chat_history.html` | ✅ Keep | Chat history view |
+| `list_accountability.html` | ✅ Keep | Accountability items |
+| `load_meeting_bundle.html` | ⚠️ Review | May be unused |
+| `query.html` | ✅ Keep | RAG query interface |
+| `search.html` | ✅ Keep | Search interface |
+| `sprint_settings.html` | ✅ Keep | Sprint config |
+
+### Cleanup Action Plan (Future)
+
+When ready to deprecate the edit/paste templates:
+
+1. **Phase 1: Add deprecation banner**
+   - Add warning banner to `edit_*.html` and `paste_*.html` templates
+   - Banner text: "This page is deprecated. Please use the SignalFlow mobile app."
+   - No route changes yet
+
+2. **Phase 2: Move to deprecated folder**
+   ```bash
+   mkdir -p src/app/templates/_deprecated
+   mv src/app/templates/edit_*.html src/app/templates/_deprecated/
+   mv src/app/templates/paste_*.html src/app/templates/_deprecated/
+   ```
+   - Update imports in `documents.py`, `meetings.py`, `tickets.py`, `main.py`
+
+3. **Phase 3: Remove routes entirely**
+   - Delete route handlers in module files
+   - Delete templates from `_deprecated/`
+   - Update this manifest
+
+### Files to Modify During Cleanup
+
+| File | Changes Needed |
+|------|----------------|
+| `src/app/documents.py` | Remove `/docs/{id}/edit` route, lines ~207-230 |
+| `src/app/meetings.py` | Remove `/meetings/{id}/edit` route, lines ~193-250 |
+| `src/app/tickets.py` | Remove `/tickets/{id}/edit` route, lines ~151-250 |
+| `src/app/main.py` | Remove `/paste-meeting` and `/paste-doc` routes, lines ~3149-3165 |
 
 ---
 
