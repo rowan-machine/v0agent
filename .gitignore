@@ -4,8 +4,38 @@ agent.db-wal
 .env
 __pycache__/
 .venv
+
+# Node.js
+node_modules/
+mobile/node_modules/
+npm-debug.log
+yarn-error.log
+
 # Environment variables (contains secrets)
 .env
 .env.local
 *.db
 agent.db
+
+# Build outputs
+dist/
+build/
+*.apk
+*.aab
+*.ipa
+
+# Expo / EAS
+mobile/.expo/
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
