@@ -1,3 +1,14 @@
+# src/app/api/career.py
+"""
+Career API Routes - FastAPI endpoints for career development features.
+
+This module delegates to CareerCoachAgent (Checkpoint 2.3) for AI-powered features,
+maintaining backward compatibility through adapter functions.
+
+Migration Status:
+- CareerCoachAgent: src/app/agents/career_coach.py (new agent implementation)
+- This file: Adapters + FastAPI routes (will be slimmed down over time)
+"""
 
 # Imports and router definition moved to top
 from fastapi import APIRouter, Request, Query
@@ -6,6 +17,19 @@ from fastapi.templating import Jinja2Templates
 from ..db import connect
 from ..llm import ask as ask_llm
 import json
+
+# Import from new CareerCoach agent (Checkpoint 2.3)
+from ..agents.career_coach import (
+    CareerCoachAgent,
+    get_career_coach_agent,
+    CAREER_REPO_CAPABILITIES,
+    format_capabilities_context,
+    # Adapter functions
+    get_career_capabilities as agent_get_capabilities,
+    career_chat_adapter,
+    generate_suggestions_adapter,
+    analyze_standup_adapter,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
@@ -82,47 +106,11 @@ def get_code_locker_code_for_sprint_tickets(conn, tickets, max_lines=40, max_cha
     return code_by_ticket
 
 
-CAREER_REPO_CAPABILITIES = {
-    "capabilities": [
-        "Meeting ingestion with signal extraction (decisions, action items, blockers, risks, ideas)",
-        "DIKW pyramid promotion and synthesis for validated knowledge",
-        "Tickets with AI summaries, decomposition, and implementation planning",
-        "Quick AI updates with per-item actions (approve, reject, archive, create task, waiting-for)",
-        "Accountability (waiting-for) tracking and status management",
-        "Search and query across meetings and documents",
-        "Workflow mode tracking with sprint-aligned checklists",
-        "AI memory for retained context",
-        "Career profile + AI-generated growth suggestions",
-        "Session authentication and settings control",
-    ],
-    "tools_and_skills": [
-        "Python 3.11 with FastAPI",
-        "SQLite for local-first storage",
-        "Jinja2 templates + Tailwind CSS for UI",
-        "OpenAI-powered LLM integration",
-        "Markdown rendering for summaries and notes",
-    ],
-    "unlocks_for_data_engineers": [
-        "Turn meetings into prioritized, trackable work items",
-        "Promote raw signals into structured knowledge (DIKW)",
-        "Decompose data platform tickets into executable subtasks",
-        "Track blockers/risks and accountability follow-ups",
-        "Maintain sprint modes to separate planning vs execution",
-        "Use AI quick asks for status, decisions, and action items",
-        "Centralize project context for faster onboarding",
-    ],
-}
+# CAREER_REPO_CAPABILITIES - Now imported from agents/career_coach.py (Checkpoint 2.3)
+# Using the imported version for single source of truth.
 
-
-def _format_capabilities_context():
-    caps = "\n".join([f"- {c}" for c in CAREER_REPO_CAPABILITIES["capabilities"]])
-    tools = "\n".join([f"- {t}" for t in CAREER_REPO_CAPABILITIES["tools_and_skills"]])
-    unlocks = "\n".join([f"- {u}" for u in CAREER_REPO_CAPABILITIES["unlocks_for_data_engineers"]])
-    return (
-        "Tool capabilities:\n" + caps + "\n\n"
-        "Architecture, tools, and skills:\n" + tools + "\n\n"
-        "Practical unlocks for data engineers:\n" + unlocks
-    )
+# _format_capabilities_context - Now imported as format_capabilities_context from agents/career_coach.py
+# Local function removed to avoid duplication.
 
 
 def _load_career_summary(conn):
@@ -325,7 +313,10 @@ async def get_career_suggestions(request: Request, limit: int = Query(10, ge=1, 
 
 @router.post("/api/career/generate-suggestions")
 async def generate_career_suggestions(request: Request):
-    """Generate new AI-powered career development suggestions."""
+    """Generate new AI-powered career development suggestions.
+    
+    Delegates to CareerCoachAgent via adapter (Checkpoint 2.3).
+    """
     try:
         try:
             data = await request.json()
@@ -339,94 +330,43 @@ async def generate_career_suggestions(request: Request):
             if not profile:
                 return JSONResponse({"error": "No career profile found"}, status_code=404)
             
-            career_summary = _load_career_summary(conn) or "No career status summary yet."
             overlay_context = _load_overlay_context(conn) if include_context else None
             
-            prompt = f"""Based on this career profile, generate 3-5 specific, actionable growth opportunities:
-
-Current Role: {profile['current_role']}
-Target Role: {profile['target_role']}
-Strengths: {profile['strengths']}
-Areas to Develop: {profile['weaknesses']}
-Interests: {profile['interests']}
-Career Goals: {profile['goals']}
-
-Career status summary:
-{career_summary}
-"""
-
-            if include_context and overlay_context:
-                prompt += f"""
-
-Meetings context:
-{overlay_context['meetings']}
-
-Documents context:
-{overlay_context['documents']}
-
-Active tickets context:
-{overlay_context['tickets']}
-"""
-
-            prompt += """
-
-Generate specific suggestions that:
-1. Bridge the gap between current and target role
-2. Build on strengths and address weaknesses
-3. Align with stated interests
-4. Are concrete and actionable
-
-For each suggestion, provide:
-- Type: stretch, skill_building, project, or learning
-- Title: concise name
-- Description: what to do (2-3 sentences)
-- Rationale: why this helps career growth
-- Difficulty: beginner, intermediate, or advanced
-- Time estimate: rough time needed
-- Related goal: which aspect of career goals this supports
-
-Return as JSON array with these fields: suggestion_type, title, description, rationale, difficulty, time_estimate, related_goal"""
-
-            response = ask_llm(prompt, model="gpt-4o-mini")
+            # Delegate to CareerCoachAgent adapter
+            result = await generate_suggestions_adapter(
+                profile=dict(profile),
+                context=overlay_context,
+                include_context=include_context,
+                db_connection=conn,
+            )
             
-            # Parse AI response
-            try:
-                # Try to extract JSON from response
-                json_start = response.find('[')
-                json_end = response.rfind(']') + 1
-                if json_start >= 0 and json_end > json_start:
-                    suggestions_data = json.loads(response[json_start:json_end])
-                else:
-                    suggestions_data = json.loads(response)
-                
-                # Insert suggestions
-                created_ids = []
-                for sugg in suggestions_data:
-                    cur = conn.execute("""
-                        INSERT INTO career_suggestions 
-                        (suggestion_type, title, description, rationale, difficulty, time_estimate, related_goal)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        sugg.get('suggestion_type', 'skill_building'),
-                        sugg.get('title', 'Growth Opportunity'),
-                        sugg.get('description', ''),
-                        sugg.get('rationale', ''),
-                        sugg.get('difficulty', 'intermediate'),
-                        sugg.get('time_estimate', 'varies'),
-                        sugg.get('related_goal', '')
-                    ))
-                    created_ids.append(cur.lastrowid)
-                
-                return JSONResponse({
-                    "status": "ok",
-                    "count": len(created_ids),
-                    "ids": created_ids
-                })
-            except json.JSONDecodeError as e:
-                return JSONResponse({
-                    "error": "Failed to parse AI response",
-                    "raw_response": response
-                }, status_code=500)
+            if result.get("status") == "error":
+                return JSONResponse({"error": result.get("error", "Unknown error")}, status_code=500)
+            
+            # Insert suggestions into database for persistence
+            suggestions_data = result.get("suggestions", [])
+            created_ids = []
+            for sugg in suggestions_data:
+                cur = conn.execute("""
+                    INSERT INTO career_suggestions 
+                    (suggestion_type, title, description, rationale, difficulty, time_estimate, related_goal)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    sugg.get('suggestion_type', 'skill_building'),
+                    sugg.get('title', 'Growth Opportunity'),
+                    sugg.get('description', ''),
+                    sugg.get('rationale', ''),
+                    sugg.get('difficulty', 'intermediate'),
+                    sugg.get('time_estimate', 'varies'),
+                    sugg.get('related_goal', '')
+                ))
+                created_ids.append(cur.lastrowid)
+            
+            return JSONResponse({
+                "status": "ok",
+                "count": len(created_ids),
+                "ids": created_ids
+            })
     
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -455,14 +395,20 @@ async def get_career_chat_summary(request: Request):
 
 
 @router.get("/api/career/capabilities")
-async def get_career_capabilities(request: Request):
-    """Return repo capabilities and unlocks for the career agent."""
-    return JSONResponse(CAREER_REPO_CAPABILITIES)
+async def get_career_capabilities_endpoint(request: Request):
+    """Return repo capabilities and unlocks for the career agent.
+    
+    Delegates to CareerCoachAgent (Checkpoint 2.3).
+    """
+    return JSONResponse(agent_get_capabilities())
 
 
 @router.post("/api/career/chat")
 async def career_chat(request: Request):
-    """Career status chat and summary update."""
+    """Career status chat and summary update.
+    
+    Delegates to CareerCoachAgent via adapter (Checkpoint 2.3).
+    """
     data = await request.json()
     message = (data.get("message") or "").strip()
     include_context = bool(data.get("include_context", True))
@@ -476,68 +422,27 @@ async def career_chat(request: Request):
 
         overlay_context = _load_overlay_context(conn) if include_context else None
 
-        prompt = f"""You are a friendly, supportive career coach having a casual conversation with someone about their career journey. Think of yourself as a mentor they're catching up with over coffee.
-
-About them:
-- Currently: {profile['current_role']}
-- Aiming for: {profile['target_role']}
-- They're great at: {profile['strengths']}
-- Working on improving: {profile['weaknesses']}
-- Interested in: {profile['interests']}
-- Big picture goals: {profile['goals']}
-
-Keep these in mind about the tools they use:
-{_format_capabilities_context()}
-"""
-
-        if include_context and overlay_context:
-            prompt += f"""
-
-Meetings context:
-{overlay_context['meetings']}
-
-Documents context:
-{overlay_context['documents']}
-
-Active tickets context:
-{overlay_context['tickets']}
-"""
-
-        prompt += f"""
-
-They said:
-"{message}"
-
-Respond naturally like a supportive friend who happens to have great career advice. Be warm, encouraging, and practical. If they share an accomplishment, celebrate it! If they're struggling, empathize first, then offer gentle guidance. Keep your response conversational - no bullet points unless they specifically ask for action items. Think "wise friend at a coffee shop" not "corporate HR presentation"."""
-
+        # Delegate to CareerCoachAgent adapter
         try:
-            response = ask_llm(prompt, model="gpt-4o-mini")
+            result = await career_chat_adapter(
+                message=message,
+                profile=dict(profile),
+                context=overlay_context,
+                include_context=include_context,
+                db_connection=conn,
+            )
+            
+            # Store in chat history for persistence
+            conn.execute(
+                """INSERT INTO career_chat_updates (message, response, summary)
+                   VALUES (?, ?, ?)""",
+                (message, result.get("response", ""), result.get("summary", ""))
+            )
+            conn.commit()
+            
+            return JSONResponse(result)
         except Exception as e:
             return JSONResponse({"error": f"AI Error: {str(e)}"}, status_code=500)
-
-        summary_prompt = f"""Summarize the latest career status update into 3-5 bullet points.
-
-User message:
-{message}
-
-Assistant response:
-{response}
-
-Return bullet points only."""
-
-        try:
-            summary = ask_llm(summary_prompt, model="gpt-4o-mini")
-        except Exception:
-            summary = ""
-
-        conn.execute(
-            """INSERT INTO career_chat_updates (message, response, summary)
-               VALUES (?, ?, ?)""",
-            (message, response, summary)
-        )
-        conn.commit()
-
-    return JSONResponse({"status": "ok", "response": response, "summary": summary})
 
 
 # ----------------------
