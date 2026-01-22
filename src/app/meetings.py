@@ -19,14 +19,21 @@ try:
     from .api.neo4j_graph import sync_single_meeting
 except ImportError:
     sync_single_meeting = None
-from .llm import analyze_image
+# llm.analyze_image removed - use VisionAgent adapter with lazy import (Checkpoint 1.x)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
 
 
 def process_screenshots(meeting_id: int, screenshots: List[UploadFile]) -> List[str]:
-    """Process uploaded screenshots with vision API and store summaries."""
+    """
+    Process uploaded screenshots with vision API and store summaries.
+    
+    Delegates to VisionAgent.analyze() for AI-powered image analysis.
+    """
+    # Lazy import for backward compatibility (Checkpoint 1.x pattern)
+    from .agents.vision import analyze_image_adapter
+    
     summaries = []
     
     for screenshot in screenshots:
@@ -38,8 +45,8 @@ def process_screenshots(meeting_id: int, screenshots: List[UploadFile]) -> List[
             image_data = screenshot.file.read()
             image_base64 = base64.b64encode(image_data).decode('utf-8')
             
-            # Analyze with vision API
-            summary = analyze_image(image_base64)
+            # Analyze with VisionAgent adapter
+            summary = analyze_image_adapter(image_base64)
             summaries.append(summary)
             
             # Store in database

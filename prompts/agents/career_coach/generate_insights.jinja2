@@ -1,0 +1,42 @@
+Based on this career profile and tracked data, generate a concise career insight summary (3-5 bullet points max).
+
+PROFILE:
+Current Role: {{ profile.current_role or 'Not set' }}
+Target Role: {{ profile.target_role or 'Not set' }}
+Strengths: {{ profile.strengths or 'Not set' }}
+Goals: {{ profile.goals or 'Not set' }}
+
+{% if skills %}
+TOP SKILLS:
+{% for s in skills %}
+- {{ s.skill_name }} ({{ s.category }}): {{ s.proficiency_level }}%
+{% endfor %}
+{% else %}
+TOP SKILLS: No skills tracked
+{% endif %}
+
+{% if projects %}
+RECENT PROJECTS:
+{% for p in projects %}
+- {{ p.title }}: {{ p.description[:100] }}...
+{% endfor %}
+{% else %}
+RECENT PROJECTS: No projects
+{% endif %}
+
+{% if ai_memories %}
+AI/ML IMPLEMENTATIONS:
+{% for m in ai_memories %}
+- {{ m.title }}: {{ m.technologies }}
+{% endfor %}
+{% else %}
+AI/ML IMPLEMENTATIONS: No AI implementations
+{% endif %}
+
+Generate actionable insights in this format:
+## 🎯 Career Focus
+- Key strength to leverage
+- Skill gap to address  
+- Next recommended step
+
+Keep it brief, actionable, and encouraging. Use markdown formatting.

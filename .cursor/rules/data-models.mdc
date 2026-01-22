@@ -1,51 +1,45 @@
 ---
-description: Documents core data models for meetings, documents and their relationships in a signal-focused system
+description: Documents core data model structures and relationships for Meetings and Documents entities
 ---
 
 
 # data-models
 
-## Core Data Models
+Two primary data models form the core of the application:
 
-### Meetings Model
-Importance Score: 85/100
+## Meetings Model
+- Hierarchical organization with parent/child relationship support
+- Meeting signals categorization into 5 types:
+  - Decisions (green)
+  - Action Items (orange)
+  - Blockers (red) 
+  - Risks (yellow)
+  - Ideas (purple)
+- Signal status workflow states:
+  - Pending
+  - Approved 
+  - Rejected
+  - Archived
+  - Waiting
+- Contains metadata for signal count tracking per meeting
+- Meeting state persistence for collapsible view management
+- Lifecycle management for working days calculation
 
-Primary data model for capturing meeting information and associated signals:
-- UUID-based identification
-- Structured signal extraction storage (decisions, actions, blockers, risks, ideas)
-- Meeting metadata including date, duration, participants
-- Screenshot bundle relationships for visual context
-- Signal relationship tracking with version history
+## Documents Model
+- DIKW (Data-Information-Knowledge-Wisdom) hierarchy support 
+- Bidirectional relationships between documents through knowledge graph
+- Cross-linking with meetings for contextual reference
+- Signal extraction and validation tracking
+- Version control integration for implementation tracking
+- Sprint transition validation rules
 
-### Documents Model  
-Importance Score: 80/100
-
-Knowledge artifact storage with signal extraction capabilities:
-- Document versions with full history
-- Signal extraction markers for parsed content
-- Topic and category classification
-- Relationship mapping to meetings and other documents
-- DIKW hierarchy classification (Data, Information, Knowledge, Wisdom)
-
-## Relationships
-
-### Signal Relationships
-- Meetings -> Signals (1:many)
-- Documents -> Signals (1:many) 
-- Signals -> Related Signals (many:many)
-- Signal status tracking (pending, approved, rejected, archived)
-
-### Knowledge Graph Relationships
-- Documents -> Topics (many:many)
-- Meetings -> Topics (many:many)
-- Topics -> Topics (hierarchical)
-- DIKW promotion chains
-
-### Sprint Integration
-- Meetings -> Sprint association
-- Documents -> Sprint documentation
-- Signal -> Sprint action items
-- Sprint -> Mode tracking
+## Relationship Structure
+- Hierarchical parent/child organization for meetings
+- Many-to-many relationships between meetings and documents
+- Knowledge graph connections for semantic relationships
+- Signal cross-referencing between meetings and documents
+- Sprint-based archival relationships
+- Career development evidence linking
 
 $END$
 

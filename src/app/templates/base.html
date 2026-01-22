@@ -558,6 +558,27 @@
       border-color: #3a3a3a;
     }
 
+    /* Chain shortcut styles (MCP multi-step commands) */
+    .arjuna-drawer .drawer-shortcut.chain-shortcut {
+      background: linear-gradient(135deg, var(--sf-surface, #f9fafb) 0%, #e0e7ff 100%);
+      border-color: #818cf8;
+      font-size: 0.7rem;
+    }
+
+    .arjuna-drawer .drawer-shortcut.chain-shortcut:hover {
+      background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+      border-color: #6366f1;
+    }
+
+    [data-theme="dark"] .arjuna-drawer .drawer-shortcut.chain-shortcut {
+      background: linear-gradient(135deg, #2d2d2d 0%, #312e81 100%);
+      border-color: #6366f1;
+    }
+
+    [data-theme="dark"] .arjuna-drawer .drawer-shortcut.chain-shortcut:hover {
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    }
+
     [data-theme="dark"] .arjuna-drawer .drawer-shortcut:hover {
       background: #8b5cf6;
       border-color: #8b5cf6;
@@ -2085,6 +2106,15 @@
           <button class="drawer-shortcut" data-key="blocked" data-message="What are my blocked tickets?" onclick="sendArjunaCommand('What are my blocked tickets?')" title="Blocked">🚫</button>
           <button class="drawer-shortcut" data-key="tickets" data-message="What are my open tickets?" onclick="sendArjunaCommand('What are my open tickets?')" title="Tickets">📋</button>
           <button class="drawer-shortcut" data-key="new-task" data-message="Create a task for " onclick="sendArjunaCommand('Create a task for ')" title="New task">➕</button>
+        </div>
+      </div>
+      <div class="drawer-section">
+        <div class="drawer-section-title">⛓️ Chains (MCP)</div>
+        <div class="drawer-grid" id="chainShortcuts">
+          <button class="drawer-shortcut chain-shortcut" data-key="chain-ticket-sprint" data-message="/chain ticket-sprint " onclick="sendArjunaCommand('/chain ticket-sprint ')" title="Create ticket → Add to sprint">🎟️➡️🏃</button>
+          <button class="drawer-shortcut chain-shortcut" data-key="chain-standup-feedback" data-message="/chain standup-feedback " onclick="sendArjunaCommand('/chain standup-feedback ')" title="Log standup → Get coaching">📝➡️🧠</button>
+          <button class="drawer-shortcut chain-shortcut" data-key="chain-full-ticket" data-message="/chain ticket-plan-decompose " onclick="sendArjunaCommand('/chain ticket-plan-decompose ')" title="Full ticket: create → plan → subtasks">🎫➡️📋➡️✂️</button>
+          <button class="drawer-shortcut chain-shortcut" data-key="chain-focus" data-message="/chain focus-execute" onclick="sendArjunaCommand('/chain focus-execute')" title="Get focus → Start working">🎯➡️▶️</button>
         </div>
       </div>
       <div class="drawer-section" id="personalShortcutsSection" style="display: none;">

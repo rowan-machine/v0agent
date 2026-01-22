@@ -1,11 +1,44 @@
+# src/app/api/career.py
+"""
+Career API Routes - FastAPI endpoints for career development features.
+
+This module delegates to CareerCoachAgent (Checkpoint 2.3) for AI-powered features,
+maintaining backward compatibility through adapter functions.
+
+Migration Status:
+- CareerCoachAgent: src/app/agents/career_coach.py (new agent implementation)
+- This file: Adapters + FastAPI routes (will be slimmed down over time)
+"""
 
 # Imports and router definition moved to top
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from ..db import connect
-from ..llm import ask as ask_llm
+# llm.ask removed - use lazy imports inside functions for backward compatibility
 import json
+
+# Import from new CareerCoach agent (Checkpoint 2.3)
+from ..agents.career_coach import (
+    CareerCoachAgent,
+    get_career_coach_agent,
+    CAREER_REPO_CAPABILITIES,
+    format_capabilities_context,
+    # Adapter functions
+    get_career_capabilities as agent_get_capabilities,
+    career_chat_adapter,
+    generate_suggestions_adapter,
+    analyze_standup_adapter,
+)
+
+# Import Supabase sync helpers for dual-write
+from .career_supabase_helper import (
+    sync_suggestion_to_supabase,
+    sync_memory_to_supabase,
+    sync_standup_to_supabase,
+    sync_chat_to_supabase,
+    sync_skill_to_supabase,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
@@ -82,47 +115,11 @@ def get_code_locker_code_for_sprint_tickets(conn, tickets, max_lines=40, max_cha
     return code_by_ticket
 
 
-CAREER_REPO_CAPABILITIES = {
-    "capabilities": [
-        "Meeting ingestion with signal extraction (decisions, action items, blockers, risks, ideas)",
-        "DIKW pyramid promotion and synthesis for validated knowledge",
-        "Tickets with AI summaries, decomposition, and implementation planning",
-        "Quick AI updates with per-item actions (approve, reject, archive, create task, waiting-for)",
-        "Accountability (waiting-for) tracking and status management",
-        "Search and query across meetings and documents",
-        "Workflow mode tracking with sprint-aligned checklists",
-        "AI memory for retained context",
-        "Career profile + AI-generated growth suggestions",
-        "Session authentication and settings control",
-    ],
-    "tools_and_skills": [
-        "Python 3.11 with FastAPI",
-        "SQLite for local-first storage",
-        "Jinja2 templates + Tailwind CSS for UI",
-        "OpenAI-powered LLM integration",
-        "Markdown rendering for summaries and notes",
-    ],
-    "unlocks_for_data_engineers": [
-        "Turn meetings into prioritized, trackable work items",
-        "Promote raw signals into structured knowledge (DIKW)",
-        "Decompose data platform tickets into executable subtasks",
-        "Track blockers/risks and accountability follow-ups",
-        "Maintain sprint modes to separate planning vs execution",
-        "Use AI quick asks for status, decisions, and action items",
-        "Centralize project context for faster onboarding",
-    ],
-}
+# CAREER_REPO_CAPABILITIES - Now imported from agents/career_coach.py (Checkpoint 2.3)
+# Using the imported version for single source of truth.
 
-
-def _format_capabilities_context():
-    caps = "\n".join([f"- {c}" for c in CAREER_REPO_CAPABILITIES["capabilities"]])
-    tools = "\n".join([f"- {t}" for t in CAREER_REPO_CAPABILITIES["tools_and_skills"]])
-    unlocks = "\n".join([f"- {u}" for u in CAREER_REPO_CAPABILITIES["unlocks_for_data_engineers"]])
-    return (
-        "Tool capabilities:\n" + caps + "\n\n"
-        "Architecture, tools, and skills:\n" + tools + "\n\n"
-        "Practical unlocks for data engineers:\n" + unlocks
-    )
+# _format_capabilities_context - Now imported as format_capabilities_context from agents/career_coach.py
+# Local function removed to avoid duplication.
 
 
 def _load_career_summary(conn):
@@ -325,7 +322,10 @@ async def get_career_suggestions(request: Request, limit: int = Query(10, ge=1, 
 
 @router.post("/api/career/generate-suggestions")
 async def generate_career_suggestions(request: Request):
-    """Generate new AI-powered career development suggestions."""
+    """Generate new AI-powered career development suggestions.
+    
+    Delegates to CareerCoachAgent via adapter (Checkpoint 2.3).
+    """
     try:
         try:
             data = await request.json()
@@ -339,94 +339,46 @@ async def generate_career_suggestions(request: Request):
             if not profile:
                 return JSONResponse({"error": "No career profile found"}, status_code=404)
             
-            career_summary = _load_career_summary(conn) or "No career status summary yet."
             overlay_context = _load_overlay_context(conn) if include_context else None
             
-            prompt = f"""Based on this career profile, generate 3-5 specific, actionable growth opportunities:
-
-Current Role: {profile['current_role']}
-Target Role: {profile['target_role']}
-Strengths: {profile['strengths']}
-Areas to Develop: {profile['weaknesses']}
-Interests: {profile['interests']}
-Career Goals: {profile['goals']}
-
-Career status summary:
-{career_summary}
-"""
-
-            if include_context and overlay_context:
-                prompt += f"""
-
-Meetings context:
-{overlay_context['meetings']}
-
-Documents context:
-{overlay_context['documents']}
-
-Active tickets context:
-{overlay_context['tickets']}
-"""
-
-            prompt += """
-
-Generate specific suggestions that:
-1. Bridge the gap between current and target role
-2. Build on strengths and address weaknesses
-3. Align with stated interests
-4. Are concrete and actionable
-
-For each suggestion, provide:
-- Type: stretch, skill_building, project, or learning
-- Title: concise name
-- Description: what to do (2-3 sentences)
-- Rationale: why this helps career growth
-- Difficulty: beginner, intermediate, or advanced
-- Time estimate: rough time needed
-- Related goal: which aspect of career goals this supports
-
-Return as JSON array with these fields: suggestion_type, title, description, rationale, difficulty, time_estimate, related_goal"""
-
-            response = ask_llm(prompt, model="gpt-4o-mini")
+            # Delegate to CareerCoachAgent adapter
+            result = await generate_suggestions_adapter(
+                profile=dict(profile),
+                context=overlay_context,
+                include_context=include_context,
+                db_connection=conn,
+            )
             
-            # Parse AI response
-            try:
-                # Try to extract JSON from response
-                json_start = response.find('[')
-                json_end = response.rfind(']') + 1
-                if json_start >= 0 and json_end > json_start:
-                    suggestions_data = json.loads(response[json_start:json_end])
-                else:
-                    suggestions_data = json.loads(response)
+            if result.get("status") == "error":
+                return JSONResponse({"error": result.get("error", "Unknown error")}, status_code=500)
+            
+            # Insert suggestions into database for persistence
+            suggestions_data = result.get("suggestions", [])
+            created_ids = []
+            for sugg in suggestions_data:
+                cur = conn.execute("""
+                    INSERT INTO career_suggestions 
+                    (suggestion_type, title, description, rationale, difficulty, time_estimate, related_goal)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    sugg.get('suggestion_type', 'skill_building'),
+                    sugg.get('title', 'Growth Opportunity'),
+                    sugg.get('description', ''),
+                    sugg.get('rationale', ''),
+                    sugg.get('difficulty', 'intermediate'),
+                    sugg.get('time_estimate', 'varies'),
+                    sugg.get('related_goal', '')
+                ))
+                created_ids.append(cur.lastrowid)
                 
-                # Insert suggestions
-                created_ids = []
-                for sugg in suggestions_data:
-                    cur = conn.execute("""
-                        INSERT INTO career_suggestions 
-                        (suggestion_type, title, description, rationale, difficulty, time_estimate, related_goal)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    """, (
-                        sugg.get('suggestion_type', 'skill_building'),
-                        sugg.get('title', 'Growth Opportunity'),
-                        sugg.get('description', ''),
-                        sugg.get('rationale', ''),
-                        sugg.get('difficulty', 'intermediate'),
-                        sugg.get('time_estimate', 'varies'),
-                        sugg.get('related_goal', '')
-                    ))
-                    created_ids.append(cur.lastrowid)
-                
-                return JSONResponse({
-                    "status": "ok",
-                    "count": len(created_ids),
-                    "ids": created_ids
-                })
-            except json.JSONDecodeError as e:
-                return JSONResponse({
-                    "error": "Failed to parse AI response",
-                    "raw_response": response
-                }, status_code=500)
+                # Sync to Supabase (fire-and-forget)
+                sync_suggestion_to_supabase(sugg)
+            
+            return JSONResponse({
+                "status": "ok",
+                "count": len(created_ids),
+                "ids": created_ids
+            })
     
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -455,14 +407,20 @@ async def get_career_chat_summary(request: Request):
 
 
 @router.get("/api/career/capabilities")
-async def get_career_capabilities(request: Request):
-    """Return repo capabilities and unlocks for the career agent."""
-    return JSONResponse(CAREER_REPO_CAPABILITIES)
+async def get_career_capabilities_endpoint(request: Request):
+    """Return repo capabilities and unlocks for the career agent.
+    
+    Delegates to CareerCoachAgent (Checkpoint 2.3).
+    """
+    return JSONResponse(agent_get_capabilities())
 
 
 @router.post("/api/career/chat")
 async def career_chat(request: Request):
-    """Career status chat and summary update."""
+    """Career status chat and summary update.
+    
+    Delegates to CareerCoachAgent via adapter (Checkpoint 2.3).
+    """
     data = await request.json()
     message = (data.get("message") or "").strip()
     include_context = bool(data.get("include_context", True))
@@ -476,68 +434,34 @@ async def career_chat(request: Request):
 
         overlay_context = _load_overlay_context(conn) if include_context else None
 
-        prompt = f"""You are a friendly, supportive career coach having a casual conversation with someone about their career journey. Think of yourself as a mentor they're catching up with over coffee.
-
-About them:
-- Currently: {profile['current_role']}
-- Aiming for: {profile['target_role']}
-- They're great at: {profile['strengths']}
-- Working on improving: {profile['weaknesses']}
-- Interested in: {profile['interests']}
-- Big picture goals: {profile['goals']}
-
-Keep these in mind about the tools they use:
-{_format_capabilities_context()}
-"""
-
-        if include_context and overlay_context:
-            prompt += f"""
-
-Meetings context:
-{overlay_context['meetings']}
-
-Documents context:
-{overlay_context['documents']}
-
-Active tickets context:
-{overlay_context['tickets']}
-"""
-
-        prompt += f"""
-
-They said:
-"{message}"
-
-Respond naturally like a supportive friend who happens to have great career advice. Be warm, encouraging, and practical. If they share an accomplishment, celebrate it! If they're struggling, empathize first, then offer gentle guidance. Keep your response conversational - no bullet points unless they specifically ask for action items. Think "wise friend at a coffee shop" not "corporate HR presentation"."""
-
+        # Delegate to CareerCoachAgent adapter
         try:
-            response = ask_llm(prompt, model="gpt-4o-mini")
+            result = await career_chat_adapter(
+                message=message,
+                profile=dict(profile),
+                context=overlay_context,
+                include_context=include_context,
+                db_connection=conn,
+            )
+            
+            # Store in chat history for persistence
+            conn.execute(
+                """INSERT INTO career_chat_updates (message, response, summary)
+                   VALUES (?, ?, ?)""",
+                (message, result.get("response", ""), result.get("summary", ""))
+            )
+            conn.commit()
+            
+            # Sync to Supabase (fire-and-forget)
+            sync_chat_to_supabase(
+                message=message,
+                response=result.get("response", ""),
+                summary=result.get("summary", "")
+            )
+            
+            return JSONResponse(result)
         except Exception as e:
             return JSONResponse({"error": f"AI Error: {str(e)}"}, status_code=500)
-
-        summary_prompt = f"""Summarize the latest career status update into 3-5 bullet points.
-
-User message:
-{message}
-
-Assistant response:
-{response}
-
-Return bullet points only."""
-
-        try:
-            summary = ask_llm(summary_prompt, model="gpt-4o-mini")
-        except Exception:
-            summary = ""
-
-        conn.execute(
-            """INSERT INTO career_chat_updates (message, response, summary)
-               VALUES (?, ?, ?)""",
-            (message, response, summary)
-        )
-        conn.commit()
-
-    return JSONResponse({"status": "ok", "response": response, "summary": summary})
 
 
 # ----------------------
@@ -620,6 +544,8 @@ Generate actionable insights in this format:
 
 Keep it brief, actionable, and encouraging. Use markdown formatting."""
 
+        # Lazy import for backward compatibility
+        from ..llm import ask as ask_llm
         insights = ask_llm(prompt, model="gpt-4o-mini")
         
         return JSONResponse({"status": "ok", "insights": insights})
@@ -774,6 +700,8 @@ Rules:
 3. Only group items that are truly about the same thing
 4. Return valid JSON only, no markdown"""
 
+            # Lazy import for backward compatibility
+            from ..llm import ask as ask_llm
             response = ask_llm(prompt, model="gpt-4o-mini")
             
             # Parse response
@@ -876,7 +804,13 @@ async def learn_from_feedback():
 
 @router.post("/api/career/standups")
 async def create_standup(request: Request):
-    """Upload a standup update and generate AI feedback."""
+    """
+    Upload a standup update and generate AI feedback.
+    
+    Delegates to CareerCoachAgent.analyze_standup() for AI processing.
+    """
+    from ..agents.career_coach import analyze_standup_adapter
+    
     data = await request.json()
     content = (data.get("content") or "").strip()
     standup_date = data.get("date")  # Optional, defaults to today
@@ -908,6 +842,7 @@ async def create_standup(request: Request):
         
         # Get career profile for context
         profile = conn.execute("SELECT * FROM career_profile WHERE id = 1").fetchone()
+        profile_dict = dict(profile) if profile else {}
         
         # Get recent standups for pattern analysis
         recent_standups = conn.execute("""
@@ -916,6 +851,7 @@ async def create_standup(request: Request):
             ORDER BY standup_date DESC 
             LIMIT 5
         """).fetchall()
+        recent_standups_list = [dict(s) for s in recent_standups]
         
         # Get active tickets for context
         tickets = conn.execute("""
@@ -926,74 +862,21 @@ async def create_standup(request: Request):
             ORDER BY created_at DESC
             LIMIT 10
         """).fetchall()
+        tickets_list = [dict(t) for t in tickets]
         
-        recent_context = "\n".join([
-            f"- {s['content'][:200]}... (Sentiment: {s['sentiment']})" 
-            for s in recent_standups
-        ]) or "No previous standups."
-        
-        tickets_context = "\n".join([
-            f"- {t['ticket_id']}: {t['title']} ({t['status']})"
-            for t in tickets
-        ]) or "No active sprint tickets."
-        
-        # Generate AI feedback
-        prompt = f"""You are a supportive career coach reviewing a standup update. Analyze this standup and provide helpful feedback.
-
-Career Context:
-- Current Role: {profile['current_role'] if profile else 'Unknown'}
-- Target Role: {profile['target_role'] if profile else 'Unknown'}
-- Goals: {profile['goals'] if profile else 'Not specified'}
-
-Active Sprint Tickets:
-{tickets_context}
-
-Recent Standup History:
-{recent_context}
-
-Today's Standup Update:
-{content}
-
-Provide:
-1. SENTIMENT: Classify as 'positive', 'neutral', 'blocked', or 'struggling'
-2. KEY_THEMES: 2-4 comma-separated main themes/topics
-3. FEEDBACK: 2-3 paragraphs of supportive, actionable feedback:
-   - Acknowledge what's going well
-   - If there are blockers, suggest approaches
-   - Connect work to career growth when relevant
-   - Keep it encouraging and practical
-
-Format your response as:
-SENTIMENT: <sentiment>
-KEY_THEMES: <theme1>, <theme2>, <theme3>
-FEEDBACK:
-<your feedback paragraphs>"""
-
+        # Delegate to CareerCoachAgent for AI feedback
         try:
-            response = ask_llm(prompt, model="gpt-4o-mini")
+            result = await analyze_standup_adapter(
+                content=content,
+                profile=profile_dict,
+                tickets=tickets_list,
+                recent_standups=recent_standups_list,
+                db_connection=conn,
+            )
             
-            # Parse response
-            lines = response.strip().split('\n')
-            sentiment = 'neutral'
-            key_themes = ''
-            feedback_lines = []
-            in_feedback = False
-            
-            for line in lines:
-                if line.startswith('SENTIMENT:'):
-                    sentiment = line.replace('SENTIMENT:', '').strip().lower()
-                    if sentiment not in ('positive', 'neutral', 'blocked', 'struggling'):
-                        sentiment = 'neutral'
-                elif line.startswith('KEY_THEMES:'):
-                    key_themes = line.replace('KEY_THEMES:', '').strip()
-                elif line.startswith('FEEDBACK:'):
-                    in_feedback = True
-                elif in_feedback:
-                    feedback_lines.append(line)
-            
-            feedback = '\n'.join(feedback_lines).strip()
-            if not feedback:
-                feedback = response  # Use full response if parsing failed
+            feedback = result.get("feedback", "")
+            sentiment = result.get("sentiment", "neutral")
+            key_themes = result.get("key_themes", "")
                 
         except Exception as e:
             feedback = f"Could not generate feedback: {str(e)}"
@@ -1020,7 +903,13 @@ FEEDBACK:
 
 @router.post("/api/career/standups/suggest")
 async def suggest_standup(request: Request):
-    """Generate a suggested standup based on code locker changes and ticket progress."""
+    """
+    Generate a suggested standup based on code locker changes and ticket progress.
+    
+    Delegates to CareerCoachAgent.suggest_standup() for AI processing.
+    """
+    from ..agents.career_coach import suggest_standup_adapter
+    
     with connect() as conn:
         # Get active sprint tickets
         tickets = conn.execute("""
@@ -1036,6 +925,7 @@ async def suggest_standup(request: Request):
                     WHEN 'todo' THEN 4
                 END
         """).fetchall()
+        tickets_list = [dict(t) for t in tickets]
         
         # Get ticket files for each active ticket
         ticket_files_map = {}
@@ -1061,6 +951,7 @@ async def suggest_standup(request: Request):
             ORDER BY cl.created_at DESC
             LIMIT 20
         """).fetchall()
+        code_changes_list = [dict(c) for c in code_changes]
         
         # Get yesterday's standup for continuity
         yesterday_standup = conn.execute("""
@@ -1070,81 +961,25 @@ async def suggest_standup(request: Request):
             ORDER BY standup_date DESC 
             LIMIT 1
         """).fetchone()
+        yesterday_standup_dict = dict(yesterday_standup) if yesterday_standup else None
         
-        # Build context
-        tickets_context = "\n".join([
-            f"- {t['ticket_id']}: {t['title']} (Status: {t['status']})"
-            for t in tickets
-        ]) or "No active sprint tickets."
-
-        # Build file context per ticket
-        files_context = ""
-        if ticket_files_map:
-            files_parts = []
-            for ticket_id, files in ticket_files_map.items():
-                update_files = [f for f in files if f['file_type'] == 'update']
-                new_files = [f for f in files if f['file_type'] == 'new']
-
-                parts = [f"Files for {ticket_id}:"]
-                if update_files:
-                    parts.append("  Files to modify:")
-                    for f in update_files:
-                        version_info = f"v{f['latest_version']}" if f['latest_version'] else "baseline set"
-                        has_base = "has base code" if f['base_content'] else "no base"
-                        parts.append(f"    - {f['filename']} ({version_info}, {has_base})")
-                if new_files:
-                    parts.append("  New files to create:")
-                    for f in new_files:
-                        desc = f" - {f['description']}" if f['description'] else ""
-                        parts.append(f"    - {f['filename']}{desc}")
-                files_parts.append("\n".join(parts))
-            files_context = "\n\nPlanned File Changes:\n" + "\n".join(files_parts)
-
         # Add code locker code context for current sprint tickets
         code_locker_code = get_code_locker_code_for_sprint_tickets(conn, tickets)
-        code_locker_context = ""
-        for ticket_code, files in code_locker_code.items():
-            if files:
-                code_locker_context += f"\nCode for {ticket_code}:\n"
-                for fname, code in files.items():
-                    code_locker_context += f"- {fname} (latest):\n" + code + "\n"
-
-        code_context = ""
-        if code_changes:
-            code_context = "\nRecent code changes logged:\n" + "\n".join([
-                f"- {c['filename']} (v{c['version']}) for {c['ticket_code'] or 'unassigned'}: {c['notes'] or 'no notes'}"
-                for c in code_changes
-            ])
-        else:
-            code_context = "\nNo recent code changes logged."
-
-        yesterday_context = ""
-        if yesterday_standup:
-            yesterday_context = f"\n\nYesterday's standup:\n{yesterday_standup['content'][:500]}"
-
-        prompt = f"""Generate a suggested standup update based on the following context.
-
-Active Sprint Tickets:
-{tickets_context}
-{files_context}
-{code_locker_context}
-{code_context}
-{yesterday_context}
-
-Generate a professional standup update covering:
-1. What was accomplished since last standup (reference specific code changes if any)
-2. What's planned for today (mention specific files to modify or create)
-3. Any blockers or concerns
-
-When referencing files:
-- For "files to modify": these are existing files that need changes
-- For "new files to create": these are entirely new files being added (the diff would show everything as new)
-
-Keep it concise but informative (3-5 bullet points per section).
-Use first person (I, my, etc.)."""
-
+        
+        # Delegate to CareerCoachAgent for AI suggestion
         try:
-            suggestion = ask_llm(prompt, model="gpt-4o-mini")
+            result = await suggest_standup_adapter(
+                tickets=tickets_list,
+                ticket_files_map=ticket_files_map,
+                code_changes=code_changes_list,
+                code_locker_code=code_locker_code,
+                yesterday_standup=yesterday_standup_dict,
+                db_connection=conn,
+            )
+            
+            suggestion = result.get("suggestion", "")
+            if result.get("error"):
+                suggestion = f"Could not generate suggestion: {result['error']}"
         except Exception as e:
             suggestion = f"Could not generate suggestion: {str(e)}"
     
@@ -1628,6 +1463,8 @@ Provide a helpful, encouraging response that:
 Keep the response conversational and not too long (2-4 paragraphs typically). Be specific and practical."""
 
         try:
+            # Lazy import for backward compatibility
+            from ..llm import ask as ask_llm
             response = ask_llm(prompt, model="gpt-4o-mini")
         except Exception as e:
             response = f"I'm sorry, I encountered an error processing your request. Please try again. (Error: {str(e)})"
@@ -2012,6 +1849,8 @@ Return ONLY the JSON object, no other text."""
 
     profile_updated = False
     try:
+        # Lazy import for backward compatibility
+        from ..llm import ask as ask_llm
         response = ask_llm(prompt, model="gpt-4o-mini")
         # Parse JSON from response
         import re
@@ -2065,6 +1904,8 @@ Return a JSON object with these fields (include only what you can find):
 Return ONLY valid JSON, no other text. Use null for fields you can't determine."""
 
                 try:
+                    # Lazy import for backward compatibility
+                    from ..llm import ask as ask_llm
                     profile_response = ask_llm(profile_prompt, model="gpt-4o-mini")
                     profile_match = re.search(r'\{[\s\S]*\}', profile_response)
                     if profile_match:
@@ -2650,6 +2491,8 @@ Respond in JSON format:
 }}"""
     
     try:
+        # Lazy import for backward compatibility
+        from ..llm import ask as ask_llm
         response = ask_llm(prompt, model="gpt-4o-mini")
         # Parse JSON from response
         import re
@@ -2680,6 +2523,16 @@ Respond in JSON format:
                             VALUES ('ai_implementation', ?, ?, 'codebase_ai', ?, 0, 1)
                         """, (title, full_desc, technologies))
                         added.append(title)
+                        
+                        # Sync to Supabase (fire-and-forget)
+                        sync_memory_to_supabase({
+                            'memory_type': 'ai_implementation',
+                            'title': title,
+                            'description': full_desc,
+                            'skills': technologies,
+                            'source_type': 'codebase_ai',
+                            'is_ai_work': True,
+                        })
                 conn.commit()
             
             return JSONResponse({"status": "ok", "added": added, "count": len(added)})

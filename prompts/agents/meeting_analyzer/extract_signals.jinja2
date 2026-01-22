@@ -1,0 +1,39 @@
+Analyze the following meeting notes and extract structured signals.
+
+## Meeting Text
+
+```
+{{ meeting_text }}
+```
+
+## Signal Types to Extract
+
+{% for signal_type, info in signal_types.items() %}
+### {{ signal_type | replace('_', ' ') | title }} {{ info.emoji }}
+Look for: {{ info.keywords | join(', ') }}
+{% endfor %}
+
+## Instructions
+
+1. Read through the entire meeting text carefully
+2. Identify and extract each signal type
+3. For action items, include WHO is responsible if mentioned
+4. For blockers, include WHAT is being blocked
+5. For risks, include the IMPACT if mentioned
+
+## Output Format
+
+Return your analysis as a JSON object with this structure:
+
+```json
+{
+  "decisions": ["Decision 1", "Decision 2"],
+  "action_items": ["Person: Task description", "Task without assignee"],
+  "blockers": ["Blocker description - waiting on X"],
+  "risks": ["Risk description - potential impact"],
+  "ideas": ["Idea or suggestion"],
+  "key_signals": ["Important insight or takeaway"]
+}
+```
+
+Only include non-empty arrays. If no signals of a type are found, omit that key.

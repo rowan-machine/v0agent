@@ -1,0 +1,35 @@
+{# DIKW Synthesizer - Generate Tags Prompt #}
+{# Template for generating relevant tags for DIKW content #}
+
+## Generate Tags for {{ level | capitalize }}-Level Content
+
+Create 3-5 relevant tags for categorizing this DIKW item.
+
+**Content:**
+{{ content[:500] }}{% if content|length > 500 %}...{% endif %}
+
+**Level:** {{ level }}
+
+{% if existing_tags %}
+**Existing Tags:** {{ existing_tags }}
+(Consider these but feel free to suggest better alternatives)
+{% endif %}
+
+### Tag Guidelines:
+
+- **Format**: lowercase, single words or hyphenated-phrases
+- **Focus Areas**:
+  - Topic/domain (e.g., `architecture`, `security`, `performance`)
+  - Action type (e.g., `decision`, `blocker`, `idea`)
+  - Project area (e.g., `backend`, `frontend`, `infrastructure`)
+  - Time sensitivity (e.g., `urgent`, `long-term`, `quarterly`)
+
+### Good Tag Examples:
+`technical-debt`, `team-process`, `sprint-planning`, `customer-feedback`, `risk-mitigation`
+
+### Bad Tag Examples:
+- Too generic: `work`, `thing`, `stuff`
+- Too specific: `john-mentioned-in-monday-meeting`
+- Too long: `this-is-about-the-database-migration`
+
+**Return ONLY comma-separated tags, nothing else:**

@@ -25,6 +25,11 @@ from .api.settings import router as settings_router
 from .api.assistant import router as assistant_router
 from .api.career import router as career_router
 from .api.neo4j_graph import router as neo4j_router
+from .api.v1 import router as v1_router  # API v1 (Phase 3.1)
+from .api.mobile import router as mobile_router  # Mobile sync (Phase 3.2)
+from .api.admin import router as admin_router  # Admin endpoints (Phase 4.1)
+from .api.search import router as api_search_router  # Semantic/Hybrid search (Phase 5.2)
+from .api.knowledge_graph import router as knowledge_graph_router  # Knowledge graph (Phase 5.10)
 from .mcp.registry import TOOL_REGISTRY
 from .llm import ask as ask_llm
 from .auth import (
@@ -32,7 +37,78 @@ from .auth import (
     destroy_session, get_auth_password, hash_password
 )
 
-app = FastAPI(title="Hare Krishna - Memory & Signal Intelligence")
+# =============================================================================
+# DIKW SYNTHESIZER AGENT IMPORTS (Checkpoint 2.5)
+# =============================================================================
+# These are imported at module level for constants only.
+# Agent adapters are imported lazily inside endpoint functions for:
+#   1. Backward compatibility (module loads even if agent has issues)
+#   2. Faster startup (defer heavy agent initialization)
+#   3. Easier testing (can mock at function level)
+#
+# Adapter functions available via lazy import:
+#   - promote_signal_to_dikw_adapter
+#   - promote_dikw_item_adapter
+#   - merge_dikw_items_adapter
+#   - validate_dikw_item_adapter
+#   - generate_dikw_tags_adapter
+#   - ai_summarize_dikw_adapter
+#   - ai_promote_dikw_adapter
+#   - get_mindmap_data_adapter
+#   - generate_dikw_tags (sync wrapper)
+# =============================================================================
+from .agents.dikw_synthesizer import DIKW_LEVELS as AGENT_DIKW_LEVELS
+
+# OpenAPI/Swagger configuration (Phase 3.3)
+API_VERSION = "1.0.0"
+API_DESCRIPTION = """
+# SignalFlow API
+
+A knowledge work management system built around signal extraction from meetings,
+hierarchical knowledge organization, and AI-assisted workflow management.
+
+## API Versions
+
+- **v1** (`/api/v1/*`): RESTful API with proper pagination, HTTP status codes, and Pydantic models
+- **mobile** (`/api/mobile/*`): Offline-first sync endpoints for mobile apps
+- **legacy** (other routes): Original HTML-returning endpoints for web app
+
+## Core Features
+
+### 🎯 Signal Extraction
+Extract decisions, action items, blockers, risks, and ideas from meetings.
+
+### 📚 Knowledge Organization  
+DIKW pyramid implementation with hierarchical knowledge synthesis.
+
+### 🏃 Sprint Management
+Sprint cycles, ticket management, and AI-powered standup analysis.
+
+### 📱 Multi-Device Sync
+Bidirectional sync with conflict resolution for mobile apps.
+
+## Authentication
+All endpoints require authentication. Set the `STATIC_TOKEN` environment variable.
+"""
+
+app = FastAPI(
+    title="SignalFlow - Memory & Signal Intelligence",
+    description=API_DESCRIPTION,
+    version=API_VERSION,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    openapi_tags=[
+        {"name": "v1", "description": "API v1 endpoints with proper REST semantics"},
+        {"name": "meetings", "description": "Meeting CRUD operations"},
+        {"name": "documents", "description": "Document CRUD operations"},
+        {"name": "signals", "description": "Signal extraction and management"},
+        {"name": "tickets", "description": "Ticket and sprint management"},
+        {"name": "mobile", "description": "Mobile app sync endpoints"},
+        {"name": "sync", "description": "Device sync operations"},
+        {"name": "device", "description": "Device registration and management"},
+    ]
+)
 
 # Add authentication middleware
 app.add_middleware(AuthMiddleware)
@@ -94,6 +170,13 @@ def init_neo4j_background():
 def startup():
     init_db()
     init_chat_tables()
+    
+    # Run Phase 4.1 database migrations
+    from .db_migrations import run_all_migrations
+    migration_result = run_all_migrations()
+    if migration_result["applied"] > 0:
+        print(f"✅ Applied {migration_result['applied']} database migrations")
+    
     # Initialize Neo4j in background (non-blocking)
     init_neo4j_background()
 
@@ -546,63 +629,23 @@ async def signal_feedback(request: Request):
 
 @app.post("/api/dashboard/quick-ask")
 async def dashboard_quick_ask(request: Request):
-    """Handle quick AI questions from dashboard."""
+    """
+    Handle quick AI questions from dashboard.
+    
+    Delegates to ArjunaAgent.quick_ask() for centralized AI handling.
+    """
+    from .agents.arjuna import quick_ask
+    
     data = await request.json()
     topic = data.get("topic")
     query = data.get("query")
     
-    # Build the question based on topic or custom query
-    if topic:
-        topic_prompts = {
-            "blockers": "What are the current blockers or obstacles mentioned in recent meetings?",
-            "decisions": "What key decisions were made in recent meetings?",
-            "action_items": "What are the outstanding action items from recent meetings?",
-            "ideas": "What new ideas or suggestions came up in recent meetings?",
-            "risks": "What risks were identified in recent meetings?",
-            "this_week": "Summarize what happened this week based on recent meetings and documents.",
-            "rowan_mentions": "What mentions of Rowan or items assigned to Rowan are there in recent meetings?",
-            "reach_outs": "Who needs to be contacted or reached out to based on recent meetings? What follow-ups are needed?",
-            "announcements": "What team-wide announcements or important updates were shared in recent meetings?",
-        }
-        question = topic_prompts.get(topic, f"Tell me about {topic} from recent meetings.")
-    else:
-        question = query or "What's most important right now?"
-    
-    # Get context from recent meetings
-    with connect() as conn:
-        recent = conn.execute(
-            """SELECT meeting_name, synthesized_notes, signals_json 
-               FROM meeting_summaries 
-               ORDER BY COALESCE(meeting_date, created_at) DESC 
-               LIMIT 5"""
-        ).fetchall()
-    
-    context_parts = []
-    for m in recent:
-        context_parts.append(f"Meeting: {m['meeting_name']}\n{m['synthesized_notes'][:1000]}")
-        if m["signals_json"]:
-            try:
-                signals = json.loads(m["signals_json"])
-                for stype in ["decisions", "action_items", "blockers", "risks", "ideas"]:
-                    items = signals.get(stype, [])
-                    if items:
-                        context_parts.append(f"{stype}: {', '.join(items[:3])}")
-            except:
-                pass
-    
-    context = "\n\n".join(context_parts)
-    
-    prompt = f"""Based on this context from recent meetings and documents:
-
-{context}
-
-Question: {question}
-
-Provide a concise, helpful answer. Focus on the most relevant information. Use bullet points where appropriate."""
-
     try:
-        response = ask_llm(prompt)
-        return JSONResponse({"response": response})
+        result = await quick_ask(topic=topic, query=query)
+        if result.get("success"):
+            return JSONResponse({"response": result.get("response", "")})
+        else:
+            return JSONResponse({"error": result.get("response", "AI Error")}, status_code=500)
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -1754,8 +1797,14 @@ async def calculate_mode_statistics():
 
 @app.post("/api/user-status/update")
 async def update_user_status(request: Request):
-    """AI-interpret user status and auto-start timer."""
-    from .llm import ask
+    """
+    AI-interpret user status and auto-start timer.
+    
+    Migration Note (P1.8): Uses ArjunaAgent adapter for status interpretation.
+    Lazy imports ensure backward compatibility.
+    """
+    # Lazy import for backward compatibility
+    from .agents.arjuna import interpret_user_status_adapter
     
     data = await request.json()
     status_text = data.get("status", "").strip()
@@ -1763,43 +1812,11 @@ async def update_user_status(request: Request):
     if not status_text:
         return JSONResponse({"error": "Status text required"}, status_code=400)
     
-    # Use AI to interpret the status
-    prompt = f"""Interpret this user status and extract structured data:
-Status: "{status_text}"
-
-Return ONLY a JSON object with these fields:
-- mode: one of [grooming, planning, standup, implementation]
-- activity: short description of what they're doing
-- context: any relevant context or details
-
-Examples:
-"Working on the airflow DAG refactor" -> {{"mode": "implementation", "activity": "refactoring airflow DAG", "context": "airflow"}}
-"Preparing for sprint planning" -> {{"mode": "planning", "activity": "sprint planning prep", "context": "sprint planning"}}
-"In standup" -> {{"mode": "standup", "activity": "daily standup", "context": "standup meeting"}}
-
-Return only valid JSON, no markdown or explanation."""
-    
-    try:
-        result = ask(prompt, model="gpt-4o-mini")
-        # Clean up markdown if present
-        result = result.strip()
-        if result.startswith("```json"):
-            result = result.split("```json")[1].split("```")[0].strip()
-        elif result.startswith("```"):
-            result = result.split("```")[1].split("```")[0].strip()
-        
-        import json
-        parsed = json.loads(result)
-        
-        mode = parsed.get("mode", "implementation")
-        activity = parsed.get("activity", "")
-        context_str = parsed.get("context", "")
-        
-    except Exception as e:
-        # Fallback: default to implementation mode
-        mode = "implementation"
-        activity = status_text
-        context_str = ""
+    # Use ArjunaAgent adapter for AI interpretation
+    interpreted = await interpret_user_status_adapter(status_text)
+    mode = interpreted.get("mode", "implementation")
+    activity = interpreted.get("activity", status_text)
+    context_str = interpreted.get("context", "")
     
     # Save status
     with connect() as conn:
@@ -1878,9 +1895,11 @@ async def get_current_status():
 # ============================================
 # DIKW Pyramid API Endpoints
 # Data → Information → Knowledge → Wisdom
+# DIKWSynthesizerAgent integration (Checkpoint 2.5)
 # ============================================
 
-DIKW_LEVELS = ['data', 'information', 'knowledge', 'wisdom']
+# DIKW_LEVELS now imported from agents/dikw_synthesizer.py as AGENT_DIKW_LEVELS
+DIKW_LEVELS = AGENT_DIKW_LEVELS  # Re-export for backward compatibility
 DIKW_NEXT_LEVEL = {'data': 'information', 'information': 'knowledge', 'knowledge': 'wisdom'}
 
 @app.get("/api/dikw")
@@ -1923,7 +1942,15 @@ async def get_dikw_items(level: str = None, status: str = "active"):
 
 @app.post("/api/dikw/promote-signal")
 async def promote_signal_to_dikw(request: Request):
-    """Promote a signal to the DIKW pyramid (starts as Data level)."""
+    """
+    Promote a signal to the DIKW pyramid (starts as Data level).
+    
+    Migration Note (P1.8): Uses DIKWSynthesizerAgent adapter for AI summary generation.
+    Lazy imports ensure backward compatibility.
+    """
+    # Lazy import for backward compatibility
+    from .agents.dikw_synthesizer import ai_summarize_dikw_adapter, generate_dikw_tags
+    
     data = await request.json()
     signal_text = data.get("signal_text", "")
     signal_type = data.get("signal_type", "")
@@ -1933,17 +1960,10 @@ async def promote_signal_to_dikw(request: Request):
     if not signal_text:
         return JSONResponse({"error": "Signal text is required"}, status_code=400)
     
-    # Generate AI summary appropriate for the level
-    level_prompts = {
-        'data': f"Briefly describe this raw signal in one sentence: {signal_text}",
-        'information': f"Explain the context and meaning of this signal: {signal_text}",
-        'knowledge': f"What actionable insight or pattern does this represent? {signal_text}",
-        'wisdom': f"What strategic principle or lesson can be derived from this? {signal_text}"
-    }
-    
+    # Use DIKWSynthesizerAgent adapter for AI summary generation
     try:
-        summary = ask_llm(level_prompts.get(target_level, level_prompts['data']))
-    except:
+        summary = await ai_summarize_dikw_adapter(signal_text, target_level)
+    except Exception:
         summary = signal_text[:200]
     
     # Auto-generate tags based on content and signal type
@@ -1974,7 +1994,15 @@ async def promote_signal_to_dikw(request: Request):
 
 @app.post("/api/dikw/promote")
 async def promote_dikw_item(request: Request):
-    """Promote a DIKW item to the next level (with AI synthesis)."""
+    """
+    Promote a DIKW item to the next level (with AI synthesis).
+    
+    Migration Note (P1.8): Uses DIKWSynthesizerAgent adapter for AI synthesis.
+    Lazy imports ensure backward compatibility.
+    """
+    # Lazy import for backward compatibility
+    from .agents.dikw_synthesizer import ai_promote_dikw_adapter, generate_dikw_tags
+    
     data = await request.json()
     item_id = data.get("item_id")
     to_level = data.get("to_level")  # Optional: force specific target level
@@ -2004,15 +2032,11 @@ async def promote_dikw_item(request: Request):
         if provided_summary:
             new_summary = provided_summary
         else:
-            synthesis_prompts = {
-                'information': f"Transform this raw data into structured information. What does it mean in context?\n\nData: {new_content}",
-                'knowledge': f"Extract actionable knowledge from this information. What patterns or insights emerge?\n\nInformation: {new_content}",
-                'wisdom': f"Distill strategic wisdom from this knowledge. What principles should guide future decisions?\n\nKnowledge: {new_content}"
-            }
-            
+            # Use DIKWSynthesizerAgent adapter for AI promotion
             try:
-                new_summary = ask_llm(synthesis_prompts.get(next_level, synthesis_prompts['information']))
-            except:
+                result = await ai_promote_dikw_adapter(new_content, current_level, next_level)
+                new_summary = result.get('summary', f"Promoted from {current_level}: {item['summary'] or ''}")
+            except Exception:
                 new_summary = f"Promoted from {current_level}: {item['summary'] or ''}"
         
         # Normalize confidence (handle both 0-1 and 0-100 ranges)
@@ -2071,7 +2095,15 @@ async def promote_dikw_item(request: Request):
 
 @app.post("/api/dikw/merge")
 async def merge_dikw_items(request: Request):
-    """Merge multiple items at the same level into a synthesized higher-level item."""
+    """
+    Merge multiple items at the same level into a synthesized higher-level item.
+    
+    Migration Note (P1.8): Uses DIKWSynthesizerAgent adapter for merge synthesis.
+    Lazy imports ensure backward compatibility.
+    """
+    # Lazy import for backward compatibility
+    from .agents.dikw_synthesizer import merge_dikw_items_adapter
+    
     data = await request.json()
     item_ids = data.get("item_ids", [])
     
@@ -2101,21 +2133,15 @@ async def merge_dikw_items(request: Request):
         
         # Combine content for AI synthesis
         combined_content = "\n\n".join([f"- {item['content']}" for item in items])
-        combined_summaries = "\n".join([f"- {item['summary']}" for item in items if item['summary']])
         
-        merge_prompt = f"""Synthesize these {len(items)} {current_level}-level items into a single {next_level}-level insight:
-
-Items:
-{combined_content}
-
-Previous summaries:
-{combined_summaries}
-
-Create a unified {next_level}-level synthesis that captures the essence of all these items."""
-
+        # Use DIKWSynthesizerAgent adapter for merge synthesis
         try:
-            merged_summary = ask_llm(merge_prompt)
-        except:
+            items_for_adapter = [dict(item) for item in items]
+            result = await merge_dikw_items_adapter(items_for_adapter)
+            merged_summary = result.get('merged_content', '') or result.get('summary', '')
+            if not merged_summary:
+                merged_summary = f"Merged {len(items)} items: " + "; ".join([i['summary'][:50] for i in items if i['summary']])
+        except Exception:
             merged_summary = f"Merged {len(items)} items: " + "; ".join([i['summary'][:50] for i in items if i['summary']])
         
         # Create merged item
@@ -2189,27 +2215,8 @@ async def validate_dikw_item(request: Request):
     return JSONResponse({"status": "ok", "action": action})
 
 
-def generate_dikw_tags(content: str, level: str, existing_tags: str = "") -> str:
-    """Generate relevant tags for DIKW content using AI."""
-    try:
-        prompt = f"""Generate 3-5 relevant, concise tags for this {level}-level DIKW item.
-
-Content: {content[:500]}
-
-Rules:
-- Tags should be lowercase, single words or hyphenated-phrases
-- Focus on: topic, domain, type of insight, actionability
-- Examples: architecture, team-process, sprint-planning, technical-debt, decision
-{f"Existing tags to consider: {existing_tags}" if existing_tags else ""}
-
-Return ONLY comma-separated tags, nothing else:"""
-        tags = ask_llm(prompt).strip()
-        # Clean up the response
-        tags = tags.replace('"', '').replace("'", '').strip()
-        return tags
-    except Exception as e:
-        print(f"Error generating tags: {e}")
-        return ""
+# generate_dikw_tags is now imported from agents/dikw_synthesizer.py (Checkpoint 2.5)
+# The imported version handles both sync and async contexts
 
 
 @app.post("/api/dikw/generate-tags")
@@ -2351,44 +2358,17 @@ async def ai_review_dikw(request: Request):
     if not all_items:
         return JSONResponse({"status": "ok", "reviews": []})
     
-    # Build context for AI
-    items_summary = "\n".join([
-        f"[ID:{i['id']}] ({i['level']}) Content: {i['content'][:150]}... | Summary: {i['summary'][:80] if i['summary'] else 'None'}..."
-        for i in all_items[:20]
-    ])
+    # Use DIKWSynthesizerAgent for AI review
+    # Lazy import for backward compatibility
+    from .agents.dikw_synthesizer import get_dikw_synthesizer
     
     try:
-        prompt = f"""Review these DIKW pyramid items and suggest improvements to their content (nugget name) and summaries.
-Focus on clarity, specificity, and appropriate level of abstraction for each DIKW level.
-
-Items to review:
-{items_summary}
-
-For each item that needs improvement, provide a JSON object with:
-- id: the item ID
-- improved_content: a clearer, more specific content/name (keep concise)
-- improved_summary: a better summary appropriate for the DIKW level
-- reason: brief explanation of what was improved
-
-Return a JSON array of improvements (only include items that need changes):
-"""
-        response = ask_llm(prompt)
-        result = json.loads(response.strip().strip('```json').strip('```'))
-        
-        # Validate and format reviews
-        for review in result[:10]:  # Limit to 10 reviews
-            item_id = review.get("id")
-            item = next((i for i in all_items if i["id"] == item_id), None)
-            if item:
-                reviews.append({
-                    "id": item_id,
-                    "level": item["level"],
-                    "current_content": item["content"][:100],
-                    "current_summary": item["summary"][:80] if item["summary"] else "",
-                    "improved_content": review.get("improved_content", item["content"]),
-                    "improved_summary": review.get("improved_summary", item["summary"] or ""),
-                    "reason": review.get("reason", "Improved for clarity")
-                })
+        agent = get_dikw_synthesizer()
+        result = await agent.run(
+            action='ai_review',
+            data={'items': all_items[:20]}
+        )
+        reviews = result.get('reviews', [])[:10]
     except Exception as e:
         print(f"Error in AI review: {e}")
         import traceback
@@ -2399,7 +2379,15 @@ Return a JSON array of improvements (only include items that need changes):
 
 @app.post("/api/dikw/ai-refine")
 async def ai_refine_dikw(request: Request):
-    """Use AI to refine/improve DIKW content."""
+    """
+    Use AI to refine/improve DIKW content.
+    
+    Migration Note (P1.8): Uses DIKWSynthesizerAgent for content refinement.
+    Lazy imports ensure backward compatibility.
+    """
+    # Lazy import for backward compatibility
+    from .agents.dikw_synthesizer import get_dikw_synthesizer
+    
     data = await request.json()
     content = data.get("content", "")
     action = data.get("action", "clarify")
@@ -2409,8 +2397,16 @@ async def ai_refine_dikw(request: Request):
         return JSONResponse({"error": "Content is required"}, status_code=400)
     
     try:
-        prompt = custom_prompt or f"Refine this content ({action}): {content}"
-        refined = ask_llm(prompt)
+        agent = get_dikw_synthesizer()
+        result = await agent.run(
+            action='refine',
+            data={
+                'content': content,
+                'action': action,
+                'custom_prompt': custom_prompt
+            }
+        )
+        refined = result.get('refined_content', content)
         return JSONResponse({"status": "ok", "refined": refined})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -2418,7 +2414,15 @@ async def ai_refine_dikw(request: Request):
 
 @app.post("/api/dikw/ai-summarize")
 async def ai_summarize_dikw(request: Request):
-    """Generate AI summary for DIKW content."""
+    """
+    Generate AI summary for DIKW content.
+    
+    Migration Note (P1.8): Uses DIKWSynthesizerAgent adapter for summarization.
+    Lazy imports ensure backward compatibility.
+    """
+    # Lazy import for backward compatibility
+    from .agents.dikw_synthesizer import ai_summarize_dikw_adapter
+    
     data = await request.json()
     content = data.get("content", "")
     level = data.get("level", "data")
@@ -2426,15 +2430,8 @@ async def ai_summarize_dikw(request: Request):
     if not content:
         return JSONResponse({"error": "Content is required"}, status_code=400)
     
-    level_prompts = {
-        'data': f"Briefly describe this raw data point in one clear sentence:\n\n{content}",
-        'information': f"Explain the context and significance of this information:\n\n{content}",
-        'knowledge': f"What actionable insight or pattern does this represent?\n\n{content}",
-        'wisdom': f"What strategic principle or lesson can be derived from this?\n\n{content}"
-    }
-    
     try:
-        summary = ask_llm(level_prompts.get(level, level_prompts['data']))
+        summary = await ai_summarize_dikw_adapter(content, level)
         return JSONResponse({"status": "ok", "summary": summary})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -2442,7 +2439,15 @@ async def ai_summarize_dikw(request: Request):
 
 @app.post("/api/dikw/ai-promote")
 async def ai_promote_dikw(request: Request):
-    """Use AI to promote content to the next DIKW level."""
+    """
+    Use AI to promote content to the next DIKW level.
+    
+    Migration Note (P1.8): Uses DIKWSynthesizerAgent adapter for AI promotion.
+    Lazy imports ensure backward compatibility.
+    """
+    # Lazy import for backward compatibility
+    from .agents.dikw_synthesizer import ai_promote_dikw_adapter
+    
     data = await request.json()
     content = data.get("content", "")
     from_level = data.get("from_level", "data")
@@ -2451,35 +2456,13 @@ async def ai_promote_dikw(request: Request):
     if not content:
         return JSONResponse({"error": "Content is required"}, status_code=400)
     
-    promotion_prompts = {
-        'information': f"""Transform this raw data into structured information. Explain what it means in context and why it matters.
-
-Data: {content}
-
-Provide the promoted information-level content:""",
-        'knowledge': f"""Extract actionable knowledge from this information. What patterns, insights, or principles emerge that can guide decisions?
-
-Information: {content}
-
-Provide the promoted knowledge-level content:""",
-        'wisdom': f"""Distill strategic wisdom from this knowledge. What fundamental principle or timeless lesson should guide future actions and decisions?
-
-Knowledge: {content}
-
-Provide the promoted wisdom-level content:"""
-    }
-    
     try:
-        promoted = ask_llm(promotion_prompts.get(to_level, promotion_prompts['information']))
-        
-        # Also generate a summary for the new level
-        summary_prompt = f"Summarize this {to_level}-level insight in one sentence:\n\n{promoted}"
-        summary = ask_llm(summary_prompt)
+        result = await ai_promote_dikw_adapter(content, from_level, to_level)
         
         return JSONResponse({
             "status": "ok",
-            "promoted_content": promoted,
-            "summary": summary,
+            "promoted_content": result.get('promoted_content', ''),
+            "summary": result.get('summary', ''),
             "from_level": from_level,
             "to_level": to_level
         })
@@ -2753,32 +2736,17 @@ async def compress_and_dedupe_dikw():
             levels[item['level']] = []
         levels[item['level']].append(dict(item))
     
-    # Use AI to find duplicates and similar items
+    # Use DIKWSynthesizerAgent adapter to find duplicates
+    # Lazy import for backward compatibility
+    from .agents.dikw_synthesizer import find_duplicates_adapter
+    
     duplicates = []
     for level, level_items in levels.items():
         if len(level_items) < 2:
             continue
         
-        items_text = "\n".join([
-            f"[ID:{i['id']}] {(i['content'] or '')[:150]}"
-            for i in level_items[:30]  # Limit for API
-        ])
-        
         try:
-            prompt = f"""Analyze these {level}-level DIKW items and identify duplicates or highly similar items that should be merged.
-
-Items:
-{items_text}
-
-Return a JSON array of groups to merge. Each group is an array of IDs that are duplicates/similar:
-Example: [[1, 5], [3, 8, 12]]
-
-Only group items that are clearly about the same thing. Return empty array [] if no duplicates.
-Return ONLY the JSON array:"""
-            
-            response = ask_llm(prompt)
-            groups = json.loads(response.strip().strip('```json').strip('```'))
-            
+            groups = await find_duplicates_adapter(level_items, level)
             for group in groups:
                 if len(group) >= 2:
                     duplicates.append({
@@ -2949,7 +2917,20 @@ async def normalize_dikw_categories():
 
 @app.post("/api/dikw/auto-process")
 async def dikw_auto_process(request: Request):
-    """AI auto-process: suggest new items, promote existing, adjust confidence, assess wisdom candidates."""
+    """
+    AI auto-process: suggest new items, promote existing, adjust confidence, assess wisdom candidates.
+    
+    Migration Note (P1.8): Uses DIKWSynthesizerAgent adapters for all AI operations.
+    Lazy imports ensure backward compatibility.
+    """
+    # Lazy import for backward compatibility
+    from .agents.dikw_synthesizer import (
+        suggest_from_signals_adapter,
+        analyze_for_suggestions_adapter,
+        generate_promoted_content_adapter,
+        generate_wisdom_content_adapter,
+    )
+    
     data = await request.json()
     pyramid = data.get("pyramid", {})
     
@@ -2984,7 +2965,6 @@ async def dikw_auto_process(request: Request):
         signal_context = ""
         for row in recent_signals:
             try:
-                import json
                 signals = json.loads(row["signals_json"]) if isinstance(row["signals_json"], str) else row["signals_json"]
                 for sig_type, items in signals.items():
                     for item in items[:2]:
@@ -2994,71 +2974,16 @@ async def dikw_auto_process(request: Request):
         
         if signal_context:
             try:
-                prompt = f"""Based on these recent signals from meetings, suggest 2-3 DIKW items to add:
-
-{signal_context}
-
-Return a JSON array of objects with: level (data/information/knowledge/wisdom), content, summary
-Example: [{{"level": "data", "content": "Team velocity decreased 20% this sprint", "summary": "Velocity tracking observation"}}]
-
-JSON array only:"""
-                response = ask_llm(prompt)
-                import json
-                suggestions = json.loads(response.strip().strip('```json').strip('```'))
-                suggested = suggestions[:3]
+                suggested = await suggest_from_signals_adapter(signal_context)
             except Exception as e:
                 print(f"Error generating suggestions: {e}")
     else:
-        # Separate items by level for detailed analysis
-        data_items = [i for i in all_items if i['level'] == 'data']
-        info_items = [i for i in all_items if i['level'] == 'information']
-        knowledge_items = [i for i in all_items if i['level'] == 'knowledge']
-        wisdom_items = [i for i in all_items if i['level'] == 'wisdom']
-        
-        items_summary = "\n".join([
-            f"[{i['level']}] (id:{i['id']}, confidence:{i['confidence']}%) {i['content'][:200]}"
-            for i in all_items[:25]
-        ])
-        
         try:
-            # Enhanced prompt with wisdom candidate assessment and confidence criteria
-            prompt = f"""Analyze these DIKW pyramid items thoroughly:
-
-Current items:
-{items_summary}
-
-Provide a comprehensive analysis with JSON containing:
-
-1. "promote": Items ready for promotion (consider: maturity, validation, actionability)
-   [{{"id": <id>, "from_level": "data", "to_level": "information", "reason": "specific reason"}}]
-
-2. "confidence": Items needing confidence adjustments based on:
-   - Specificity (vague = lower, precise = higher)
-   - Verifiability (opinion = 40-60%, verified fact = 80-95%)
-   - Actionability (theoretical = lower, practical = higher)
-   - Time sensitivity (dated info = lower confidence)
-   [{{"id": <id>, "old_confidence": 70, "new_confidence": 85, "reason": "why this adjustment"}}]
-
-3. "wisdom_candidates": Knowledge items that could become wisdom (timeless principles, strategic insights)
-   [{{"id": <id>, "potential_wisdom": "the distilled principle", "readiness_score": 1-10, "reason": "why this could be wisdom"}}]
-
-4. "suggest": New items to fill gaps in the pyramid
-   [{{"level": "knowledge", "content": "...", "summary": "..."}}]
-
-Be specific about confidence levels:
-- 30-50%: Uncertain, needs validation
-- 50-70%: Reasonable but not confirmed
-- 70-85%: Well-supported
-- 85-95%: Highly confident, verified
-
-JSON only:"""
-            
-            response = ask_llm(prompt)
-            import json
-            result = json.loads(response.strip().strip('```json').strip('```'))
+            # Use adapter for comprehensive analysis
+            analysis = await analyze_for_suggestions_adapter(all_items)
             
             # Process promotions with enhanced content generation
-            for promo in result.get("promote", [])[:4]:
+            for promo in analysis.get("promote", []):
                 item_id = promo.get("id")
                 item = next((i for i in all_items if i["id"] == item_id), None)
                 if item:
@@ -3068,42 +2993,21 @@ JSON only:"""
                     if level_order.get(item["level"], 0) >= level_order.get(to_level, 1):
                         continue
                     
-                    # Generate promoted content with level-specific prompts
-                    promotion_prompts = {
-                        'information': f"""Transform this raw data into structured, contextualized information.
-Explain what it means, why it matters, and what context is needed to understand it.
-
-Data: {item['content']}
-
-Provide clear, informative content:""",
-                        'knowledge': f"""Extract actionable knowledge from this information.
-What patterns emerge? What can be applied? What decisions does this inform?
-
-Information: {item['content']}
-
-Provide actionable knowledge:""",
-                        'wisdom': f"""Distill strategic wisdom from this knowledge.
-What timeless principle or strategic insight emerges that will remain true across contexts?
-
-Knowledge: {item['content']}
-
-Provide wisdom-level insight:"""
-                    }
-                    promoted_content = ask_llm(promotion_prompts.get(to_level, promotion_prompts['information']))
-                    summary = ask_llm(f"Summarize this {to_level}-level insight in one clear sentence:\n\n{promoted_content}")
+                    # Generate promoted content using adapter
+                    content_result = await generate_promoted_content_adapter(item['content'], to_level)
                     
                     promoted.append({
                         "id": item_id,
                         "from_level": item["level"],
                         "to_level": to_level,
                         "original_content": item["content"][:100],
-                        "promoted_content": promoted_content,
-                        "summary": summary,
+                        "promoted_content": content_result.get('promoted_content', ''),
+                        "summary": content_result.get('summary', ''),
                         "reason": promo.get("reason", "Ready for promotion based on content maturity")
                     })
             
             # Process confidence adjustments with validation
-            for conf in result.get("confidence", [])[:6]:
+            for conf in analysis.get("confidence", []):
                 item_id = conf.get("id")
                 item = next((i for i in all_items if i["id"] == item_id), None)
                 if item:
@@ -3122,20 +3026,17 @@ Provide wisdom-level insight:"""
                         })
             
             # Process wisdom candidates
-            for wc in result.get("wisdom_candidates", [])[:3]:
+            for wc in analysis.get("wisdom_candidates", []):
                 item_id = wc.get("id")
                 item = next((i for i in all_items if i["id"] == item_id and i["level"] == "knowledge"), None)
                 if item:
                     readiness = wc.get("readiness_score", 5)
                     if readiness >= 6:  # Only show high-readiness candidates
-                        # Generate the wisdom content
-                        wisdom_prompt = f"""Transform this knowledge into timeless wisdom - a principle that transcends specific contexts.
-
-Knowledge: {item['content']}
-Potential wisdom direction: {wc.get('potential_wisdom', '')}
-
-Create a concise, memorable wisdom statement:"""
-                        wisdom_content = ask_llm(wisdom_prompt)
+                        # Generate the wisdom content using adapter
+                        wisdom_content = await generate_wisdom_content_adapter(
+                            item['content'], 
+                            wc.get('potential_wisdom', '')
+                        )
                         
                         wisdom_candidates.append({
                             "id": item_id,
@@ -3146,7 +3047,7 @@ Create a concise, memorable wisdom statement:"""
                         })
             
             # Add new suggestions
-            suggested = result.get("suggest", [])[:3]
+            suggested = analysis.get("suggest", [])
             
         except Exception as e:
             print(f"Error in auto-process: {e}")
@@ -3284,3 +3185,8 @@ app.include_router(settings_router)
 app.include_router(assistant_router)
 app.include_router(career_router)
 app.include_router(neo4j_router)
+app.include_router(v1_router)  # API v1 versioned endpoints (Phase 3.1)
+app.include_router(mobile_router)  # Mobile sync endpoints (Phase 3.2)
+app.include_router(admin_router)  # Admin endpoints (Phase 4.1)
+app.include_router(api_search_router)  # Semantic/Hybrid search (Phase 5.2)
+app.include_router(knowledge_graph_router)  # Knowledge graph links (Phase 5.10)

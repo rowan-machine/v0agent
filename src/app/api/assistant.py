@@ -1,29 +1,47 @@
 # src/app/api/assistant.py
-"""Smart assistant chatbot that can update the knowledge base and help users navigate."""
+"""
+Smart assistant chatbot that can update the knowledge base and help users navigate.
+
+This module now delegates to the ArjunaAgent (Checkpoint 2.2) for core functionality,
+maintaining backward compatibility through adapter functions.
+
+Migration Status:
+- ArjunaAgent: src/app/agents/arjuna.py (new agent implementation)
+- This file: Adapters + FastAPI routes (will be slimmed down over time)
+"""
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from datetime import datetime, date, timedelta
 import json
 from ..db import connect
-from ..llm import ask as ask_llm
+# llm.ask removed - use lazy imports inside functions for backward compatibility
+
+# Import from new Arjuna agent (Checkpoint 2.2)
+from ..agents.arjuna import (
+    ArjunaAgent,
+    get_arjuna_agent,
+    AVAILABLE_MODELS,
+    SYSTEM_PAGES as ARJUNA_SYSTEM_PAGES,
+    MODEL_ALIASES,
+    FOCUS_KEYWORDS,
+    get_follow_up_suggestions,
+    get_focus_recommendations,
+    get_system_context,
+    parse_assistant_intent,
+    execute_intent,
+)
 
 router = APIRouter()
 
-# ===== AVAILABLE AI MODELS =====
-AVAILABLE_MODELS = [
-    "gpt-4o",
-    "gpt-4o-mini", 
-    "gpt-4-turbo",
-    "gpt-3.5-turbo",
-    "claude-3-opus",
-    "claude-3-sonnet",
-    "claude-3-haiku",
-    "claude-sonnet-4",
-    "claude-opus-4",
-]
+# ===== BACKWARD COMPATIBILITY - Re-export from ArjunaAgent =====
+# These constants are now defined in agents/arjuna.py but re-exported here
+# for backward compatibility with any code importing from api/assistant.py
+
+# AVAILABLE_MODELS - imported from arjuna
 
 # ===== SYSTEM KNOWLEDGE =====
+# Use ARJUNA_SYSTEM_PAGES for the rich format, keep legacy format for compatibility
 SYSTEM_PAGES = {
     "dashboard": {"path": "/", "desc": "Main dashboard with sprint overview, workflow modes, DIKW pyramid, and quick actions"},
     "tickets": {"path": "/tickets", "desc": "View and manage all tickets/tasks in the current sprint"},
@@ -587,6 +605,8 @@ IMPORTANT GUIDELINES:
 7. Always explain what you did or will do
 8. When user asks about app features, explain them clearly using your knowledge"""
 
+    # Lazy import for backward compatibility
+    from ..llm import ask as ask_llm
     response = ask_llm(system_prompt, model="gpt-4o-mini")
     
     try:

@@ -1,0 +1,41 @@
+{# DIKW Synthesizer - Summarize Prompt #}
+{# Template for generating level-appropriate summaries #}
+
+## Generate {{ level | capitalize }}-Level Summary
+
+Create a concise summary appropriate for the {{ level }} level of the DIKW pyramid.
+
+**Content:**
+{{ content }}
+
+{% if level == 'data' %}
+### Data Summary Guidelines:
+- State the raw fact or observation clearly
+- Be objective and factual
+- One sentence maximum
+- No interpretation or context
+
+{% elif level == 'information' %}
+### Information Summary Guidelines:
+- Explain what this means in context
+- Add relevant background
+- Clarify significance
+- 1-2 sentences
+
+{% elif level == 'knowledge' %}
+### Knowledge Summary Guidelines:
+- State the actionable insight
+- Identify the pattern or principle
+- Make it applicable to decisions
+- 1-2 sentences
+
+{% elif level == 'wisdom' %}
+### Wisdom Summary Guidelines:
+- Distill the fundamental truth
+- Make it timeless and broadly applicable
+- Guide future thinking and action
+- One powerful sentence
+
+{% endif %}
+
+**Provide the summary:**

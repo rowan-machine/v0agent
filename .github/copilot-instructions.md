@@ -18,56 +18,52 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-## Core Business Systems
+AI Assistant and Knowledge Management System with specialized capabilities for meeting intelligence, career development, and workflow management.
 
-### Assistant Intelligence (Importance: 85/100)
-Arjuna assistant system implementing sophisticated focus recommendations based on:
-- Blocked ticket prioritization
-- Sprint deadline proximity analysis
-- Dependency chain tracking
-- Meeting action item correlation
-- Stale work detection algorithms
+Core Business Components:
 
-### Signal Processing (Importance: 90/100)
-Multi-stage pipeline extracting structured business signals from meetings:
-- Decisions, action items, blockers, risks tracking
-- Screenshot analysis with vision AI integration
-- Signal lifecycle management (pending, approved, rejected)
-- Implicit signal extraction via LLM analysis
-- Signal-to-action conversion workflows
+1. AI Assistant Conversation System (src/app/templates/components/assistant_widget.html)
+Importance Score: 75/100
+- Contextual conversation history with 24-hour persistence
+- Rotating suggestion sets based on workflow stages
+- Command usage frequency tracking and personalization
+- Smart emoji categorization by command context
 
-### Knowledge Graph Management (Importance: 75/100)
-Domain-specific organizational knowledge representation:
-- DIKW hierarchy implementation
-- Relationship inference between meetings, documents, people
-- Context chain traversal
-- Knowledge promotion tracking
-- Semantic proximity analysis
+2. DIKW Knowledge Management (src/app/agents/dikw_synthesizer.py)
+Importance Score: 85/100
+- Data-Information-Knowledge-Wisdom hierarchy progression
+- Custom knowledge synthesis rules per hierarchy level
+- Semantic merging of related knowledge items
+- Tag-based knowledge clustering system
 
-### Workflow Orchestration (Importance: 70/100)
-Seven-mode sprint workflow system:
-- Context Distillation
-- Implementation Planning
-- Assisted Draft Intake
-- Deep Review
-- Promotion Readiness
-- Controlled Ingress/Egress
-- Execution Mode
+3. Career Development Framework (src/app/agents/career_coach.py)
+Importance Score: 75/100
+- Professional capability mapping
+- Standup-based performance analysis
+- Code change pattern matching for skill tracking
+- Evidence-based skill progression validation
 
-### Conversation Intelligence (Importance: 65/100)
-24-hour persistence system with:
-- Role-based message tracking
-- Context-aware suggestion rotation
-- Command categorization with emoji mapping
-- Domain-specific clarification handling
-- Model switching between GPT-4 and Claude
+4. Meeting Intelligence Pipeline
+Importance Score: 80/100
+- Signal extraction and categorization (decisions, action items, blockers, risks, ideas)
+- Multi-stage signal validation workflow
+- Meeting context propagation 
+- Cross-meeting signal relationship tracking
 
-## Integration Points
-- Ticket management system connectivity
-- Sprint analytics and burndown tracking
-- Meeting note search and correlation
-- Task decomposition workflows
-- Waiting-for item tracking
+5. Sprint Management System
+Importance Score: 70/100
+- Sprint lifecycle management with configurable lengths
+- Working days calculation and tracking
+- Time tracking archival
+- Mode-based workflow tracking (A-G system)
+
+Integration Points:
+- Knowledge graph connections between meetings, signals, and career data
+- Bi-directional sync for offline-first operation
+- Cross-entity semantic search capabilities
+- Workflow mode transitions affecting multiple subsystems
+
+The system implements a sophisticated knowledge work management platform centered around AI-assisted meeting analysis, career development tracking, and sprint management with emphasis on maintaining relationships between different knowledge artifacts.
 
 $END$
 

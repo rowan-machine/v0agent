@@ -151,6 +151,8 @@ PUBLIC_ROUTES = [
     "/api/mindmap/status",
     "/api/dikw",
     "/api/career",  # Allow all career APIs
+    "/api/admin/health",  # Health check for monitoring
+    "/api/admin/infrastructure",  # Infrastructure status
 ]
 
 

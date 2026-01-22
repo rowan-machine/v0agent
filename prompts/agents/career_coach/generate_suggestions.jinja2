@@ -1,0 +1,45 @@
+Based on this career profile, generate {{ count or '3-5' }} specific, actionable growth opportunities:
+
+Current Role: {{ profile.current_role or 'Not specified' }}
+Target Role: {{ profile.target_role or 'Not specified' }}
+Strengths: {{ profile.strengths or 'Not specified' }}
+Areas to Develop: {{ profile.weaknesses or 'Not specified' }}
+Interests: {{ profile.interests or 'Not specified' }}
+Career Goals: {{ profile.goals or 'Not specified' }}
+
+{% if career_summary %}
+Career status summary:
+{{ career_summary }}
+{% endif %}
+
+{% if context.meetings %}
+Meetings context:
+{{ context.meetings }}
+{% endif %}
+
+{% if context.documents %}
+Documents context:
+{{ context.documents }}
+{% endif %}
+
+{% if context.tickets %}
+Active tickets context:
+{{ context.tickets }}
+{% endif %}
+
+Generate specific suggestions that:
+1. Bridge the gap between current and target role
+2. Build on strengths and address weaknesses
+3. Align with stated interests
+4. Are concrete and actionable
+
+For each suggestion, provide:
+- Type: stretch, skill_building, project, or learning
+- Title: concise name
+- Description: what to do (2-3 sentences)
+- Rationale: why this helps career growth
+- Difficulty: beginner, intermediate, or advanced
+- Time estimate: rough time needed
+- Related goal: which aspect of career goals this supports
+
+Return as JSON array with these fields: suggestion_type, title, description, rationale, difficulty, time_estimate, related_goal

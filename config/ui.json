@@ -1,0 +1,253 @@
+{
+  "version": "2.0",
+  "schema": "signalflow-ui-2.0",
+  "metadata": {
+    "description": "UI configuration for SignalFlow - Phase 3.5",
+    "lastUpdated": "2026-01-22",
+    "environments": ["development", "production"]
+  },
+  "layouts": {
+    "dashboard": {
+      "description": "Main dashboard with sprint overview and quick actions",
+      "breakpoints": {
+        "desktop": {
+          "width": "> 1024px",
+          "sections": [
+            {
+              "id": "header",
+              "component": "Header",
+              "position": "top",
+              "props": {
+                "sticky": true,
+                "showMenu": true,
+                "showBreadcrumb": true
+              }
+            },
+            {
+              "id": "sidebar",
+              "component": "Sidebar",
+              "position": "left",
+              "props": {
+                "width": "250px",
+                "collapsible": true,
+                "defaultOpen": true
+              }
+            },
+            {
+              "id": "main-content",
+              "component": "DashboardMain",
+              "position": "center",
+              "props": {
+                "sections": ["sprint-overview", "recent-signals", "quick-actions"]
+              }
+            },
+            {
+              "id": "assistant-widget",
+              "component": "AssistantWidget",
+              "position": "bottom-right",
+              "props": {
+                "minimizable": true,
+                "width": "400px",
+                "zIndex": 1000
+              }
+            }
+          ]
+        },
+        "mobile": {
+          "width": "< 768px",
+          "sections": [
+            {
+              "id": "header",
+              "component": "MobileHeader",
+              "props": {"sticky": true, "compact": true}
+            },
+            {
+              "id": "main-content",
+              "component": "DashboardMain",
+              "position": "full-screen",
+              "props": {"padding": "10px"}
+            },
+            {
+              "id": "assistant-widget",
+              "component": "AssistantWidget",
+              "position": "bottom-sheet",
+              "props": {"fullScreen": true}
+            }
+          ]
+        }
+      }
+    },
+    "meetings": {
+      "description": "Meeting list and detail views",
+      "breakpoints": {
+        "desktop": {
+          "width": "> 1024px",
+          "sections": [
+            {"id": "header", "component": "Header", "position": "top"},
+            {"id": "sidebar", "component": "Sidebar", "position": "left"},
+            {
+              "id": "meeting-list",
+              "component": "MeetingList",
+              "position": "center",
+              "props": {"showSignals": true, "showSearch": true}
+            }
+          ]
+        }
+      }
+    },
+    "signals": {
+      "description": "Signal management and DIKW pyramid",
+      "breakpoints": {
+        "desktop": {
+          "sections": [
+            {"id": "header", "component": "Header"},
+            {"id": "sidebar", "component": "Sidebar"},
+            {
+              "id": "signal-board",
+              "component": "SignalBoard",
+              "props": {"showCategories": true, "showDIKW": true}
+            }
+          ]
+        }
+      }
+    },
+    "tickets": {
+      "description": "Sprint backlog and ticket management",
+      "breakpoints": {
+        "desktop": {
+          "sections": [
+            {"id": "header", "component": "Header"},
+            {"id": "sidebar", "component": "Sidebar"},
+            {
+              "id": "ticket-board",
+              "component": "KanbanBoard",
+              "props": {"columns": ["backlog", "todo", "in_progress", "in_review", "done"]}
+            }
+          ]
+        }
+      }
+    }
+  },
+  "components": {
+    "Header": {
+      "description": "Top navigation header",
+      "implementations": {
+        "jinja": {"path": "templates/components/header.html", "type": "jinja2"},
+        "react": {"path": "frontend/src/components/Header.tsx", "type": "react"},
+        "mobile": {"path": "mobile/src/components/Header.tsx", "type": "react-native"}
+      },
+      "requiredProps": [],
+      "optionalProps": ["sticky", "showMenu", "showBreadcrumb", "compact"]
+    },
+    "Sidebar": {
+      "description": "Left sidebar navigation",
+      "implementations": {
+        "jinja": {"path": "templates/components/sidebar.html", "type": "jinja2"},
+        "react": {"path": "frontend/src/components/Sidebar.tsx", "type": "react"}
+      },
+      "requiredProps": [],
+      "optionalProps": ["width", "collapsible", "defaultOpen"]
+    },
+    "AssistantWidget": {
+      "description": "AI assistant chat widget",
+      "implementations": {
+        "jinja": {"path": "templates/components/assistant_widget.html", "type": "jinja2"},
+        "react": {"path": "frontend/src/components/AssistantWidget.tsx", "type": "react"},
+        "mobile": {"path": "mobile/src/components/AssistantWidget.tsx", "type": "react-native"}
+      },
+      "requiredProps": [],
+      "optionalProps": ["minimizable", "width", "zIndex", "fullScreen"]
+    },
+    "SignalBoard": {
+      "description": "Signal categorization and management board",
+      "implementations": {
+        "jinja": {"path": "templates/components/signal_board.html", "type": "jinja2"},
+        "react": {"path": "frontend/src/components/SignalBoard.tsx", "type": "react"}
+      }
+    },
+    "KanbanBoard": {
+      "description": "Drag-and-drop ticket kanban board",
+      "implementations": {
+        "jinja": {"path": "templates/components/kanban_board.html", "type": "jinja2"},
+        "react": {"path": "frontend/src/components/KanbanBoard.tsx", "type": "react"}
+      }
+    },
+    "MeetingList": {
+      "description": "Meeting list with search and filters",
+      "implementations": {
+        "jinja": {"path": "templates/components/meeting_list.html", "type": "jinja2"}
+      }
+    },
+    "DashboardMain": {
+      "description": "Main dashboard content area",
+      "implementations": {
+        "jinja": {"path": "templates/components/dashboard_main.html", "type": "jinja2"}
+      }
+    }
+  },
+  "themes": {
+    "light": {
+      "name": "Light Theme",
+      "colors": {
+        "primary": "#0066cc",
+        "secondary": "#666666",
+        "background": "#ffffff",
+        "surface": "#f5f5f5",
+        "error": "#d32f2f",
+        "success": "#388e3c",
+        "warning": "#f57c00",
+        "info": "#1976d2"
+      },
+      "fonts": {
+        "body": "system-ui, -apple-system, sans-serif",
+        "mono": "Menlo, Monaco, monospace",
+        "size": {"xs": "12px", "sm": "14px", "md": "16px", "lg": "18px", "xl": "24px"}
+      },
+      "spacing": {"xs": "4px", "sm": "8px", "md": "16px", "lg": "24px", "xl": "32px"},
+      "borderRadius": {"sm": "4px", "md": "8px", "lg": "12px"}
+    },
+    "dark": {
+      "name": "Dark Theme",
+      "colors": {
+        "primary": "#3399ff",
+        "secondary": "#999999",
+        "background": "#1a1a1a",
+        "surface": "#2d2d2d",
+        "error": "#ff5252",
+        "success": "#66bb6a",
+        "warning": "#ffb74d",
+        "info": "#42a5f5"
+      }
+    }
+  },
+  "featureFlags": {
+    "enableAssistantWidget": {
+      "enabled": true,
+      "environments": ["development", "production"],
+      "rolloutPercentage": 100
+    },
+    "enableDIKWPyramid": {
+      "enabled": true,
+      "environments": ["development", "production"],
+      "rolloutPercentage": 100
+    },
+    "enableMobileSync": {
+      "enabled": false,
+      "environments": ["development"],
+      "rolloutPercentage": 0,
+      "description": "Phase 4 - Mobile device sync"
+    },
+    "enableSupabaseBackend": {
+      "enabled": false,
+      "environments": ["development"],
+      "rolloutPercentage": 0,
+      "description": "Phase 5 - Supabase cloud backend"
+    },
+    "enableKnowledgeGraph": {
+      "enabled": true,
+      "environments": ["development"],
+      "rolloutPercentage": 50,
+      "description": "Neo4j knowledge graph visualization"
+    }
+  }
+}

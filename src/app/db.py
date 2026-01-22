@@ -221,6 +221,30 @@ CREATE TABLE IF NOT EXISTS dikw_evolution (
 CREATE INDEX IF NOT EXISTS idx_dikw_evolution_item ON dikw_evolution(item_id);
 CREATE INDEX IF NOT EXISTS idx_dikw_evolution_type ON dikw_evolution(event_type);
 
+-- Entity links for knowledge graph connections (P5.10)
+-- Stores relationships between any two entities (meetings, documents, tickets, dikw_items, signals)
+CREATE TABLE IF NOT EXISTS entity_links (
+  id INTEGER PRIMARY KEY,
+  source_type TEXT NOT NULL,        -- 'meeting' | 'document' | 'ticket' | 'dikw' | 'signal'
+  source_id INTEGER NOT NULL,       -- ID of the source entity
+  target_type TEXT NOT NULL,        -- 'meeting' | 'document' | 'ticket' | 'dikw' | 'signal'
+  target_id INTEGER NOT NULL,       -- ID of the target entity
+  link_type TEXT NOT NULL,          -- 'semantic_similar' | 'related' | 'derived_from' | 'referenced' | 'same_topic' | 'blocks' | 'depends_on'
+  similarity_score REAL,            -- 0.0-1.0 for semantic links
+  confidence REAL DEFAULT 0.5,      -- confidence in the link (0.0-1.0)
+  is_bidirectional INTEGER DEFAULT 1,  -- 1 if link applies both ways
+  metadata TEXT,                    -- JSON for additional link metadata
+  created_by TEXT DEFAULT 'system', -- 'system' | 'user' | 'ai'
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(source_type, source_id, target_type, target_id, link_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_entity_links_source ON entity_links(source_type, source_id);
+CREATE INDEX IF NOT EXISTS idx_entity_links_target ON entity_links(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_entity_links_type ON entity_links(link_type);
+CREATE INDEX IF NOT EXISTS idx_entity_links_similarity ON entity_links(similarity_score);
+
 -- Mode time tracking for productivity analytics
 CREATE TABLE IF NOT EXISTS mode_sessions (
   id INTEGER PRIMARY KEY,

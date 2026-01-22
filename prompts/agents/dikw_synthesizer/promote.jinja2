@@ -1,0 +1,64 @@
+{# DIKW Synthesizer - Promotion Prompt #}
+{# Template for promoting content to a higher DIKW level #}
+
+{% if to_level == 'information' %}
+## Transform Data to Information
+
+Take this raw data and add context, meaning, and structure.
+
+**Data:**
+{{ content }}
+
+**Your task:**
+1. Explain what this data represents
+2. Add relevant context
+3. Clarify why it matters
+4. Structure it for understanding
+
+Provide the Information-level content:
+
+{% elif to_level == 'knowledge' %}
+## Extract Knowledge from Information
+
+Take this contextualized information and extract actionable insights.
+
+**Information:**
+{{ content }}
+
+**Your task:**
+1. Identify patterns or principles
+2. Extract actionable insights
+3. Connect to broader understanding
+4. Make it applicable to decisions
+
+Provide the Knowledge-level content:
+
+{% elif to_level == 'wisdom' %}
+## Distill Wisdom from Knowledge
+
+Take this knowledge and distill strategic, timeless principles.
+
+**Knowledge:**
+{{ content }}
+
+**Your task:**
+1. Abstract to fundamental principles
+2. Identify timeless lessons
+3. Create guiding truths
+4. Ensure applicability across contexts
+
+Provide the Wisdom-level content:
+
+{% else %}
+## Promote Content
+
+Transform this content to the next level of understanding.
+
+**Current Content:**
+{{ content }}
+
+**From Level:** {{ from_level }}
+**To Level:** {{ to_level }}
+
+Provide the promoted content:
+{% endif %}

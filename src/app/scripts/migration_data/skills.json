@@ -1,0 +1,550 @@
+[
+  {
+    "skill_name": "airflow",
+    "category": "projects",
+    "proficiency_level": 23,
+    "evidence": null,
+    "projects_count": 1,
+    "tickets_count": 1
+  },
+  {
+    "skill_name": "pipeline",
+    "category": "projects",
+    "proficiency_level": 23,
+    "evidence": null,
+    "projects_count": 1,
+    "tickets_count": 1
+  },
+  {
+    "skill_name": "Domain Driven Design",
+    "category": "ddd",
+    "proficiency_level": 37,
+    "evidence": [
+      "src/app/db.py",
+      "src/app/main.py",
+      "src/app/mcp/tools.py",
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Bounded Contexts",
+    "category": "ddd",
+    "proficiency_level": 28,
+    "evidence": [
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Aggregates",
+    "category": "ddd",
+    "proficiency_level": 35,
+    "evidence": [
+      "src/app/mcp/tools.py",
+      "src/app/api/career.py",
+      "src/app/api/neo4j_graph.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Event Sourcing",
+    "category": "ddd",
+    "proficiency_level": 26,
+    "evidence": [
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Python",
+    "category": "python",
+    "proficiency_level": 66,
+    "evidence": [
+      "scripts/add_signals_json.py",
+      "scripts/debug_parser.py",
+      "scripts/clean_meetings.py",
+      "scripts/backfill_embeddings.py",
+      "scripts/backfill_signals.py",
+      "scripts/backfill_titles.py",
+      "scripts/test_parser_plain.py",
+      "src/app/auth.py",
+      "src/app/tickets.py",
+      "src/app/signals.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "typing",
+    "category": "python",
+    "proficiency_level": 56,
+    "evidence": [
+      "src/app/tickets.py",
+      "src/app/signals.py",
+      "src/app/db.py",
+      "src/app/meetings.py",
+      "src/app/documents.py",
+      "src/app/llm.py",
+      "src/app/llm_new.py",
+      "src/app/main.py",
+      "src/app/memory/embed.py",
+      "src/app/memory/vector_store.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Hexagonal Architecture",
+    "category": "python",
+    "proficiency_level": 70,
+    "evidence": [
+      "scripts/add_signals_json.py",
+      "scripts/debug_parser.py",
+      "scripts/clean_meetings.py",
+      "scripts/backfill_embeddings.py",
+      "scripts/backfill_signals.py",
+      "scripts/backfill_titles.py",
+      "scripts/test_parser_plain.py",
+      "src/app/auth.py",
+      "src/app/tickets.py",
+      "src/app/signals.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Data Analysis",
+    "category": "analytics",
+    "proficiency_level": 37,
+    "evidence": [
+      "src/app/llm.py",
+      "src/app/main.py",
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "SQL/Databases",
+    "category": "analytics",
+    "proficiency_level": 66,
+    "evidence": [
+      "scripts/add_signals_json.py",
+      "scripts/debug_parser.py",
+      "scripts/clean_meetings.py",
+      "scripts/backfill_embeddings.py",
+      "scripts/backfill_signals.py",
+      "scripts/backfill_titles.py",
+      "scripts/test_parser_plain.py",
+      "src/app/auth.py",
+      "src/app/tickets.py",
+      "src/app/signals.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Data Visualization",
+    "category": "analytics",
+    "proficiency_level": 43,
+    "evidence": [
+      "src/app/llm.py",
+      "src/app/main.py",
+      "src/app/api/career.py",
+      "src/app/api/neo4j_graph.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "REST APIs",
+    "category": "backend",
+    "proficiency_level": 70,
+    "evidence": [
+      "scripts/test_parser_plain.py",
+      "src/app/auth.py",
+      "src/app/tickets.py",
+      "src/app/signals.py",
+      "src/app/query.py",
+      "src/app/meetings.py",
+      "src/app/documents.py",
+      "src/app/search.py",
+      "src/app/main.py",
+      "src/app/api/assistant.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "FastAPI",
+    "category": "backend",
+    "proficiency_level": 60,
+    "evidence": [
+      "src/app/auth.py",
+      "src/app/tickets.py",
+      "src/app/signals.py",
+      "src/app/query.py",
+      "src/app/meetings.py",
+      "src/app/documents.py",
+      "src/app/search.py",
+      "src/app/main.py",
+      "src/app/api/assistant.py",
+      "src/app/api/accountability.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Backend Development",
+    "category": "backend",
+    "proficiency_level": 36,
+    "evidence": [
+      "src/app/auth.py",
+      "src/app/main.py",
+      "src/app/api/settings.py",
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Microservices",
+    "category": "backend",
+    "proficiency_level": 32,
+    "evidence": [
+      "src/app/auth.py",
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "LLM Integration",
+    "category": "Agentic AI",
+    "proficiency_level": 66,
+    "evidence": [
+      "scripts/backfill_titles.py",
+      "src/app/tickets.py",
+      "src/app/signals.py",
+      "src/app/config.py",
+      "src/app/meetings.py",
+      "src/app/llm.py",
+      "src/app/llm_new.py",
+      "src/app/main.py",
+      "src/app/memory/embed.py",
+      "src/app/memory/retrieve.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "RAG",
+    "category": "Agentic AI",
+    "proficiency_level": 58,
+    "evidence": [
+      "scripts/add_signals_json.py",
+      "scripts/backfill_embeddings.py",
+      "src/app/auth.py",
+      "src/app/tickets.py",
+      "src/app/db.py",
+      "src/app/meetings.py",
+      "src/app/documents.py",
+      "src/app/llm.py",
+      "src/app/llm_new.py",
+      "src/app/main.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Embeddings",
+    "category": "Agentic AI",
+    "proficiency_level": 65,
+    "evidence": [
+      "scripts/backfill_embeddings.py",
+      "src/app/tickets.py",
+      "src/app/db.py",
+      "src/app/meetings.py",
+      "src/app/documents.py",
+      "src/app/memory/semantic.py",
+      "src/app/memory/embed.py",
+      "src/app/memory/vector_store.py",
+      "src/app/mcp/tools.py",
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Prompt Engineering",
+    "category": "Agentic AI",
+    "proficiency_level": 61,
+    "evidence": [
+      "scripts/backfill_titles.py",
+      "src/app/tickets.py",
+      "src/app/signals.py",
+      "src/app/llm.py",
+      "src/app/llm_new.py",
+      "src/app/main.py",
+      "src/app/chat/planner.py",
+      "src/app/mcp/tools.py",
+      "src/app/api/assistant.py",
+      "src/app/api/chat.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "MCP Servers",
+    "category": "Agentic AI",
+    "proficiency_level": 53,
+    "evidence": [
+      "scripts/debug_parser.py",
+      "scripts/clean_meetings.py",
+      "scripts/backfill_signals.py",
+      "scripts/test_parser_plain.py",
+      "src/app/auth.py",
+      "src/app/meetings.py",
+      "src/app/main.py",
+      "src/app/mcp/schemas.py",
+      "src/app/api/mcp.py",
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Tool Calling",
+    "category": "Agentic AI",
+    "proficiency_level": 37,
+    "evidence": [
+      "src/app/main.py",
+      "src/app/mcp/registry.py",
+      "src/app/api/mcp.py",
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Agent Orchestration",
+    "category": "Agentic AI",
+    "proficiency_level": 51,
+    "evidence": [
+      "scripts/backfill_titles.py",
+      "src/app/auth.py",
+      "src/app/db.py",
+      "src/app/config.py",
+      "src/app/llm.py",
+      "src/app/llm_new.py",
+      "src/app/main.py",
+      "src/app/chat/turn.py",
+      "src/app/mcp/tools.py",
+      "src/app/api/settings.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "ReAct Patterns",
+    "category": "Agentic AI",
+    "proficiency_level": 70,
+    "evidence": [
+      "scripts/debug_parser.py",
+      "scripts/clean_meetings.py",
+      "scripts/backfill_signals.py",
+      "scripts/test_parser_plain.py",
+      "src/app/auth.py",
+      "src/app/tickets.py",
+      "src/app/signals.py",
+      "src/app/db.py",
+      "src/app/meetings.py",
+      "src/app/llm.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Function Calling",
+    "category": "Agentic AI",
+    "proficiency_level": 27,
+    "evidence": [
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Multi-Agent Systems",
+    "category": "Agentic AI",
+    "proficiency_level": 25,
+    "evidence": [
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "ETL",
+    "category": "data",
+    "proficiency_level": 63,
+    "evidence": [
+      "scripts/debug_parser.py",
+      "scripts/clean_meetings.py",
+      "scripts/backfill_signals.py",
+      "scripts/test_parser_plain.py",
+      "src/app/auth.py",
+      "src/app/tickets.py",
+      "src/app/signals.py",
+      "src/app/db.py",
+      "src/app/meetings.py",
+      "src/app/llm.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Data Pipelines",
+    "category": "data",
+    "proficiency_level": 57,
+    "evidence": [
+      "scripts/test_parser_plain.py",
+      "src/app/tickets.py",
+      "src/app/db.py",
+      "src/app/main.py",
+      "src/app/chat/turn.py",
+      "src/app/api/settings.py",
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Data Quality",
+    "category": "data",
+    "proficiency_level": 50,
+    "evidence": [
+      "src/app/auth.py",
+      "src/app/db.py",
+      "src/app/main.py",
+      "src/app/chat/planner.py",
+      "src/app/tests/conftest.py",
+      "src/app/tests/test_retrieve_docs.py",
+      "src/app/tests/test_planner_valid.py",
+      "src/app/tests/test_retrieve_meetings.py",
+      "src/app/mcp/tools.py",
+      "src/app/api/mcp.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Data Lineage",
+    "category": "data",
+    "proficiency_level": 43,
+    "evidence": [
+      "src/app/tickets.py",
+      "src/app/db.py",
+      "src/app/main.py",
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "AWS",
+    "category": "aws",
+    "proficiency_level": 31,
+    "evidence": [
+      "src/app/tickets.py",
+      "src/app/db.py",
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Cloud Platforms",
+    "category": "aws",
+    "proficiency_level": 26,
+    "evidence": [
+      "src/app/main.py",
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Lambda",
+    "category": "aws",
+    "proficiency_level": 45,
+    "evidence": [
+      "src/app/search.py",
+      "src/app/main.py",
+      "src/app/memory/semantic.py",
+      "src/app/memory/rank.py",
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "S3",
+    "category": "aws",
+    "proficiency_level": 35,
+    "evidence": [
+      "src/app/tickets.py",
+      "src/app/api/career.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Knowledge Graphs",
+    "category": "knowledge",
+    "proficiency_level": 55,
+    "evidence": [
+      "src/app/meetings.py",
+      "src/app/documents.py",
+      "src/app/main.py",
+      "src/app/api/career.py",
+      "src/app/api/neo4j_graph.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "DIKW",
+    "category": "knowledge",
+    "proficiency_level": 57,
+    "evidence": [
+      "src/app/auth.py",
+      "src/app/db.py",
+      "src/app/main.py",
+      "src/app/api/career.py",
+      "src/app/api/neo4j_graph.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  },
+  {
+    "skill_name": "Semantic",
+    "category": "knowledge",
+    "proficiency_level": 45,
+    "evidence": [
+      "scripts/test_parser_plain.py",
+      "src/app/db.py",
+      "src/app/memory/semantic.py",
+      "src/app/chat/turn.py",
+      "src/app/api/career.py",
+      "src/app/api/neo4j_graph.py"
+    ],
+    "projects_count": 0,
+    "tickets_count": 0
+  }
+]

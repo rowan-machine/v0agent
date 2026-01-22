@@ -1,0 +1,41 @@
+{# DIKW Synthesizer - Merge Prompt #}
+{# Template for merging multiple items into synthesized insight #}
+
+## Synthesize {{ item_count }} {{ current_level | capitalize }}-Level Items
+
+Merge these related items into a unified {{ next_level }}-level insight.
+
+### Items to Merge:
+{% for item in items %}
+**Item {{ loop.index }}:**
+{{ item.content }}
+{% if item.summary %}
+_Summary: {{ item.summary }}_
+{% endif %}
+{% if item.tags %}
+_Tags: {{ item.tags }}_
+{% endif %}
+---
+{% endfor %}
+
+### Your Task:
+
+1. **Identify Common Themes**: What connects these items?
+2. **Synthesize Understanding**: Create a unified insight
+3. **Elevate the Level**: Transform from {{ current_level }} to {{ next_level }}
+4. **Preserve Nuance**: Don't lose important details
+
+{% if current_level == 'data' and next_level == 'information' %}
+Focus on: Adding context and meaning to the combined data points
+{% elif current_level == 'information' and next_level == 'knowledge' %}
+Focus on: Extracting actionable patterns from the combined information
+{% elif current_level == 'knowledge' and next_level == 'wisdom' %}
+Focus on: Distilling strategic principles from the combined knowledge
+{% endif %}
+
+### Output Format:
+
+Provide:
+1. **Synthesized Content**: The merged, elevated insight
+2. **Key Themes**: 2-3 themes that emerged from synthesis
+3. **Preserved Details**: Any critical nuances not to forget

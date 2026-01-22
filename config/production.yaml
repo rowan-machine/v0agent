@@ -1,0 +1,23 @@
+# Production environment configuration
+environment: production
+debug: false
+
+api_port: 8001
+
+database_path: agent.db
+
+# ChromaDB persistent storage
+embeddings_db_path: /var/lib/signalflow/chromadb
+
+# Production sync: always use Supabase
+sync:
+  use_mdns: true
+  enable_supabase: true
+  supabase_url: ${SUPABASE_URL}
+  supabase_key: ${SUPABASE_KEY}
+  supabase_encryption_key: ${SUPABASE_ENCRYPTION_KEY}
+  auto_sync_interval: 300
+  mobile_enabled: true
+
+# Logging
+log_level: WARNING

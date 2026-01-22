@@ -1,0 +1,18 @@
+# Development environment overrides
+environment: development
+debug: true
+
+api_port: 8001
+
+# Use local PostgreSQL for development
+database_path: agent.db
+
+# ChromaDB in-process for development
+embeddings_db_path: ./chromadb_data_dev
+
+# Sync configuration for development
+sync:
+  use_mdns: true
+  enable_supabase: true  # Enabled for cutover testing
+  supabase_reads: true   # CUTOVER: Read from Supabase instead of SQLite
+  mobile_enabled: true

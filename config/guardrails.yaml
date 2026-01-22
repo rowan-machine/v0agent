@@ -1,0 +1,253 @@
+# Guardrails Configuration for SignalFlow
+# Version: 1.0
+#
+# This configuration controls pre/post hooks for agent safety and self-reflection.
+# Feature flags allow gradual rollout and dry-run testing.
+#
+# Checkpoint 1.8: PHASED_MIGRATION_ROLLOUT.md
+
+version: "1.0"
+description: "Guardrails and self-reflection configuration for SignalFlow agents"
+
+# Global settings (apply to all agents unless overridden)
+global:
+  enabled: true
+  pre_call_enabled: true
+  post_call_enabled: true
+  dry_run: false  # Set true to log without blocking (testing mode)
+  log_all_checks: true
+
+# Per-agent guardrail settings
+agents:
+  # ===========================================
+  # CORE AGENTS (Multi-Agent System)
+  # ===========================================
+  
+  arjuna:
+    enabled: true
+    description: "Primary assistant - navigation, help, system knowledge"
+    
+    # Input filtering
+    block_patterns:
+      # Prompt injection attempts
+      - "(?i)ignore\\s+(all\\s+)?(previous|prior)\\s+instructions"
+      - "(?i)disregard\\s+(your\\s+)?(system|initial)\\s+prompt"
+      - "(?i)you\\s+are\\s+now\\s+(a|an)\\s+\\w+\\s+assistant"
+      - "(?i)forget\\s+(everything|all)\\s+(you|your)"
+      - "(?i)new\\s+instruction[s]?\\s*:"
+    
+    warn_patterns:
+      # Suspicious but may be legitimate
+      - "(?i)pretend\\s+(to\\s+be|you\\s+are)"
+      - "(?i)act\\s+as\\s+(if|though)"
+      - "(?i)roleplay\\s+as"
+    
+    # Detection features
+    pii_detection: true
+    prompt_injection_detection: true
+    
+    # Reflection settings
+    reflection_enabled: true
+    hallucination_threshold: 0.7
+    require_citations: false
+  
+  career_coach:
+    enabled: true
+    description: "Career development advice, skills tracking, standup analysis"
+    block_patterns: []
+    warn_patterns: []
+    pii_detection: true
+    prompt_injection_detection: true
+    reflection_enabled: true
+    hallucination_threshold: 0.6  # Career advice needs accuracy
+    require_citations: false
+  
+  meeting_analyzer:
+    enabled: true
+    description: "Meeting signal extraction - decisions, actions, blockers, risks, ideas"
+    block_patterns: []
+    warn_patterns: []
+    pii_detection: false  # Meetings contain names naturally
+    prompt_injection_detection: true
+    reflection_enabled: true
+    hallucination_threshold: 0.8  # Strict - must match meeting content
+    require_citations: true  # Should cite meeting sources [1], [2]
+  
+  dikw_synthesizer:
+    enabled: true
+    description: "DIKW pyramid knowledge synthesis and promotion"
+    block_patterns: []
+    warn_patterns: []
+    pii_detection: false
+    prompt_injection_detection: true
+    reflection_enabled: true
+    hallucination_threshold: 0.5  # Synthesis needs creative flexibility
+    require_citations: true  # Should cite knowledge sources
+
+  # ===========================================
+  # CHAT & CONVERSATION AGENTS
+  # ===========================================
+  
+  chat:
+    enabled: true
+    description: "Main chat interface - conversational Q&A with RAG retrieval"
+    block_patterns:
+      - "(?i)ignore\\s+(all\\s+)?(previous|prior)\\s+instructions"
+      - "(?i)disregard\\s+(your\\s+)?(system|initial)\\s+prompt"
+    warn_patterns: []
+    pii_detection: false  # Chat may discuss work items with names
+    prompt_injection_detection: true
+    reflection_enabled: true
+    hallucination_threshold: 0.7
+    require_citations: true  # RAG should cite sources
+  
+  query:
+    enabled: true
+    description: "Single-turn Q&A with document/meeting retrieval"
+    block_patterns:
+      - "(?i)ignore\\s+(all\\s+)?(previous|prior)\\s+instructions"
+    warn_patterns: []
+    pii_detection: false
+    prompt_injection_detection: true
+    reflection_enabled: true
+    hallucination_threshold: 0.7
+    require_citations: true
+
+  query_planner:
+    enabled: true
+    description: "Query planning - keyword/concept extraction for search"
+    block_patterns: []
+    warn_patterns: []
+    pii_detection: false
+    prompt_injection_detection: false  # Planner extracts keywords, not conversational
+    reflection_enabled: false  # Structured output, no reflection needed
+    hallucination_threshold: 1.0
+    require_citations: false
+
+  assistant:
+    enabled: true
+    description: "Smart assistant - intent parsing, ticket creation, navigation"
+    block_patterns:
+      - "(?i)ignore\\s+(all\\s+)?(previous|prior)\\s+instructions"
+      - "(?i)execute\\s+(system|shell|bash|cmd)\\s+command"
+    warn_patterns:
+      - "(?i)delete\\s+(all|everything)"
+      - "(?i)drop\\s+(table|database)"
+    pii_detection: true
+    prompt_injection_detection: true
+    reflection_enabled: true
+    hallucination_threshold: 0.6  # Intent parsing needs accuracy
+    require_citations: false
+
+  # ===========================================
+  # UTILITY AGENTS (Supporting Functions)
+  # ===========================================
+  
+  signals:
+    enabled: true
+    description: "Signal browsing and analysis across meetings"
+    block_patterns: []
+    warn_patterns: []
+    pii_detection: false
+    prompt_injection_detection: true
+    reflection_enabled: true
+    hallucination_threshold: 0.8  # Signals must match meeting data
+    require_citations: true
+
+  dashboard:
+    enabled: true
+    description: "Dashboard quick-ask and overview AI features"
+    block_patterns:
+      - "(?i)ignore\\s+(all\\s+)?(previous|prior)\\s+instructions"
+    warn_patterns: []
+    pii_detection: false
+    prompt_injection_detection: true
+    reflection_enabled: true
+    hallucination_threshold: 0.7
+    require_citations: false
+
+  vision:
+    enabled: true
+    description: "Image analysis - screenshots, diagrams, meeting visuals"
+    block_patterns: []
+    warn_patterns: []
+    pii_detection: true  # Screenshots may contain PII
+    prompt_injection_detection: false  # Image analysis, not text prompts
+    reflection_enabled: true
+    hallucination_threshold: 0.6  # Vision can hallucinate details
+    require_citations: false
+
+  tickets:
+    enabled: true
+    description: "Ticket AI features - auto-tagging, descriptions, sprint analysis"
+    block_patterns: []
+    warn_patterns: []
+    pii_detection: false
+    prompt_injection_detection: true
+    reflection_enabled: true
+    hallucination_threshold: 0.7
+    require_citations: false
+
+  embedding:
+    enabled: false  # Embeddings are vectors, no text guardrails needed
+    description: "Embedding generation for semantic search"
+    block_patterns: []
+    warn_patterns: []
+    pii_detection: false
+    prompt_injection_detection: false
+    reflection_enabled: false
+    hallucination_threshold: 1.0
+    require_citations: false
+
+  title_generator:
+    enabled: true
+    description: "Chat title generation from first message"
+    block_patterns: []
+    warn_patterns: []
+    pii_detection: false
+    prompt_injection_detection: true
+    reflection_enabled: false  # Simple title gen, no reflection
+    hallucination_threshold: 1.0
+    require_citations: false
+
+# Refusal message templates
+refusal_templates:
+  default: "I'm not able to help with that request."
+  prompt_injection: "I detected an attempt to modify my instructions. I'll continue following my original guidelines."
+  pii: "I noticed some personal information in your request. Please remove sensitive data and try again."
+  policy_violation: "This request may conflict with usage policies. Please rephrase your question."
+  hallucination: "I'm not confident in this response as it may contain unsupported claims. Let me try again with more focus on the provided context."
+
+# Metrics and observability
+metrics:
+  enabled: true
+  max_history: 1000
+  alert_thresholds:
+    block_rate_percent: 10  # Alert if > 10% of requests blocked
+    hallucination_rate_percent: 20  # Alert if > 20% flagged for hallucination
+
+# Feature flags for gradual rollout
+feature_flags:
+  # Enable LLM-based guardrails (more accurate but slower/costly)
+  llm_input_check: false
+  llm_reflection: false
+  
+  # Core agents
+  arjuna_guardrails: true
+  career_coach_guardrails: true
+  meeting_analyzer_guardrails: true
+  dikw_synthesizer_guardrails: true
+  
+  # Chat & conversation agents
+  chat_guardrails: true
+  query_guardrails: true
+  query_planner_guardrails: true
+  assistant_guardrails: true
+  
+  # Utility agents
+  signals_guardrails: true
+  dashboard_guardrails: true
+  vision_guardrails: true
+  tickets_guardrails: true
+  embedding_guardrails: false  # No text guardrails for embeddings
+  title_generator_guardrails: true
