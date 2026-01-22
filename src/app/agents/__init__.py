@@ -62,6 +62,17 @@ from .arjuna import (
     parse_assistant_intent,
     execute_intent,
 )
+from .career_coach import (
+    CareerCoachAgent,
+    get_career_coach_agent,
+    CAREER_REPO_CAPABILITIES,
+    format_capabilities_context,
+    # Adapter functions for backward compatibility
+    get_career_capabilities,
+    career_chat_adapter,
+    generate_suggestions_adapter,
+    analyze_standup_adapter,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -144,10 +155,20 @@ __all__ = [
     "parse_mcp_command",
     "infer_mcp_command",
     "get_command_help",
-    # Adapter functions
+    # Arjuna Adapter functions
     "get_follow_up_suggestions",
     "get_focus_recommendations",
     "get_system_context",
     "parse_assistant_intent",
     "execute_intent",
+    # Career Coach Agent (Checkpoint 2.3)
+    "CareerCoachAgent",
+    "get_career_coach_agent",
+    "CAREER_REPO_CAPABILITIES",
+    "format_capabilities_context",
+    # Career Coach Adapter functions
+    "get_career_capabilities",
+    "career_chat_adapter",
+    "generate_suggestions_adapter",
+    "analyze_standup_adapter",
 ]
