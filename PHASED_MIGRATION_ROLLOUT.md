@@ -15,13 +15,13 @@
 | Phase 0: Setup | ✅ Complete | 100% |
 | Phase 1: Local Refactoring | ✅ Complete | 100% |
 | Phase 2: Database Evolution (Adapters) | ✅ Complete | 100% |
-| Phase 3: API Modernization | 🔲 Not Started | 0% |
+| Phase 3: API Modernization | ✅ Complete | 100% |
 | Phase 4: Infrastructure | 🔲 Not Started | 0% |
 | Phase 5: Embeddings & Smart Features | 🔲 Not Started | 0% |
 | Phase 6: Mobile App | 🔲 Not Started | 0% |
 | Phase 7: Testing & Documentation | 🔲 Not Started | 0% |
 
-### Completed Checkpoints (Phases 0-2)
+### Completed Checkpoints (Phases 0-3)
 - [x] P0.1: Fix npx ENOENT error (absolute path `/opt/homebrew/bin/npx`)
 - [x] P0.2: Validate MCP server connections
 - [x] P1.1-P1.9: All embedded agent adapters complete
@@ -29,11 +29,14 @@
 - [x] Checkpoint 2.7: TicketAgent with summarize(), generate_plan(), decompose()
 - [x] P-FIX-1: Remove unused `from .llm import ask` from tickets.py
 - [x] P-FIX-2: Supabase MCP config updated with input variables
+- [x] P3.1: API v1 endpoints (meetings, documents, signals, tickets)
+- [x] P3.2: Mobile sync endpoints (device registration, bidirectional sync)
+- [x] P3.3: OpenAPI/Swagger documentation (/docs, /redoc)
 
-### Next Up: Phase 3 (API Modernization)
-1. P3.1: Create /api/v1 versioned endpoints
-2. P3.2: Create /api/mobile endpoints for sync
-3. P3.3: Add OpenAPI/Swagger documentation
+### Next Up: Phase 4 (Infrastructure)
+1. P4.1: Database migration to structured schema
+2. P4.2: Implement background task queues (Celery/RQ)
+3. P4.3: Add mDNS discovery for local network
 
 ---
 

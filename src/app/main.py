@@ -25,6 +25,8 @@ from .api.settings import router as settings_router
 from .api.assistant import router as assistant_router
 from .api.career import router as career_router
 from .api.neo4j_graph import router as neo4j_router
+from .api.v1 import router as v1_router  # API v1 (Phase 3.1)
+from .api.mobile import router as mobile_router  # Mobile sync (Phase 3.2)
 from .mcp.registry import TOOL_REGISTRY
 from .llm import ask as ask_llm
 from .auth import (
@@ -54,7 +56,56 @@ from .auth import (
 # =============================================================================
 from .agents.dikw_synthesizer import DIKW_LEVELS as AGENT_DIKW_LEVELS
 
-app = FastAPI(title="Hare Krishna - Memory & Signal Intelligence")
+# OpenAPI/Swagger configuration (Phase 3.3)
+API_VERSION = "1.0.0"
+API_DESCRIPTION = """
+# SignalFlow API
+
+A knowledge work management system built around signal extraction from meetings,
+hierarchical knowledge organization, and AI-assisted workflow management.
+
+## API Versions
+
+- **v1** (`/api/v1/*`): RESTful API with proper pagination, HTTP status codes, and Pydantic models
+- **mobile** (`/api/mobile/*`): Offline-first sync endpoints for mobile apps
+- **legacy** (other routes): Original HTML-returning endpoints for web app
+
+## Core Features
+
+### 🎯 Signal Extraction
+Extract decisions, action items, blockers, risks, and ideas from meetings.
+
+### 📚 Knowledge Organization  
+DIKW pyramid implementation with hierarchical knowledge synthesis.
+
+### 🏃 Sprint Management
+Sprint cycles, ticket management, and AI-powered standup analysis.
+
+### 📱 Multi-Device Sync
+Bidirectional sync with conflict resolution for mobile apps.
+
+## Authentication
+All endpoints require authentication. Set the `STATIC_TOKEN` environment variable.
+"""
+
+app = FastAPI(
+    title="SignalFlow - Memory & Signal Intelligence",
+    description=API_DESCRIPTION,
+    version=API_VERSION,
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
+    openapi_tags=[
+        {"name": "v1", "description": "API v1 endpoints with proper REST semantics"},
+        {"name": "meetings", "description": "Meeting CRUD operations"},
+        {"name": "documents", "description": "Document CRUD operations"},
+        {"name": "signals", "description": "Signal extraction and management"},
+        {"name": "tickets", "description": "Ticket and sprint management"},
+        {"name": "mobile", "description": "Mobile app sync endpoints"},
+        {"name": "sync", "description": "Device sync operations"},
+        {"name": "device", "description": "Device registration and management"},
+    ]
+)
 
 # Add authentication middleware
 app.add_middleware(AuthMiddleware)
@@ -3124,3 +3175,5 @@ app.include_router(settings_router)
 app.include_router(assistant_router)
 app.include_router(career_router)
 app.include_router(neo4j_router)
+app.include_router(v1_router)  # API v1 versioned endpoints (Phase 3.1)
+app.include_router(mobile_router)  # Mobile sync endpoints (Phase 3.2)
