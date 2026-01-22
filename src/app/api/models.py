@@ -475,6 +475,39 @@ class DIKWItemResponse(BaseModel):
 
 
 # -------------------------
+# Smart Suggestions Models (P5.9)
+# -------------------------
+
+class SmartSuggestionItem(BaseModel):
+    """Single smart suggestion from semantic similarity."""
+    id: Union[int, str]
+    type: str  # meeting | document | ticket | dikw
+    title: str
+    snippet: str
+    similarity: float  # 0.0 to 1.0 similarity score
+    relationship: str  # "semantically_similar" | "same_topic" | "related_context"
+    date: Optional[str] = None
+
+
+class SmartSuggestionsRequest(BaseModel):
+    """Request for smart suggestions based on context."""
+    ref_type: str = Field(..., pattern="^(meeting|document|ticket|dikw|signal)$")
+    ref_id: Union[int, str]
+    max_results: int = Field(5, ge=1, le=20)
+    min_similarity: float = Field(0.7, ge=0.0, le=1.0)
+    include_types: Optional[List[str]] = None  # Filter by type: ["meeting", "document", "ticket", "dikw"]
+
+
+class SmartSuggestionsResponse(BaseModel):
+    """Smart suggestions response with categorized results."""
+    source: SmartSuggestionItem  # The item suggestions are based on
+    suggestions: List[SmartSuggestionItem]
+    total_found: int
+    search_type: str = "semantic"  # "semantic" | "graph" | "hybrid"
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
+
+# -------------------------
 # Health Check Models
 # -------------------------
 
