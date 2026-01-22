@@ -15,7 +15,7 @@ from fastapi import APIRouter, Request, Query
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from ..db import connect
-from ..llm import ask as ask_llm
+# llm.ask removed - use lazy imports inside functions for backward compatibility
 import json
 
 # Import from new CareerCoach agent (Checkpoint 2.3)
@@ -525,6 +525,8 @@ Generate actionable insights in this format:
 
 Keep it brief, actionable, and encouraging. Use markdown formatting."""
 
+        # Lazy import for backward compatibility
+        from ..llm import ask as ask_llm
         insights = ask_llm(prompt, model="gpt-4o-mini")
         
         return JSONResponse({"status": "ok", "insights": insights})
@@ -679,6 +681,8 @@ Rules:
 3. Only group items that are truly about the same thing
 4. Return valid JSON only, no markdown"""
 
+            # Lazy import for backward compatibility
+            from ..llm import ask as ask_llm
             response = ask_llm(prompt, model="gpt-4o-mini")
             
             # Parse response
@@ -1440,6 +1444,8 @@ Provide a helpful, encouraging response that:
 Keep the response conversational and not too long (2-4 paragraphs typically). Be specific and practical."""
 
         try:
+            # Lazy import for backward compatibility
+            from ..llm import ask as ask_llm
             response = ask_llm(prompt, model="gpt-4o-mini")
         except Exception as e:
             response = f"I'm sorry, I encountered an error processing your request. Please try again. (Error: {str(e)})"
@@ -1824,6 +1830,8 @@ Return ONLY the JSON object, no other text."""
 
     profile_updated = False
     try:
+        # Lazy import for backward compatibility
+        from ..llm import ask as ask_llm
         response = ask_llm(prompt, model="gpt-4o-mini")
         # Parse JSON from response
         import re
@@ -1877,6 +1885,8 @@ Return a JSON object with these fields (include only what you can find):
 Return ONLY valid JSON, no other text. Use null for fields you can't determine."""
 
                 try:
+                    # Lazy import for backward compatibility
+                    from ..llm import ask as ask_llm
                     profile_response = ask_llm(profile_prompt, model="gpt-4o-mini")
                     profile_match = re.search(r'\{[\s\S]*\}', profile_response)
                     if profile_match:
@@ -2462,6 +2472,8 @@ Respond in JSON format:
 }}"""
     
     try:
+        # Lazy import for backward compatibility
+        from ..llm import ask as ask_llm
         response = ask_llm(prompt, model="gpt-4o-mini")
         # Parse JSON from response
         import re

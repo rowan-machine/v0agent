@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 from datetime import datetime, date, timedelta
 import json
 from ..db import connect
-from ..llm import ask as ask_llm
+# llm.ask removed - use lazy imports inside functions for backward compatibility
 
 # Import from new Arjuna agent (Checkpoint 2.2)
 from ..agents.arjuna import (
@@ -605,6 +605,8 @@ IMPORTANT GUIDELINES:
 7. Always explain what you did or will do
 8. When user asks about app features, explain them clearly using your knowledge"""
 
+    # Lazy import for backward compatibility
+    from ..llm import ask as ask_llm
     response = ask_llm(system_prompt, model="gpt-4o-mini")
     
     try:

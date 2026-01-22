@@ -18,47 +18,50 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-A knowledge work management system built around three core capabilities: signal extraction from meetings, hierarchical knowledge organization, and AI-assisted workflow management.
+Core Business Components:
 
-## Core Business Systems
+1. Assistant Widget System (Importance: 60/100)
+- Conversation persistence with 24-hour retention
+- Context-aware suggestion system for workflow commands
+- Command usage analytics with domain-specific categorization
+- Weighted sorting for command relevance based on usage patterns
 
-### Knowledge Organization (Importance: 90/100)
-- DIKW (Data-Information-Knowledge-Wisdom) pyramid implementation
-- Hierarchical knowledge transformation rules
-- Knowledge synthesis patterns across meetings and documents
-- Graph-based relationship mapping between knowledge items
+2. Meeting Intelligence (Importance: 85/100)
+- Signal extraction from meeting transcripts
+- Multi-category classification: decisions, actions, blockers, risks, ideas
+- Auto-categorization with content analysis
+- Domain-specific signal taxonomy mapping
 
-### Meeting Intelligence (Importance: 85/100)
-- Signal extraction system categorizing:
-  - Decisions
-  - Action Items
-  - Blockers
-  - Risks
-  - Ideas
-- Custom conversation history tracking
-- Context-aware suggestion generation
-- Business-specific clarification handling
+3. Knowledge Management (Importance: 90/100)
+- DIKW pyramid implementation (Data-Information-Knowledge-Wisdom)
+- Hierarchical progression system for knowledge items
+- Custom signal merging logic between pyramid levels
+- Multi-item synthesis with confidence scoring
 
-### Sprint Management (Importance: 80/100)
-- Sprint cycle workflow implementation
-- Custom archival process with time tracking
-- Sprint mode progress tracking (A-G modes)
-- Ticket backlog management system
-- AI-powered standup analysis
+4. Career Development Framework (Importance: 75/100)
+- Career signal analysis system
+- Skills-to-projects correlation tracking
+- Growth pattern detection from standups
+- Repository context-based suggestion generation
 
-### Career Development System (Importance: 75/100)
-- Career signal extraction from standups
-- Code locker analysis for productivity
-- Ticket-to-capability mapping
-- Work pattern analysis
-- Growth suggestion generation
+5. Sprint Management (Importance: 80/100)
+- Sprint lifecycle orchestration
+- Time tracking archival system
+- Workflow mode transitions (A-G modes)
+- Ticket backlog organization
 
-## Integration Points
+Business Logic Integration Points:
+- Signal-based knowledge extraction forms core data pipeline
+- Meeting analysis feeds knowledge synthesis system
+- Career tracking integrates with sprint/project data
+- Command suggestions adapt to workflow context
 
-- Meeting signals feed into DIKW pyramid for synthesis
-- Sprint management connects with knowledge organization
-- Career development signals integrate with knowledge base
-- Context-aware routing between all components
+Key Domain Patterns:
+1. Signal-First Architecture
+2. Multi-level Knowledge Synthesis
+3. Context-Aware Command Routing
+4. Workflow Mode Management
+5. Career Development Integration
 
 $END$
 

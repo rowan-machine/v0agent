@@ -16,7 +16,7 @@ from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta
 import json
 from .db import connect
-from .llm import ask as ask_llm
+# llm.ask removed - signal extraction uses MeetingAnalyzerAgent (Checkpoint 2.4)
 
 # Import from new MeetingAnalyzer agent (Checkpoint 2.4)
 from .agents.meeting_analyzer import (

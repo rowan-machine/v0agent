@@ -1,47 +1,43 @@
 ---
-description: Documentation for FastAPI endpoints implementing CRUD operations for meetings and documents.
+description: Specification for FastAPI endpoints implementing core business operations for meetings and documents
 ---
 
 
 # api-endpoints
 
-## Meeting Routes
-Implements domain-specific meeting management with signal extraction:
+IMPORTANCE SCORE: 70/100
 
-1. Meeting Creation & Analysis
-- POST /meetings/create
-  - Extracts business signals from meeting content
-  - Categorizes into: decisions, actions, blockers, risks, ideas
-  - Generates meeting summary with signal highlighting
+FastAPI routes implementing domain-specific operations:
 
-2. Meeting Signal Management 
-- POST /meetings/{id}/signals
-  - Processes new signals identified during meetings
-  - Links signals to relevant tickets and sprints
-  - Maintains signal status workflow (approved, rejected, archived)
+1. Meeting Management Routes:
+- Custom transcript processing pipelines
+- Signal extraction from meeting content 
+- Integration with knowledge graph construction
+- Context preservation for linked documents
 
-3. Meeting Context Integration
-- GET /meetings/{id}/context
-  - Retrieves related documents and previous meetings
-  - Builds knowledge graph connections
-  - Maps signals to DIKW hierarchy levels
+2. Document Processing Endpoints:
+- Domain-specific categorization system
+- Signal-based content analysis
+- Auto-tagging based on content patterns
+- Knowledge hierarchy integration (DIKW)
 
-## Document Routes
-Handles document processing with business context:
+3. Knowledge Endpoints:
+- Signal synthesis across documents/meetings
+- Custom tag relationship management
+- Entity extraction and relationship mapping
+- Context-aware content linking
 
-1. Document Processing
-- POST /documents/upload
-  - Extracts meeting-style signals from documents
-  - Maps document sections to knowledge categories
-  - Links documents to related meetings
+4. Accountability Tracking:
+- Status transition workflows
+- Dependency tracking for action items
+- Source attribution for decisions/items
+- Context preservation across entities
 
-2. Document Signals
-- GET /documents/{id}/signals
-  - Retrieves extracted business signals
-  - Provides signal status and relationships
-  - Shows document-to-meeting signal mappings
-
-Importance Score: 85/100 (High business value in signal extraction and knowledge mapping)
+Key Business Patterns:
+- Signal-first architecture
+- Knowledge graph integration
+- Context-aware processing
+- Entity relationship mapping
 
 $END$
 

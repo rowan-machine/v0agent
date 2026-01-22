@@ -19,7 +19,7 @@ from ..chat.models import (
     update_conversation_context,
 )
 from ..chat.turn import run_chat_turn, run_chat_turn_with_context
-from ..llm import ask
+# llm.ask removed - use lazy imports inside functions for backward compatibility
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
@@ -152,6 +152,8 @@ def generate_chat_title(first_message: str) -> str:
 Return ONLY the title, no quotes, no explanation."""
     
     try:
+        # Lazy import for backward compatibility
+        from ..llm import ask
         title = ask(prompt, model="gpt-4.1-mini")
         return title.strip()[:100]  # Limit to 100 chars
     except:
