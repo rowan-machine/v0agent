@@ -10,71 +10,64 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-SignalFlow Platform implements specialized business logic for software development workflow management and knowledge synthesis through interconnected core systems:
+AI-Powered Project Management System with sophisticated knowledge extraction and workflow orchestration capabilities.
 
-## DIKW Knowledge Management
-Importance Score: 90/100
+Core Business Components:
 
-Central knowledge processing pipeline implementing Data-Information-Knowledge-Wisdom hierarchy:
-- Signal extraction from meetings and documents
-- Progressive knowledge promotion through DIKW levels
-- Domain-specific signal categorization (decisions, actions, blockers, risks)
-- Custom knowledge synthesis with semantic deduplication
-- Context-aware tagging system
+1. Meeting Intelligence Hub (Importance: 90/100)
+- Signal extraction from meetings (decisions, actions, risks, blockers)
+- Domain-specific categorization system
+- Multi-source transcript processing (Teams, Pocket)
+- Automated knowledge synthesis pipeline
+- Real-time signal deduplication and merging
 
-Location: src/app/agents/dikw_synthesizer.py
+2. DIKW Knowledge Management (Importance: 85/100)
+- Custom Data-Information-Knowledge-Wisdom pyramid implementation
+- Automated promotion logic between hierarchy levels
+- Context-aware knowledge synthesis algorithms
+- Domain-specific tag generation and clustering
+- Semantic relationship mapping system
 
-## Workflow Mode System 
-Importance Score: 85/100
+3. Sprint and Workflow Management (Importance: 80/100)
+- Multi-mode workflow system (Modes A-G) 
+- Sprint analytics with burndown tracking
+- Custom point calculation system
+- Signal-based progress monitoring
+- AI-assisted task decomposition
 
-Implements seven distinct operational modes for development workflow:
-- Mode A: Context Distillation
-- Mode B: Implementation Planning
-- Mode C: Assisted Draft Intake
-- Mode D: Deep Review & Validation
-- Mode E: Promotion Readiness
-- Mode F: Controlled Ingress/Egress
-- Mode G: Execution
+4. Career Development System (Importance: 75/100)
+- Standup analysis with sentiment detection
+- Growth tracking with evidence collection
+- Skill progression monitoring
+- Profile-based recommendation engine
+- Integration with sprint performance metrics
 
-Each mode contains specific validation rules, progression criteria and contextual behaviors.
+Key Integration Points:
 
-Location: src/app/api/settings.py
+1. Knowledge Graph Architecture
+- Person-meeting-signal relationship triangulation
+- Document contextual reference mapping
+- Ticket dependency tracking
+- Automatic relationship inference
 
-## Career Intelligence System
-Importance Score: 80/100
+2. Assistant Intelligence System
+- Context-aware conversation management
+- Domain-specific suggestion rotation
+- Intelligent command categorization
+- Model switching capabilities (GPT-4, Claude)
 
-Integrated career development tracking:
-- Skill progression monitoring with evidence collection
-- AI-powered standup analysis with sentiment detection
-- Career pattern recognition
-- Custom suggestion generation
-- Professional memory building
+3. Accountability Framework
+- "Waiting-for" tracking system
+- Source reference preservation
+- Context-aware status progression
+- Chain of responsibility tracking
 
-Location: src/app/agents/career_coach.py
-
-## Meeting Intelligence
-Importance Score: 75/100
-
-Specialized meeting analysis pipeline:
-- Adaptive format detection
-- Multi-source signal extraction
-- Custom categorization system
-- Contextual signal merging
-- Historical pattern analysis
-
-Location: src/app/templates/signals.html
-
-## Assistant Integration
-Importance Score: 70/100
-
-Domain-aware AI assistance:
-- Development context management
-- Intent parsing for software tasks
-- Smart follow-up generation
-- Focus recommendations
-- Command frequency optimization
-
-Location: src/app/api/assistant.py
+Critical Files:
+- src/app/agents/dikw_synthesizer.py
+- src/app/agents/meeting_analyzer.py
+- src/app/mcp/extract.py
+- src/app/api/assistant.py
+- src/app/api/neo4j_graph.py
 
 $END$
 

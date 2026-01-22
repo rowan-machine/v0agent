@@ -1,74 +1,51 @@
 ---
-description: Documents FastAPI route implementations for managing meetings and documents with custom CRUD operations.
+description: Documents the FastAPI route specifications for meetings and documents management with CRUD operations
 ---
 
 
 # api-endpoints
 
-## Meeting Signal Management
-Importance Score: 85/100
+## Meeting Management Routes
+Importance Score: 85
 
-API routes implementing custom meeting signal extraction and processing:
+Key endpoints implementing domain-specific meeting workflows:
 
-```python
-# src/app/api/meetings.py
-@router.post("/meetings/{meeting_id}/signals")
-def extract_signals(meeting_id: int):
-    """Extracts structured signals from meeting content"""
-    # Custom signal categorization and processing
+1. Meeting Signal Processing
+- POST /meetings/{id}/signals
+  - Extracts structured signals (decisions, actions, risks) from meeting content
+  - Applies custom signal categorization rules
+  - Links signals to relevant tickets and documents
 
-@router.put("/meetings/{meeting_id}/signals/{signal_id}")
-def merge_signals(meeting_id: int, signal_id: int):
-    """Merges related signals with deduplication"""
-```
+2. Meeting Bundle Operations  
+- POST /meetings/bundle
+  - Processes multi-source meeting transcripts (Teams, Pocket)
+  - Merges related content with deduplication
+  - Extracts participants and relationships
 
-## Document Context Integration 
-Importance Score: 80/100
+3. Meeting Knowledge Graph
+- GET /meetings/{id}/graph
+  - Generates meeting-specific knowledge subgraphs
+  - Maps relationships between signals, people and documents
+  - Provides temporal context for meeting content
 
-API routes handling document-meeting context preservation:
+## Document Operations 
+Importance Score: 80
 
-```python
-# src/app/api/documents.py
-@router.post("/documents/{doc_id}/context")
-def link_meeting_context(doc_id: int):
-    """Associates documents with meeting context"""
+Document processing endpoints with specialized business logic:
 
-@router.get("/documents/{doc_id}/signals")
-def get_document_signals(doc_id: int):
-    """Retrieves signals extracted from document context"""
-```
+1. Document Synthesis
+- POST /documents/synthesize
+  - Implements DIKW pyramid promotion rules
+  - Merges related document fragments
+  - Maps document-signal relationships
 
-## DIKW Knowledge Management
-Importance Score: 90/100
+2. Document Signals
+- GET /documents/{id}/signals
+  - Extracts actionable signals from documents
+  - Categories signals by business impact
+  - Links to relevant meetings and tickets
 
-Routes implementing the Data-Information-Knowledge-Wisdom hierarchy:
-
-```python
-# src/app/api/knowledge.py
-@router.post("/knowledge/promote")
-def promote_signal():
-    """Promotes signals through DIKW levels"""
-
-@router.post("/knowledge/synthesize")
-def synthesize_knowledge():
-    """Merges related knowledge items with semantic understanding"""
-```
-
-## Career Development Tracking
-Importance Score: 75/100
-
-API endpoints for career progression monitoring:
-
-```python
-# src/app/api/career.py
-@router.post("/career/evidence")
-def track_skill_evidence():
-    """Records skill development evidence from meetings/documents"""
-
-@router.get("/career/insights")
-def generate_career_insights():
-    """Synthesizes career development patterns"""
-```
+The remaining standard CRUD operations for meetings and documents have been omitted as they implement basic functionality without specialized business logic.
 
 $END$
 

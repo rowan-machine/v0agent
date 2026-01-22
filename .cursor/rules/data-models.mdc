@@ -1,51 +1,62 @@
 ---
-description: Specification for core data models handling meetings and documents with their relationships and signal extraction capabilities
+description: Documents core data models and relationships for meetings and documents with their associated signals and metadata
 ---
 
 
 # data-models
 
-## Meeting Model
-Importance Score: 90/100
+## Core Data Models
 
-Core Structure:
-- Meeting metadata (title, date, attendees)
-- Signal extraction layer with categorization
-- Contextual linking to related documents
-- Intelligent tagging system for topic classification
-- Meeting-signal relationship mapping
+### Meetings Model
+Importance Score: 90
+- Complex meeting data structure with multi-source transcript support
+- Signal extraction and categorization system:
+  - Decisions
+  - Action items 
+  - Blockers
+  - Risks
+  - Ideas
+- Metadata tracking:
+  - Source type (Teams, Pocket, etc)
+  - Participant mapping
+  - Signal relationships
+  - Document correlations
+- 24-hour conversation persistence with cleanup
 
-Signal Categories:
-- Decisions with approval status
-- Action items with assignee tracking 
-- Blockers with dependency mapping
-- Risks with impact assessments
-- Ideas with categorization
-
-## Document Model
-Importance Score: 85/100
-
-Core Structure:
-- Document content with version tracking
-- Bi-directional meeting references
-- Signal extraction integration
-- Transcript support for meeting summaries
-- Document-signal relationship tracking
-
-Key Features:
-- Multi-source content integration
-- Meeting context preservation
-- Signal categorization system
-- Historical tracking capabilities
+### Documents Model
+Importance Score: 85
+- Bidirectional linking with meetings
+- Hierarchical signal organization
+- Custom versioning system ("code locker")
+- Domain-specific metadata:
+  - Implementation plans
+  - Signal extractions
+  - Meeting references
 
 ## Relationship Structure
-Importance Score: 80/100
 
-Entity Relationships:
-- Meetings ↔ Documents (bi-directional references)
-- Meetings ↔ Signals (hierarchical categorization)
-- Documents ↔ Signals (extraction context)
-- Signals ↔ Signals (dependency mapping)
+### Meeting-Document Relationships
+- Direct linkage between meetings and referenced documents
+- Automatic correlation based on content analysis
+- Signal inheritance across related items
+- Version tracking for document references
+
+### Signal Mapping
+- Cross-reference system between meetings and documents
+- Bidirectional signal propagation
+- Relationship strength scoring
+- Context preservation across references
+
+### Content Organization
+- Hierarchical structure for document management
+- Meeting bundle system for transcript aggregation
+- Signal categorization framework
+- Context-aware relationship mapping
+
+File paths with core data model implementations:
+- src/app/models/meetings.py
+- src/app/models/documents.py
+- src/app/database/relationships.py
 
 $END$
 

@@ -229,6 +229,58 @@ class SupabaseSync:
             logger.error(f"Failed to sync DIKW item: {e}")
             return None
     
+    async def sync_signal_status(
+        self,
+        meeting_uuid: str,
+        signal_type: str,
+        signal_text: str,
+        status: str = "pending",
+        converted_to: Optional[str] = None,
+        converted_ref_id: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Sync a signal status to Supabase.
+        
+        Tracks the processing status of signals extracted from meetings.
+        Each signal (action, decision, blocker, idea, risk) can be approved,
+        rejected, archived, or converted to tickets/DIKW items.
+        
+        Args:
+            meeting_uuid: Supabase UUID of the source meeting
+            signal_type: Type of signal (action, decision, blocker, idea, risk, action_item)
+            signal_text: The extracted signal text from the meeting
+            status: Processing status (pending, approved, rejected, archived, waiting, completed)
+            converted_to: What the signal was converted to (ticket, dikw, or None)
+            converted_ref_id: Reference ID of the created ticket or DIKW item
+            
+        Returns:
+            Supabase UUID or None on failure
+        """
+        if not self._client:
+            return None
+        
+        try:
+            data = {
+                "meeting_id": meeting_uuid,
+                "signal_type": signal_type,
+                "signal_text": signal_text,
+                "status": status,
+            }
+            
+            if converted_to:
+                data["converted_to"] = converted_to
+            if converted_ref_id:
+                data["converted_ref_id"] = converted_ref_id
+            
+            result = self._client.table("signal_status").insert(data).execute()
+            
+            if result.data:
+                return result.data[0]["id"]
+            return None
+        except Exception as e:
+            logger.error(f"Failed to sync signal status: {e}")
+            return None
+
     async def sync_embedding(
         self,
         ref_type: str,
