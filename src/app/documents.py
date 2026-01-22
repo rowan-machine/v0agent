@@ -51,7 +51,7 @@ def list_documents(request: Request, success: str = Query(default=None)):
     with connect() as conn:
         rows = conn.execute(
             """
-            SELECT id, source, document_date, created_at
+            SELECT id, source, document_date, created_at, meeting_id
             FROM docs
             ORDER BY COALESCE(document_date, created_at) DESC
             """
@@ -104,6 +104,20 @@ def edit_document(doc_id: int, request: Request):
             "SELECT * FROM docs WHERE id = ?",
             (doc_id,),
         ).fetchone()
+        
+        # Check if this is a transcript linked to a meeting
+        if doc and doc['source'] and doc['source'].startswith('Transcript: '):
+            meeting_name = doc['source'].replace('Transcript: ', '').split(' (')[0]
+            meeting = conn.execute(
+                "SELECT id FROM meeting_summaries WHERE meeting_name = ?",
+                (meeting_name,)
+            ).fetchone()
+            if meeting:
+                # Redirect to the meeting edit page instead
+                return RedirectResponse(
+                    url=f"/meetings/{meeting['id']}/edit?from_transcript={doc_id}",
+                    status_code=302
+                )
 
     return templates.TemplateResponse(
         "edit_doc.html",

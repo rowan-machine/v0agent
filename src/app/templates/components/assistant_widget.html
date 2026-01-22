@@ -35,8 +35,8 @@
     position: fixed;
     bottom: 100px;
     right: 20px;
-    width: 400px;
-    max-height: 600px;
+    width: 480px;
+    max-height: 700px;
     background: white;
     border-radius: 16px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
@@ -63,6 +63,31 @@
     margin: 0;
     font-size: 1.1rem;
     font-weight: 600;
+  }
+
+  .assistant-header-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .assistant-collapse-btn {
+    background: rgba(255,255,255,0.15);
+    border: none;
+    border-radius: 999px;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: white;
+    transition: background 0.15s ease;
+  }
+
+  .assistant-collapse-btn:hover {
+    background: rgba(255,255,255,0.3);
   }
 
   .assistant-badge {
@@ -211,13 +236,15 @@
   }
 
   .assistant-suggestion {
-    padding: 0.4rem 0.8rem;
-    background: white;
+    padding: 0.5rem 0.9rem;
+    background: #f3f4f6;
     border: 1px solid #d1d5db;
     border-radius: 16px;
     font-size: 0.8rem;
+    color: #374151;
     cursor: pointer;
     transition: all 0.2s;
+    position: relative;
   }
 
   .assistant-suggestion:hover {
@@ -225,34 +252,135 @@
     color: white;
     border-color: #667eea;
   }
+
+  .assistant-suggestion[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    z-index: 100;
+    margin-bottom: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+
+  .assistant-suggestion[title]:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #1f2937;
+    margin-bottom: -6px;
+    z-index: 100;
+  }
+
+  /* Dark mode for assistant widget */
+  [data-theme="dark"] .assistant-chat {
+    background: #1e1e1e;
+    border: 1px solid #3a3a3a;
+  }
+
+  [data-theme="dark"] .assistant-messages {
+    background: #1e1e1e;
+  }
+
+  [data-theme="dark"] .assistant-message.assistant {
+    background: #2d2d2d;
+    color: #e0e0e0;
+  }
+
+  [data-theme="dark"] .assistant-message.assistant strong {
+    color: #c7d2fe;
+  }
+
+  [data-theme="dark"] .assistant-message.assistant ul {
+    color: #d1d5db;
+  }
+
+  [data-theme="dark"] .assistant-message.assistant em {
+    color: #9ca3af !important;
+  }
+
+  [data-theme="dark"] .assistant-input-area {
+    background: #252525;
+    border-top-color: #3a3a3a;
+  }
+
+  [data-theme="dark"] .assistant-input {
+    background: #1e1e1e;
+    border-color: #4a4a4a;
+    color: #e0e0e0;
+  }
+
+  [data-theme="dark"] .assistant-input::placeholder {
+    color: #888;
+  }
+
+  [data-theme="dark"] .assistant-suggestion {
+    background: #3a3a3a;
+    border-color: #5a5a5a;
+    color: #f0f0f0;
+  }
+
+  [data-theme="dark"] .assistant-suggestion:hover {
+    background: #8b5cf6;
+    color: white;
+    border-color: #8b5cf6;
+  }
+
+  [data-theme="dark"] .assistant-clarifications {
+    background: #3d3419;
+    border-color: #92400e;
+  }
+
+  [data-theme="dark"] .assistant-clarifications p {
+    color: #fbbf24;
+  }
+
+  [data-theme="dark"] .assistant-clarifications ul {
+    color: #fcd34d;
+  }
+
+  /* Navigation links in assistant */
+  [data-theme="dark"] .assistant-message a {
+    background: #3730a3 !important;
+    color: #c7d2fe !important;
+  }
+
+  [data-theme="dark"] .assistant-message a:hover {
+    background: #4f46e5 !important;
+  }
 </style>
 
 <div class="assistant-widget">
   <button class="assistant-toggle" id="assistantToggle" onclick="toggleAssistant()">
-    🤖
+    🏹
   </button>
 
   <div class="assistant-chat" id="assistantChat">
     <div class="assistant-header">
-      <h3>🤖 Hare Krishna Assistant</h3>
-      <span class="assistant-badge">AI Agent</span>
+      <div class="assistant-header-title">
+        <button class="assistant-collapse-btn" onclick="collapseAssistantChat()" title="Collapse chat">−</button>
+        <h3>🏹 Arjuna</h3>
+      </div>
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span class="assistant-badge">AI Assistant</span>
+        <button onclick="clearArjunaChat()" title="Start fresh conversation" style="background: none; border: none; cursor: pointer; font-size: 0.75rem; color: var(--sf-text-muted, #6b7280); padding: 0.25rem 0.5rem; border-radius: 4px; transition: all 0.15s;" onmouseover="this.style.background='var(--sf-surface, #f3f4f6)'" onmouseout="this.style.background='none'">🗑️ Clear</button>
+      </div>
     </div>
 
     <div class="assistant-messages" id="assistantMessages">
-      <div class="assistant-message assistant">
-        Hi! I can help you:
-        <ul style="margin: 0.5rem 0 0 0; padding-left: 1.25rem;">
-          <li>Create and update tickets/tasks</li>
-          <li>Add accountability items</li>
-          <li>Log activities and decisions</li>
-          <li>Answer questions about your sprint</li>
-        </ul>
-      </div>
-
-      <div class="assistant-suggestions">
-        <button class="assistant-suggestion" onclick="sendQuickMessage('Create a new task for API integration')">Create task</button>
-        <button class="assistant-suggestion" onclick="sendQuickMessage('What tickets are in progress?')">Check progress</button>
-        <button class="assistant-suggestion" onclick="sendQuickMessage('Add waiting for: John to schedule meeting')">Add waiting-for</button>
+      <!-- Messages are loaded from localStorage or show welcome -->
+      <div class="assistant-suggestions" id="assistantSuggestions">
+        <!-- Suggestions are dynamically populated -->
       </div>
     </div>
 
@@ -261,7 +389,7 @@
         <textarea 
           id="assistantInput" 
           class="assistant-input" 
-          placeholder="Ask me anything or tell me what to do..."
+          placeholder="Ask anything or tell me what to do..."
           rows="1"
           onkeydown="handleAssistantKeydown(event)"
         ></textarea>
@@ -275,6 +403,203 @@
 
 <script>
   let assistantHistory = [];
+  
+  // All available suggestion sets - will cycle through these
+  const suggestionSets = [
+    [
+      { emoji: '🤖', text: 'GPT-4o', message: 'Switch to GPT-4o', tooltip: 'Switch AI model to GPT-4o' },
+      { emoji: '🧠', text: 'Claude', message: 'Switch to Claude Sonnet', tooltip: 'Switch AI model to Claude' },
+      { emoji: '🚫', text: 'Blocked', message: 'What are my blocked tickets?', tooltip: 'View blocked tickets' },
+      { emoji: '➕', text: 'New Task', message: 'Create a task for ', tooltip: 'Create a new task' },
+    ],
+    [
+      { emoji: '📋', text: 'Tickets', message: 'What are my open tickets?', tooltip: 'List all open tickets' },
+      { emoji: '🎯', text: 'Focus', message: 'What should I focus on today?', tooltip: 'Get focus recommendations' },
+      { emoji: '📅', text: 'Meetings', message: 'Search meetings for ', tooltip: 'Search meeting notes' },
+      { emoji: '⏳', text: 'Waiting', message: 'Add waiting-for: ', tooltip: 'Add accountability item' },
+    ],
+    [
+      { emoji: '📝', text: 'Standup', message: 'Log standup: Yesterday I ', tooltip: 'Log daily standup' },
+      { emoji: '🔍', text: 'Search', message: 'Search for ', tooltip: 'Search everything' },
+      { emoji: '📊', text: 'Sprint', message: 'What is the sprint status?', tooltip: 'View sprint progress' },
+      { emoji: '✅', text: 'Done', message: 'What tickets are done?', tooltip: 'View completed tickets' },
+    ],
+    [
+      { emoji: '🏃', text: 'Active', message: 'What tickets are in progress?', tooltip: 'View in-progress work' },
+      { emoji: '🎫', text: 'Priority', message: 'What are my high priority tickets?', tooltip: 'View high priority items' },
+      { emoji: '📈', text: 'Sprint', message: 'Update sprint name to ', tooltip: 'Update sprint settings' },
+      { emoji: '💡', text: 'Help', message: 'What can you help me with?', tooltip: 'Show capabilities' },
+    ],
+  ];
+
+  const WELCOME_MESSAGE = `<strong>Hare Krishna! 🙏</strong> I'm Arjuna, your SignalFlow assistant.
+<br><br>
+<strong style="color: #1f2937;">🛠️ What I can do:</strong>
+<ul style="margin: 0.5rem 0 0 0; padding-left: 1.25rem; font-size: 0.85rem; color: #374151;">
+  <li><strong>Tasks:</strong> Create, update, list tickets</li>
+  <li><strong>Settings:</strong> Change AI model, update sprint</li>
+  <li><strong>Workflow:</strong> Reset progress for new sprint</li>
+  <li><strong>Search:</strong> Query meetings, signals, docs</li>
+  <li><strong>Track:</strong> Standups, waiting-for items</li>
+</ul>
+<br>
+<em style="font-size: 0.8rem; color: #4b5563;">Try: "Switch to GPT-4o" or "Create a task"</em>`;
+
+  // Get suggestion set index from sessionStorage, cycling on each page load
+  function getAndCycleSuggestionIndex() {
+    let idx = parseInt(sessionStorage.getItem('arjuna-suggestion-set') || '0');
+    // Cycle to next set for next time
+    const nextIdx = (idx + 1) % suggestionSets.length;
+    sessionStorage.setItem('arjuna-suggestion-set', nextIdx.toString());
+    return idx;
+  }
+  
+  let currentSuggestionSet = getAndCycleSuggestionIndex();
+
+  // === CONVERSATION PERSISTENCE ===
+  function saveConversation() {
+    const data = {
+      history: assistantHistory,
+      timestamp: Date.now()
+    };
+    localStorage.setItem('arjuna-conversation', JSON.stringify(data));
+  }
+
+  function loadConversation() {
+    const stored = localStorage.getItem('arjuna-conversation');
+    if (!stored) return null;
+    
+    try {
+      const data = JSON.parse(stored);
+      // Only restore if less than 24 hours old
+      if (Date.now() - data.timestamp > 24 * 60 * 60 * 1000) {
+        localStorage.removeItem('arjuna-conversation');
+        return null;
+      }
+      return data;
+    } catch {
+      return null;
+    }
+  }
+
+  function restoreConversation() {
+    const container = document.getElementById('assistantMessages');
+    if (!container) return;
+    
+    const saved = loadConversation();
+    
+    // Always start with welcome message
+    container.innerHTML = `<div class="assistant-message assistant">${WELCOME_MESSAGE}</div>`;
+    
+    if (saved && saved.history && saved.history.length > 0) {
+      // Restore the conversation history
+      assistantHistory = saved.history;
+      
+      // Render each message
+      for (const msg of saved.history) {
+        const div = document.createElement('div');
+        div.className = `assistant-message ${msg.role}`;
+        let content = msg.content;
+        // Format assistant messages
+        if (msg.role === 'assistant') {
+          content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+        }
+        div.innerHTML = content;
+        container.appendChild(div);
+      }
+    }
+    
+    // Add suggestions at the end
+    const suggestionsEl = createSuggestionsElement(suggestionSets[currentSuggestionSet]);
+    container.appendChild(suggestionsEl);
+    
+    // Scroll to bottom
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function clearArjunaChat() {
+    if (!confirm('Start a fresh conversation? Your current chat will be cleared.')) return;
+    
+    assistantHistory = [];
+    localStorage.removeItem('arjuna-conversation');
+    
+    const container = document.getElementById('assistantMessages');
+    if (container) {
+      container.innerHTML = `<div class="assistant-message assistant">${WELCOME_MESSAGE}</div>`;
+      const suggestionsEl = createSuggestionsElement(suggestionSets[currentSuggestionSet]);
+      container.appendChild(suggestionsEl);
+    }
+  }
+
+  function renderSuggestions(customSuggestions = null, container = null) {
+    const targetContainer = container || document.getElementById('assistantSuggestions');
+    if (!targetContainer) return;
+    
+    const suggestions = customSuggestions || suggestionSets[currentSuggestionSet];
+    targetContainer.innerHTML = suggestions.map(s => 
+      `<button class="assistant-suggestion" title="${s.tooltip || s.message}" onclick="sendQuickMessage('${s.message.replace(/'/g, "\\'")}')"> ${s.emoji} ${s.text}</button>`
+    ).join('');
+  }
+  
+  function createSuggestionsElement(suggestions) {
+    const div = document.createElement('div');
+    div.className = 'assistant-suggestions';
+    div.innerHTML = suggestions.map(s => 
+      `<button class="assistant-suggestion" title="${s.tooltip || s.message}" onclick="sendQuickMessage('${s.message.replace(/'/g, "\\'")}')"> ${s.emoji} ${s.text}</button>`
+    ).join('');
+    return div;
+  }
+
+  // Save user's recent commands to localStorage
+  function saveRecentCommand(message) {
+    if (!message || message.length < 5) return;
+    let recent = JSON.parse(localStorage.getItem('arjuna-recent-commands') || '[]');
+    if (message.endsWith(' ')) return; // Skip partial messages
+    
+    // Extract emoji and short text from message
+    let emoji = '💬';
+    let shortText = message.slice(0, 20);
+    if (message.toLowerCase().includes('ticket')) emoji = '🎫';
+    else if (message.toLowerCase().includes('search')) emoji = '🔍';
+    else if (message.toLowerCase().includes('switch') || message.toLowerCase().includes('model')) emoji = '🤖';
+    else if (message.toLowerCase().includes('sprint')) emoji = '📊';
+    else if (message.toLowerCase().includes('meeting')) emoji = '📅';
+    else if (message.toLowerCase().includes('task') || message.toLowerCase().includes('create')) emoji = '➕';
+    else if (message.toLowerCase().includes('block')) emoji = '🚫';
+    else if (message.toLowerCase().includes('done') || message.toLowerCase().includes('complete')) emoji = '✅';
+    else if (message.toLowerCase().includes('focus')) emoji = '🎯';
+    else if (message.toLowerCase().includes('waiting')) emoji = '⏳';
+    
+    const existingIndex = recent.findIndex(r => r.message === message);
+    const now = Date.now();
+    if (existingIndex !== -1) {
+      const existing = recent[existingIndex];
+      const count = (existing.count || 1) + 1;
+      const updated = { ...existing, count, timestamp: now };
+      recent.splice(existingIndex, 1);
+      recent.unshift(updated);
+    } else {
+      recent.unshift({ emoji, text: shortText, message, tooltip: message, timestamp: now, count: 1 });
+    }
+
+    // Sort by frequency (desc), then recency
+    recent.sort((a, b) => {
+      const ac = a.count || 1;
+      const bc = b.count || 1;
+      if (bc !== ac) return bc - ac;
+      return (b.timestamp || 0) - (a.timestamp || 0);
+    });
+
+    recent = recent.slice(0, 10); // Keep last 10
+    localStorage.setItem('arjuna-recent-commands', JSON.stringify(recent));
+    
+    // Dispatch event for shortcuts panel to update
+    window.dispatchEvent(new CustomEvent('arjuna-command-saved'));
+  }
+  
+  function getRecentCommands() {
+    return JSON.parse(localStorage.getItem('arjuna-recent-commands') || '[]');
+  }
 
   function toggleAssistant() {
     const chat = document.getElementById('assistantChat');
@@ -284,22 +609,40 @@
     
     if (chat.classList.contains('active')) {
       document.getElementById('assistantInput').focus();
+      // Render fresh suggestions each time chat opens
+      renderSuggestions();
     }
   }
 
-  function addAssistantMessage(content, role = 'assistant') {
+  function collapseAssistantChat() {
+    const chat = document.getElementById('assistantChat');
+    const toggle = document.getElementById('assistantToggle');
+    if (chat) chat.classList.remove('active');
+    if (toggle) toggle.classList.remove('active');
+  }
+  
+  // Initialize on page load - restore conversation
+  document.addEventListener('DOMContentLoaded', restoreConversation);
+
+  function addAssistantMessage(content, role = 'assistant', followUps = null) {
     const container = document.getElementById('assistantMessages');
     const msg = document.createElement('div');
     msg.className = `assistant-message ${role}`;
     msg.innerHTML = content;
     container.appendChild(msg);
-    container.scrollTop = container.scrollHeight;
     
-    // Remove suggestions after first message
-    const suggestions = container.querySelector('.assistant-suggestions');
-    if (suggestions && role === 'user') {
-      suggestions.remove();
+    // Remove any existing suggestion chips first
+    const existingSuggestions = container.querySelectorAll('.assistant-suggestions');
+    existingSuggestions.forEach(s => s.remove());
+    
+    // Add contextual follow-up suggestions after assistant messages
+    if (role === 'assistant') {
+      const suggestions = followUps || suggestionSets[currentSuggestionSet];
+      const suggestionsEl = createSuggestionsElement(suggestions);
+      container.appendChild(suggestionsEl);
     }
+    
+    container.scrollTop = container.scrollHeight;
   }
 
   function showThinking() {
@@ -324,9 +667,13 @@
     
     if (!message) return;
     
+    // Save to recent commands
+    saveRecentCommand(message);
+    
     // Add user message
     addAssistantMessage(message, 'user');
     assistantHistory.push({ role: 'user', content: message });
+    saveConversation(); // Persist after user message
     
     // Clear input and disable
     input.value = '';
@@ -350,7 +697,10 @@
       hideThinking();
       
       if (data.response) {
-        let responseHtml = data.response.replace(/\n/g, '<br>');
+        // Format markdown-style bold text
+        let responseHtml = data.response
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\n/g, '<br>');
         
         // Add clarifications if any
         if (data.clarifications && data.clarifications.length > 0) {
@@ -362,15 +712,16 @@
           responseHtml += '</ul></div>';
         }
         
-        addAssistantMessage(responseHtml, 'assistant');
-        assistantHistory.push({ role: 'assistant', content: data.response });
-        
-        // If action was taken, show success indicator
-        if (data.action && data.success) {
-          setTimeout(() => {
-            addAssistantMessage(`✓ Action completed: ${data.action}`, 'assistant');
-          }, 300);
+        // Add suggested page button if present
+        if (data.suggested_page) {
+          responseHtml += `<div style="margin-top: 8px;"><a href="${data.suggested_page}" class="assistant-suggestion" style="display: inline-block; text-decoration: none;">📍 Go to ${data.suggested_page}</a></div>`;
         }
+        
+        // Use API-provided follow-ups if available, otherwise use rotating set
+        const followUps = data.follow_ups || null;
+        addAssistantMessage(responseHtml, 'assistant', followUps);
+        assistantHistory.push({ role: 'assistant', content: data.response });
+        saveConversation(); // Persist after assistant response
       }
     } catch (err) {
       hideThinking();

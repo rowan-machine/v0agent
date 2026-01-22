@@ -1,6 +1,245 @@
 {% extends "base.html" %}
 {% block title %}Sprint Settings{% endblock %}
 
+{% block head %}
+<style>
+/* Dark mode styles for Sprint Settings */
+[data-theme="dark"] .max-w-2xl h1.text-gray-900 {
+    color: #f5f5f5 !important;
+}
+[data-theme="dark"] .max-w-2xl p.text-gray-500 {
+    color: #a0a0a0 !important;
+}
+[data-theme="dark"] .bg-green-50 {
+    background-color: rgba(34, 197, 94, 0.15) !important;
+    border-color: rgba(34, 197, 94, 0.3) !important;
+}
+[data-theme="dark"] .text-green-800 {
+    color: #86efac !important;
+}
+[data-theme="dark"] .bg-gradient-to-br.from-violet-50.to-purple-50 {
+    background: linear-gradient(to bottom right, rgba(139, 92, 246, 0.15), rgba(168, 85, 247, 0.15)) !important;
+    border-color: rgba(139, 92, 246, 0.3) !important;
+}
+[data-theme="dark"] .bg-gradient-to-br h3.text-gray-900 {
+    color: #f5f5f5 !important;
+}
+[data-theme="dark"] .bg-gradient-to-br .text-gray-600,
+[data-theme="dark"] .bg-gradient-to-br .text-gray-500 {
+    color: #a0a0a0 !important;
+}
+[data-theme="dark"] .text-violet-600 {
+    color: #a78bfa !important;
+}
+[data-theme="dark"] .bg-violet-100 {
+    background-color: rgba(139, 92, 246, 0.2) !important;
+}
+[data-theme="dark"] .bg-violet-500 {
+    background-color: #8b5cf6 !important;
+}
+[data-theme="dark"] .bg-white {
+    background-color: #2d2d2d !important;
+    border-color: #444 !important;
+}
+[data-theme="dark"] .bg-white h2.text-gray-900,
+[data-theme="dark"] .bg-white h3 {
+    color: #f5f5f5 !important;
+}
+[data-theme="dark"] .bg-white label.text-gray-700 {
+    color: #e0e0e0 !important;
+}
+[data-theme="dark"] .bg-white p.text-gray-500,
+[data-theme="dark"] .bg-white .text-xs.text-gray-500 {
+    color: #a0a0a0 !important;
+}
+[data-theme="dark"] input[type="text"],
+[data-theme="dark"] input[type="date"],
+[data-theme="dark"] select {
+    background-color: #3d3d3d !important;
+    border-color: #555 !important;
+    color: #f5f5f5 !important;
+}
+[data-theme="dark"] input::placeholder {
+    color: #888 !important;
+}
+[data-theme="dark"] .bg-violet-50 {
+    background-color: rgba(139, 92, 246, 0.15) !important;
+    border-color: rgba(139, 92, 246, 0.3) !important;
+}
+[data-theme="dark"] .bg-violet-50 h3 {
+    color: #c4b5fd !important;
+}
+[data-theme="dark"] .bg-violet-50 p {
+    color: #a78bfa !important;
+}
+[data-theme="dark"] .bg-amber-50 {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+    border-color: rgba(245, 158, 11, 0.3) !important;
+}
+[data-theme="dark"] .bg-amber-50 h3 {
+    color: #fcd34d !important;
+}
+[data-theme="dark"] .bg-amber-50 p {
+    color: #fbbf24 !important;
+}
+[data-theme="dark"] .bg-red-50 {
+    background-color: rgba(239, 68, 68, 0.15) !important;
+    border-color: rgba(239, 68, 68, 0.3) !important;
+}
+[data-theme="dark"] .bg-red-50 h3 {
+    color: #fca5a5 !important;
+}
+[data-theme="dark"] .bg-red-50 p {
+    color: #f87171 !important;
+}
+[data-theme="dark"] .bg-gray-50 {
+    background-color: #3d3d3d !important;
+    border-color: #555 !important;
+}
+[data-theme="dark"] .bg-gray-50 .text-gray-700 {
+    color: #e0e0e0 !important;
+}
+[data-theme="dark"] .bg-gray-50:hover {
+    background-color: #4d4d4d !important;
+}
+[data-theme="dark"] a.bg-violet-100 {
+    background-color: rgba(139, 92, 246, 0.2) !important;
+}
+[data-theme="dark"] a.text-violet-700 {
+    color: #a78bfa !important;
+}
+/* End Sprint & Start New section */
+[data-theme="dark"] .bg-gradient-to-r.from-green-50.to-emerald-50 {
+    background: linear-gradient(to right, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.15)) !important;
+    border-color: rgba(34, 197, 94, 0.4) !important;
+}
+[data-theme="dark"] .bg-gradient-to-r .text-green-900,
+[data-theme="dark"] .text-green-900 {
+    color: #86efac !important;
+}
+[data-theme="dark"] .bg-gradient-to-r .text-green-700,
+[data-theme="dark"] .text-green-700 {
+    color: #4ade80 !important;
+}
+/* Sprint Configuration form labels */
+[data-theme="dark"] #sprintConfigSection label.text-gray-700,
+[data-theme="dark"] .bg-white label.text-gray-700,
+[data-theme="dark"] label.text-sm.font-medium.text-gray-700 {
+    color: #f5f5f5 !important;
+}
+/* Modal dark mode */
+[data-theme="dark"] #newSprintModal > div {
+    background-color: #2d2d2d !important;
+}
+[data-theme="dark"] #newSprintModal h2 {
+    color: #f5f5f5 !important;
+}
+[data-theme="dark"] #newSprintModal label {
+    color: #e5e5e5 !important;
+}
+[data-theme="dark"] #newSprintModal input,
+[data-theme="dark"] #newSprintModal select {
+    background-color: #3d3d3d !important;
+    border-color: #555 !important;
+    color: #f5f5f5 !important;
+}
+[data-theme="dark"] #newSprintModal .bg-amber-50 {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+}
+[data-theme="dark"] #newSprintModal .text-amber-800 {
+    color: #fcd34d !important;
+}
+[data-theme="dark"] #newSprintModal .bg-gray-50 {
+    background-color: #3a3a3a !important;
+}
+[data-theme="dark"] #newSprintModal .text-gray-600 {
+    color: #c9b99a !important;
+}
+[data-theme="dark"] #newSprintModal button.border-gray-300 {
+    background-color: #3a3a3a !important;
+    border-color: #555 !important;
+    color: #e5e5e5 !important;
+}
+/* Global text color fixes */
+[data-theme="dark"] .text-gray-900 {
+    color: #f5f5f5 !important;
+}
+[data-theme="dark"] .text-gray-800 {
+    color: #e5e5e5 !important;
+}
+[data-theme="dark"] .text-gray-700 {
+    color: #e0e0e0 !important;
+}
+[data-theme="dark"] .text-gray-600 {
+    color: #c9b99a !important;
+}
+[data-theme="dark"] .text-gray-500 {
+    color: #a0a0a0 !important;
+}
+[data-theme="dark"] .font-semibold.text-gray-900,
+[data-theme="dark"] .font-bold.text-gray-900 {
+    color: #f5f5f5 !important;
+}
+/* Sprint status section - heading and started date */
+[data-theme="dark"] .bg-gradient-to-br h3.text-lg.font-semibold {
+    color: #f5f5f5 !important;
+}
+[data-theme="dark"] .bg-gradient-to-br p.text-gray-600.text-sm {
+    color: #c0c0c0 !important;
+}
+[data-theme="dark"] h2.text-xl.font-bold,
+[data-theme="dark"] h3.text-lg.font-semibold,
+[data-theme="dark"] .text-lg.font-semibold {
+    color: #f5f5f5 !important;
+}
+/* Sprint Actions section text */
+[data-theme="dark"] .font-medium.text-violet-900 {
+    color: #c4b5fd !important;
+}
+[data-theme="dark"] .font-medium.text-amber-900 {
+    color: #fcd34d !important;
+}
+[data-theme="dark"] .font-medium.text-red-900 {
+    color: #fca5a5 !important;
+}
+[data-theme="dark"] .text-violet-700 {
+    color: #a78bfa !important;
+}
+[data-theme="dark"] .text-amber-700 {
+    color: #fbbf24 !important;
+}
+[data-theme="dark"] .text-red-700 {
+    color: #f87171 !important;
+}
+/* Additional text fixes for list items and bullets */
+[data-theme="dark"] ul.text-green-700 li,
+[data-theme="dark"] ul.text-sm.text-green-700 li,
+[data-theme="dark"] .text-sm.text-green-700 {
+    color: #86efac !important;
+}
+[data-theme="dark"] li {
+    color: inherit !important;
+}
+/* Fix nav link text on gray backgrounds */
+[data-theme="dark"] .bg-gray-50 a,
+[data-theme="dark"] a.text-gray-700 {
+    color: #e5e5e5 !important;
+}
+/* Fix section titles and descriptions */
+[data-theme="dark"] h2.text-xl,
+[data-theme="dark"] h2.text-lg {
+    color: #f5f5f5 !important;
+}
+[data-theme="dark"] p.text-sm {
+    color: #c9b99a !important;
+}
+/* Fix all h3 elements */
+[data-theme="dark"] h3.font-medium {
+    color: #f5f5f5 !important;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-2xl mx-auto">
     <!-- Header -->
@@ -69,8 +308,35 @@
     </div>
     {% endif %}
 
+    <!-- End Sprint & Start New - Primary Action -->
+    {% if settings %}
+    <div class="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-6 mb-8">
+        <div class="flex items-start gap-4">
+            <div class="text-4xl">🏁</div>
+            <div class="flex-1">
+                <h2 class="text-xl font-bold text-green-900 mb-2">End Sprint & Start New</h2>
+                <p class="text-sm text-green-700 mb-4">
+                    Complete your current sprint and start fresh. This will:
+                </p>
+                <ul class="text-sm text-green-700 mb-4 space-y-1">
+                    <li>✅ Archive all time tracked during this sprint</li>
+                    <li>✅ Reset workflow progress (modes A-G)</li>
+                    <li>✅ Move incomplete tickets to backlog (optional)</li>
+                    <li>✅ Start a new sprint with the date you choose</li>
+                </ul>
+                <div class="flex gap-3 flex-wrap">
+                    <button type="button" onclick="showNewSprintModal()"
+                            class="px-6 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg">
+                        🚀 End Sprint & Start New
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Settings Form -->
-    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6" id="sprintConfigSection">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">Sprint Configuration</h2>
         
         <form method="POST" class="space-y-5">
@@ -125,6 +391,18 @@
         <h2 class="text-lg font-semibold text-gray-900 mb-4">🔄 Sprint Actions</h2>
         
         <div class="space-y-4">
+            <div class="p-4 bg-violet-50 border border-violet-200 rounded-lg">
+                <h3 class="font-medium text-violet-900 mb-2">📊 Archive Time Tracking</h3>
+                <p class="text-sm text-violet-700 mb-3">
+                    Archive all time tracked during this sprint before starting a new one. 
+                    This preserves historical data and clears the current time tracker.
+                </p>
+                <button type="button" onclick="archiveSprintTime()"
+                        class="px-4 py-2 bg-violet-600 text-white font-medium rounded-lg hover:bg-violet-700 transition-colors">
+                    📦 Archive Sprint Time
+                </button>
+            </div>
+            
             <div class="p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <h3 class="font-medium text-amber-900 mb-2">Reset Workflow Progress</h3>
                 <p class="text-sm text-amber-700 mb-3">
@@ -165,6 +443,35 @@
     </div>
     
     <script>
+        // Archive sprint time tracking data
+        async function archiveSprintTime() {
+            if (!confirm('Archive all time tracked during this sprint? This will:\n\n• Save all time tracking data to the archive\n• Clear current time tracking for a fresh start\n• Cannot be undone\n\nProceed?')) {
+                return;
+            }
+            
+            try {
+                const resp = await fetch('/api/sprint/archive-time', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin'
+                });
+                
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.archived_count > 0) {
+                        alert(`✅ ${data.message}`);
+                    } else {
+                        alert('ℹ️ ' + data.message);
+                    }
+                } else {
+                    const err = await resp.json();
+                    throw new Error(err.error || 'Failed to archive');
+                }
+            } catch (err) {
+                alert('❌ Failed to archive sprint time: ' + err.message);
+            }
+        }
+        
         // Reset all workflow modes progress
         async function resetAllModes() {
             if (!confirm('Reset all mode checkboxes for a new sprint? This will clear all progress for modes A-G.')) {
@@ -215,7 +522,166 @@
                 alert('❌ Failed to clear sprint tickets. Please try again.');
             }
         }
+        
+        // Show new sprint modal
+        function showNewSprintModal() {
+            document.getElementById('newSprintModal').classList.remove('hidden');
+            // Set default date to today
+            document.getElementById('newSprintDate').value = new Date().toISOString().split('T')[0];
+        }
+        
+        function hideNewSprintModal() {
+            document.getElementById('newSprintModal').classList.add('hidden');
+        }
+        
+        // End current sprint and start new one
+        async function endSprintAndStartNew() {
+            const newSprintName = document.getElementById('newSprintName').value.trim();
+            const newSprintDate = document.getElementById('newSprintDate').value;
+            const newSprintLength = document.getElementById('newSprintLength').value;
+            const moveTicketsToBacklog = document.getElementById('moveTicketsCheckbox').checked;
+            
+            if (!newSprintDate) {
+                alert('Please select a start date for the new sprint');
+                return;
+            }
+            
+            const btn = document.getElementById('startNewSprintBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Processing...';
+            
+            try {
+                const results = [];
+                
+                // Step 1: Archive time tracking
+                const archiveResp = await fetch('/api/sprint/archive-time', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin'
+                });
+                if (archiveResp.ok) {
+                    const data = await archiveResp.json();
+                    results.push(`✅ Archived ${data.archived_count} time sessions (${data.total_time || '0h 0m'})`);
+                }
+                
+                // Step 2: Reset workflow modes
+                const modes = ['mode-a', 'mode-b', 'mode-c', 'mode-d', 'mode-e', 'mode-f', 'mode-g'];
+                modes.forEach(mode => localStorage.removeItem(`workflow-progress-${mode}`));
+                for (const mode of modes) {
+                    try {
+                        await fetch('/api/settings/workflow-progress', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'same-origin',
+                            body: JSON.stringify({ mode, progress: [] })
+                        });
+                    } catch (err) {}
+                }
+                results.push('✅ Reset workflow progress');
+                
+                // Step 3: Move tickets to backlog (optional)
+                if (moveTicketsToBacklog) {
+                    const ticketResp = await fetch('/api/tickets/clear-sprint', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'same-origin'
+                    });
+                    if (ticketResp.ok) {
+                        const data = await ticketResp.json();
+                        results.push(`✅ Moved ${data.updated_count} tickets to backlog`);
+                    }
+                }
+                
+                // Step 4: Create new sprint by submitting form data
+                const formData = new FormData();
+                formData.append('sprint_name', newSprintName || `Sprint ${new Date().toISOString().slice(0, 10)}`);
+                formData.append('sprint_start_date', newSprintDate);
+                formData.append('sprint_length_days', newSprintLength);
+                
+                const sprintResp = await fetch('/settings/sprint', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    body: formData
+                });
+                
+                results.push('✅ New sprint created');
+                
+                // Show success and redirect
+                alert('🎉 Sprint Transition Complete!\\n\\n' + results.join('\\n'));
+                window.location.href = '/settings/sprint?success=new-sprint';
+                
+            } catch (err) {
+                console.error('Sprint transition error:', err);
+                alert('❌ Error during sprint transition: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '🚀 Start New Sprint';
+            }
+        }
     </script>
+
+    <!-- New Sprint Modal -->
+    <div id="newSprintModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <div class="flex items-center gap-3 mb-4">
+                <span class="text-3xl">🚀</span>
+                <h2 class="text-xl font-bold text-gray-900">Start New Sprint</h2>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">New Sprint Name</label>
+                    <input type="text" id="newSprintName" 
+                           placeholder="e.g., Sprint 26.2" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                    <input type="date" id="newSprintDate" required
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Sprint Length</label>
+                    <select id="newSprintLength" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500">
+                        <option value="7">1 week (7 days)</option>
+                        <option value="10">10 days</option>
+                        <option value="14" selected>2 weeks (14 days)</option>
+                        <option value="21">3 weeks (21 days)</option>
+                    </select>
+                </div>
+                
+                <div class="flex items-center gap-2 p-3 bg-amber-50 rounded-lg">
+                    <input type="checkbox" id="moveTicketsCheckbox" class="rounded border-gray-300">
+                    <label for="moveTicketsCheckbox" class="text-sm text-amber-800">
+                        Move incomplete tickets to backlog
+                    </label>
+                </div>
+                
+                <div class="bg-gray-50 rounded-lg p-3 text-sm text-gray-600">
+                    <strong>This will automatically:</strong>
+                    <ul class="mt-1 space-y-1">
+                        <li>📦 Archive current sprint's time tracking</li>
+                        <li>🔄 Reset workflow mode progress</li>
+                        <li>📋 Create the new sprint</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="flex gap-3 mt-6">
+                <button onclick="hideNewSprintModal()" 
+                        class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button id="startNewSprintBtn" onclick="endSprintAndStartNew()"
+                        class="flex-1 px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700">
+                    🚀 Start New Sprint
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Quick Actions -->
     <div class="mt-8 grid grid-cols-2 gap-4">

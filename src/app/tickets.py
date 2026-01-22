@@ -143,7 +143,7 @@ def create_ticket(
     ticket_id: str = Form(...),
     title: str = Form(...),
     description: str = Form(None),
-    status: str = Form("todo"),
+    status: str = Form("backlog"),
     priority: str = Form(None),
     sprint_points: int = Form(0),
     in_sprint: int = Form(1),
@@ -400,7 +400,8 @@ Create a practical implementation plan with:
 Be specific and actionable. Assume access to local development environment."""
 
     try:
-        plan = ask(prompt)
+        # Use Claude Opus 4 for implementation planning (premium quality)
+        plan = ask(prompt, model="claude-opus-4-20250514")
         return JSONResponse({"plan": plan})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -541,6 +542,118 @@ async def clear_sprint_tickets():
             updated_count = result.rowcount
         
         return JSONResponse({"status": "ok", "updated_count": updated_count})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.post("/api/sprint/archive-time")
+async def archive_sprint_time():
+    """Archive all time tracked during the current sprint before starting a new one."""
+    try:
+        with connect() as conn:
+            # Get current sprint settings
+            sprint = conn.execute("SELECT * FROM sprint_settings WHERE id = 1").fetchone()
+            
+            if not sprint:
+                return JSONResponse({"error": "No sprint settings found"}, status_code=400)
+            
+            sprint_name = sprint["sprint_name"] or "Unnamed Sprint"
+            sprint_start = sprint["sprint_start_date"]
+            sprint_length = sprint["sprint_length_days"] or 14
+            
+            # Calculate sprint end date
+            from datetime import datetime, timedelta
+            start_date = datetime.strptime(sprint_start, "%Y-%m-%d")
+            end_date = start_date + timedelta(days=sprint_length - 1)
+            sprint_end = end_date.strftime("%Y-%m-%d")
+            
+            # Get all completed sessions within the sprint date range
+            sessions = conn.execute(
+                """SELECT id, mode, started_at, ended_at, duration_seconds, date, notes
+                   FROM mode_sessions 
+                   WHERE date >= ? AND date <= ? AND ended_at IS NOT NULL""",
+                (sprint_start, sprint_end)
+            ).fetchall()
+            
+            if not sessions:
+                return JSONResponse({
+                    "status": "ok", 
+                    "archived_count": 0, 
+                    "message": "No completed sessions found for this sprint period"
+                })
+            
+            # Archive the sessions
+            archived_count = 0
+            for session in sessions:
+                conn.execute(
+                    """INSERT INTO archived_mode_sessions 
+                       (original_id, mode, started_at, ended_at, duration_seconds, date, notes, 
+                        sprint_name, sprint_start_date, sprint_end_date)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (session["id"], session["mode"], session["started_at"], session["ended_at"],
+                     session["duration_seconds"], session["date"], session["notes"],
+                     sprint_name, sprint_start, sprint_end)
+                )
+                archived_count += 1
+            
+            # Delete the archived sessions from active table
+            conn.execute(
+                """DELETE FROM mode_sessions 
+                   WHERE date >= ? AND date <= ? AND ended_at IS NOT NULL""",
+                (sprint_start, sprint_end)
+            )
+            
+            # Calculate total time archived
+            total_seconds = sum(s["duration_seconds"] or 0 for s in sessions)
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
+            
+            return JSONResponse({
+                "status": "ok",
+                "archived_count": archived_count,
+                "sprint_name": sprint_name,
+                "total_time": f"{hours}h {minutes}m",
+                "message": f"Archived {archived_count} sessions ({hours}h {minutes}m) from {sprint_name}"
+            })
+            
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.get("/api/sprint/archived-time")
+async def get_archived_sprint_time(sprint_name: str = None):
+    """Get archived time tracking data, optionally filtered by sprint name."""
+    try:
+        with connect() as conn:
+            if sprint_name:
+                # Get sessions for a specific sprint
+                sessions = conn.execute(
+                    """SELECT mode, SUM(duration_seconds) as total_seconds, COUNT(*) as session_count
+                       FROM archived_mode_sessions 
+                       WHERE sprint_name = ?
+                       GROUP BY mode""",
+                    (sprint_name,)
+                ).fetchall()
+                
+                sprints = [{"sprint_name": sprint_name}]
+            else:
+                # Get all archived sprints summary
+                sprints = conn.execute(
+                    """SELECT DISTINCT sprint_name, sprint_start_date, sprint_end_date,
+                              SUM(duration_seconds) as total_seconds,
+                              COUNT(*) as session_count
+                       FROM archived_mode_sessions
+                       GROUP BY sprint_name
+                       ORDER BY sprint_start_date DESC"""
+                ).fetchall()
+                sessions = []
+            
+            return JSONResponse({
+                "status": "ok",
+                "sprints": [dict(s) for s in sprints],
+                "sessions": [dict(s) for s in sessions] if sessions else []
+            })
+            
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 

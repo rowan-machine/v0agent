@@ -137,26 +137,159 @@
     to { transform: rotate(360deg); }
   }
 
-  /* Highlight Item Enhancements */
+  /* Highlight Item - Coaching Cards */
   .highlight-item {
     position: relative;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border-radius: 12px;
+    padding: 1rem;
+    background: var(--sf-card-bg, white);
+    border: 1px solid var(--sf-border, #e5e7eb);
   }
   
-  .highlight-item.dismissed {
-    opacity: 0.5;
-    background: var(--sf-surface, #f9fafb) !important;
-    border-style: dashed !important;
+  .highlight-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border-color: var(--sf-primary, #667eea);
   }
   
-  .highlight-item.dismissed .highlight-label::after {
-    content: ' ✓ Seen';
-    font-size: 0.7rem;
-    color: var(--sf-text-muted);
+  .highlight-item.blocker {
+    border-left: 4px solid #ef4444;
+    background: linear-gradient(135deg, #fef2f2 0%, var(--sf-card-bg, white) 100%);
   }
   
-  .highlight-item.hidden-dismissed {
-    display: none !important;
+  .highlight-item.risk {
+    border-left: 4px solid #f59e0b;
+    background: linear-gradient(135deg, #fffbeb 0%, var(--sf-card-bg, white) 100%);
+  }
+  
+  .highlight-item.action {
+    border-left: 4px solid #3b82f6;
+    background: linear-gradient(135deg, #eff6ff 0%, var(--sf-card-bg, white) 100%);
+  }
+  
+  .highlight-item.waiting {
+    border-left: 4px solid #8b5cf6;
+    background: linear-gradient(135deg, #f5f3ff 0%, var(--sf-card-bg, white) 100%);
+  }
+  
+  .highlight-item.idea {
+    border-left: 4px solid #10b981;
+    background: linear-gradient(135deg, #ecfdf5 0%, var(--sf-card-bg, white) 100%);
+  }
+  
+  .highlight-item.decision {
+    border-left: 4px solid #06b6d4;
+    background: linear-gradient(135deg, #ecfeff 0%, var(--sf-card-bg, white) 100%);
+  }
+  
+  .highlight-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+  }
+  
+  .highlight-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--sf-text-muted, #6b7280);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  
+  .highlight-text {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--sf-text, #1f2937);
+    line-height: 1.4;
+    margin-bottom: 0.5rem;
+  }
+  
+  .highlight-action-hint {
+    font-size: 0.8rem;
+    color: var(--sf-text-muted, #6b7280);
+    font-style: italic;
+    margin-bottom: 0.75rem;
+  }
+  
+  .highlight-cta {
+    display: flex;
+    justify-content: flex-end;
+  }
+  
+  .highlight-link {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--sf-primary, #667eea);
+  }
+  
+  .highlight-item:hover .highlight-link {
+    text-decoration: underline;
+  }
+  
+  .highlight-actions {
+    display: flex;
+    gap: 0.25rem;
+  }
+  
+  .highlight-action-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: none;
+    background: rgba(255,255,255,0.8);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--sf-text-muted, #9ca3af);
+    transition: all 0.2s;
+  }
+  
+  .highlight-action-btn:hover {
+    background: var(--sf-primary, #667eea);
+    color: white;
+  }
+  
+  .highlight-action-btn.dismiss-btn:hover {
+    background: #10b981;
+    color: white;
+  }
+  
+  /* Dark mode for coaching cards */
+  [data-theme="dark"] .highlight-item {
+    background: #1e1e1e;
+    border-color: #3a3a3a;
+  }
+  
+  [data-theme="dark"] .highlight-item.blocker {
+    background: linear-gradient(135deg, #2d1f1f 0%, #1e1e1e 100%);
+  }
+  
+  [data-theme="dark"] .highlight-item.risk {
+    background: linear-gradient(135deg, #2d2a1f 0%, #1e1e1e 100%);
+  }
+  
+  [data-theme="dark"] .highlight-item.action {
+    background: linear-gradient(135deg, #1f2433 0%, #1e1e1e 100%);
+  }
+  
+  [data-theme="dark"] .highlight-item.waiting {
+    background: linear-gradient(135deg, #251f33 0%, #1e1e1e 100%);
+  }
+  
+  [data-theme="dark"] .highlight-item.idea {
+    background: linear-gradient(135deg, #1f2d24 0%, #1e1e1e 100%);
+  }
+  
+  [data-theme="dark"] .highlight-item:hover {
+    border-color: #8b5cf6;
+  }
+  
+  [data-theme="dark"] .highlight-action-btn {
+    background: rgba(0,0,0,0.3);
   }
   
   /* Mode G Task Styles */
@@ -188,11 +321,17 @@
   
   .mode-g-tasks .workflow-checklist-item {
     padding: 0.5rem 0;
+    padding-left: 0.75rem;
     border-bottom: 1px solid #f3f4f6;
   }
   
   .mode-g-tasks .workflow-checklist-item:last-child {
     border-bottom: none;
+  }
+
+  /* Add left padding to all workflow checklist items */
+  .workflow-checklist-item {
+    padding-left: 0.75rem;
   }
   
   /* Mode G Sprint Ticket Cards */
@@ -1209,6 +1348,89 @@
     opacity: 0.6;
   }
 
+  /* Color coding for validated signals */
+  .signal-item.status-approved {
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    border-left: 3px solid #10b981;
+  }
+  
+  .signal-item.status-completed {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    border-left: 3px solid #3b82f6;
+  }
+  
+  [data-theme="dark"] .signal-item.status-approved {
+    background: linear-gradient(135deg, #1a3329 0%, #0f2620 100%) !important;
+    border-left: 3px solid #10b981;
+  }
+  
+  [data-theme="dark"] .signal-item.status-completed {
+    background: linear-gradient(135deg, #1a2633 0%, #0f1a26 100%) !important;
+    border-left: 3px solid #3b82f6;
+  }
+
+  /* Status indicator below actions */
+  .signal-status-indicator {
+    grid-column: 1 / -1;
+    padding: 0.5rem 1rem;
+    border-top: 1px solid var(--sf-border, #e5e7eb);
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .signal-status-indicator.approved {
+    color: #059669;
+    background: rgba(16, 185, 129, 0.1);
+  }
+  
+  .signal-status-indicator.rejected {
+    color: #dc2626;
+    background: rgba(220, 38, 38, 0.1);
+  }
+  
+  .signal-status-indicator.archived {
+    color: #6b7280;
+    background: rgba(107, 114, 128, 0.1);
+  }
+  
+  .signal-status-indicator.completed {
+    color: #2563eb;
+    background: rgba(37, 99, 235, 0.1);
+  }
+  
+  .signal-status-indicator.waiting {
+    color: #d97706;
+    background: rgba(217, 119, 6, 0.1);
+  }
+
+  /* Markdown in highlight-text */
+  .highlight-text p {
+    margin: 0 0 0.5rem 0;
+  }
+  .highlight-text p:last-child {
+    margin-bottom: 0;
+  }
+  .highlight-text code {
+    background: rgba(0,0,0,0.1);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.85em;
+  }
+  .highlight-text ul, .highlight-text ol {
+    margin: 0.25rem 0;
+    padding-left: 1.25rem;
+  }
+  .highlight-text strong {
+    font-weight: 600;
+  }
+  [data-theme="dark"] .highlight-text code {
+    background: rgba(255,255,255,0.15);
+  }
+
   .empty-section {
     padding: 2rem;
     text-align: center;
@@ -1313,6 +1535,90 @@
     font-size: 0.9rem;
     line-height: 1.4;
     color: #1e293b; /* Dark text for readability on colored backgrounds */
+  }
+
+  /* Dark mode overrides for highlight items */
+  [data-theme="dark"] .highlight-item {
+    background: linear-gradient(135deg, #4a3728 0%, #3d2d1f 100%) !important;
+  }
+  [data-theme="dark"] .highlight-item.blocker {
+    background: linear-gradient(135deg, #4a2828 0%, #3d1f1f 100%) !important;
+  }
+  [data-theme="dark"] .highlight-item.proposal {
+    background: linear-gradient(135deg, #283a4a 0%, #1f2d3d 100%) !important;
+  }
+  [data-theme="dark"] .highlight-item.mention {
+    background: linear-gradient(135deg, #2d3348 0%, #232838 100%) !important;
+  }
+  [data-theme="dark"] .highlight-item.announcement {
+    background: linear-gradient(135deg, #3d2d48 0%, #2d2338 100%) !important;
+  }
+  [data-theme="dark"] .highlight-text,
+  [data-theme="dark"] .highlight-label,
+  [data-theme="dark"] .highlight-source {
+    color: #faf6f1 !important;
+  }
+  [data-theme="dark"] .drilldown-content,
+  [data-theme="dark"] .drilldown-level-header,
+  [data-theme="dark"] .drilldown-level-content {
+    color: #faf6f1 !important;
+    background: #2d2d2d !important;
+  }
+
+  /* Dark mode for activity items and tickets */
+  [data-theme="dark"] .activity-item,
+  [data-theme="dark"] .signal-item {
+    border-color: #4a4a4a !important;
+  }
+  [data-theme="dark"] .activity-title,
+  [data-theme="dark"] .activity-meta,
+  [data-theme="dark"] .activity-link,
+  [data-theme="dark"] .signal-text,
+  [data-theme="dark"] .signal-source {
+    color: #faf6f1 !important;
+  }
+  [data-theme="dark"] .activity-meta,
+  [data-theme="dark"] .signal-source {
+    color: #a0a0a0 !important;
+  }
+  [data-theme="dark"] .ticket-id-badge {
+    background: #3a3a3a !important;
+    color: #c9b99a !important;
+  }
+  [data-theme="dark"] .stat-label {
+    color: #c9b99a !important;
+  }
+  [data-theme="dark"] .stat-value {
+    color: #faf6f1 !important;
+  }
+  [data-theme="dark"] .empty-section {
+    color: #a0a0a0 !important;
+  }
+
+  /* Light borders on panel objects for visibility */
+  .signal-item,
+  .activity-item {
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    padding: 0.75rem !important;
+  }
+  [data-theme="dark"] .signal-item,
+  [data-theme="dark"] .activity-item {
+    border-color: #4a4a4a !important;
+  }
+
+  /* Standup and code locker item borders */
+  #standupDisplay > div,
+  #codeLockerFiles > div:not(.empty-section) {
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    padding: 0.75rem;
+  }
+  [data-theme="dark"] #standupDisplay > div,
+  [data-theme="dark"] #codeLockerFiles > div:not(.empty-section) {
+    border-color: #4a4a4a !important;
   }
 
   .highlight-source {
@@ -1650,15 +1956,16 @@
   .ticket-file-option:last-child {
     border-bottom: none;
   }
+
 </style>
 
 <!-- Toast Container -->
 <div class="toast-container" id="toastContainer"></div>
 
-<div class="dashboard compact" id="dashboard">
+<div class="dashboard compact" id="dashboard" data-sprint-key="{% if sprint %}{{ sprint.name or 'Current Sprint' }}|{{ sprint.sprint_start_date }}|{{ sprint.sprint_length_days }}{% else %}no-sprint{% endif %}">
   <div class="dashboard-header">
     <div>
-      <h1>🪷 Good {{ time_of_day }}, ready to dive in?</h1>
+      <h1>🪷 Good {{ time_of_day }}, {{ greeting_context }}!</h1>
       <p>{{ today_formatted }} · Hare Krishna</p>
     </div>
   </div>
@@ -1994,22 +2301,13 @@
       <span style="font-size: 0.8rem; color: #6b7280;">Data → Information → Knowledge → Wisdom</span>
     </div>
     <div class="dikw-pyramid collapsible-content" id="dikwPyramid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; padding: 1rem; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-radius: 12px; border: 1px solid #e2e8f0;">
-      <!-- Wisdom Level (Top) -->
-      <div class="dikw-level wisdom" data-level="wisdom" style="background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); border-radius: 12px; padding: 1rem; min-height: 120px;">
+      <!-- Data Level (Base) -->
+      <div class="dikw-level data" data-level="data" style="background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%); border-radius: 12px; padding: 1rem; min-height: 120px;">
         <div class="dikw-level-header" style="color: white; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-weight: 600; font-size: 0.9rem;">🪷 Wisdom</span>
-          <span class="dikw-count" id="wisdomCount" style="background: rgba(255,255,255,0.2); padding: 0.25rem 0.5rem; border-radius: 10px; font-size: 0.75rem;">0</span>
+          <span style="font-weight: 600; font-size: 0.9rem;">📦 Data</span>
+          <span class="dikw-count" id="dataCount" style="background: rgba(255,255,255,0.2); padding: 0.25rem 0.5rem; border-radius: 10px; font-size: 0.75rem;">0</span>
         </div>
-        <div class="dikw-items" id="wisdomItems" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;"></div>
-      </div>
-      
-      <!-- Knowledge Level -->
-      <div class="dikw-level knowledge" data-level="knowledge" style="background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%); border-radius: 12px; padding: 1rem; min-height: 120px;">
-        <div class="dikw-level-header" style="color: white; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-weight: 600; font-size: 0.9rem;">📚 Knowledge</span>
-          <span class="dikw-count" id="knowledgeCount" style="background: rgba(255,255,255,0.2); padding: 0.25rem 0.5rem; border-radius: 10px; font-size: 0.75rem;">0</span>
-        </div>
-        <div class="dikw-items" id="knowledgeItems" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;"></div>
+        <div class="dikw-items" id="dataItems" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;"></div>
       </div>
       
       <!-- Information Level -->
@@ -2021,13 +2319,22 @@
         <div class="dikw-items" id="informationItems" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;"></div>
       </div>
       
-      <!-- Data Level (Base) -->
-      <div class="dikw-level data" data-level="data" style="background: linear-gradient(135deg, #64748b 0%, #94a3b8 100%); border-radius: 12px; padding: 1rem; min-height: 120px;">
+      <!-- Knowledge Level -->
+      <div class="dikw-level knowledge" data-level="knowledge" style="background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%); border-radius: 12px; padding: 1rem; min-height: 120px;">
         <div class="dikw-level-header" style="color: white; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-weight: 600; font-size: 0.9rem;">📦 Data</span>
-          <span class="dikw-count" id="dataCount" style="background: rgba(255,255,255,0.2); padding: 0.25rem 0.5rem; border-radius: 10px; font-size: 0.75rem;">0</span>
+          <span style="font-weight: 600; font-size: 0.9rem;">📚 Knowledge</span>
+          <span class="dikw-count" id="knowledgeCount" style="background: rgba(255,255,255,0.2); padding: 0.25rem 0.5rem; border-radius: 10px; font-size: 0.75rem;">0</span>
         </div>
-        <div class="dikw-items" id="dataItems" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;"></div>
+        <div class="dikw-items" id="knowledgeItems" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;"></div>
+      </div>
+      
+      <!-- Wisdom Level (Top) -->
+      <div class="dikw-level wisdom" data-level="wisdom" style="background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%); border-radius: 12px; padding: 1rem; min-height: 120px;">
+        <div class="dikw-level-header" style="color: white; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 600; font-size: 0.9rem;">🪷 Wisdom</span>
+          <span class="dikw-count" id="wisdomCount" style="background: rgba(255,255,255,0.2); padding: 0.25rem 0.5rem; border-radius: 10px; font-size: 0.75rem;">0</span>
+        </div>
+        <div class="dikw-items" id="wisdomItems" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 200px; overflow-y: auto;"></div>
       </div>
     </div>
   </div>
@@ -2130,63 +2437,33 @@
     </a>
   </div>
 
-  <!-- Overview Highlights Section -->
+  <!-- Coaching Highlights Section -->
   <div class="section-card full-width collapsible-box" data-box-id="attention" style="margin-bottom: 1.5rem;" id="attentionSection">
     <div class="section-header" style="cursor: pointer;" onclick="toggleBoxCollapse(this.parentElement)">
       <div style="display: flex; align-items: center; gap: 0.75rem;">
         <span class="collapse-icon">▼</span>
-        <h3>📢 Need Your Attention</h3>
-        <span class="attention-badge" id="attentionCount">{{ highlights|length if highlights else 0 }}</span>
+        <h3>🎯 Your Coach</h3>
+        <span class="attention-badge" id="attentionCount" style="opacity: 0.6;">...</span>
       </div>
-      <div style="display: flex; align-items: center; gap: 0
-        <span class="refresh-info" id="refreshInfo" style="font-size: 0.75rem; color: var(--sf-text-muted);">Auto-refresh: on page load</span>
-        <button class="refresh-btn" onclick="event.stopPropagation(); refreshAttention()" title="Refresh now">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <span class="refresh-info" id="refreshInfo" style="font-size: 0.75rem; color: var(--sf-text-muted);">Click items to take action</span>
+        <button class="refresh-btn" onclick="event.stopPropagation(); refreshAttention()" title="Check for new suggestions">
           <svg id="refreshIcon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
         </button>
-        <button class="toggle-seen-btn" onclick="event.stopPropagation(); toggleSeenItems()" title="Show/hide dismissed items">
+        <button class="toggle-seen-btn" onclick="event.stopPropagation(); toggleSeenItems()" title="Reset dismissed items">
           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
           </svg>
-          <span id="seenToggleText">Show dismissed</span>
+          <span id="seenToggleText">Reset</span>
         </button>
       </div>
     </div>
     <div class="section-content collapsible-content" id="attentionContent" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.75rem; padding: 1rem;">
-      {% if highlights %}
-      {% for h in highlights %}
-      <div class="highlight-item {{ h.type }}" data-highlight-id="{{ loop.index }}" data-meeting-source="{{ h.source }}" data-meeting-id="{{ h.meeting_id }}">
-        <div class="highlight-header">
-          <div class="highlight-label">{{ h.label }}</div>
-          <div class="highlight-actions">
-            <button class="highlight-action-btn drill-btn" onclick="drillDown(this)" title="See more context">
-              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-              </svg>
-            </button>
-            <button class="highlight-action-btn dismiss-btn" onclick="dismissHighlight(this)" title="Dismiss (mark as seen)">
-              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div class="highlight-text">{{ h.text }}</div>
-        <div class="highlight-source">{{ h.source }}</div>
-        <div class="highlight-drilldown" style="display: none;">
-          <div class="drilldown-loading">Loading context...</div>
-          <div class="drilldown-content"></div>
-        </div>
-      </div>
-      {% endfor %}
-      {% else %}
       <div class="empty-attention" style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--sf-text-muted);">
-        <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">✨ All clear!</p>
-        <p style="font-size: 0.9rem;">No items need your attention right now. Click refresh to check for new signals.</p>
+        <p style="font-size: 1rem; margin-bottom: 0.5rem;">Loading coaching suggestions...</p>
       </div>
-      {% endif %}
     </div>
   </div>
 
@@ -2198,6 +2475,13 @@
         <div style="display: flex; align-items: center; gap: 0.5rem;">
           <span class="collapse-icon">▼</span>
           <h3>🎯 Recent Signals</h3>
+          <div class="signal-legend" style="display: flex; gap: 0.6rem; margin-left: 0.75rem; font-size: 0.65rem; color: var(--sf-text-muted, #9ca3af);">
+            <span title="Decisions made" style="display: flex; align-items: center; gap: 0.2rem;"><span style="color: #2563eb;">✓</span> Decision</span>
+            <span title="Tasks to complete" style="display: flex; align-items: center; gap: 0.2rem;"><span style="color: #d97706;">☐</span> Action</span>
+            <span title="Blockers stopping progress" style="display: flex; align-items: center; gap: 0.2rem;"><span style="color: #dc2626;">⚠</span> Blocker</span>
+            <span title="Potential risks identified" style="display: flex; align-items: center; gap: 0.2rem;"><span style="color: #db2777;">⚡</span> Risk</span>
+            <span title="Ideas and suggestions" style="display: flex; align-items: center; gap: 0.2rem;"><span style="color: #059669;">💡</span> Idea</span>
+          </div>
         </div>
         <a href="/signals" onclick="event.stopPropagation()">View all →</a>
       </div>
@@ -2209,11 +2493,11 @@
               {% if signal.type == 'decision' %}✓{% elif signal.type == 'action' %}☐{% elif signal.type == 'blocker' %}⚠{% elif signal.type == 'risk' %}⚡{% else %}💡{% endif %}
             </div>
             <div class="signal-body">
-              <div class="signal-text markdown-content">{{ signal.text }}{% if signal.status and signal.status != 'pending' %}<span class="signal-status-badge {{ signal.status }}">{% if signal.status == 'approved' %}✓ Validated{% elif signal.status == 'rejected' %}✗ Dismissed{% elif signal.status == 'archived' %}📁 Archived{% elif signal.status == 'completed' %}✓ Done{% elif signal.status == 'waiting' %}⏳ Waiting{% else %}{{ signal.status }}{% endif %}</span>{% endif %}</div>
+              <div class="signal-text markdown-content">{{ signal.text }}</div>
               <div class="signal-source">{{ signal.source }}</div>
             </div>
             <div class="signal-actions">
-              <button class="thumb-btn up {{ 'active' if signal.status == 'approved' else '' }}" onclick="promoteSignalToDIKW(this, 'data')" title="Promote to Data">
+              <button class="thumb-btn up {{ 'active' if signal.status == 'approved' else '' }}" onclick="promoteSignalToDIKW(this, 'data')" title="Validate & Promote">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
               </button>
               <button class="thumb-btn down {{ 'active' if signal.status == 'rejected' else '' }}" onclick="updateSignalStatus(this, 'rejected')" title="Reject">
@@ -2226,6 +2510,11 @@
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
               </button>
             </div>
+            {% if signal.status and signal.status != 'pending' %}
+            <div class="signal-status-indicator {{ signal.status }}">
+              {% if signal.status == 'approved' %}✓ Validated{% elif signal.status == 'rejected' %}✗ Dismissed{% elif signal.status == 'archived' %}📁 Archived{% elif signal.status == 'completed' %}✓ Done{% elif signal.status == 'waiting' %}⏳ Waiting{% else %}{{ signal.status }}{% endif %}
+            </div>
+            {% endif %}
           </div>
           {% endfor %}
         {% else %}
@@ -2241,7 +2530,10 @@
           <span class="collapse-icon">▼</span>
           <h3>📝 Recent Activity</h3>
         </div>
-        <a href="/meetings" onclick="event.stopPropagation()">View all →</a>
+        <div style="display: flex; gap: 0.5rem; font-size: 0.85rem;">
+          <a href="/meetings" onclick="event.stopPropagation()">Meetings →</a>
+          <a href="/documents" onclick="event.stopPropagation()">Documents →</a>
+        </div>
       </div>
       <div class="section-content collapsible-content" style="padding: 0;">
         {% if recent_items %}
@@ -2475,8 +2767,8 @@ function showToast(title, message, type = 'info') {
 // Single column layout (compact)
 dashboard.className = 'dashboard compact';
 
-// Markdown rendering for signal text
-document.querySelectorAll('.markdown-content').forEach(el => {
+// Markdown rendering for signal text and highlight text
+document.querySelectorAll('.markdown-content, .highlight-text').forEach(el => {
   const text = el.textContent;
   el.innerHTML = marked.parse(text);
 });
@@ -2518,13 +2810,33 @@ async function updateSignalStatus(btn, status) {
     
     if (response.ok) {
       const statusLabels = {
-        'approved': 'Signal approved',
-        'rejected': 'Signal rejected',
+        'approved': '✓ Validated',
+        'rejected': '✗ Dismissed',
+        'archived': '📁 Archived',
+        'completed': '✓ Done',
+        'pending': ''
+      };
+      const statusDisplayLabels = {
+        'approved': 'Signal validated',
+        'rejected': 'Signal dismissed',
         'archived': 'Signal archived',
         'completed': 'Signal marked complete',
         'pending': 'Status cleared'
       };
-      showToast('Updated', statusLabels[newStatus], 'success');
+      showToast('Updated', statusDisplayLabels[newStatus], 'success');
+      
+      // Update or remove status indicator
+      let indicator = item.querySelector('.signal-status-indicator');
+      if (newStatus !== 'pending') {
+        if (!indicator) {
+          indicator = document.createElement('div');
+          item.appendChild(indicator);
+        }
+        indicator.className = `signal-status-indicator ${newStatus}`;
+        indicator.textContent = statusLabels[newStatus];
+      } else if (indicator) {
+        indicator.remove();
+      }
     } else {
       throw new Error('Failed to update status');
     }
@@ -2561,10 +2873,12 @@ async function convertSignalToTicket(btn) {
       item.querySelectorAll('.thumb-btn').forEach(b => b.classList.remove('active'));
       item.className = item.className.replace(/status-\w+/g, '') + ' status-completed';
       
-      // Add clickable badge if not present
-      const textEl = item.querySelector('.signal-text');
-      if (!textEl.querySelector('.signal-status-badge')) {
-        textEl.innerHTML += `<a href="/tickets/${data.ticket_id}/edit" class="signal-status-badge completed">${data.ticket_id}</a>`;
+      // Add status indicator below actions if not present
+      if (!item.querySelector('.signal-status-indicator')) {
+        const indicator = document.createElement('div');
+        indicator.className = 'signal-status-indicator completed';
+        indicator.innerHTML = `<a href="/tickets/${data.ticket_id}/edit" style="color: inherit; text-decoration: underline;">✓ Task ${data.ticket_id}</a>`;
+        item.appendChild(indicator);
       }
     } else {
       throw new Error('Failed to create task');
@@ -3173,43 +3487,122 @@ function closeAIResponse() {
 // Workflow Panel Management
 // ============================================
 
-const workflowModes = {
+let workflowModes = {
   'mode-a': { 
     icon: '🎯', 
     title: 'Mode A: Context Distillation',
-    subtitle: 'Select files, freeze context, seed agents'
+    subtitle: 'Select files, freeze context, seed agents',
+    steps: []
   },
   'mode-b': { 
     icon: '📋', 
     title: 'Mode B: Implementation Planning',
-    subtitle: 'Review context, define scope, create plan'
+    subtitle: 'Review context, define scope, create plan',
+    steps: []
   },
   'mode-c': { 
     icon: '✏️', 
     title: 'Mode C: Assisted Draft Intake',
-    subtitle: 'Generate code, docs, and walkthroughs'
+    subtitle: 'Generate code, docs, and walkthroughs',
+    steps: []
   },
   'mode-d': { 
     icon: '🔍', 
     title: 'Mode D: Deep Review & Validation',
-    subtitle: 'Line-by-line review, smoke test, fix loops'
+    subtitle: 'Line-by-line review, smoke test, fix loops',
+    steps: []
   },
   'mode-e': { 
     icon: '🚀', 
     title: 'Mode E: Promotion Readiness',
-    subtitle: 'Checklist, code locker, transfer packet'
+    subtitle: 'Checklist, code locker, transfer packet',
+    steps: []
   },
   'mode-f': { 
     icon: '🔄', 
     title: 'Mode F: Controlled Ingress/Egress',
-    subtitle: 'Push/pull, commit, PR, merge (Online)'
+    subtitle: 'Push/pull, commit, PR, merge (Online)',
+    steps: []
   },
   'mode-g': {
     icon: '💻',
     title: 'Mode G: Execution (Writing Code)',
-    subtitle: 'Implement the current ticket checklist'
+    subtitle: 'Implement the current ticket checklist',
+    steps: []
   }
 };
+
+// Load workflow modes from API and update display
+async function loadWorkflowModesFromAPI() {
+  try {
+    const response = await fetch('/api/settings/workflow-modes', { credentials: 'same-origin' });
+    if (!response.ok) return;
+    
+    const data = await response.json();
+    const modes = data.modes || [];
+    
+    // Update workflowModes with API data
+    modes.forEach(mode => {
+      if (mode.mode_key) {
+        workflowModes[mode.mode_key] = {
+          icon: mode.icon || '🎯',
+          title: mode.name || mode.mode_key,
+          subtitle: mode.short_description || mode.description || '',
+          steps: mode.steps_json || []
+        };
+      }
+    });
+    
+    // Re-render ALL mode contents with API data, not just current
+    Object.keys(workflowModes).forEach(modeKey => {
+      renderModeContent(modeKey);
+    });
+    
+    // Update panel display for current mode
+    const currentMode = localStorage.getItem('signalflow-mode') || 'mode-a';
+    updateWorkflowPanel(currentMode);
+  } catch (err) {
+    console.error('Failed to load workflow modes:', err);
+  }
+}
+
+// Render mode content dynamically
+function renderModeContent(mode) {
+  const modeData = workflowModes[mode];
+  if (!modeData || !modeData.steps || modeData.steps.length === 0) return;
+  
+  // Mode G is special - it uses tickets, not steps
+  if (mode === 'mode-g') return;
+  
+  const modeContent = document.querySelector(`.workflow-mode-content[data-mode="${mode}"]`);
+  if (!modeContent) return;
+  
+  const steps = modeData.steps;
+  if (!steps || steps.length === 0) return;
+  
+  const checklist = modeContent.querySelector('.workflow-checklist');
+  if (!checklist) return;
+  
+  // Always render steps from API to reflect custom settings
+  checklist.innerHTML = steps.map((step, i) => `
+    <li class="workflow-checklist-item">
+      <div class="workflow-checkbox" onclick="toggleCheckbox(this)"></div>
+      <div class="workflow-checklist-content">
+        <div class="workflow-checklist-title">${escapeHtml(step.title || step)}</div>
+        <div class="workflow-checklist-desc">${escapeHtml(step.description || '')}</div>
+      </div>
+    </li>
+  `).join('');
+  
+  // Update progress text
+  const progressText = modeContent.querySelector('.workflow-progress-text');
+  if (progressText) {
+    progressText.textContent = `0 of ${steps.length} complete`;
+  }
+  
+  // Re-apply saved progress after rendering
+  loadWorkflowProgress(mode);
+}
 
 // Initialize workflow panel based on current mode
 function initWorkflowPanel() {
@@ -3752,15 +4145,23 @@ document.addEventListener('modeChanged', (e) => {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-  initWorkflowPanel();
+  // Load workflow modes from API first, then initialize panel
+  loadWorkflowModesFromAPI().then(() => {
+    initWorkflowPanel();
+  });
   
-  // Restore collapsed state
-  if (localStorage.getItem('workflow-panel-collapsed') === 'true') {
+  // Restore collapsed state - default to collapsed if no preference
+  const workflowCollapsed = localStorage.getItem('workflow-panel-collapsed');
+  if (workflowCollapsed === null || workflowCollapsed === 'true') {
     const content = document.getElementById('workflowContent');
     const panel = document.getElementById('workflowPanel');
     if (content) content.style.display = 'none';
     const btn = panel?.querySelector('.workflow-btn:first-child');
     if (btn) btn.textContent = 'Expand';
+    // Save default preference
+    if (workflowCollapsed === null) {
+      localStorage.setItem('workflow-panel-collapsed', 'true');
+    }
   }
   
   // Initialize attention section
@@ -4113,83 +4514,73 @@ function toggleBoxCollapse(box) {
 
 // Initialize attention section on page load
 function initAttentionSection() {
-  // Restore collapsed boxes
+  // Restore collapsed boxes, with DIKW collapsed by default
   const collapsedBoxes = JSON.parse(localStorage.getItem('collapsed-boxes') || '{}');
+  
+  // Default DIKW to collapsed if no preference set
+  if (collapsedBoxes['dikw'] === undefined) {
+    collapsedBoxes['dikw'] = true;
+    localStorage.setItem('collapsed-boxes', JSON.stringify(collapsedBoxes));
+  }
+  
   document.querySelectorAll('.collapsible-box').forEach(box => {
     if (collapsedBoxes[box.dataset.boxId]) {
       box.classList.add('collapsed');
     }
   });
   
-  // Restore dismissed items
-  const dismissedItems = JSON.parse(localStorage.getItem('dismissed-highlights') || '[]');
-  dismissedItems.forEach(id => {
-    const item = document.querySelector(`.highlight-item[data-highlight-id="${id}"]`);
-    if (item) {
-      item.classList.add('dismissed', 'hidden-dismissed');
-    }
-  });
-  
-  // Update count badge
-  updateAttentionCount();
-  
-  // Check if showing dismissed items
-  const showDismissed = localStorage.getItem('show-dismissed-highlights') === 'true';
-  if (showDismissed) {
-    document.querySelectorAll('.highlight-item.dismissed').forEach(item => {
-      item.classList.remove('hidden-dismissed');
-    });
-    const toggleText = document.getElementById('seenToggleText');
-    if (toggleText) toggleText.textContent = 'Hide dismissed';
-  }
+  // Auto-refresh coaching suggestions on page load (silent, no toast)
+  refreshAttention(true);
 }
 
 // Refresh the attention section
-async function refreshAttention() {
-  const btn = document.querySelector('.refresh-btn');
-  const icon = document.getElementById('refreshIcon');
+async function refreshAttention(suppressToast = false) {
+  const btn = document.querySelector('#attentionSection .refresh-btn');
   const section = document.getElementById('attentionSection');
-  
-  // Clear dismissed items on refresh since we're loading fresh data
-  // (indices will change so old dismissals don't make sense)
-  localStorage.removeItem('dismissed-highlights');
+  const content = document.getElementById('attentionContent');
   
   if (btn) btn.classList.add('spinning');
   
   try {
-    const response = await fetch('/api/dashboard/highlights', { credentials: 'same-origin' });
-    if (!response.ok) throw new Error('Failed to fetch highlights');
+    // Pass dismissed IDs to the API so it filters them out
+    const dismissedItems = JSON.parse(localStorage.getItem('dismissed-highlights-v2') || '[]');
+    const dismissedParam = dismissedItems.join(',');
+
+    const response = await fetch(`/api/dashboard/highlights?dismissed=${encodeURIComponent(dismissedParam)}`, { credentials: 'same-origin' });
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Failed to fetch highlights: ${response.status} - ${errText}`);
+    }
     
     const data = await response.json();
-    const content = document.getElementById('attentionContent');
-    
-    console.log('Highlights received:', data.highlights);
     
     if (content) {
       if (data.highlights && data.highlights.length > 0) {
-        // Keep track of dismissed items
-        const dismissedItems = JSON.parse(localStorage.getItem('dismissed-highlights') || '[]');
-        const showDismissed = localStorage.getItem('show-dismissed-highlights') === 'true';
-        
-        console.log('Dismissed items from localStorage:', dismissedItems);
-        console.log('Show dismissed:', showDismissed);
-        
-        content.innerHTML = data.highlights.map((h, index) => {
-          const isDismissed = dismissedItems.includes(String(index + 1));
-          const hiddenClass = isDismissed && !showDismissed ? 'hidden-dismissed' : '';
-          const dismissedClass = isDismissed ? 'dismissed' : '';
-          
+        // Filter out items snoozed for the current sprint
+        const snoozedForSprint = getSnoozedHighlightsForCurrentSprint();
+        const visibleHighlights = data.highlights.filter((h) => !snoozedForSprint.includes(String(h.id)));
+
+        if (visibleHighlights.length === 0) {
+          content.innerHTML = `
+          <div class="empty-attention" style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--sf-text-muted);">
+            <p style="font-size: 1.5rem; margin-bottom: 0.5rem;">✨</p>
+            <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">You're all caught up for this sprint!</p>
+            <p style="font-size: 0.85rem;">Snoozed suggestions will return next sprint.</p>
+          </div>
+        `;
+        } else {
+          content.innerHTML = visibleHighlights.map((h) => {
           return `
-            <div class="highlight-item ${h.type} ${dismissedClass} ${hiddenClass}" data-highlight-id="${index + 1}" data-meeting-source="${h.source || ''}" data-meeting-id="${h.meeting_id || ''}">
+            <div class="highlight-item ${h.type}" data-highlight-id="${h.id}" onclick="navigateHighlight(event, '${h.link}')">
               <div class="highlight-header">
                 <div class="highlight-label">${h.label}</div>
                 <div class="highlight-actions">
-                  <button class="highlight-action-btn drill-btn" onclick="drillDown(this)" title="See more context">
+                  <button class="highlight-action-btn snooze-btn" onclick="snoozeHighlight(event, this)" title="Snooze for this sprint">
                     <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m4-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </button>
-                  <button class="highlight-action-btn dismiss-btn" onclick="dismissHighlight(this)" title="Dismiss (mark as seen)">
+                  <button class="highlight-action-btn dismiss-btn" onclick="dismissHighlight(event, this)" title="Got it! Don't show again">
                     <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                     </svg>
@@ -4197,88 +4588,189 @@ async function refreshAttention() {
                 </div>
               </div>
               <div class="highlight-text">${h.text}</div>
-              <div class="highlight-source">${h.source || ''}</div>
-              <div class="highlight-drilldown" style="display: none;">
-                <div class="drilldown-loading">Loading context...</div>
-                <div class="drilldown-content"></div>
+              <div class="highlight-action-hint">${h.action || ''}</div>
+              <div class="highlight-cta">
+                <span class="highlight-link">${h.link_text || 'View'} →</span>
               </div>
             </div>
           `;
         }).join('');
+        }
         
         // Auto-expand section if it was collapsed and we found items
         if (section && section.classList.contains('collapsed')) {
           section.classList.remove('collapsed');
-          // Update localStorage
           const collapsedBoxes = JSON.parse(localStorage.getItem('collapsed-boxes') || '{}');
           collapsedBoxes['attention'] = false;
           localStorage.setItem('collapsed-boxes', JSON.stringify(collapsedBoxes));
         }
         
-        showToast('Refreshed', `Found ${data.highlights.length} item(s)`, 'success');
+        const count = document.querySelectorAll('.highlight-item').length;
+        if (!suppressToast) {
+          showToast('Refreshed', `Found ${count} item(s) needing attention`, 'success');
+        }
       } else {
         content.innerHTML = `
           <div class="empty-attention" style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--sf-text-muted);">
-            <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">✨ All clear!</p>
-            <p style="font-size: 0.9rem;">No items need your attention right now.</p>
+            <p style="font-size: 1.5rem; margin-bottom: 0.5rem;">✨</p>
+            <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">You're all caught up!</p>
+            <p style="font-size: 0.85rem;">No coaching suggestions right now. Keep up the great work!</p>
           </div>
         `;
-        showToast('Refreshed', 'No new items', 'info');
       }
       updateAttentionCount();
-    } else {
-      console.error('attentionContent element not found');
     }
   } catch (err) {
     console.error('Failed to refresh attention:', err);
-    showToast('Error', 'Could not refresh items', 'error');
+    // Show a more helpful error state
+    const content = document.getElementById('attentionContent');
+    if (content) {
+      content.innerHTML = `
+        <div class="empty-attention" style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--sf-text-muted);">
+          <p style="font-size: 1.5rem; margin-bottom: 0.5rem;">⚠️</p>
+          <p style="font-size: 0.9rem; margin-bottom: 0.5rem;">Could not load suggestions</p>
+          <p style="font-size: 0.8rem;">${err.message || 'Click refresh to try again'}</p>
+        </div>
+      `;
+    }
+    updateAttentionCount();
   } finally {
     if (btn) btn.classList.remove('spinning');
   }
 }
 
-// Toggle show/hide dismissed items
-function toggleSeenItems() {
-  const showDismissed = localStorage.getItem('show-dismissed-highlights') !== 'true';
-  localStorage.setItem('show-dismissed-highlights', showDismissed);
-  
-  const toggleText = document.getElementById('seenToggleText');
-  
-  document.querySelectorAll('.highlight-item.dismissed').forEach(item => {
-    if (showDismissed) {
-      item.classList.remove('hidden-dismissed');
-    } else {
-      item.classList.add('hidden-dismissed');
-    }
-  });
-  
-  if (toggleText) {
-    toggleText.textContent = showDismissed ? 'Hide dismissed' : 'Show dismissed';
+// Navigate when clicking a highlight card
+function navigateHighlight(event, link) {
+  // Don't navigate if clicking the dismiss button
+  if (event.target.closest('.dismiss-btn') || event.target.closest('.snooze-btn')) return;
+  if (link) {
+    window.location.href = link;
   }
 }
 
-// Dismiss a highlight item
-function dismissHighlight(btn) {
+// Toggle show/hide dismissed items (removed - dismissals are now permanent)
+function toggleSeenItems() {
+  // Clear all dismissed items to start fresh
+  if (confirm('Clear all dismissed items and refresh?')) {
+    localStorage.removeItem('dismissed-highlights-v2');
+    refreshAttention();
+    showToast('Reset', 'Dismissed items cleared', 'info');
+  }
+}
+
+// Dismiss a highlight item (permanently by ID)
+function dismissHighlight(event, btn) {
+  event.stopPropagation();
   const item = btn.closest('.highlight-item');
   const id = item.dataset.highlightId;
   
-  // Save to localStorage
-  const dismissedItems = JSON.parse(localStorage.getItem('dismissed-highlights') || '[]');
+  // Save to localStorage by unique ID
+  const dismissedItems = JSON.parse(localStorage.getItem('dismissed-highlights-v2') || '[]');
   if (!dismissedItems.includes(id)) {
     dismissedItems.push(id);
-    localStorage.setItem('dismissed-highlights', JSON.stringify(dismissedItems));
+    localStorage.setItem('dismissed-highlights-v2', JSON.stringify(dismissedItems));
   }
   
-  // Update UI
-  item.classList.add('dismissed');
+  // Animate out
+  item.style.transition = 'all 0.3s ease';
+  item.style.transform = 'scale(0.9)';
+  item.style.opacity = '0';
   
-  const showDismissed = localStorage.getItem('show-dismissed-highlights') === 'true';
-  if (!showDismissed) {
-    item.classList.add('hidden-dismissed');
+  setTimeout(() => {
+    item.remove();
+    updateAttentionCount();
+    
+    // Check if we should show "all clear" message
+    const remaining = document.querySelectorAll('.highlight-item').length;
+    if (remaining === 0) {
+      const content = document.getElementById('attentionContent');
+      if (content) {
+        content.innerHTML = `
+          <div class="empty-attention" style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--sf-text-muted);">
+            <p style="font-size: 1.5rem; margin-bottom: 0.5rem;">✨</p>
+            <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">You're all caught up!</p>
+            <p style="font-size: 0.85rem;">Click refresh to check for new suggestions.</p>
+          </div>
+        `;
+      }
+    }
+  }, 300);
+  
+  showToast('Got it!', 'Suggestion dismissed', 'success');
+}
+
+// Helpers for sprint-based snoozing
+function getCurrentSprintKey() {
+  const dashboard = document.getElementById('dashboard');
+  return (dashboard && dashboard.dataset.sprintKey) ? dashboard.dataset.sprintKey : 'no-sprint';
+}
+
+function getSnoozedHighlightsStore() {
+  try {
+    const raw = localStorage.getItem('snoozed-highlights-by-sprint-v1') || '{}';
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (e) {
+    console.warn('Failed to parse snoozed highlights store', e);
+    return {};
   }
-  
-  updateAttentionCount();
-  showToast('Dismissed', 'Item marked as seen', 'info');
+}
+
+function saveSnoozedHighlightsStore(store) {
+  localStorage.setItem('snoozed-highlights-by-sprint-v1', JSON.stringify(store || {}));
+}
+
+function getSnoozedHighlightsForCurrentSprint() {
+  const key = getCurrentSprintKey();
+  const store = getSnoozedHighlightsStore();
+  const list = store[key];
+  return Array.isArray(list) ? list.map(String) : [];
+}
+
+function addSnoozedHighlightForCurrentSprint(id) {
+  const key = getCurrentSprintKey();
+  const store = getSnoozedHighlightsStore();
+  const current = Array.isArray(store[key]) ? store[key].map(String) : [];
+  const idStr = String(id);
+  if (!current.includes(idStr)) {
+    current.push(idStr);
+    store[key] = current;
+    saveSnoozedHighlightsStore(store);
+  }
+}
+
+// Snooze a highlight for the current sprint only
+function snoozeHighlight(event, btn) {
+  event.stopPropagation();
+  const item = btn.closest('.highlight-item');
+  const id = item.dataset.highlightId;
+
+  addSnoozedHighlightForCurrentSprint(id);
+
+  item.style.transition = 'all 0.3s ease';
+  item.style.transform = 'scale(0.9)';
+  item.style.opacity = '0';
+
+  setTimeout(() => {
+    item.remove();
+    updateAttentionCount();
+
+    const remaining = document.querySelectorAll('.highlight-item').length;
+    if (remaining === 0) {
+      const content = document.getElementById('attentionContent');
+      if (content) {
+        content.innerHTML = `
+          <div class="empty-attention" style="grid-column: 1 / -1; text-align: center; padding: 2rem; color: var(--sf-text-muted);">
+            <p style="font-size: 1.5rem; margin-bottom: 0.5rem;">✨</p>
+            <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">You're all caught up for this sprint!</p>
+            <p style="font-size: 0.85rem;">Snoozed suggestions will return next sprint.</p>
+          </div>
+        `;
+      }
+    }
+  }, 300);
+
+  showToast('Snoozed', 'We will remind you next sprint', 'info');
 }
 
 // Update the attention count badge
@@ -4291,6 +4783,7 @@ function updateAttentionCount() {
   const active = total - dismissed;
   
   badge.textContent = active;
+  badge.style.opacity = '1';
   badge.style.background = active > 0 ? '#ef4444' : '#6b7280';
 }
 
@@ -4320,6 +4813,8 @@ async function drillDown(btn) {
   const meetingId = item.dataset.meetingId;
   const highlightText = item.querySelector('.highlight-text').textContent;
   
+  console.log('drillDown:', { meetingSource, meetingId, highlightText: highlightText.substring(0, 50) });
+  
   try {
     // Fetch context for this highlight
     const response = await fetch('/api/dashboard/highlight-context', {
@@ -4329,18 +4824,22 @@ async function drillDown(btn) {
       body: JSON.stringify({
         source: meetingSource,
         text: highlightText,
-        meeting_id: meetingId
+        meeting_id: meetingId || null
       })
     });
     
-    if (!response.ok) throw new Error('Failed to load context');
+    console.log('Context response status:', response.status);
+    
+    if (!response.ok) throw new Error(`Failed to load context: ${response.status}`);
     
     const raw = await response.text();
+    console.log('Context raw response:', raw.substring(0, 200));
+    
     let data;
     try {
       data = JSON.parse(raw);
     } catch (e) {
-      throw new Error('Invalid response');
+      throw new Error('Invalid JSON response');
     }
     loading.style.display = 'none';
     

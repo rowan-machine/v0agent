@@ -1004,3 +1004,52 @@
 .workflow-panel.mode-g .workflow-progress-fill {
   background: linear-gradient(90deg, #6366f1, #818cf8);
 }
+
+/* ===== DARK MODE FOR WORKFLOW PANEL ===== */
+[data-theme="dark"] .workflow-panel {
+  background: #2d2d2d;
+  border-color: #4a4a4a;
+}
+
+[data-theme="dark"] .workflow-panel-content {
+  background: #2d2d2d;
+}
+
+[data-theme="dark"] .workflow-checklist-item {
+  background: #3a3a3a;
+  border-bottom-color: #4a4a4a;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  padding: 0.75rem;
+}
+
+[data-theme="dark"] .workflow-checklist-title {
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .workflow-checklist-desc {
+  color: #d0d0d0 !important;
+}
+
+[data-theme="dark"] .workflow-checkbox {
+  border-color: #5a5a5a;
+  background: #3a3a3a;
+}
+
+[data-theme="dark"] .workflow-checkbox:hover {
+  border-color: #8b5cf6;
+}
+
+[data-theme="dark"] .workflow-progress {
+  border-top-color: #4a4a4a;
+}
+
+[data-theme="dark"] .workflow-progress-bar {
+  background: #4a4a4a;
+}
+
+[data-theme="dark"] .workflow-progress-text {
+  color: #b0b0b0;
+}
+

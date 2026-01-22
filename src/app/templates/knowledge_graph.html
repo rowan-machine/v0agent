@@ -2,9 +2,16 @@
 {% block content %}
 <style>
   .graph-container {
-    max-width: 1400px;
+    max-width: 100%;
+    width: 100%;
     margin: 0 auto;
     padding: 1.5rem;
+  }
+  
+  @media (min-width: 1800px) {
+    .graph-container {
+      padding: 2rem 3rem;
+    }
   }
 
   .graph-header {
@@ -252,6 +259,13 @@
     border-color: #667eea;
   }
 
+  .tag-item.active {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3);
+  }
+
   .tag-item .tag-count {
     background: rgba(0,0,0,0.1);
     padding: 0.1rem 0.4rem;
@@ -279,6 +293,68 @@
   .recent-item:hover {
     background: #f0f0ff;
     border-left-color: #667eea;
+  }
+
+  /* Dark mode overrides */
+  [data-theme="dark"] .graph-header h1,
+  [data-theme="dark"] .panel-header h3,
+  [data-theme="dark"] .stat-label,
+  [data-theme="dark"] .stat-value {
+    color: #faf6f1 !important;
+  }
+
+  [data-theme="dark"] .panel,
+  [data-theme="dark"] .stat-card,
+  [data-theme="dark"] .mindmap-card {
+    background: #2d2d2d !important;
+    border-color: #4a4a4a !important;
+  }
+
+  [data-theme="dark"] .panel-header,
+  [data-theme="dark"] .legend {
+    border-color: #4a4a4a !important;
+  }
+
+  [data-theme="dark"] .tag-item {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+    color: #c9b99a !important;
+  }
+
+  [data-theme="dark"] .tag-item:hover,
+  [data-theme="dark"] .tag-item.active {
+    background: #a0522d !important;
+    border-color: #a0522d !important;
+    color: #faf6f1 !important;
+  }
+
+  [data-theme="dark"] .tag-item.active {
+    box-shadow: 0 0 0 2px rgba(160, 82, 45, 0.3);
+  }
+
+  [data-theme="dark"] .recent-item {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+  }
+
+  [data-theme="dark"] .recent-item:hover {
+    background: #4a4a4a !important;
+    border-left-color: #a0522d !important;
+  }
+
+  [data-theme="dark"] .recent-item-level,
+  [data-theme="dark"] .recent-item-content {
+    color: #c9b99a !important;
+  }
+
+  [data-theme="dark"] .graph-btn-secondary {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+    color: #faf6f1 !important;
+  }
+
+  [data-theme="dark"] .legend-label {
+    color: #c9b99a !important;
   }
 
   .recent-item.data { border-left-color: #3b82f6; }
@@ -423,14 +499,8 @@
   <!-- Mindmap Visualization -->
   <div class="mindmap-container">
     <div class="mindmap-header">
-      <h2>🕸️ DIKW Mindmap</h2>
+      <h2>🕸️ Knowledge Graph</h2>
       <div class="mindmap-controls">
-        <label style="font-size:0.85rem;color:#6b7280;">View:</label>
-        <select id="viewMode" onchange="changeView()">
-          <option value="radial">Radial Tree</option>
-          <option value="force">Force Graph</option>
-          <option value="cluster">Tag Clusters</option>
-        </select>
         <button class="graph-btn graph-btn-secondary" onclick="zoomIn()" style="padding:0.4rem 0.6rem;">➕</button>
         <button class="graph-btn graph-btn-secondary" onclick="zoomOut()" style="padding:0.4rem 0.6rem;">➖</button>
         <button class="graph-btn graph-btn-secondary" onclick="resetZoom()" style="padding:0.4rem 0.6rem;">↺</button>
@@ -483,7 +553,7 @@ let mindmapData = null;
 let svg = null;
 let g = null;
 let zoom = null;
-let currentView = 'radial';
+let currentView = 'force';
 let simulation = null;
 
 const LEVEL_COLORS = {
@@ -497,23 +567,47 @@ const LEVEL_COLORS = {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadMindmapData();
-  initMindmap();
+  // Always try to load panels (they use different endpoints)
   loadTagCloud();
   loadRecentItems();
   loadLastSyncInfo();
+  
+  // Load mindmap data
+  const data = await loadMindmapData();
+  if (data) {
+    initMindmap();
+  } else {
+    // Show auth message in mindmap area
+    const container = document.getElementById('mindmapCanvas');
+    if (container) {
+      container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#9ca3af;font-size:1.1rem;">Please refresh and log in to view the mindmap</div>';
+    }
+  }
 });
 
 // Load mindmap data from API
 async function loadMindmapData() {
   try {
     const response = await fetch('/api/mindmap/data', { credentials: 'same-origin' });
+    
+    if (response.status === 401) {
+      console.error('Session expired');
+      showToast('⚠️ Session expired - please refresh and log in again', true);
+      return null;
+    }
+    
     if (response.ok) {
       mindmapData = await response.json();
+      console.log('Loaded mindmap data:', mindmapData.counts, 'nodes:', mindmapData.nodes?.length, 'tree children:', mindmapData.tree?.children?.length);
       updateStats(mindmapData);
+      return mindmapData;
+    } else {
+      console.error('Failed to load mindmap data, status:', response.status);
+      return null;
     }
   } catch (err) {
     console.error('Failed to load mindmap data:', err);
+    return null;
   }
 }
 
@@ -529,8 +623,15 @@ function updateStats(data) {
 // Initialize D3 mindmap
 function initMindmap() {
   const container = document.getElementById('mindmapCanvas');
-  const width = container.clientWidth;
+  if (!container) {
+    console.error('mindmapCanvas container not found');
+    return;
+  }
+  
+  const width = container.clientWidth || 800;
   const height = container.clientHeight || 550;
+  
+  console.log('initMindmap called, view:', currentView, 'width:', width, 'data:', mindmapData?.nodes?.length, 'items');
   
   // Clear existing
   container.innerHTML = '';
@@ -556,7 +657,14 @@ function initMindmap() {
   g = svg.append('g')
     .attr('transform', `translate(${width/2}, ${height/2})`);
   
-  if (mindmapData && mindmapData.nodes && mindmapData.nodes.length > 0) {
+  // Check if we have data to render
+  const hasItems = mindmapData && mindmapData.nodes && mindmapData.nodes.some(n => n.type === 'item');
+  const hasTree = mindmapData && mindmapData.tree && mindmapData.tree.children && 
+                  mindmapData.tree.children.some(c => c.children && c.children.length > 0);
+  
+  console.log('hasItems:', hasItems, 'hasTree:', hasTree);
+  
+  if (hasItems || hasTree) {
     renderMindmap();
   } else {
     g.append('text')
@@ -567,11 +675,16 @@ function initMindmap() {
 }
 
 function renderMindmap() {
-  if (!mindmapData) return;
+  if (!mindmapData) {
+    console.error('renderMindmap called but no mindmapData');
+    return;
+  }
   
   const container = document.getElementById('mindmapCanvas');
-  const width = container.clientWidth;
+  const width = container.clientWidth || 800;
   const height = container.clientHeight || 550;
+  
+  console.log('renderMindmap:', currentView, 'width:', width, 'height:', height);
   
   // Clear previous rendering
   g.selectAll('*').remove();
@@ -587,10 +700,17 @@ function renderMindmap() {
 }
 
 function renderRadialTree(width, height) {
-  if (!mindmapData.tree) return;
+  if (!mindmapData.tree) {
+    console.error('renderRadialTree: no tree data');
+    return;
+  }
+  
+  console.log('renderRadialTree: tree has', mindmapData.tree.children?.length, 'children');
   
   const radius = Math.min(width, height) / 2 - 80;
   const root = d3.hierarchy(mindmapData.tree);
+  
+  console.log('renderRadialTree: hierarchy has', root.descendants().length, 'total nodes');
   
   // Create radial tree layout
   const tree = d3.tree()
@@ -639,7 +759,12 @@ function renderRadialTree(width, height) {
 }
 
 function renderForceGraph(width, height) {
-  if (!mindmapData.nodes || !mindmapData.links) return;
+  if (!mindmapData.nodes || !mindmapData.links) {
+    console.error('renderForceGraph: no nodes or links data');
+    return;
+  }
+  
+  console.log('renderForceGraph:', mindmapData.nodes.length, 'nodes,', mindmapData.links.length, 'links');
   
   // Reset transform for force layout
   g.attr('transform', null);
@@ -717,7 +842,12 @@ function renderForceGraph(width, height) {
 }
 
 function renderClusterView(width, height) {
-  if (!mindmapData.tagClusters) return;
+  if (!mindmapData.tagClusters) {
+    console.error('renderClusterView: no tagClusters data');
+    return;
+  }
+  
+  console.log('renderClusterView:', Object.keys(mindmapData.tagClusters).length, 'tag clusters');
   
   // Reset transform
   g.attr('transform', `translate(${width/2}, ${height/2})`);
@@ -845,16 +975,28 @@ async function regenerateMindmap() {
       body: JSON.stringify({ full: true })
     });
     
+    if (response.status === 401) {
+      showToast('⚠️ Session expired - please refresh and log in again', true);
+      return;
+    }
+    
     if (response.ok) {
-      await loadMindmapData();
-      initMindmap();
-      loadTagCloud();
-      loadLastSyncInfo();
-      showToast('Mindmap regenerated successfully!');
+      const result = await response.json();
+      console.log('Regenerate result:', result);
+      const data = await loadMindmapData();
+      if (data) {
+        initMindmap();
+        await loadTagCloud();
+        loadLastSyncInfo();
+        loadRecentItems();
+        showToast(`Mindmap regenerated with ${result.total_items || 0} items!`);
+      }
     } else {
-      showToast('Failed to regenerate mindmap', true);
+      const err = await response.json();
+      showToast('Failed to regenerate: ' + (err.error || 'Unknown error'), true);
     }
   } catch (err) {
+    console.error('Regenerate error:', err);
     showToast('Failed to regenerate mindmap', true);
   } finally {
     btn.disabled = false;
@@ -876,17 +1018,28 @@ async function updateMindmap() {
       body: JSON.stringify({ full: false })
     });
     
+    if (response.status === 401) {
+      showToast('⚠️ Session expired - please refresh and log in again', true);
+      return;
+    }
+    
     if (response.ok) {
       const result = await response.json();
-      await loadMindmapData();
-      initMindmap();
-      loadTagCloud();
-      loadLastSyncInfo();
-      showToast(`Added ${result.new_items || 0} new items`);
+      console.log('Update result:', result);
+      const data = await loadMindmapData();
+      if (data) {
+        initMindmap();
+        await loadTagCloud();
+        loadLastSyncInfo();
+        loadRecentItems();
+        showToast(`Updated! ${result.new_items || 0} new items (${result.total_items || 0} total)`);
+      }
     } else {
-      showToast('Failed to update mindmap', true);
+      const err = await response.json();
+      showToast('Failed to update: ' + (err.error || 'Unknown error'), true);
     }
   } catch (err) {
+    console.error('Update error:', err);
     showToast('Failed to update mindmap', true);
   } finally {
     btn.disabled = false;
@@ -896,11 +1049,15 @@ async function updateMindmap() {
 
 // Load tag cloud
 async function loadTagCloud() {
+  const cloud = document.getElementById('tagCloud');
   try {
     const response = await fetch('/api/mindmap/tags', { credentials: 'same-origin' });
+    if (response.status === 401) {
+      cloud.innerHTML = '<div style="text-align:center;color:#ef4444;padding:1rem;width:100%;">Session expired - please refresh</div>';
+      return;
+    }
     if (response.ok) {
       const tags = await response.json();
-      const cloud = document.getElementById('tagCloud');
       document.getElementById('tagCloudCount').textContent = `${tags.length} tags`;
       
       if (tags.length > 0) {
@@ -910,21 +1067,29 @@ async function loadTagCloud() {
           </div>
         `).join('');
       } else {
-        cloud.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:1rem;width:100%;">No tags yet</div>';
+        cloud.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:1rem;width:100%;">No tags yet - generate items first</div>';
       }
+    } else {
+      console.error('Failed to load tags, status:', response.status);
+      cloud.innerHTML = '<div style="text-align:center;color:#ef4444;padding:1rem;width:100%;">Failed to load tags</div>';
     }
   } catch (err) {
     console.error('Failed to load tag cloud:', err);
+    cloud.innerHTML = '<div style="text-align:center;color:#ef4444;padding:1rem;width:100%;">Error loading tags</div>';
   }
 }
 
 // Load recent items
 async function loadRecentItems() {
+  const list = document.getElementById('recentList');
   try {
     const response = await fetch('/api/dikw', { credentials: 'same-origin' });
+    if (response.status === 401) {
+      list.innerHTML = '<div style="text-align:center;color:#ef4444;padding:1rem;">Session expired - please refresh</div>';
+      return;
+    }
     if (response.ok) {
       const data = await response.json();
-      const list = document.getElementById('recentList');
       
       // Flatten pyramid into recent items
       const items = [];
@@ -942,11 +1107,15 @@ async function loadRecentItems() {
           </div>
         `).join('');
       } else {
-        list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:1rem;">No items yet</div>';
+        list.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:1rem;">No items yet - add items on the DIKW page</div>';
       }
+    } else {
+      console.error('Failed to load recent items, status:', response.status);
+      list.innerHTML = '<div style="text-align:center;color:#ef4444;padding:1rem;">Failed to load items</div>';
     }
   } catch (err) {
     console.error('Failed to load recent items:', err);
+    list.innerHTML = '<div style="text-align:center;color:#ef4444;padding:1rem;">Error loading items</div>';
   }
 }
 
@@ -967,8 +1136,92 @@ async function loadLastSyncInfo() {
   }
 }
 
+let activeTagFilter = null;
+let originalMindmapData = null;
+
 function filterByTag(tag) {
-  showToast(`Filtering by tag: ${tag}`, false, 'info');
+  if (!mindmapData) {
+    showToast('No mindmap data loaded', true);
+    return;
+  }
+  
+  // Store original data if not already stored
+  if (!originalMindmapData) {
+    originalMindmapData = {
+      nodes: JSON.parse(JSON.stringify(mindmapData.nodes)),
+      links: JSON.parse(JSON.stringify(mindmapData.links)),
+      tree: mindmapData.tree,
+      tagClusters: mindmapData.tagClusters,
+      counts: mindmapData.counts
+    };
+  }
+  
+  // Toggle filter - clear if same tag clicked
+  if (activeTagFilter === tag) {
+    activeTagFilter = null;
+    // Remove all tag highlighting
+    document.querySelectorAll('.tag-item').forEach(el => el.classList.remove('active'));
+    // Restore original data
+    mindmapData.nodes = originalMindmapData.nodes;
+    mindmapData.links = originalMindmapData.links;
+    showToast('Filter cleared - showing all items', false, 'info');
+    renderMindmap();
+    return;
+  }
+  
+  // Update tag cloud highlighting - clear all first, then highlight selected
+  document.querySelectorAll('.tag-item').forEach(el => el.classList.remove('active'));
+  const tagItems = document.querySelectorAll('.tag-item');
+  tagItems.forEach(el => {
+    if (el.textContent.includes(tag)) {
+      el.classList.add('active');
+    }
+  });
+  
+  // Restore original before applying new filter
+  mindmapData.nodes = JSON.parse(JSON.stringify(originalMindmapData.nodes));
+  mindmapData.links = JSON.parse(JSON.stringify(originalMindmapData.links));
+  
+  activeTagFilter = tag;
+  const tagLower = tag.toLowerCase();
+  
+  // Check if tag exists in tagClusters
+  if (!mindmapData.tagClusters || !mindmapData.tagClusters[tagLower]) {
+    showToast(`No items found with tag: ${tag}`, true);
+    return;
+  }
+  
+  // Get IDs of items with this tag
+  const taggedItemIds = new Set(mindmapData.tagClusters[tagLower].map(item => `item_${item.id}`));
+  
+  // Filter nodes to only show items with this tag (plus root and level nodes)
+  const filteredNodes = mindmapData.nodes.filter(n => {
+    if (n.type === 'root' || n.type === 'level') return true;
+    return taggedItemIds.has(n.id);
+  });
+  
+  // Count filtered items
+  const itemCount = filteredNodes.filter(n => n.type === 'item').length;
+  
+  if (itemCount === 0) {
+    showToast(`No items found with tag: ${tag}`, true);
+    return;
+  }
+  
+  // Filter links to only include filtered nodes
+  const nodeIds = new Set(filteredNodes.map(n => n.id));
+  const filteredLinks = mindmapData.links.filter(l => {
+    const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+    const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+    return nodeIds.has(sourceId) && nodeIds.has(targetId);
+  });
+  
+  // Update mindmap data
+  mindmapData.nodes = filteredNodes;
+  mindmapData.links = filteredLinks;
+  
+  showToast(`Filtering by "${tag}": ${itemCount} items`, false, 'info');
+  renderMindmap();
 }
 
 function showToast(message, isError = false, type = null) {
