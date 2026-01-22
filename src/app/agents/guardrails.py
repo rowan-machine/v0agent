@@ -119,8 +119,10 @@ DEFAULT_GUARDRAIL_CONFIG = {
     },
     
     "agents": {
+        # Core multi-agent system
         "arjuna": {
             "enabled": True,
+            "description": "Primary assistant - navigation, help, system knowledge",
             "block_patterns": [
                 r"(?i)ignore\s+(all\s+)?(previous|prior)\s+instructions",
                 r"(?i)disregard\s+(your\s+)?(system|initial)\s+prompt",
@@ -138,6 +140,7 @@ DEFAULT_GUARDRAIL_CONFIG = {
         },
         "career_coach": {
             "enabled": True,
+            "description": "Career development advice, skills tracking, standup analysis",
             "block_patterns": [],
             "warn_patterns": [],
             "pii_detection": True,
@@ -148,6 +151,7 @@ DEFAULT_GUARDRAIL_CONFIG = {
         },
         "meeting_analyzer": {
             "enabled": True,
+            "description": "Meeting signal extraction - decisions, actions, blockers, risks, ideas",
             "block_patterns": [],
             "warn_patterns": [],
             "pii_detection": False,  # Meetings may contain names
@@ -158,6 +162,7 @@ DEFAULT_GUARDRAIL_CONFIG = {
         },
         "dikw_synthesizer": {
             "enabled": True,
+            "description": "DIKW pyramid knowledge synthesis and promotion",
             "block_patterns": [],
             "warn_patterns": [],
             "pii_detection": False,
@@ -165,6 +170,131 @@ DEFAULT_GUARDRAIL_CONFIG = {
             "reflection_enabled": True,
             "hallucination_threshold": 0.5,  # Synthesis needs flexibility
             "require_citations": True,
+        },
+        
+        # Chat & conversation agents
+        "chat": {
+            "enabled": True,
+            "description": "Main chat interface - conversational Q&A with RAG retrieval",
+            "block_patterns": [
+                r"(?i)ignore\s+(all\s+)?(previous|prior)\s+instructions",
+            ],
+            "warn_patterns": [],
+            "pii_detection": False,
+            "prompt_injection_detection": True,
+            "reflection_enabled": True,
+            "hallucination_threshold": 0.7,
+            "require_citations": True,
+        },
+        "query": {
+            "enabled": True,
+            "description": "Single-turn Q&A with document/meeting retrieval",
+            "block_patterns": [
+                r"(?i)ignore\s+(all\s+)?(previous|prior)\s+instructions",
+            ],
+            "warn_patterns": [],
+            "pii_detection": False,
+            "prompt_injection_detection": True,
+            "reflection_enabled": True,
+            "hallucination_threshold": 0.7,
+            "require_citations": True,
+        },
+        "query_planner": {
+            "enabled": True,
+            "description": "Query planning - keyword/concept extraction for search",
+            "block_patterns": [],
+            "warn_patterns": [],
+            "pii_detection": False,
+            "prompt_injection_detection": False,
+            "reflection_enabled": False,
+            "hallucination_threshold": 1.0,
+            "require_citations": False,
+        },
+        "assistant": {
+            "enabled": True,
+            "description": "Smart assistant - intent parsing, ticket creation, navigation",
+            "block_patterns": [
+                r"(?i)ignore\s+(all\s+)?(previous|prior)\s+instructions",
+                r"(?i)execute\s+(system|shell|bash|cmd)\s+command",
+            ],
+            "warn_patterns": [
+                r"(?i)delete\s+(all|everything)",
+            ],
+            "pii_detection": True,
+            "prompt_injection_detection": True,
+            "reflection_enabled": True,
+            "hallucination_threshold": 0.6,
+            "require_citations": False,
+        },
+        
+        # Utility agents
+        "signals": {
+            "enabled": True,
+            "description": "Signal browsing and analysis across meetings",
+            "block_patterns": [],
+            "warn_patterns": [],
+            "pii_detection": False,
+            "prompt_injection_detection": True,
+            "reflection_enabled": True,
+            "hallucination_threshold": 0.8,
+            "require_citations": True,
+        },
+        "dashboard": {
+            "enabled": True,
+            "description": "Dashboard quick-ask and overview AI features",
+            "block_patterns": [
+                r"(?i)ignore\s+(all\s+)?(previous|prior)\s+instructions",
+            ],
+            "warn_patterns": [],
+            "pii_detection": False,
+            "prompt_injection_detection": True,
+            "reflection_enabled": True,
+            "hallucination_threshold": 0.7,
+            "require_citations": False,
+        },
+        "vision": {
+            "enabled": True,
+            "description": "Image analysis - screenshots, diagrams, meeting visuals",
+            "block_patterns": [],
+            "warn_patterns": [],
+            "pii_detection": True,
+            "prompt_injection_detection": False,
+            "reflection_enabled": True,
+            "hallucination_threshold": 0.6,
+            "require_citations": False,
+        },
+        "tickets": {
+            "enabled": True,
+            "description": "Ticket AI features - auto-tagging, descriptions, sprint analysis",
+            "block_patterns": [],
+            "warn_patterns": [],
+            "pii_detection": False,
+            "prompt_injection_detection": True,
+            "reflection_enabled": True,
+            "hallucination_threshold": 0.7,
+            "require_citations": False,
+        },
+        "embedding": {
+            "enabled": False,  # Embeddings are vectors, no text guardrails needed
+            "description": "Embedding generation for semantic search",
+            "block_patterns": [],
+            "warn_patterns": [],
+            "pii_detection": False,
+            "prompt_injection_detection": False,
+            "reflection_enabled": False,
+            "hallucination_threshold": 1.0,
+            "require_citations": False,
+        },
+        "title_generator": {
+            "enabled": True,
+            "description": "Chat title generation from first message",
+            "block_patterns": [],
+            "warn_patterns": [],
+            "pii_detection": False,
+            "prompt_injection_detection": True,
+            "reflection_enabled": False,
+            "hallucination_threshold": 1.0,
+            "require_citations": False,
         },
     },
     

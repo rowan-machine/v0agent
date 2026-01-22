@@ -142,14 +142,39 @@ DEFAULT_ROUTING_POLICY = {
             "cost_tier": "premium",
             "description": "Image analysis, screenshot extraction"
         },
+        
+        # Special task type for embeddings (not LLM)
+        "embedding": {
+            "default_model": "text-embedding-3-small",
+            "fallback_models": ["text-embedding-ada-002"],
+            "latency_budget_ms": 2000,
+            "max_tokens": 8000,
+            "cost_tier": "low",
+            "description": "Text embeddings for semantic search"
+        },
     },
     
     # Agent → default task type mapping
     "agent_defaults": {
+        # Core multi-agent system
         "arjuna": "conversation",
         "career_coach": "analysis",
         "meeting_analyzer": "extraction",
         "dikw_synthesizer": "synthesis",
+        
+        # Chat & conversation
+        "chat": "conversation",
+        "query": "conversation",
+        "query_planner": "parsing",
+        "assistant": "classification",
+        
+        # Utility agents
+        "signals": "extraction",
+        "dashboard": "summarization",
+        "vision": "vision",
+        "tickets": "parsing",
+        "embedding": "embedding",
+        "title_generator": "summarization",
     },
     
     # Global fallback if task type unknown
