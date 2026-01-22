@@ -1,54 +1,61 @@
 ---
-description: FastAPI route specifications for meetings and documents with custom business workflows
+description: Documents FastAPI endpoints implementing CRUD operations for meetings and documents with domain-specific signal processing
 ---
 
 
 # api-endpoints
 
-Key API Endpoints and Business Logic:
+Core API Routes:
 
-## Meeting Management (Importance: 85)
-File: src/app/routes/meetings.py
+1. Meeting Management
+Importance Score: 85/100
+- POST /meetings/create
+  - Extracts signals (decisions, actions, blockers) from meeting transcripts
+  - Processes screenshots for visual context
+  - Assigns meeting categories based on content analysis
+  - Links related documents and participants
 
-- Structured signal extraction during meeting creation
-- Auto-categorization of extracted content into:
-  - Decisions
-  - Action items 
-  - Blockers
-  - Key risks
-  - Ideas
-  - Context
-- Meeting transcript processing with dual-source handling
-- Screenshot analysis integration with meeting context
+- PUT /meetings/{id}/signals  
+  - Updates extracted signals with status transitions
+  - Merges overlapping signals from different sources
+  - Tracks signal approval workflow states
+  - Links signals to sprint tasks and documents
 
-## Document Processing (Importance: 80)
-File: src/app/routes/documents.py
+2. Document Processing 
+Importance Score: 80/100
+- POST /documents/upload
+  - Classifies document type and purpose
+  - Extracts relevant signals and knowledge items
+  - Maps document relationships in knowledge graph
+  - Links to associated meetings and tickets
 
-- Custom signal extraction pipeline for documents
-- Business-specific document categorization system
-- Integration with knowledge graph for relationship mapping
-- Document-to-signal extraction with meeting associations
+- PUT /documents/{id}/categorize
+  - Updates document categorization
+  - Processes document relationships
+  - Extracts new signals from content updates
+  - Maintains document version history
 
-## Ticket Lifecycle (Importance: 75)
-File: src/app/routes/tickets.py
+3. Signal Management
+Importance Score: 90/100
+- POST /signals/extract
+  - Processes meeting/document content for signal extraction
+  - Categorizes signals (decision, action, blocker, risk, idea)
+  - Assigns signal priority and status
+  - Links signals to knowledge graph entities
 
-- Sprint-based task decomposition
-- Custom timeboxing calculations
-- Code file version tracking per ticket
-- Working days calculation excluding weekends
+- PUT /signals/{id}/status
+  - Updates signal workflow status
+  - Handles signal approval/rejection flow
+  - Tracks signal archival states
+  - Maintains signal relationship mapping
 
-## Signal Processing (Importance: 90)
-File: src/app/routes/signals.py
-
-- Domain-specific signal classification
-- Signal evolution tracking through states:
-  - Pending
-  - Approved
-  - Rejected
-  - Archived
-  - Completed
-- Signal aggregation based on business dates
-- Meeting-to-signal relationship management
+4. Knowledge Integration
+Importance Score: 75/100 
+- POST /knowledge/map
+  - Creates knowledge graph relationships
+  - Maps signal connections and dependencies
+  - Tracks knowledge entity progression
+  - Links related meetings and documents
 
 $END$
 

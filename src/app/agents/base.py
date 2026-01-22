@@ -17,6 +17,27 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def estimate_tokens(text: str) -> int:
+    """
+    Estimate token count for text using a heuristic.
+    
+    Uses ~4 characters per token as a reasonable estimate for GPT models.
+    This is more accurate than word splitting for real-world text.
+    For precise counting, use tiktoken library.
+    
+    Args:
+        text: Input text to estimate tokens for
+    
+    Returns:
+        Estimated token count
+    """
+    if not text:
+        return 0
+    # ~4 chars per token is a reasonable heuristic for GPT models
+    # Slightly better than len(text.split()) which underestimates
+    return max(1, len(text) // 4)
+
+
 class AgentConfig(BaseModel):
     """Configuration for an AI agent."""
     
@@ -182,8 +203,8 @@ class BaseAgent(ABC):
             self._log_interaction(
                 model=selected_model,
                 task_type=task_type,
-                prompt_tokens=len(prompt.split()),
-                completion_tokens=len(response.split()),
+                prompt_tokens=estimate_tokens(prompt),
+                completion_tokens=estimate_tokens(response),
                 latency_ms=int((datetime.now() - start_time).total_seconds() * 1000),
                 status="success"
             )
@@ -233,8 +254,8 @@ class BaseAgent(ABC):
                     self._log_interaction(
                         model=fallback_model,
                         task_type=task_type,
-                        prompt_tokens=len(prompt.split()),
-                        completion_tokens=len(response.split()),
+                        prompt_tokens=estimate_tokens(prompt),
+                        completion_tokens=estimate_tokens(response),
                         latency_ms=int((datetime.now() - start_time).total_seconds() * 1000),
                         status="fallback"
                     )

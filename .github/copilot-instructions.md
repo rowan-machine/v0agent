@@ -18,48 +18,47 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The project implements an AI-assisted workflow management system with three primary business domains:
+AI-Powered Career Development & Project Management System 
 
-## Assistant Interface System (75/100)
-Core implementation in `src/app/templates/components/assistant_widget.html`
-- Persistent conversation management with 24-hour expiration
-- Domain-specific command categorization for software workflows
-- Context-aware response handling with multi-model AI integration
-- Intelligent suggestion rotation based on usage patterns
+Core Business Components:
 
-## Meeting Signal Processing (85/100)
-Core implementation in `src/app/agents/base.py` and `src/app/mcp/extract.py`
-- Structured signal extraction from meeting content
-- Multi-agent orchestration with domain-specific guardrails
-- Categorization of decisions, action items, blockers and risks
-- Integration with sprint management and ticket systems
+1. Intelligent Assistant (Arjuna)
+- Conversation persistence with 24-hour expiry
+- Domain-specific suggestion rotation (tickets, sprints, tasks)
+- Command frequency tracking and prioritization 
+- Smart command categorization with emoji mapping
 
-## Career Development Engine (75/100)
-Core implementation in `src/app/agents/career_coach.py`
-- Career growth analysis and recommendation generation
-- Standup analysis with sentiment detection
-- Skills-to-project synthesis
-- Custom progression tracking with profiling
+2. Meeting Intelligence System
+- Signal extraction for decisions, actions, blockers, risks
+- Multi-source transcript processing (Pocket, Teams)
+- Screenshot analysis with AI vision integration
+- Automated signal categorization and merging
 
-Key Business Workflows:
+3. Career Development Platform
+- AI-powered standup analysis with sentiment detection
+- Growth suggestion generation based on skills/profile matching
+- Career insight synthesis from multiple data sources
+- Professional development tracking via DIKW pyramid
 
-1. Knowledge Management
-- Signal extraction from meetings and documents
-- Context-aware information retrieval
-- Domain-specific tag clustering
-- Custom mindmap visualization
+4. Knowledge Graph Engine
+- Signal-based relationship mapping
+- DIKW pyramid progression tracking
+- Person-mention relationship analysis
+- Meeting-document temporal connections
+- Custom semantic relationship inference
 
-2. Sprint Operations
-- Ticket lifecycle management
-- AI-powered implementation planning
-- Task decomposition with priority handling
-- Code versioning integration
+5. Sprint Management
+- Sprint lifecycle management with archival
+- Work mode progress tracking (A-G modes)
+- AI-assisted ticket decomposition
+- Sprint health monitoring
+- Time tracking analytics
 
-3. Agent Communication
-- Model selection based on task complexity
-- Safety guardrails with domain rules
-- Cost tier management
-- Fallback chains for model failures
+Integration Points:
+- Agent communication bus with priority routing
+- Hybrid context retrieval combining lexical/semantic search
+- Multi-model routing based on task classification
+- Pre/post call guardrails for AI safety
 
 $END$
 
