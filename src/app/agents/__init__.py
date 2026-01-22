@@ -73,6 +73,14 @@ from .career_coach import (
     generate_suggestions_adapter,
     analyze_standup_adapter,
 )
+from .meeting_analyzer import (
+    MeetingAnalyzerAgent,
+    get_meeting_analyzer,
+    parse_meeting_summary_adaptive,
+    extract_signals_from_meeting,
+    SIGNAL_TYPES,
+    HEADING_TO_SIGNAL_TYPE,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -171,4 +179,11 @@ __all__ = [
     "career_chat_adapter",
     "generate_suggestions_adapter",
     "analyze_standup_adapter",
+    # Meeting Analyzer Agent (Checkpoint 2.4)
+    "MeetingAnalyzerAgent",
+    "get_meeting_analyzer",
+    "parse_meeting_summary_adaptive",
+    "extract_signals_from_meeting",
+    "SIGNAL_TYPES",
+    "HEADING_TO_SIGNAL_TYPE",
 ]
