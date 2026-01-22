@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 interface SyncState {
+  isOnline: boolean;
   isSyncing: boolean;
   lastSync: Date | null;
   pendingCount: number;
@@ -12,6 +13,7 @@ interface SyncState {
   }>;
   
   // Actions
+  setOnline: (online: boolean) => void;
   setSyncing: (syncing: boolean) => void;
   setLastSync: (date: Date) => void;
   setPendingCount: (count: number) => void;
@@ -20,11 +22,14 @@ interface SyncState {
 }
 
 export const useSyncStore = create<SyncState>((set, get) => ({
+  isOnline: true, // Default to online - optimistic assumption
   isSyncing: false,
   lastSync: null,
   pendingCount: 0,
   recentChanges: [],
 
+  setOnline: (online: boolean) => set({ isOnline: online }),
+  
   setSyncing: (syncing: boolean) => set({ isSyncing: syncing }),
   
   setLastSync: (date: Date) => set({ lastSync: date }),
