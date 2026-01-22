@@ -2,16 +2,27 @@
 {% block content %}
 <style>
   .career-container {
-    max-width: 1600px;
+    max-width: 100%;
+    width: 100%;
     margin: 0 auto;
     padding: 1.5rem;
+  }
+  
+  @media (min-width: 1800px) {
+    .career-container {
+      padding: 2rem 3rem;
+    }
+    .career-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
   }
 
   .career-header {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     margin-bottom: 1.5rem;
+    gap: 1.5rem;
   }
 
   .career-header h1 {
@@ -20,6 +31,7 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    margin: 0;
   }
 
   .career-actions {
@@ -164,6 +176,50 @@
   .suggestion-btn.convert {
     background: #ede9fe;
     color: #5b21b6;
+  }
+
+  /* Collapsible sections */
+  .collapsible-section .section-content {
+    transition: max-height 0.3s ease-out, opacity 0.2s ease-out, padding 0.3s ease-out;
+    max-height: 2000px;
+    overflow: hidden;
+    opacity: 1;
+  }
+
+  .collapsible-section.collapsed .section-content {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .collapsible-section .card-header {
+    user-select: none;
+  }
+
+  .collapsible-section .card-header:hover {
+    background: #f9fafb;
+  }
+
+  .collapse-icon {
+    font-size: 0.7rem;
+    margin-left: 0.5rem;
+    transition: transform 0.3s ease;
+    display: inline-block;
+  }
+
+  .collapsible-section.collapsed .collapse-icon {
+    transform: rotate(-90deg);
+  }
+
+  .section-count {
+    font-size: 0.8rem;
+    font-weight: normal;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    margin-left: 0.5rem;
   }
 
   /* Profile section */
@@ -987,6 +1043,242 @@
     background: #fecaca;
   }
 
+  .panel-action-btn.warning {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+  }
+
+  .panel-action-btn.warning:hover {
+    background: #fde68a;
+  }
+
+  .panel-textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    resize: vertical;
+    background: white;
+  }
+
+  .panel-textarea:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+  }
+
+  /* Development Tracker Styles */
+  .tracker-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .tracker-summary {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .summary-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #f8fafc;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    min-width: 80px;
+  }
+
+  .summary-stat .stat-value {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #667eea;
+  }
+
+  .summary-stat .stat-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-transform: uppercase;
+  }
+
+  .tracker-section h4 {
+    font-size: 0.9rem;
+    color: #374151;
+    margin-bottom: 0.75rem;
+  }
+
+  .skill-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .skill-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(90deg, #667eea33 var(--progress), #f3f4f6 var(--progress));
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  .skill-chip .skill-name {
+    color: #374151;
+  }
+
+  .skill-chip .skill-level {
+    color: #667eea;
+    font-weight: 500;
+  }
+
+  .activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .activity-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    background: #f9fafb;
+    border-radius: 6px;
+  }
+
+  .activity-icon {
+    font-size: 1.25rem;
+  }
+
+  .activity-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .activity-title {
+    font-size: 0.85rem;
+    color: #374151;
+  }
+
+  .activity-meta {
+    font-size: 0.75rem;
+    color: #9ca3af;
+  }
+
+  /* Profile Grid Styles */
+  .profile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+
+  .profile-grid.expanded {
+    gap: 1rem;
+  }
+
+  .profile-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .profile-item.full-width {
+    grid-column: 1 / -1;
+  }
+
+  .profile-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: #9ca3af;
+    letter-spacing: 0.5px;
+  }
+
+  .profile-value {
+    font-size: 0.85rem;
+    color: #374151;
+    line-height: 1.4;
+  }
+
+  /* Resume Modal */
+  .resume-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+
+  .resume-modal.active {
+    display: flex;
+  }
+
+  .resume-modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 1.5rem;
+  }
+
+  .resume-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .resume-modal-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+  }
+
+  .resume-upload-area {
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 1rem;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .resume-upload-area:hover {
+    border-color: #8b5cf6;
+    background: #faf5ff;
+  }
+
+  .resume-upload-area.dragover {
+    border-color: #8b5cf6;
+    background: #ede9fe;
+  }
+
+  .resume-paste-area textarea {
+    width: 100%;
+    min-height: 200px;
+    padding: 1rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    resize: vertical;
+  }
+
   /* Overlay for non-pinned panel */
   .panel-overlay {
     position: fixed;
@@ -997,34 +1289,543 @@
     background: rgba(0, 0, 0, 0.3);
     z-index: 999;
     display: none;
+    pointer-events: none;
   }
 
   .panel-overlay.active {
     display: block;
+    pointer-events: auto;
+  }
+
+  /* ====== DARK MODE STYLES ====== */
+  [data-theme="dark"] .career-header h1 {
+    color: var(--sf-text, #faf6f1) !important;
+  }
+  
+  [data-theme="dark"] .career-card {
+    background: #2d2d2d !important;
+    border-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .card-header {
+    border-bottom-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .card-header h2 {
+    color: #faf6f1 !important;
+  }
+  
+  [data-theme="dark"] .collapsible-section .card-header:hover {
+    background: #3a3a3a !important;
+  }
+  
+  [data-theme="dark"] .career-btn-secondary {
+    background: #3a3a3a !important;
+    color: #e5e5e5 !important;
+    border-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .career-btn-secondary:hover {
+    background: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .profile-label {
+    color: #a0a0a0 !important;
+  }
+  
+  [data-theme="dark"] .profile-value {
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] #profileSummary {
+    color: #c9b99a !important;
+  }
+  
+  [data-theme="dark"] .suggestion-item {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .suggestion-title {
+    color: #faf6f1 !important;
+  }
+  
+  [data-theme="dark"] .suggestion-content {
+    color: #c9b99a !important;
+  }
+  
+  [data-theme="dark"] .empty-state {
+    color: #888 !important;
+  }
+  
+  [data-theme="dark"] .empty-state svg {
+    color: #666 !important;
+  }
+  
+  [data-theme="dark"] .skill-chip {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+    color: #f5f5f5 !important;
+  }
+  
+  [data-theme="dark"] .skill-chip .skill-name {
+    color: #faf6f1 !important;
+  }
+  
+  [data-theme="dark"] .skill-chip .skill-level {
+    color: #daa520 !important;
+  }
+  
+  [data-theme="dark"] .tracker-grid {
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] .tracker-summary {
+    background: #3a3a3a !important;
+  }
+  
+  [data-theme="dark"] .summary-stat {
+    background: #3a3a3a !important;
+    color: #f5f5f5 !important;
+  }
+  
+  [data-theme="dark"] .summary-stat .stat-label {
+    color: #c9b99a !important;
+  }
+  
+  [data-theme="dark"] .summary-stat .stat-value {
+    color: #daa520 !important;
+  }
+  
+  [data-theme="dark"] .tracker-section h4 {
+    color: #faf6f1 !important;
+  }
+  
+  [data-theme="dark"] .activity-item {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .activity-title {
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] .activity-meta {
+    color: #888 !important;
+  }
+  
+  [data-theme="dark"] .project-item {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .project-title {
+    color: #faf6f1 !important;
+  }
+  
+  [data-theme="dark"] .project-desc {
+    color: #c9b99a !important;
+  }
+  
+  [data-theme="dark"] .project-tag {
+    background: #4a3728 !important;
+    color: #daa520 !important;
+  }
+  
+  [data-theme="dark"] .ai-memory-item {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .ai-memory-title {
+    color: #faf6f1 !important;
+  }
+  
+  [data-theme="dark"] .ai-memory-desc {
+    color: #c9b99a !important;
+  }
+  
+  [data-theme="dark"] .skills-settings-panel {
+    background: #2d2d2d !important;
+    border-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .panel-header {
+    border-bottom-color: #4a4a4a !important;
+    color: #faf6f1 !important;
+  }
+  
+  [data-theme="dark"] .panel-body {
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] .panel-section-label {
+    color: #c9b99a !important;
+  }
+  
+  [data-theme="dark"] .panel-input,
+  [data-theme="dark"] .panel-select,
+  [data-theme="dark"] .panel-textarea {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] .panel-action-btn.secondary {
+    background: #3a3a3a !important;
+    color: #e5e5e5 !important;
+    border-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .resume-modal-content {
+    background: #2d2d2d !important;
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] .resume-upload-area {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+    color: #a0a0a0 !important;
+  }
+  
+  [data-theme="dark"] .resume-paste-area textarea {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] .sync-btn {
+    background: #3a3a3a !important;
+    color: #e5e5e5 !important;
+    border-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .sync-btn:hover {
+    background: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] #suggestionCount {
+    color: #a0a0a0 !important;
+  }
+  
+  [data-theme="dark"] .section-count {
+    background: #3a3a3a !important;
+    color: #a0a0a0 !important;
+  }
+  
+  [data-theme="dark"] .collapse-icon {
+    color: #888 !important;
+  }
+  
+  /* Career Chat section dark mode */
+  [data-theme="dark"] .career-chat-container {
+    background: #2d2d2d !important;
+    border-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .career-chat-header {
+    border-bottom-color: #4a4a4a !important;
+    background: #252525 !important;
+  }
+  
+  [data-theme="dark"] .career-chat-header h2 {
+    color: #c9b99a !important;
+  }
+  
+  [data-theme="dark"] .career-chat-body {
+    background: #2d2d2d !important;
+  }
+  
+  [data-theme="dark"] .career-chat-message.assistant {
+    background: #3a3a3a !important;
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] .career-chat-message.user {
+    background: #4a3d6a !important;
+    color: #f5f5f5 !important;
+  }
+  
+  [data-theme="dark"] .career-chat-footer {
+    border-top-color: #4a4a4a !important;
+    background: #252525 !important;
+  }
+  
+  [data-theme="dark"] .career-chat-input {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] .quick-prompt-btn {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+    color: #c9b99a !important;
+  }
+  
+  [data-theme="dark"] .career-chat-toggle {
+    color: #a0a0a0 !important;
+  }
+  
+  /* Memory sidebar dark mode */
+  [data-theme="dark"] .career-memory-sidebar {
+    background: #2d2d2d !important;
+    border-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .memory-header {
+    border-bottom-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .memory-header h3 {
+    color: #c9b99a !important;
+  }
+  
+  [data-theme="dark"] .memory-header p {
+    color: #a0a0a0 !important;
+  }
+  
+  [data-theme="dark"] .memory-content {
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] .memory-footer {
+    border-top-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .memory-refresh {
+    background: #3a3a3a !important;
+    color: #e5e5e5 !important;
+    border-color: #4a4a4a !important;
+  }
+  
+  /* Insight save button */
+  .insight-save-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    opacity: 0.8;
+    transition: all 0.2s;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  
+  .insight-save-btn:hover {
+    opacity: 1;
+    background: rgba(139, 92, 246, 0.15);
+    transform: scale(1.1);
+  }
+  
+  .insight-header {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin: 0.75rem 0 0.5rem 0;
+    padding-bottom: 0.25rem;
+    border-bottom: 2px solid #8b5cf6;
+  }
+  
+  [data-theme="dark"] .insight-header {
+    color: #c9b99a !important;
+    border-bottom-color: #8b5cf6 !important;
+  }
+  
+  .insight-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .insight-item:last-child {
+    border-bottom: none;
+  }
+  
+  .insight-text {
+    flex: 1;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+  
+  [data-theme="dark"] .insight-item {
+    border-bottom-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .insight-save-btn:hover {
+    background: rgba(139, 92, 246, 0.2) !important;
+  }
+  
+  /* Career Tweaks Safe Drawer styles */
+  .tweaks-drawer-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  .tweaks-drawer-overlay.open {
+    opacity: 1;
+  }
+  
+  .tweaks-drawer {
+    position: fixed;
+    top: 0;
+    right: -400px;
+    width: 400px;
+    max-width: 90vw;
+    height: 100vh;
+    background: #fff;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    transition: right 0.3s ease;
+    z-index: 1001;
+  }
+  
+  .tweaks-drawer-overlay.open .tweaks-drawer {
+    right: 0;
+  }
+  
+  .tweaks-drawer-header {
+    padding: 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  
+  .tweaks-drawer-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: #1a1a1a;
+  }
+  
+  .tweaks-drawer-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #6b7280;
+    line-height: 1;
+    padding: 0.25rem;
+    border-radius: 4px;
+  }
+  
+  .tweaks-drawer-close:hover {
+    background: #f3f4f6;
+    color: #1a1a1a;
+  }
+  
+  .tweaks-drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem;
+  }
+  
+  .tweaks-drawer-desc {
+    margin: 0 0 1rem 0;
+    color: #6b7280;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+  
+  .tweaks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .tweaks-drawer-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid #e5e7eb;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .tweaks-drawer-footer textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    resize: vertical;
+    min-height: 80px;
+    font-family: inherit;
+    font-size: 0.9rem;
+  }
+  
+  /* Dark mode for drawer */
+  [data-theme="dark"] .tweaks-drawer-overlay {
+    background: rgba(0, 0, 0, 0.5);
+  }
+  
+  [data-theme="dark"] .tweaks-drawer {
+    background: #2d2d2d !important;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.4);
+  }
+  
+  [data-theme="dark"] .tweaks-drawer-header {
+    border-bottom-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .tweaks-drawer-header h3 {
+    color: #c9b99a !important;
+  }
+  
+  [data-theme="dark"] .tweaks-drawer-close {
+    color: #a0a0a0;
+  }
+  
+  [data-theme="dark"] .tweaks-drawer-close:hover {
+    background: #3a3a3a;
+    color: #e5e5e5;
+  }
+  
+  [data-theme="dark"] .tweaks-drawer-desc {
+    color: #a0a0a0 !important;
+  }
+  
+  [data-theme="dark"] .tweaks-drawer-footer {
+    border-top-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .tweaks-drawer-footer textarea {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] .tweak-item {
+    background: #3a3a3a !important;
   }
 </style>
 
 <div class="career-container">
   <div class="career-header">
     <h1>🚀 Career Development</h1>
-    <div class="career-actions">
-      <button class="career-btn career-btn-secondary" onclick="loadSuggestions()">
-        🔄 Refresh
-      </button>
-      <button class="career-btn career-btn-primary" onclick="generateSuggestions()" id="generateBtn">
-        ✨ Generate AI Suggestions
-      </button>
-    </div>
   </div>
 
   <div class="career-grid">
     <!-- Profile Summary Card -->
-    <div class="career-card">
-      <div class="card-header">
-        <h2>👤 Your Profile</h2>
-        <a href="/settings" class="career-btn career-btn-secondary" style="text-decoration: none;">✏️ Edit in Settings</a>
+    <div class="career-card collapsible-section collapsed" id="profileSection">
+      <div class="card-header" onclick="toggleSection('profileSection')" style="cursor: pointer;">
+        <h2>👤 Your Profile <span class="collapse-icon">▼</span></h2>
+        <div style="display: flex; gap: 0.5rem;" onclick="event.stopPropagation();">
+          <button class="career-btn career-btn-secondary" onclick="showResumeModal()" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">📄 Resume</button>
+          <a href="/settings?openSection=careerSection#careerSection" class="career-btn career-btn-secondary" style="text-decoration: none; padding: 0.35rem 0.75rem; font-size: 0.85rem;">✏️ Edit Profile</a>
+        </div>
       </div>
-      <div class="card-body">
+      <div class="card-body section-content">
         <div id="profileSummary" style="color: #6b7280; font-size: 0.9rem;">
           Loading profile...
         </div>
@@ -1032,15 +1833,21 @@
     </div>
 
     <!-- Suggestions Card -->
-    <div class="career-card">
-      <div class="card-header">
-        <h2>💡 AI Suggestions</h2>
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
+    <div class="career-card collapsible-section collapsed" id="suggestionsSection">
+      <div class="card-header" onclick="toggleSection('suggestionsSection')" style="cursor: pointer;">
+        <h2>💡 AI Suggestions <span class="collapse-icon">▼</span></h2>
+        <div style="display: flex; align-items: center; gap: 0.5rem;" onclick="event.stopPropagation();">
           <span id="suggestionCount" style="font-size: 0.85rem; color: #6b7280;">0 suggestions</span>
           <button class="sync-btn" onclick="compressSuggestions()" id="compressSuggestionsBtn" style="font-size: 0.8rem; padding: 0.25rem 0.5rem;">🗜️ Compress</button>
+          <button class="career-btn career-btn-secondary" onclick="loadSuggestions()" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">
+            🔄 Refresh
+          </button>
+          <button class="career-btn career-btn-primary" onclick="generateSuggestions()" id="generateBtn" style="padding: 0.35rem 0.75rem; font-size: 0.85rem;">
+            ✨ Generate
+          </button>
         </div>
       </div>
-      <div class="card-body">
+      <div class="card-body section-content">
         <div class="suggestion-list" id="suggestionList">
           <div class="empty-state">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1057,27 +1864,29 @@
     <div class="career-card" style="grid-column: 1 / -1;">
       <div class="card-header">
         <h2>📈 Development Tracker</h2>
+        <button class="sync-btn" onclick="loadDevelopmentTracker()" id="refreshTrackerBtn">🔄 Refresh</button>
       </div>
       <div class="card-body">
         <div id="trackerContent">
           <div class="empty-state">
-            <p>Track your career development progress here.</p>
-            <p style="font-size: 0.85rem;">Accept suggestions and convert them to tickets to start tracking.</p>
+            <p>Loading development tracker...</p>
+            <p style="font-size: 0.85rem;">Your skill progress and learning activities will appear here.</p>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Skills Tracker -->
-    <div class="career-card" style="grid-column: 1 / -1;">
-      <div class="card-header">
-        <h2>📊 Skills Development Graph</h2>
-        <div style="display: flex; gap: 0.5rem;">
+    <div class="career-card collapsible-section" id="skillsSection" style="grid-column: 1 / -1;">
+      <div class="card-header" onclick="toggleSection('skillsSection')" style="cursor: pointer;">
+        <h2>📊 Skills Development Graph <span class="collapse-icon">▼</span></h2>
+        <div style="display: flex; gap: 0.5rem;" onclick="event.stopPropagation();">
           <button class="sync-btn" onclick="assessSkillsFromCodebase()" id="assessCodeBtn">🔍 Assess Codebase</button>
-          <button class="sync-btn" onclick="showSkillsSettings()" id="skillsSettingsBtn">⚙️ Settings</button>
+          <button class="sync-btn" onclick="populateSkillsFromProjects()" id="populateSkillsBtn">📁 From Projects</button>
+          <button class="sync-btn" onclick="showSkillsSettings()" id="skillsSettingsBtn">🏷️ Categories</button>
         </div>
       </div>
-      <div class="card-body">
+      <div class="card-body section-content">
         <div id="skillsGraphContent" class="skills-graph-container">
           <div class="empty-state">
             <p>Skills graph will appear here.</p>
@@ -1116,13 +1925,30 @@
           <button onclick="addCustomSkill()" class="panel-action-btn secondary" style="margin-top: 0.5rem; width: 100%;">➕ Add Skill</button>
         </div>
         
+        <div class="panel-section">
+          <label class="panel-section-label">📄 Import from Resume:</label>
+          <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <input type="file" id="resumeFileInput" accept=".pdf,.txt,.doc,.docx" style="display: none;" onchange="handleResumeFileUpload(event)">
+              <button onclick="document.getElementById('resumeFileInput').click()" class="panel-action-btn secondary" style="flex: 1;">📁 Upload File</button>
+              <span id="resumeFileName" style="font-size: 0.75rem; color: #6b7280; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+            </div>
+            <div style="text-align: center; font-size: 0.75rem; color: #9ca3af;">— or paste text —</div>
+            <textarea id="resumeTextInput" class="panel-textarea" rows="3" placeholder="Paste resume text here..."></textarea>
+          </div>
+          <button onclick="uploadResumeForSkills()" class="panel-action-btn secondary" style="margin-top: 0.5rem; width: 100%;">🔍 Extract Skills</button>
+        </div>
+        
         <div class="panel-warning">
-          ⚠️ Initialize will only add new skills (won't reset existing proficiency levels)
+          ⚠️ Initialize adds new skills only. Use "Remove Unselected" to delete skills from deselected categories.
         </div>
       </div>
       <div class="panel-footer">
         <div class="panel-footer-row">
           <button onclick="initializeSelectedSkills()" class="panel-action-btn primary">⚡ Initialize Selected</button>
+        </div>
+        <div class="panel-footer-row">
+          <button onclick="removeUnselectedSkills()" class="panel-action-btn warning" style="flex: 1;">🗑️ Remove Unselected</button>
         </div>
         <div class="panel-footer-row">
           <button onclick="resetAllSkills()" class="panel-action-btn danger" style="flex: 0.4;">🗑️ Reset All</button>
@@ -1132,12 +1958,14 @@
     </div>
 
     <!-- Completed Projects Bank -->
-    <div class="career-card">
-      <div class="card-header">
-        <h2>🏆 Completed Projects Bank</h2>
-        <button class="sync-btn" onclick="syncCompletedProjects()" id="syncProjectsBtn">🔄 Sync from Tickets</button>
+    <div class="career-card collapsible-section" id="projectsSection">
+      <div class="card-header" onclick="toggleSection('projectsSection')" style="cursor: pointer;">
+        <h2>🏆 Completed Projects Bank <span id="projectsCount" class="section-count"></span> <span class="collapse-icon">▼</span></h2>
+        <div style="display: flex; gap: 0.5rem;" onclick="event.stopPropagation();">
+          <button class="sync-btn" onclick="syncCompletedProjects()" id="syncProjectsBtn">🔄 Sync from Tickets</button>
+        </div>
       </div>
-      <div class="card-body">
+      <div class="card-body section-content">
         <div id="completedProjectsContent" class="projects-bank">
           <div class="empty-state">
             <p>No completed projects yet.</p>
@@ -1148,16 +1976,17 @@
     </div>
 
     <!-- AI Implementation Memories -->
-    <div class="career-card">
-      <div class="card-header">
-        <h2>🤖 AI Implementation Memories</h2>
-        <div style="display: flex; gap: 0.5rem;">
+    <div class="career-card collapsible-section" id="memoriesSection">
+      <div class="card-header" onclick="toggleSection('memoriesSection')" style="cursor: pointer;">
+        <h2>🤖 AI Implementation Memories <span id="memoriesCount" class="section-count"></span> <span class="collapse-icon">▼</span></h2>
+        <div style="display: flex; gap: 0.5rem;" onclick="event.stopPropagation();">
+          <button class="sync-btn" onclick="compressAIMemories()" id="compressAIBtn" title="Compress and deduplicate memories">🗜️ Compress</button>
           <button class="sync-btn" onclick="assessCodebaseWithAI()" id="assessAIBtn">🔍 Assess with AI</button>
           <button class="sync-btn" onclick="showAddAIMemory()">➕ Add Memory</button>
         </div>
       </div>
-      <div class="card-body">
-        <div id="aiMemoriesContent">
+      <div class="card-body section-content">
+        <div id="aiMemoriesContent" style="max-height: 500px; overflow-y: auto;">
           <div class="empty-state">
             <p>Track your AI implementation work here.</p>
             <p style="font-size: 0.85rem;">Click "Assess with AI" to auto-discover technical patterns from your codebase.</p>
@@ -1171,12 +2000,12 @@
       <!-- Chat Interface -->
       <div class="career-chat-container">
         <div class="career-chat-header">
-          <h2>💬 Career Assistant</h2>
+          <h2>� Career Journal</h2>
           <span style="font-size: 0.8rem; color: #6b7280;">Updates save to memory</span>
         </div>
         <div class="career-chat-body" id="careerChatBody">
           <div class="career-chat-message assistant">
-            <p>👋 Hi! I'm your career assistant. Share your career updates, challenges, or questions with me.</p>
+            <p>👋 Hi! I'm your career journal assistant. Share your career updates, wins, and reflections with me.</p>
             <p>I'll help you track progress, provide suggestions, and remember important details for future reference.</p>
           </div>
         </div>
@@ -1238,24 +2067,67 @@
   </div>
 </div>
 
-<!-- Career Tweaks Safe Modal -->
-<div id="careerTweaksSafeModal" class="modal-overlay" style="display: none;">
-  <div class="modal" style="max-width: 600px; max-height: 80vh;">
-    <div class="modal-header" style="padding: 1rem 1.25rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
-      <h3 style="margin: 0; font-size: 1.1rem;">🔒 Career Tweaks Safe</h3>
-      <button onclick="closeCareerTweaksSafe()" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: #6b7280;">&times;</button>
+<!-- Career Tweaks Safe Drawer -->
+<div id="careerTweaksSafeDrawer" class="tweaks-drawer-overlay" style="display: none;" onclick="if(event.target === this) closeCareerTweaksSafe()">
+  <div class="tweaks-drawer">
+    <div class="tweaks-drawer-header">
+      <h3>🔒 Career Tweaks Safe</h3>
+      <button onclick="closeCareerTweaksSafe()" class="tweaks-drawer-close">&times;</button>
     </div>
-    <div class="modal-body" style="padding: 1.25rem; overflow-y: auto; max-height: 60vh;">
-      <p style="margin-bottom: 1rem; color: #6b7280; font-size: 0.9rem;">
+    <div class="tweaks-drawer-body">
+      <p class="tweaks-drawer-desc">
         Save important AI-generated insights and career recommendations. These won't be overwritten when new insights are generated.
       </p>
-      <div id="careerTweaksList" style="display: flex; flex-direction: column; gap: 0.75rem;">
+      <div id="careerTweaksList" class="tweaks-list">
         <div class="empty-state" style="padding: 2rem;">No saved tweaks yet</div>
       </div>
-      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
-        <textarea id="newCareerTweak" placeholder="Add a career insight or recommendation to save..." style="width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 8px; resize: vertical; min-height: 80px;"></textarea>
-        <button onclick="saveCareerTweak()" class="sync-btn" style="margin-top: 0.5rem; width: 100%;">💾 Save to Safe</button>
+    </div>
+    <div class="tweaks-drawer-footer">
+      <textarea id="newCareerTweak" placeholder="Add a career insight or recommendation to save..."></textarea>
+      <button onclick="saveCareerTweak()" class="sync-btn" style="width: 100%;">💾 Save to Safe</button>
+    </div>
+  </div>
+</div>
+
+<!-- Resume Modal -->
+<div class="resume-modal" id="resumeModal">
+  <div class="resume-modal-content">
+    <div class="resume-modal-header">
+      <h3>📄 Resume / CV</h3>
+      <button onclick="closeResumeModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #6b7280;">&times;</button>
+    </div>
+    
+    <div style="margin-bottom: 1.5rem;">
+      <h4 style="margin: 0 0 0.75rem 0; font-size: 0.95rem; color: #374151;">📁 Upload Resume File</h4>
+      <div class="resume-upload-area" id="resumeDropZone" onclick="document.getElementById('resumeFileInput').click()">
+        <input type="file" id="resumeFileInput" accept=".pdf,.doc,.docx,.txt" style="display: none;" onchange="handleResumeFile(event)">
+        <div style="font-size: 2rem; margin-bottom: 0.5rem;">📎</div>
+        <p style="margin: 0; color: #6b7280;">Click or drag & drop your resume here</p>
+        <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: #9ca3af;">Supports PDF, DOC, DOCX, TXT</p>
       </div>
+    </div>
+    
+    <div style="position: relative; margin: 1.5rem 0; text-align: center;">
+      <hr style="border: none; border-top: 1px solid #e5e7eb;">
+      <span style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: white; padding: 0 1rem; color: #9ca3af; font-size: 0.85rem;">OR</span>
+    </div>
+    
+    <div class="resume-paste-area">
+      <h4 style="margin: 0 0 0.75rem 0; font-size: 0.95rem; color: #374151;">📝 Paste Resume Text</h4>
+      <textarea id="resumeTextArea" placeholder="Paste your resume content here..."></textarea>
+    </div>
+    
+    <div style="margin-top: 1rem;">
+      <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: #374151; cursor: pointer;">
+        <input type="checkbox" id="updateProfileFromResume" style="width: 18px; height: 18px; accent-color: #8b5cf6;">
+        <span>Also update my profile information from resume</span>
+      </label>
+      <p style="margin: 0.25rem 0 0 1.75rem; font-size: 0.8rem; color: #9ca3af;">Will extract role, experience, goals, and other profile fields</p>
+    </div>
+    
+    <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+      <button onclick="closeResumeModal()" style="background: #e5e7eb; color: #374151; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; cursor: pointer;">Cancel</button>
+      <button onclick="extractSkillsFromResume()" id="extractResumeBtn" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; cursor: pointer; font-weight: 600;">🔍 Extract Skills</button>
     </div>
   </div>
 </div>
@@ -1263,8 +2135,155 @@
 <script>
 let suggestions = [];
 
+// Resume Modal Functions
+function showResumeModal() {
+  document.getElementById('resumeModal').classList.add('active');
+  setupResumeDropZone();
+}
+
+function closeResumeModal() {
+  document.getElementById('resumeModal').classList.remove('active');
+  document.getElementById('resumeTextArea').value = '';
+  document.getElementById('resumeFileInput').value = '';
+}
+
+function setupResumeDropZone() {
+  const dropZone = document.getElementById('resumeDropZone');
+  
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+  });
+  
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleResumeFileUpload(files[0]);
+    }
+  });
+}
+
+function handleResumeFile(event) {
+  const file = event.target.files[0];
+  if (file) {
+    handleResumeFileUpload(file);
+  }
+}
+
+async function handleResumeFileUpload(file) {
+  const btn = document.getElementById('extractResumeBtn');
+  btn.disabled = true;
+  btn.textContent = '📤 Uploading...';
+  
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  try {
+    const response = await fetch('/api/career/resume/upload', {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: formData
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      document.getElementById('resumeTextArea').value = data.text || '';
+      showToast(`Resume uploaded: ${file.name}`);
+    } else {
+      const err = await response.json();
+      showToast(err.error || 'Failed to upload resume');
+    }
+  } catch (err) {
+    console.error('Upload error:', err);
+    showToast('Failed to upload resume');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Extract Skills';
+  }
+}
+
+async function extractSkillsFromResume() {
+  const text = document.getElementById('resumeTextArea').value.trim();
+  if (!text) {
+    showToast('Please upload a file or paste resume text first');
+    return;
+  }
+  
+  const updateProfile = document.getElementById('updateProfileFromResume').checked;
+  
+  const btn = document.getElementById('extractResumeBtn');
+  btn.disabled = true;
+  btn.textContent = '🔄 Extracting...';
+  
+  try {
+    const response = await fetch('/api/career/skills/from-resume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ resume_text: text, update_profile: updateProfile })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      let msg = `Extracted ${data.skills_added || 0} skills from resume!`;
+      if (updateProfile && data.profile_updated) {
+        msg += ' Profile updated.';
+      }
+      showToast(msg);
+      closeResumeModal();
+      await loadSkills();
+      if (updateProfile) await loadProfile();
+    } else {
+      const err = await response.json();
+      showToast(err.error || 'Failed to extract skills');
+    }
+  } catch (err) {
+    console.error('Extract error:', err);
+    showToast('Failed to extract skills');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Extract Skills';
+  }
+}
+
+// Toggle collapsible sections
+function toggleSection(sectionId) {
+  const section = document.getElementById(sectionId);
+  if (section) {
+    section.classList.toggle('collapsed');
+    // Store collapsed state in localStorage
+    const isCollapsed = section.classList.contains('collapsed');
+    localStorage.setItem(`career_${sectionId}_collapsed`, isCollapsed);
+  }
+}
+
+// Restore collapsed states on load
+function restoreCollapsedStates() {
+  const sections = ['profileSection', 'suggestionsSection', 'projectsSection', 'memoriesSection', 'skillsSection'];
+  sections.forEach(sectionId => {
+    const isCollapsed = localStorage.getItem(`career_${sectionId}_collapsed`);
+    // Default to collapsed if not set, or if explicitly set to collapsed
+    if (isCollapsed === 'false') {
+      const section = document.getElementById(sectionId);
+      if (section) section.classList.remove('collapsed');
+    }
+  });
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+  // Start all collapsible sections collapsed by default
+  document.querySelectorAll('.collapsible-section').forEach(section => {
+    section.classList.add('collapsed');
+  });
+  
+  restoreCollapsedStates();
   loadProfile();
   loadSuggestions();
   loadCareerChatHistory();
@@ -1272,7 +2291,122 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSkills();
   loadCompletedProjects();
   loadAIMemories();
+  loadDevelopmentTracker();
 });
+
+// Development Tracker
+async function loadDevelopmentTracker() {
+  const container = document.getElementById('trackerContent');
+  const btn = document.getElementById('refreshTrackerBtn');
+  if (!container) return;
+  
+  // Show loading state
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '🔄 Loading...';
+  }
+  
+  try {
+    const response = await fetch('/api/career/development-tracker', { credentials: 'same-origin' });
+    if (!response.ok) throw new Error('Failed to load tracker');
+    
+    const data = await response.json();
+    
+    if (data.summary.total_skills === 0 && data.activities.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <p>No development progress tracked yet.</p>
+          <p style="font-size: 0.85rem;">Use "Assess Codebase" or "From Projects" in Skills Development to get started.</p>
+        </div>
+      `;
+      return;
+    }
+    
+    // Render tracker with summary and recent activity
+    const skillLevels = data.summary.skill_levels;
+    container.innerHTML = `
+      <div class="tracker-grid">
+        <div class="tracker-summary">
+          <div class="summary-stat">
+            <span class="stat-value">${data.summary.total_skills}</span>
+            <span class="stat-label">Total Skills</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-value">${data.summary.avg_proficiency}%</span>
+            <span class="stat-label">Avg Proficiency</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-value">${skillLevels.expert}</span>
+            <span class="stat-label">Expert</span>
+          </div>
+          <div class="summary-stat">
+            <span class="stat-value">${skillLevels.advanced}</span>
+            <span class="stat-label">Advanced</span>
+          </div>
+        </div>
+        
+        <div class="tracker-section">
+          <h4>🎯 Top Skills</h4>
+          <div class="skill-chips">
+            ${data.skills.slice(0, 10).map(s => `
+              <div class="skill-chip" style="--progress: ${s.proficiency_level}%">
+                <span class="skill-name">${escapeHtml(s.skill_name)}</span>
+                <span class="skill-level">${s.proficiency_level}%</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        ${data.projects.length > 0 ? `
+        <div class="tracker-section">
+          <h4>📁 Recent Projects</h4>
+          <div class="activity-list">
+            ${data.projects.map(p => `
+              <div class="activity-item">
+                <span class="activity-icon">📦</span>
+                <div class="activity-content">
+                  <span class="activity-title">${escapeHtml(p.title)}</span>
+                  <span class="activity-meta">${p.technologies || ''}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        ` : ''}
+        
+        ${data.activities.length > 0 ? `
+        <div class="tracker-section">
+          <h4>🏆 Milestones & Achievements</h4>
+          <div class="activity-list">
+            ${data.activities.map(a => `
+              <div class="activity-item">
+                <span class="activity-icon">${a.memory_type === 'achievement' ? '🏆' : a.memory_type === 'skill_milestone' ? '🎯' : '✅'}</span>
+                <div class="activity-content">
+                  <span class="activity-title">${escapeHtml(a.title)}</span>
+                  <span class="activity-meta">${a.skills || ''}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        ` : ''}
+      </div>
+    `;
+  } catch (err) {
+    console.error('Failed to load development tracker:', err);
+    container.innerHTML = `
+      <div class="empty-state">
+        <p style="color: #ef4444;">Failed to load tracker. Try again later.</p>
+      </div>
+    `;
+  } finally {
+    const btn = document.getElementById('refreshTrackerBtn');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🔄 Refresh';
+    }
+  }
+}
 
 // Profile management
 async function loadProfile() {
@@ -1285,17 +2419,158 @@ async function loadProfile() {
       if (summaryDiv) {
         const role = profile.current_role || 'Not set';
         const target = profile.target_role || 'Not set';
-        const goals = profile.goals || profile.career_goals || 'Not set';
-        const strengths = profile.strengths || 'Not set';
+        const goals = profile.goals || profile.career_goals || '';
+        const strengths = profile.strengths || '';
+        const weaknesses = profile.weaknesses || '';
+        const specializations = profile.technical_specializations || '';
+        const shortTermGoals = profile.short_term_goals || '';
+        const longTermGoals = profile.long_term_goals || '';
+        const yearsExp = profile.years_experience || '';
+        const education = profile.education || '';
+        const certifications = profile.certifications || '';
+        const softSkills = profile.soft_skills || '';
+        const careerTimeline = profile.career_timeline || '';
+        const workStyle = profile.preferred_work_style || '';
+        const achievements = profile.work_achievements || '';
+        const languages = profile.languages || '';
+        const mentorship = profile.mentorship || '';
         
-        summaryDiv.innerHTML = `
-          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-            <div><strong>Current Role:</strong> ${escapeHtml(role)}</div>
-            <div><strong>Target Role:</strong> ${escapeHtml(target)}</div>
-            <div><strong>Goals:</strong> ${escapeHtml(goals)}</div>
-            <div><strong>Strengths:</strong> ${escapeHtml(strengths)}</div>
+        // Check if profile is mostly empty
+        const hasContent = strengths || weaknesses || specializations || shortTermGoals || 
+                          longTermGoals || education || certifications || softSkills || 
+                          achievements || languages || mentorship || yearsExp || workStyle;
+        
+        let html = `<div class="profile-grid expanded">`;
+        
+        // Core info row - always show
+        html += `
+          <div class="profile-item">
+            <span class="profile-label">Current Role</span>
+            <span class="profile-value">${escapeHtml(role)}</span>
+          </div>
+          <div class="profile-item">
+            <span class="profile-label">Target Role</span>
+            <span class="profile-value">${escapeHtml(target)}</span>
           </div>
         `;
+        
+        // Experience - always show
+        html += `
+          <div class="profile-item">
+            <span class="profile-label">Experience</span>
+            <span class="profile-value">${yearsExp ? yearsExp + ' years' : '<span style="color: #9ca3af; font-style: italic;">Not set</span>'}${careerTimeline ? ` • Goal: ${escapeHtml(careerTimeline)}` : ''}</span>
+          </div>
+        `;
+        
+        // Work style - always show
+        html += `
+          <div class="profile-item">
+            <span class="profile-label">Work Style</span>
+            <span class="profile-value">${workStyle ? escapeHtml(workStyle) : '<span style="color: #9ca3af; font-style: italic;">Not set</span>'}</span>
+          </div>
+        `;
+        
+        // Strengths - always show
+        html += `
+          <div class="profile-item full-width">
+            <span class="profile-label">💪 Strengths</span>
+            <span class="profile-value">${strengths ? escapeHtml(strengths) : '<span style="color: #9ca3af; font-style: italic;">Add your key strengths in Settings</span>'}</span>
+          </div>
+        `;
+        
+        // Areas to develop - always show
+        html += `
+          <div class="profile-item full-width">
+            <span class="profile-label">📈 Areas to Develop</span>
+            <span class="profile-value">${weaknesses ? escapeHtml(weaknesses) : '<span style="color: #9ca3af; font-style: italic;">Add growth areas in Settings</span>'}</span>
+          </div>
+        `;
+        
+        // Technical focus - always show
+        html += `
+          <div class="profile-item full-width">
+            <span class="profile-label">🔧 Technical Focus</span>
+            <span class="profile-value">${specializations ? escapeHtml(specializations) : '<span style="color: #9ca3af; font-style: italic;">Add your specializations in Settings</span>'}</span>
+          </div>
+        `;
+        
+        // Soft skills - always show
+        html += `
+          <div class="profile-item full-width">
+            <span class="profile-label">🤝 Soft Skills</span>
+            <span class="profile-value">${softSkills ? escapeHtml(softSkills) : '<span style="color: #9ca3af; font-style: italic;">Add soft skills in Settings</span>'}</span>
+          </div>
+        `;
+        
+        // Education & Certifications - always show
+        html += `
+          <div class="profile-item">
+            <span class="profile-label">🎓 Education</span>
+            <span class="profile-value">${education ? escapeHtml(education) : '<span style="color: #9ca3af; font-style: italic;">Not set</span>'}</span>
+          </div>
+          <div class="profile-item">
+            <span class="profile-label">📜 Certifications</span>
+            <span class="profile-value">${certifications ? escapeHtml(certifications) : '<span style="color: #9ca3af; font-style: italic;">Not set</span>'}</span>
+          </div>
+        `;
+        
+        // Languages - only if set
+        if (languages) {
+          html += `
+            <div class="profile-item full-width">
+              <span class="profile-label">🌐 Languages</span>
+              <span class="profile-value">${escapeHtml(languages)}</span>
+            </div>
+          `;
+        }
+        
+        // Achievements - only if set
+        if (achievements) {
+          html += `
+            <div class="profile-item full-width">
+              <span class="profile-label">🏆 Key Achievements</span>
+              <span class="profile-value">${escapeHtml(achievements)}</span>
+            </div>
+          `;
+        }
+        
+        // Mentorship - only if set
+        if (mentorship) {
+          html += `
+            <div class="profile-item full-width">
+              <span class="profile-label">👥 Mentorship</span>
+              <span class="profile-value">${escapeHtml(mentorship)}</span>
+            </div>
+          `;
+        }
+        
+        // Goals section - always show
+        html += `
+          <div class="profile-item full-width">
+            <span class="profile-label">🎯 Short-term Goals</span>
+            <span class="profile-value">${shortTermGoals ? escapeHtml(shortTermGoals) : '<span style="color: #9ca3af; font-style: italic;">Set your short-term goals in Settings</span>'}</span>
+          </div>
+        `;
+        
+        html += `
+          <div class="profile-item full-width">
+            <span class="profile-label">🚀 Long-term Goals</span>
+            <span class="profile-value">${longTermGoals ? escapeHtml(longTermGoals) : '<span style="color: #9ca3af; font-style: italic;">Set your long-term goals in Settings</span>'}</span>
+          </div>
+        `;
+        
+        // Show career goals if set and different from others
+        if (goals && goals !== shortTermGoals && goals !== longTermGoals) {
+          html += `
+            <div class="profile-item full-width">
+              <span class="profile-label">📋 Career Goals</span>
+              <span class="profile-value">${escapeHtml(goals)}</span>
+            </div>
+          `;
+        }
+        
+        html += `</div>`;
+        summaryDiv.innerHTML = html;
       }
     } else {
       const summaryDiv = document.getElementById('profileSummary');
@@ -1424,10 +2699,17 @@ async function compressSuggestions() {
       credentials: 'same-origin'
     });
 
+    const data = await response.json();
+    
     if (response.ok) {
-      const data = await response.json();
-      showToast(`Compressed: ${data.merged} duplicates merged, ${data.removed} removed`);
+      if (data.message) {
+        showToast(data.message);
+      } else {
+        showToast(`Compressed: ${data.merged || 0} duplicates merged, ${data.removed || 0} removed`);
+      }
       await loadSuggestions();
+    } else {
+      showToast(data.error || 'Failed to compress suggestions');
     }
   } catch (err) {
     console.error('Failed to compress suggestions:', err);
@@ -1536,7 +2818,9 @@ async function generateCareerInsights() {
     const data = await response.json();
     
     if (data.insights) {
-      content.innerHTML = marked ? marked.parse(data.insights) : `<p>${escapeHtml(data.insights)}</p>`;
+      // Parse insights and add save buttons to each
+      const insightsHtml = parseInsightsWithSaveButtons(data.insights);
+      content.innerHTML = insightsHtml;
       if (timestamp) {
         timestamp.textContent = `Generated: ${new Date().toLocaleString()}`;
       }
@@ -1549,14 +2833,90 @@ async function generateCareerInsights() {
   }
 }
 
-// Career Tweaks Safe
+// Parse insights text and wrap each bullet/paragraph with save button
+function parseInsightsWithSaveButtons(insights) {
+  // Split by lines and filter out empty ones
+  const lines = insights.split('\n').filter(line => line.trim());
+  let html = '';
+  
+  lines.forEach((line, idx) => {
+    const trimmed = line.trim();
+    // Headers (lines starting with # or **Header**:)
+    if (trimmed.startsWith('##')) {
+      // Strip ## and render as styled header
+      const headerText = trimmed.replace(/^#+\s*/, '');
+      html += `<div class="insight-header">${headerText}</div>`;
+    } else if (trimmed.startsWith('#')) {
+      const headerText = trimmed.replace(/^#+\s*/, '');
+      html += `<div class="insight-header">${headerText}</div>`;
+    } else if (trimmed.startsWith('**') && trimmed.includes(':')) {
+      html += `<div style="font-weight: 600; margin-top: 0.75rem; margin-bottom: 0.25rem;">${marked ? marked.parseInline(trimmed) : escapeHtml(trimmed)}</div>`;
+    } else if (trimmed.startsWith('-') || trimmed.startsWith('*') || trimmed.startsWith('•') || trimmed.match(/^\d+\./)) {
+      // Bullet points or numbered items - add save button
+      const textContent = trimmed.replace(/^[-*•]\s*/, '').replace(/^\d+\.\s*/, '');
+      const escapedContent = textContent.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      html += `
+        <div class="insight-item">
+          <button class="insight-save-btn" onclick="saveInsightToTweaks('${escapedContent}')" title="Save to Career Tweaks Safe">💾</button>
+          <div class="insight-text">${marked ? marked.parseInline(textContent) : escapeHtml(textContent)}</div>
+        </div>
+      `;
+    } else if (trimmed.length > 0) {
+      // Regular paragraph
+      const escapedContent = trimmed.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      html += `
+        <div class="insight-item">
+          <button class="insight-save-btn" onclick="saveInsightToTweaks('${escapedContent}')" title="Save to Career Tweaks Safe">💾</button>
+          <div class="insight-text">${marked ? marked.parseInline(trimmed) : escapeHtml(trimmed)}</div>
+        </div>
+      `;
+    }
+  });
+  
+  return html || '<div class="memory-empty">No insights generated.</div>';
+}
+
+// Quick save an insight directly from the sidebar
+async function saveInsightToTweaks(content) {
+  if (!content) return;
+  
+  try {
+    const response = await fetch('/api/career/tweaks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ content })
+    });
+    
+    if (response.ok) {
+      showToast('💾 Saved to Career Tweaks Safe!');
+    } else {
+      showToast('Failed to save insight');
+    }
+  } catch (err) {
+    console.error('Failed to save insight:', err);
+    showToast('Failed to save insight');
+  }
+}
+
+// Career Tweaks Safe Drawer
 function showCareerTweaksSafe() {
   loadCareerTweaks();
-  document.getElementById('careerTweaksSafeModal').style.display = 'flex';
+  const drawer = document.getElementById('careerTweaksSafeDrawer');
+  drawer.style.display = 'block';
+  // Trigger animation after display is set
+  requestAnimationFrame(() => {
+    drawer.classList.add('open');
+  });
 }
 
 function closeCareerTweaksSafe() {
-  document.getElementById('careerTweaksSafeModal').style.display = 'none';
+  const drawer = document.getElementById('careerTweaksSafeDrawer');
+  drawer.classList.remove('open');
+  // Wait for animation to complete before hiding
+  setTimeout(() => {
+    drawer.style.display = 'none';
+  }, 300);
 }
 
 async function loadCareerTweaks() {
@@ -1570,7 +2930,7 @@ async function loadCareerTweaks() {
     if (data.tweaks && data.tweaks.length > 0) {
       list.innerHTML = data.tweaks.map(tweak => `
         <div class="tweak-item" style="padding: 0.75rem; background: #f9fafb; border-radius: 8px; position: relative;">
-          <button onclick="deleteCareerTweak(${tweak.id})" style="position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none; cursor: pointer; font-size: 0.8rem; color: #9ca3af;">✕</button>
+          <button onclick="deleteCareerTweak(${tweak.id})" style="position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none; cursor: pointer; font-size: 0.8rem; color: #9ca3af;">\u2715</button>
           <div style="font-size: 0.9rem; padding-right: 1.5rem;">${marked ? marked.parse(tweak.content) : escapeHtml(tweak.content)}</div>
           <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem;">Saved: ${new Date(tweak.created_at).toLocaleDateString()}</div>
         </div>
@@ -1931,6 +3291,134 @@ async function resetAllSkills() {
   }
 }
 
+async function removeUnselectedSkills() {
+  // Get all categories that are NOT selected
+  const allCategories = Object.keys(SKILL_CATEGORIES);
+  const unselectedCategories = allCategories.filter(cat => !selectedSkillCategories.has(cat));
+  
+  if (unselectedCategories.length === 0) {
+    showToast('All categories are selected - nothing to remove');
+    return;
+  }
+  
+  if (!confirm(`This will remove skills from these categories:\n\n${unselectedCategories.join(', ')}\n\nContinue?`)) {
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/career/skills/remove-by-categories', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ categories: unselectedCategories })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      showToast(`Removed ${data.removed} skills from ${unselectedCategories.length} categories`);
+      await loadSkills();
+    }
+  } catch (err) {
+    console.error('Failed to remove skills:', err);
+    showToast('Failed to remove skills');
+  }
+}
+
+// Handle resume file upload
+async function handleResumeFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const fileNameSpan = document.getElementById('resumeFileName');
+  fileNameSpan.textContent = file.name;
+  
+  // For text files, read directly
+  if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      document.getElementById('resumeTextInput').value = e.target.result;
+      showToast('Resume text loaded! Click "Extract Skills" to continue.');
+    };
+    reader.readAsText(file);
+    return;
+  }
+  
+  // For PDF/DOC files, we need server-side processing
+  if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+    showToast('PDF detected - extracting text...');
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const response = await fetch('/api/career/extract-resume-text', {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: formData
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        document.getElementById('resumeTextInput').value = data.text || '';
+        showToast('Resume text extracted! Click "Extract Skills" to continue.');
+      } else {
+        showToast('Could not extract text from PDF. Please paste the text manually.');
+      }
+    } catch (err) {
+      console.error('Failed to extract PDF text:', err);
+      showToast('Could not extract text from PDF. Please paste the text manually.');
+    }
+    return;
+  }
+  
+  // For Word docs
+  if (file.name.endsWith('.doc') || file.name.endsWith('.docx')) {
+    showToast('Word document detected. Please save as .txt or copy/paste the text.');
+    return;
+  }
+  
+  showToast('Unsupported file type. Please use .txt or .pdf files, or paste the text directly.');
+}
+
+async function uploadResumeForSkills() {
+  const resumeText = document.getElementById('resumeTextInput')?.value?.trim();
+  if (!resumeText) {
+    showToast('Please upload a file or paste your resume text first');
+    return;
+  }
+  
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = '🔍 Analyzing...';
+  
+  try {
+    const response = await fetch('/api/career/skills/from-resume', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ resume_text: resumeText })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      showToast(`Extracted ${data.skills_added} skills from resume!`);
+      document.getElementById('resumeTextInput').value = '';
+      document.getElementById('resumeFileName').textContent = '';
+      document.getElementById('resumeFileInput').value = '';
+      await loadSkills();
+    } else {
+      const err = await response.json();
+      showToast('Failed: ' + (err.error || 'Unknown error'));
+    }
+  } catch (err) {
+    console.error('Failed to extract skills from resume:', err);
+    showToast('Failed to extract skills from resume');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Extract Skills';
+  }
+}
+
 // Keep old function for backwards compatibility
 async function initializeSkills() {
   showSkillsSettings();
@@ -1942,6 +3430,8 @@ async function assessSkillsFromCodebase() {
     btn.disabled = true;
     btn.textContent = '🔍 Scanning...';
   }
+  
+  showToast('Starting codebase analysis...');
 
   try {
     const response = await fetch('/api/career/skills/assess-from-codebase', {
@@ -1951,15 +3441,32 @@ async function assessSkillsFromCodebase() {
       body: JSON.stringify({})
     });
     
-    if (response.ok) {
-      const data = await response.json();
+    console.log('Assess codebase response status:', response.status);
+    
+    if (response.status === 401) {
+      showToast('⚠️ Session expired - redirecting to login...');
+      setTimeout(() => window.location.href = '/login', 1500);
+      return;
+    }
+    
+    const data = await response.json();
+    console.log('Assess codebase response:', data);
+    
+    if (response.ok && data.status === 'ok') {
       const categories = Object.keys(data.evidence || {}).length;
-      showToast(`Found evidence in ${categories} skill categories!`);
+      const skillsUpdated = data.skills_updated || 0;
+      if (categories > 0 || skillsUpdated > 0) {
+        showToast(`✅ Found evidence in ${categories} categories, updated ${skillsUpdated} skills!`);
+      } else {
+        showToast('⚠️ Scan complete but no matching patterns found. Try "From Projects" instead.');
+      }
       await loadSkills();
+    } else {
+      showToast('⚠️ ' + (data.message || data.error || 'Assessment completed but no evidence found'));
     }
   } catch (err) {
     console.error('Failed to assess codebase:', err);
-    showToast('Failed to assess codebase');
+    showToast('❌ Failed to assess codebase: ' + err.message);
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -1968,9 +3475,72 @@ async function assessSkillsFromCodebase() {
   }
 }
 
+async function populateSkillsFromProjects() {
+  const btn = document.getElementById('populateSkillsBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '📁 Loading...';
+  }
+
+  try {
+    const response = await fetch('/api/career/skills/populate-from-projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin'
+    });
+    
+    console.log('Populate skills response status:', response.status);
+    
+    if (response.status === 401) {
+      showToast('⚠️ Session expired - redirecting to login...');
+      setTimeout(() => window.location.href = '/login', 1500);
+    } else {
+      const data = await response.json();
+      console.log('Populate skills response:', data);
+      
+      if (response.ok && data.status === 'ok') {
+        const projectsCount = data.projects_processed || 0;
+        const memoriesCount = data.memories_processed || 0;
+        const skillsUpdated = data.skills_updated || 0;
+        showToast(`Processed ${projectsCount} projects + ${memoriesCount} AI memories → ${skillsUpdated} skills updated!`);
+        await loadSkills();
+      } else {
+        showToast(data.error || 'No skills to update from projects');
+      }
+    }
+  } catch (err) {
+    console.error('Failed to populate skills from projects:', err);
+    showToast('Failed to populate skills: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '📁 From Projects';
+    }
+  }
+}
+
 // ============================================
 // Completed Projects Bank Functions
 // ============================================
+
+// Strip markdown formatting for clean display
+function stripMarkdown(text) {
+  if (!text) return '';
+  return text
+    .replace(/#{1,6}\s+/g, '')  // Headers
+    .replace(/\*\*(.+?)\*\*/g, '$1')  // Bold
+    .replace(/__(.+?)__/g, '$1')  // Bold alt
+    .replace(/\*(.+?)\*/g, '$1')  // Italic
+    .replace(/_(.+?)_/g, '$1')  // Italic alt
+    .replace(/`{3}[\s\S]*?`{3}/g, '')  // Code blocks
+    .replace(/`(.+?)`/g, '$1')  // Inline code
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')  // Links
+    .replace(/^[-*+]\s+/gm, '')  // List items
+    .replace(/^\d+\.\s+/gm, '')  // Numbered lists
+    .replace(/\n+/g, ' ')  // Newlines to spaces
+    .replace(/\s+/g, ' ')  // Collapse spaces
+    .trim();
+}
 
 async function loadCompletedProjects() {
   const container = document.getElementById('completedProjectsContent');
@@ -1987,7 +3557,7 @@ async function loadCompletedProjects() {
       ...data.memories.map(m => ({
         id: m.id,
         title: m.title,
-        description: m.description,
+        description: stripMarkdown(m.description || '').slice(0, 100),
         tags: m.skills,
         is_pinned: m.is_pinned,
         type: 'memory',
@@ -1996,7 +3566,7 @@ async function loadCompletedProjects() {
       ...data.tickets.map(t => ({
         id: t.id,
         title: t.title,
-        description: t.ai_summary || t.description,
+        description: stripMarkdown(t.ai_summary || t.description || '').slice(0, 100),
         tags: t.tags,
         is_pinned: false,
         type: 'ticket',
@@ -2042,6 +3612,10 @@ async function loadCompletedProjects() {
         </div>
       </div>
     `).join('');
+    
+    // Update count in header
+    const countEl = document.getElementById('projectsCount');
+    if (countEl) countEl.textContent = `(${allProjects.length})`;
   } catch (err) {
     console.error('Failed to load completed projects:', err);
   }
@@ -2097,6 +3671,39 @@ async function togglePinMemory(memoryId) {
 // AI Implementation Memories Functions
 // ============================================
 
+async function compressAIMemories() {
+  const btn = document.getElementById('compressAIBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '🗜️ Compressing...';
+  }
+  
+  try {
+    const response = await fetch('/api/career/ai-memories/compress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin'
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      showToast(`Compressed! ${data.removed || 0} duplicates removed, ${data.merged || 0} merged.`);
+      await loadAIMemories();
+    } else {
+      const err = await response.json();
+      showToast('Compression failed: ' + (err.error || 'Unknown error'));
+    }
+  } catch (err) {
+    console.error('Failed to compress memories:', err);
+    showToast('Failed to compress memories');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🗜️ Compress';
+    }
+  }
+}
+
 async function loadAIMemories() {
   const container = document.getElementById('aiMemoriesContent');
   if (!container) return;
@@ -2106,6 +3713,10 @@ async function loadAIMemories() {
     if (!response.ok) throw new Error('Failed to load');
     
     const memories = await response.json();
+    
+    // Update count in header
+    const countEl = document.getElementById('memoriesCount');
+    if (countEl) countEl.textContent = `(${memories.length})`;
     
     if (memories.length === 0) {
       container.innerHTML = `

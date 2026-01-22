@@ -1,42 +1,56 @@
 ---
-description: Specification for FastAPI endpoints implementing meeting and document CRUD operations
+description: Documents the FastAPI routes for managing meetings and documents with business-focused CRUD operations
 ---
 
 
 # api-endpoints
 
-FastAPI routes define specialized meeting and document management operations with the following key business endpoints:
-
-## Signal Management
+## Meeting Management Endpoints
 Importance Score: 85
-- `/api/signals/{signal_id}`
-  - Processes multi-category signal classification (decisions, actions, blockers, risks, ideas)
-  - Handles signal state transitions with accountability tracking
-  - Manages signal-to-ticket conversions with tracking metadata
 
-## Sprint Analytics
-Importance Score: 80
-- `/api/reports/sprint`
-  - Generates domain-specific workflow mode tracking reports
-  - Calculates time allocation across different work modes
-  - Processes signal type distribution analytics
-  - Tracks career development metrics with role progression
+Key routes implementing domain-specific meeting management:
 
-## Knowledge Graph Operations
+1. Signal Extraction Pipeline
+```
+/meetings/{meeting_id}/signals
+/meetings/{meeting_id}/extract
+```
+- Processes meeting transcripts into categorized business signals
+- Extracts decisions, action items, blockers and risks
+- Maintains signal relationships and hierarchies
+
+2. Meeting Bundle Processing 
+```
+/meetings/bundle/process
+```
+- Processes uploaded meeting bundles with signal extraction
+- Performs contextual metadata enrichment
+- Links related knowledge graph entities
+
+## Document Processing Routes
 Importance Score: 75
-- `/api/knowledge`
-  - Implements DIKW pyramid visualization endpoints
-  - Manages knowledge relationship mapping with hierarchical categories
-  - Processes tag-based knowledge clustering
-  - Calculates knowledge node relationship strengths
 
-## Task Management
-Importance Score: 70
-- `/api/tasks`
-  - Handles task decomposition with AI assistance
-  - Manages implementation planning workflow
-  - Tracks code changes with version management
-  - Processes sprint point allocation and burndown data
+Domain-specific document handling:
+```
+/documents/signals
+/documents/extract
+```
+- Custom signal classification for uploaded documents
+- Document-to-meeting relationship mapping
+- Knowledge graph integration points
+
+## Knowledge Graph API
+Importance Score: 90
+
+Graph traversal and relationship endpoints:
+```
+/graph/signals
+/graph/relationships
+```
+- Organizational knowledge structure endpoints
+- Signal chain management
+- Temporal relationship tracking
+- Business context propagation
 
 $END$
 

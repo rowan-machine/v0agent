@@ -5,17 +5,86 @@
 {% block content %}
 <style>
   .settings-container {
-    max-width: 800px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: 2rem;
+  }
+
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 1000px) {
+    .settings-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
   .settings-section {
     background: white;
     border: 1px solid #e8e8e8;
     border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 0;
+  }
+
+  .settings-section.full-width {
+    grid-column: 1 / -1;
+  }
+
+  .section-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #e8e8e8;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+  }
+
+  .section-header:hover {
+    background: #f9fafb;
+  }
+
+  .section-header h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--sf-text-dark, #1a1a1a);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .section-header p {
+    color: #666;
+    margin: 0;
+    font-size: 0.85rem;
+  }
+
+  .collapse-indicator {
+    font-size: 0.8rem;
+    transition: transform 0.3s;
+    color: #6b7280;
+  }
+
+  .settings-section.collapsed .collapse-indicator {
+    transform: rotate(-90deg);
+  }
+
+  .section-content {
     padding: 1.5rem;
-    margin-bottom: 1.5rem;
+    transition: max-height 0.3s ease-out, padding 0.3s ease-out, opacity 0.2s;
+    max-height: 2000px;
+    overflow: hidden;
+  }
+
+  .settings-section.collapsed .section-content {
+    max-height: 0;
+    padding: 0 1.5rem;
+    opacity: 0;
   }
 
   .settings-section h2 {
@@ -299,9 +368,16 @@
 <div class="settings-container">
   <h1>⚙️ Settings</h1>
 
-  <div class="settings-section">
-    <h2>🔒 Security</h2>
-    <p>Control access to your Hare Krishna workspace</p>
+  <div class="settings-grid">
+  <div class="settings-section" id="securitySection">
+    <div class="section-header" onclick="toggleSettingsSection('securitySection')">
+      <div>
+        <h2>🔒 Security</h2>
+        <p>Control access to your Hare Krishna workspace</p>
+      </div>
+      <span class="collapse-indicator">▼</span>
+    </div>
+    <div class="section-content">
 
     <div class="setting-item">
       <div class="setting-info">
@@ -318,11 +394,18 @@
       <strong>⚠️ Authentication Disabled</strong>
       <p>Anyone with access to this URL can view and modify your data. Only disable authentication in secure, private environments.</p>
     </div>
+    </div>
   </div>
 
-  <div class="settings-section">
-    <h2>🤖 AI Settings</h2>
-    <p>Configure AI model and behavior</p>
+  <div class="settings-section" id="aiSection">
+    <div class="section-header" onclick="toggleSettingsSection('aiSection')">
+      <div>
+        <h2>🤖 AI Settings</h2>
+        <p>Configure AI model and behavior</p>
+      </div>
+      <span class="collapse-indicator">▼</span>
+    </div>
+    <div class="section-content">
 
     <div class="setting-item" style="flex-direction: column; align-items: stretch;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
@@ -409,6 +492,7 @@
       
       <p id="modelStatus" style="margin-top: 0.75rem; font-size: 0.85rem; color: #6b7280; display: none;"></p>
     </div>
+    </div>
   </div>
 
   <style>
@@ -454,9 +538,15 @@
     .cost-premium { color: #dc2626; }
   </style>
 
-  <div class="settings-section">
-    <h2>🎯 Sprint Configuration</h2>
-    <p>Manage sprint settings and timelines</p>
+  <div class="settings-section" id="sprintSection">
+    <div class="section-header" onclick="toggleSettingsSection('sprintSection')">
+      <div>
+        <h2>🎯 Sprint Configuration</h2>
+        <p>Manage sprint settings and timelines</p>
+      </div>
+      <span class="collapse-indicator">▼</span>
+    </div>
+    <div class="section-content">
 
     <div class="setting-item">
       <a href="/settings/sprint" style="text-decoration: none; color: inherit; display: block; width: 100%;">
@@ -466,12 +556,19 @@
         </div>
       </a>
     </div>
+    </div>
   </div>
 
   <!-- Workflow Modes Admin -->
-  <div class="settings-section">
-    <h2>🔧 Workflow Modes</h2>
-    <p>Customize the workflow modes, their steps, and descriptions</p>
+  <div class="settings-section full-width" id="modesSection">
+    <div class="section-header" onclick="toggleSettingsSection('modesSection')">
+      <div>
+        <h2>🔧 Workflow Modes</h2>
+        <p>Customize the workflow modes, their steps, and descriptions</p>
+      </div>
+      <span class="collapse-indicator">▼</span>
+    </div>
+    <div class="section-content">
 
     <div id="modesContainer" style="margin-bottom: 1rem;">
       <div class="loading-state" style="text-align: center; padding: 2rem; color: #666;">
@@ -482,23 +579,51 @@
     <button onclick="addNewMode()" style="background: #667eea; color: white; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; font-size: 0.95rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
       ➕ Add New Mode
     </button>
+    </div>
   </div>
 
-  <div class="settings-section">
-    <h2>🌱 Career Development Profile</h2>
-    <p>Define your career goals to get personalized growth suggestions</p>
+  <div class="settings-section full-width" id="careerSection">
+    <div class="section-header" onclick="toggleSettingsSection('careerSection')">
+      <div>
+        <h2>🌱 Career Development Profile</h2>
+        <p>Define your career goals to get personalized growth suggestions</p>
+      </div>
+      <span class="collapse-indicator">▼</span>
+    </div>
+    <div class="section-content">
 
     <div style="display: grid; gap: 1rem;">
-      <div>
-        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Current Role</label>
-        <input type="text" id="currentRole" placeholder="e.g., Senior Data Engineer" 
-          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem;">
+      <!-- Basic Info Row -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Current Role</label>
+          <input type="text" id="currentRole" placeholder="e.g., Senior Data Engineer" 
+            style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem;">
+        </div>
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Target Role / Goal</label>
+          <input type="text" id="targetRole" placeholder="e.g., Knowledge Engineer" 
+            style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem;">
+        </div>
       </div>
 
-      <div>
-        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Target Role / Goal</label>
-        <input type="text" id="targetRole" placeholder="e.g., Knowledge Engineer" 
-          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem;">
+      <!-- Experience Row -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Years Experience</label>
+          <input type="number" id="yearsExperience" placeholder="e.g., 8" min="0" max="50"
+            style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem;">
+        </div>
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Career Timeline</label>
+          <input type="text" id="careerTimeline" placeholder="e.g., 2 years, Q4 2026" 
+            style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem;">
+        </div>
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Work Style</label>
+          <input type="text" id="preferredWorkStyle" placeholder="e.g., Remote, small teams" 
+            style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem;">
+        </div>
       </div>
 
       <div>
@@ -525,15 +650,157 @@
           style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
       </div>
 
+      <!-- Education & Certifications Row -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Education</label>
+          <textarea id="education" rows="2" placeholder="e.g., MS Computer Science, BS Mathematics" 
+            style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+        </div>
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Certifications</label>
+          <textarea id="certifications" rows="2" placeholder="e.g., AWS Solutions Architect, Databricks certified" 
+            style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+        </div>
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Industry Focus</label>
+        <textarea id="industryFocus" rows="2" placeholder="e.g., Fintech, Healthcare, Enterprise SaaS" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Leadership Experience</label>
+        <textarea id="leadershipExperience" rows="2" placeholder="e.g., Tech lead for 5-person team, mentored 3 junior engineers" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Notable Projects</label>
+        <textarea id="notableProjects" rows="3" placeholder="Key projects and accomplishments you're proud of" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Learning Priorities</label>
+        <textarea id="learningPriorities" rows="2" placeholder="What you're currently focused on learning" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <!-- New Fields Section -->
+      <div style="border-top: 1px solid #e5e7eb; padding-top: 1rem; margin-top: 0.5rem;">
+        <h3 style="font-size: 1.1rem; color: #374151; margin-bottom: 1rem;">📊 Additional Profile Details</h3>
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Technical Specializations</label>
+        <textarea id="technicalSpecializations" rows="2" placeholder="e.g., Data pipelines, ML infrastructure, real-time systems" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Soft Skills</label>
+        <textarea id="softSkills" rows="2" placeholder="e.g., Cross-team collaboration, technical documentation, mentoring" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Work Achievements</label>
+        <textarea id="workAchievements" rows="3" placeholder="e.g., Reduced query time by 80%, Led migration of 50+ services, Increased team velocity by 40%" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Career Values</label>
+        <textarea id="careerValues" rows="2" placeholder="e.g., Work-life balance, high-impact work, continuous learning, competitive compensation" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <!-- Goals Row -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Short-term Goals (6-12 months)</label>
+          <textarea id="shortTermGoals" rows="3" placeholder="Near-term career objectives and milestones" 
+            style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+        </div>
+        <div>
+          <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Long-term Goals (3-5 years)</label>
+          <textarea id="longTermGoals" rows="3" placeholder="Career vision and aspirations for the future" 
+            style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+        </div>
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Mentorship</label>
+        <textarea id="mentorship" rows="2" placeholder="e.g., Mentor to 2 junior engineers, mentee of VP Engineering" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Professional Networking</label>
+        <textarea id="networking" rows="2" placeholder="e.g., PyData community, Local tech meetups, Data Engineering Slack" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
+      <div>
+        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #374151;">Languages</label>
+        <textarea id="languages" rows="2" placeholder="e.g., English (native), Spanish (conversational), Python, SQL, JavaScript" 
+          style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
+      </div>
+
       <button onclick="saveCareerProfile()" 
         style="background: #26a69a; color: white; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s;">
         💾 Save Career Profile
       </button>
     </div>
+    </div>
+  </div>
   </div>
 </div>
 
 <script>
+  // Toggle settings section collapse
+  function toggleSettingsSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (section) {
+      section.classList.toggle('collapsed');
+      localStorage.setItem(`settings_${sectionId}_collapsed`, section.classList.contains('collapsed'));
+    }
+  }
+
+  // Restore collapsed states
+  function restoreSettingsCollapsedStates() {
+    const sections = ['securitySection', 'aiSection', 'sprintSection', 'modesSection', 'careerSection'];
+    
+    // Check URL params for openSection
+    const urlParams = new URLSearchParams(window.location.search);
+    const openSection = urlParams.get('openSection');
+    
+    sections.forEach(sectionId => {
+      const section = document.getElementById(sectionId);
+      if (!section) return;
+      
+      // If this section should be opened from URL, expand it and scroll to it
+      if (openSection === sectionId) {
+        section.classList.remove('collapsed');
+        localStorage.setItem(`settings_${sectionId}_collapsed`, 'false');
+        setTimeout(() => {
+          section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      } else {
+        // Otherwise restore from localStorage
+        const isCollapsed = localStorage.getItem(`settings_${sectionId}_collapsed`) === 'true';
+        if (isCollapsed) {
+          section.classList.add('collapsed');
+        }
+      }
+    });
+  }
+
+  // Call on load
+  restoreSettingsCollapsedStates();
+
   // Load current auth status
   async function loadAuthStatus() {
     try {
@@ -645,6 +912,25 @@
         document.getElementById('weaknesses').value = profile.weaknesses || '';
         document.getElementById('interests').value = profile.interests || '';
         document.getElementById('goals').value = profile.goals || '';
+        document.getElementById('yearsExperience').value = profile.years_experience || '';
+        document.getElementById('careerTimeline').value = profile.career_timeline || '';
+        document.getElementById('preferredWorkStyle').value = profile.preferred_work_style || '';
+        document.getElementById('education').value = profile.education || '';
+        document.getElementById('certifications').value = profile.certifications || '';
+        document.getElementById('industryFocus').value = profile.industry_focus || '';
+        document.getElementById('leadershipExperience').value = profile.leadership_experience || '';
+        document.getElementById('notableProjects').value = profile.notable_projects || '';
+        document.getElementById('learningPriorities').value = profile.learning_priorities || '';
+        // New fields
+        document.getElementById('technicalSpecializations').value = profile.technical_specializations || '';
+        document.getElementById('softSkills').value = profile.soft_skills || '';
+        document.getElementById('workAchievements').value = profile.work_achievements || '';
+        document.getElementById('careerValues').value = profile.career_values || '';
+        document.getElementById('shortTermGoals').value = profile.short_term_goals || '';
+        document.getElementById('longTermGoals').value = profile.long_term_goals || '';
+        document.getElementById('mentorship').value = profile.mentorship || '';
+        document.getElementById('networking').value = profile.networking || '';
+        document.getElementById('languages').value = profile.languages || '';
       }
     } catch (err) {
       console.error('Failed to load career profile:', err);
@@ -659,7 +945,26 @@
       strengths: document.getElementById('strengths').value,
       weaknesses: document.getElementById('weaknesses').value,
       interests: document.getElementById('interests').value,
-      goals: document.getElementById('goals').value
+      goals: document.getElementById('goals').value,
+      years_experience: parseInt(document.getElementById('yearsExperience').value) || null,
+      career_timeline: document.getElementById('careerTimeline').value,
+      preferred_work_style: document.getElementById('preferredWorkStyle').value,
+      education: document.getElementById('education').value,
+      certifications: document.getElementById('certifications').value,
+      industry_focus: document.getElementById('industryFocus').value,
+      leadership_experience: document.getElementById('leadershipExperience').value,
+      notable_projects: document.getElementById('notableProjects').value,
+      learning_priorities: document.getElementById('learningPriorities').value,
+      // New fields
+      technical_specializations: document.getElementById('technicalSpecializations').value,
+      soft_skills: document.getElementById('softSkills').value,
+      work_achievements: document.getElementById('workAchievements').value,
+      career_values: document.getElementById('careerValues').value,
+      short_term_goals: document.getElementById('shortTermGoals').value,
+      long_term_goals: document.getElementById('longTermGoals').value,
+      mentorship: document.getElementById('mentorship').value,
+      networking: document.getElementById('networking').value,
+      languages: document.getElementById('languages').value
     };
 
     try {

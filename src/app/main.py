@@ -221,6 +221,30 @@ def dashboard(request: Request):
     # Get sprint info
     sprint = get_sprint_info()
     
+    # Generate dynamic greeting based on sprint cadence
+    greeting_context = ""
+    if sprint:
+        days_remaining = sprint.get("working_days_remaining", 0)
+        progress = sprint.get("progress", 0)
+        day_of_week = datetime.now().weekday()
+        
+        if day_of_week == 0:  # Monday
+            greeting_context = "fresh start to the week"
+        elif day_of_week == 4:  # Friday
+            greeting_context = "let's close out strong"
+        elif days_remaining <= 2 and days_remaining > 0:
+            greeting_context = "sprint finish line ahead"
+        elif progress < 15:
+            greeting_context = "new sprint energy"
+        elif progress >= 80:
+            greeting_context = "home stretch"
+        elif progress >= 50:
+            greeting_context = "past the halfway point"
+        else:
+            greeting_context = "ready to dive in"
+    else:
+        greeting_context = "ready to dive in"
+    
     # Get stats
     with connect() as conn:
         meetings_count = conn.execute("SELECT COUNT(*) FROM meeting_summaries").fetchone()[0]
@@ -435,6 +459,7 @@ def dashboard(request: Request):
         {
             "request": request,
             "time_of_day": time_of_day,
+            "greeting_context": greeting_context,
             "today_formatted": today_formatted,
             "sprint": sprint,
             "stats": {
@@ -585,70 +610,223 @@ Provide a concise, helpful answer. Focus on the most relevant information. Use b
 
 
 @app.get("/api/dashboard/highlights")
-async def get_highlights():
-    """Get current attention highlights for refresh."""
-    with connect() as conn:
-        recent_meetings = conn.execute(
-            """SELECT id, meeting_name, signals_json 
-               FROM meeting_summaries 
-               ORDER BY COALESCE(meeting_date, created_at) DESC 
-               LIMIT 5"""
-        ).fetchall()
+async def get_highlights(request: Request):
+    """Get smart coaching highlights based on app state and user activity."""
+    import hashlib
+    from datetime import datetime, timedelta
+    
+    # Get dismissed IDs from query param (passed from frontend localStorage)
+    dismissed_ids = request.query_params.get('dismissed', '').split(',')
+    dismissed_ids = [d.strip() for d in dismissed_ids if d.strip()]
     
     highlights = []
-    for m in recent_meetings:
-        try:
-            signals = json.loads(m["signals_json"]) if m["signals_json"] else {}
-            # Add blockers (highest priority)
-            for blocker in signals.get("blockers", [])[:2]:
-                if blocker:
-                    highlights.append({
-                        "type": "blocker",
-                        "label": "🚧 Blocker",
-                        "text": blocker,
-                        "source": m["meeting_name"],
-                        "meeting_id": m["id"],
-                    })
-            # Add action items
-            for action in signals.get("action_items", [])[:2]:
-                if action:
-                    highlights.append({
-                        "type": "action",
-                        "label": "📋 Action Item",
-                        "text": action,
-                        "source": m["meeting_name"],
-                        "meeting_id": m["id"],
-                    })
-            # Add decisions
-            for decision in signals.get("decisions", [])[:1]:
-                if decision:
-                    highlights.append({
-                        "type": "decision",
-                        "label": "✅ Decision",
-                        "text": decision,
-                        "source": m["meeting_name"],
-                        "meeting_id": m["id"],
-                    })
-            # Add risks
-            for risk in signals.get("risks", [])[:1]:
-                if risk:
-                    highlights.append({
-                        "type": "risk",
-                        "label": "⚠️ Risk",
-                        "text": risk,
-                        "source": m["meeting_name"],
-                        "meeting_id": m["id"],
-                    })
-        except:
-            pass
     
-    # Prioritize blockers first
-    blockers_first = [h for h in highlights if h["type"] == "blocker"]
-    actions = [h for h in highlights if h["type"] == "action"]
-    others = [h for h in highlights if h["type"] not in ("blocker", "action")]
-    highlights = (blockers_first + actions + others)[:6]
+    with connect() as conn:
+        # ===== COACHING SUGGESTIONS BASED ON APP STATE =====
+        
+        # 1. Check for blocked tickets (HIGH PRIORITY)
+        blocked_tickets = conn.execute(
+            """SELECT ticket_id, title FROM tickets 
+               WHERE status = 'blocked' 
+               ORDER BY updated_at DESC LIMIT 3"""
+        ).fetchall()
+        for t in blocked_tickets:
+            highlight_id = f"blocked-{t['ticket_id']}"
+            if highlight_id not in dismissed_ids:
+                highlights.append({
+                    "id": highlight_id,
+                    "type": "blocker",
+                    "label": "🚧 Blocked Ticket",
+                    "text": f"{t['ticket_id']}: {t['title']}",
+                    "action": "Unblock this ticket to keep making progress",
+                    "link": f"/tickets?focus={t['ticket_id']}",
+                    "link_text": "View Ticket"
+                })
+        
+        # 2. Check for stale in-progress tickets (> 3 days old)
+        stale_tickets = conn.execute(
+            """SELECT ticket_id, title, updated_at FROM tickets 
+               WHERE status = 'in_progress' 
+               AND date(updated_at) < date('now', '-3 days')
+               ORDER BY updated_at ASC LIMIT 2"""
+        ).fetchall()
+        for t in stale_tickets:
+            highlight_id = f"stale-{t['ticket_id']}"
+            if highlight_id not in dismissed_ids:
+                highlights.append({
+                    "id": highlight_id,
+                    "type": "action",
+                    "label": "⏰ Stale Work",
+                    "text": f"{t['ticket_id']}: {t['title']}",
+                    "action": "This has been in progress for a while. Complete or update it?",
+                    "link": f"/tickets?focus={t['ticket_id']}",
+                    "link_text": "Update Status"
+                })
+        
+        # 3. Check sprint progress
+        sprint = conn.execute("SELECT * FROM sprint_settings WHERE id = 1").fetchone()
+        if sprint and sprint['sprint_start_date']:
+            try:
+                start = datetime.strptime(sprint['sprint_start_date'], '%Y-%m-%d')
+                length = sprint['sprint_length_days'] or 14
+                end = start + timedelta(days=length)
+                now = datetime.now()
+                progress = min(100, max(0, int((now - start).days / length * 100)))
+                days_left = (end - now).days
+                
+                # Sprint ending soon
+                if 0 < days_left <= 3 and f"sprint-ending" not in dismissed_ids:
+                    todo_count = conn.execute(
+                        "SELECT COUNT(*) as c FROM tickets WHERE status = 'todo'"
+                    ).fetchone()['c']
+                    if todo_count > 0:
+                        highlights.append({
+                            "id": "sprint-ending",
+                            "type": "risk",
+                            "label": "⏳ Sprint Ending",
+                            "text": f"{days_left} day{'s' if days_left != 1 else ''} left with {todo_count} todo items",
+                            "action": "Review remaining work and prioritize",
+                            "link": "/tickets",
+                            "link_text": "View Tickets"
+                        })
+                
+                # Sprint just started - set it up
+                if progress < 10 and f"sprint-setup" not in dismissed_ids:
+                    ticket_count = conn.execute(
+                        "SELECT COUNT(*) as c FROM tickets"
+                    ).fetchone()['c']
+                    if ticket_count == 0:
+                        highlights.append({
+                            "id": "sprint-setup",
+                            "type": "action",
+                            "label": "🚀 New Sprint",
+                            "text": "Your sprint has started but no tickets yet",
+                            "action": "Create tickets to track your work this sprint",
+                            "link": "/tickets",
+                            "link_text": "Add Tickets"
+                        })
+            except:
+                pass
+        
+        # 4. Check for unreviewed signals
+        unreviewed = conn.execute(
+            """SELECT COUNT(*) as c FROM signal_status 
+               WHERE status = 'pending' OR status IS NULL"""
+        ).fetchone()
+        if unreviewed and unreviewed['c'] > 5 and "review-signals" not in dismissed_ids:
+            highlights.append({
+                "id": "review-signals",
+                "type": "action",
+                "label": "📥 Unreviewed Signals",
+                "text": f"{unreviewed['c']} signals waiting for your review",
+                "action": "Validate signals to build your knowledge base",
+                "link": "/signals",
+                "link_text": "Review Signals"
+            })
+        
+        # 5. Check workflow mode progress
+        # (suggest moving to next mode if current is complete)
+        
+        # 6. Recent meeting with unprocessed signals
+        recent_meeting = conn.execute(
+            """SELECT id, meeting_name, signals_json, meeting_date
+               FROM meeting_summaries 
+               WHERE signals_json IS NOT NULL
+               ORDER BY COALESCE(meeting_date, created_at) DESC 
+               LIMIT 1"""
+        ).fetchone()
+        if recent_meeting:
+            try:
+                signals = json.loads(recent_meeting['signals_json']) if recent_meeting['signals_json'] else {}
+                blockers = signals.get('blockers', [])
+                actions = signals.get('action_items', [])
+                
+                # Highlight blockers from recent meeting
+                for i, blocker in enumerate(blockers[:2]):
+                    if blocker:
+                        highlight_id = f"mtg-blocker-{recent_meeting['id']}-{i}"
+                        if highlight_id not in dismissed_ids:
+                            highlights.append({
+                                "id": highlight_id,
+                                "type": "blocker",
+                                "label": "🚧 Meeting Blocker",
+                                "text": blocker[:100] + ('...' if len(blocker) > 100 else ''),
+                                "action": f"From: {recent_meeting['meeting_name']}",
+                                "link": f"/meetings/{recent_meeting['id']}",
+                                "link_text": "View Meeting"
+                            })
+                
+                # Highlight action items from recent meeting
+                for i, action in enumerate(actions[:2]):
+                    if action:
+                        highlight_id = f"mtg-action-{recent_meeting['id']}-{i}"
+                        if highlight_id not in dismissed_ids:
+                            highlights.append({
+                                "id": highlight_id,
+                                "type": "action",
+                                "label": "📋 Action Item",
+                                "text": action[:100] + ('...' if len(action) > 100 else ''),
+                                "action": f"From: {recent_meeting['meeting_name']}",
+                                "link": f"/meetings/{recent_meeting['id']}",
+                                "link_text": "View Meeting"
+                            })
+            except:
+                pass
+        
+        # 7. Accountability items (waiting for others)
+        waiting = conn.execute(
+            """SELECT id, description, responsible_party FROM accountability_items
+               WHERE status = 'waiting'
+               ORDER BY created_at DESC LIMIT 2"""
+        ).fetchall()
+        for w in waiting:
+            highlight_id = f"waiting-{w['id']}"
+            if highlight_id not in dismissed_ids:
+                highlights.append({
+                    "id": highlight_id,
+                    "type": "waiting",
+                    "label": "⏳ Waiting On",
+                    "text": f"{w['responsible_party']}: {w['description'][:80]}",
+                    "action": "Follow up if this is blocking you",
+                    "link": "/accountability",
+                    "link_text": "Waiting-For List"
+                })
+        
+        # 8. Check for empty DIKW (encourage knowledge building)
+        dikw_count = conn.execute("SELECT COUNT(*) as c FROM dikw_items").fetchone()
+        if dikw_count and dikw_count['c'] == 0 and "dikw-empty" not in dismissed_ids:
+            highlights.append({
+                "id": "dikw-empty",
+                "type": "idea",
+                "label": "💡 Knowledge Base",
+                "text": "Start building your knowledge pyramid",
+                "action": "Promote signals to DIKW to capture learnings",
+                "link": "/dikw",
+                "link_text": "View DIKW"
+            })
+        
+        # 9. No recent meetings (encourage logging)
+        meeting_count = conn.execute(
+            """SELECT COUNT(*) as c FROM meeting_summaries 
+               WHERE date(created_at) > date('now', '-7 days')"""
+        ).fetchone()
+        if meeting_count and meeting_count['c'] == 0 and "log-meeting" not in dismissed_ids:
+            highlights.append({
+                "id": "log-meeting",
+                "type": "idea",
+                "label": "📅 Log a Meeting",
+                "text": "No meetings logged in the past week",
+                "action": "Capture decisions and actions from recent discussions",
+                "link": "/meetings/new",
+                "link_text": "Add Meeting"
+            })
     
-    return JSONResponse({"highlights": highlights})
+    # Prioritize: blockers > risks > actions > waiting > ideas
+    priority = {'blocker': 0, 'risk': 1, 'action': 2, 'waiting': 3, 'idea': 4, 'decision': 5}
+    highlights.sort(key=lambda h: priority.get(h['type'], 99))
+    
+    # Return top 6 items
+    return JSONResponse({"highlights": highlights[:6]})
 
 
 @app.post("/api/dashboard/highlight-context")
@@ -808,7 +986,7 @@ async def convert_signal_to_ticket(request: Request):
         # Create ticket
         conn.execute(
             """INSERT INTO tickets (ticket_id, title, description, status, priority, ai_summary, created_at)
-               VALUES (?, ?, ?, 'todo', ?, ?, CURRENT_TIMESTAMP)""",
+               VALUES (?, ?, ?, 'backlog', ?, ?, CURRENT_TIMESTAMP)""",
             (ticket_id, signal_text[:100], f"Signal from: {meeting_name}\n\nOriginal Signal ({signal_type}):\n{signal_text}", 
              priority, f"Converted from {signal_type} signal: {signal_text[:150]}...")
         )
@@ -898,7 +1076,7 @@ async def convert_ai_to_action(request: Request):
         
         conn.execute(
             """INSERT INTO tickets (ticket_id, title, description, status, priority, ai_summary, created_at)
-               VALUES (?, ?, ?, 'todo', 'medium', ?, CURRENT_TIMESTAMP)""",
+               VALUES (?, ?, ?, 'backlog', 'medium', ?, CURRENT_TIMESTAMP)""",
             (ticket_id, title, f"From AI Query: {query}\n\nAI Response:\n{content}", f"AI insight: {content[:150]}...")
         )
         conn.commit()
@@ -2374,26 +2552,26 @@ async def get_mindmap_data():
             item_id = f"item_{item['id']}"
             nodes.append({
                 "id": item_id,
-                "name": (item['content'] or '')[:30] + ('...' if len(item.get('content', '')) > 30 else ''),
+                "name": (item['content'] or '')[:30] + ('...' if len(item['content'] or '') > 30 else ''),
                 "type": "item",
                 "level": level,
-                "summary": item.get('summary', '')
+                "summary": item['summary'] if 'summary' in item.keys() else ''
             })
             links.append({"source": level_id, "target": item_id})
     
-    # Build tag clusters
+    # Build tag clusters (normalize to lowercase for consistency)
     tag_clusters = {}
     for item in items:
-        tags = (item.get('tags') or '').split(',')
+        tags = (item['tags'] or '').split(',') if item['tags'] else []
         for tag in tags:
-            tag = tag.strip()
+            tag = tag.strip().lower()
             if tag:
                 if tag not in tag_clusters:
                     tag_clusters[tag] = []
                 tag_clusters[tag].append({
                     "id": item['id'],
                     "level": item['level'],
-                    "content": item['content'][:50]
+                    "content": (item['content'] or '')[:50]
                 })
     
     # Count stats

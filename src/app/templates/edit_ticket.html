@@ -38,6 +38,7 @@
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base cursor-pointer
                                    focus:ring-2 focus:ring-violet-500 focus:border-violet-500"
                             style="min-height: 48px;">
+                        <option value="backlog" {{ 'selected' if (not ticket) or (ticket and ticket.status == 'backlog') else '' }}>Backlog</option>
                         <option value="todo" {{ 'selected' if ticket and ticket.status == 'todo' else '' }}>To Do</option>
                         <option value="in_progress" {{ 'selected' if ticket and ticket.status == 'in_progress' else '' }}>In Progress</option>
                         <option value="in_review" {{ 'selected' if ticket and ticket.status == 'in_review' else '' }}>In Review</option>

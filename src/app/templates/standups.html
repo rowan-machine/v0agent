@@ -219,6 +219,177 @@
     border-left: 3px solid #0ea5e9;
   }
   
+  /* Feedback Template Styling */
+  .feedback-template {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .feedback-section {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+  }
+  
+  .feedback-section.highlight {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+  }
+  
+  .feedback-section.warning {
+    background: #fffbeb;
+    border-color: #fde68a;
+  }
+  
+  .feedback-section.growth {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+  }
+  
+  .feedback-icon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }
+  
+  .feedback-section > div {
+    flex: 1;
+    line-height: 1.5;
+  }
+  
+  /* Dark Mode for Standups Page */
+  [data-theme="dark"] .standups-header h1,
+  [data-theme="dark"] .panel-title {
+    color: var(--sf-text, #faf6f1) !important;
+  }
+  
+  [data-theme="dark"] .panel {
+    background: #2d2d2d !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+  
+  [data-theme="dark"] .panel-header {
+    border-bottom-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .standup-item {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .standup-content {
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] .standup-date {
+    color: #a0a0a0 !important;
+  }
+  
+  [data-theme="dark"] .standup-feedback {
+    background: #2d3748 !important;
+    color: #90cdf4 !important;
+    border-left-color: #4299e1 !important;
+  }
+  
+  [data-theme="dark"] .feedback-section {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] .feedback-section.highlight {
+    background: #1a3a2a !important;
+    border-color: #2d5a3d !important;
+  }
+  
+  [data-theme="dark"] .feedback-section.warning {
+    background: #3a3520 !important;
+    border-color: #5a5030 !important;
+  }
+  
+  [data-theme="dark"] .feedback-section.growth {
+    background: #1a2a3a !important;
+    border-color: #2d4a5a !important;
+  }
+  
+  [data-theme="dark"] .standup-textarea,
+  [data-theme="dark"] .form-row input[type="date"] {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] .form-row label,
+  [data-theme="dark"] .checkbox-label {
+    color: #a0a0a0 !important;
+  }
+  
+  [data-theme="dark"] .btn-secondary {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] .btn-secondary:hover {
+    background: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .toggle-feedback {
+    color: #90cdf4 !important;
+  }
+  
+  [data-theme="dark"] .theme-tag {
+    background: #4a3a5a !important;
+    color: #d6bcfa !important;
+  }
+  
+  [data-theme="dark"] .chat-messages {
+    background: #2d2d2d !important;
+  }
+  
+  [data-theme="dark"] .chat-message.user {
+    background: linear-gradient(135deg, #a0522d 0%, #8b4513 100%) !important;
+  }
+  
+  [data-theme="dark"] .chat-message.assistant {
+    background: #faf6f1 !important;
+  }
+  
+  [data-theme="dark"] .chat-message.assistant .message-bubble {
+    background: #faf6f1 !important;
+    border-color: #e5e7eb !important;
+    color: #1a1a1a !important;
+  }
+  
+  [data-theme="dark"] .chat-input-area {
+    background: #3a3a3a !important;
+    border-color: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .chat-textarea,
+  [data-theme="dark"] .chat-input {
+    background: #3a3a3a !important;
+    color: #f5f5f5 !important;
+    border-color: #555 !important;
+  }
+  
+  [data-theme="dark"] .quick-prompt {
+    background: #3a3a3a !important;
+    border-color: #555 !important;
+    color: #e5e5e5 !important;
+  }
+  
+  [data-theme="dark"] .quick-prompt:hover {
+    background: #4a4a4a !important;
+  }
+  
+  [data-theme="dark"] .empty-state {
+    color: #888 !important;
+  }
+  
   .standup-themes {
     margin-top: 0.5rem;
     display: flex;
@@ -409,17 +580,17 @@
       </div>
     </div>
     
-    <!-- Right: Career Chat -->
+    <!-- Right: Sprint Coach -->
     <div class="panel">
       <div class="panel-header">
-        <span class="panel-title">💬 Career Agent</span>
+        <span class="panel-title">🏃 Sprint Coach</span>
         <button onclick="clearChat()" class="btn btn-ghost">Clear</button>
       </div>
       
       <div class="chat-container">
         <div class="quick-prompts">
           <button class="quick-prompt" onclick="askQuick('How is my sprint going?')">Sprint status</button>
-          <button class="quick-prompt" onclick="askQuick('What should I focus on today?')">Today\'s focus</button>
+          <button class="quick-prompt" onclick="askQuick('What should I focus on today?')">Today's focus</button>
           <button class="quick-prompt" onclick="askQuick('Summarize my recent standups')">Standup summary</button>
           <button class="quick-prompt" onclick="askQuick('What are my blockers?')">Blockers</button>
           <button class="quick-prompt" onclick="askQuick('Give me career advice based on my work')">Career advice</button>
@@ -428,7 +599,7 @@
         <div class="chat-messages" id="chatMessages">
           <div class="chat-message assistant">
             <div class="message-bubble">
-              Hi! I'm your career agent. I can help you with sprint progress, standup insights, career advice, and more. Ask me anything about your work!
+              Hi! I'm your sprint coach. I can help you with sprint progress, standup insights, blockers, and daily focus. Ask me anything about your current work!
             </div>
           </div>
         </div>
@@ -471,7 +642,7 @@ function toggleAddForm() {
 
 async function loadStandups() {
   try {
-    const res = await fetch('/api/career/standups');
+    const res = await fetch('/api/career/standups', { credentials: 'same-origin' });
     standups = await res.json();
     renderStandups();
   } catch (err) {
@@ -503,28 +674,57 @@ function renderStandups() {
           </div>
         ` : ''}
         ${s.feedback ? `
-          <div class="standup-feedback" id="feedback-${s.id}" style="display: none;">${escapeHtml(s.feedback)}</div>
+          <div class="standup-feedback" id="feedback-${s.id}" style="display: none;">${formatFeedback(s.feedback)}</div>
           <div class="toggle-feedback" onclick="toggleFeedback(${s.id})">▶ Show AI feedback</div>
         ` : '<div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem;">No feedback (quick save)</div>'}
         <button class="btn btn-secondary btn-sm" style="margin-top:8px;" onclick="deleteStandup(${s.id})">Delete</button>
       </div>
     `;
   }).join('');
+}
+
+// Format AI feedback into a nice template
+function formatFeedback(feedback) {
+  if (!feedback) return '';
+  // Split into paragraphs and format nicely
+  const paragraphs = feedback.split('\n\n').filter(p => p.trim());
+  if (paragraphs.length === 0) {
+    return `<div class="feedback-section">${escapeHtml(feedback)}</div>`;
+  }
+  
+  let html = '<div class="feedback-template">';
+  paragraphs.forEach((p, idx) => {
+    const trimmed = p.trim();
+    if (idx === 0) {
+      html += `<div class="feedback-section highlight"><span class="feedback-icon">✨</span><div>${escapeHtml(trimmed)}</div></div>`;
+    } else if (trimmed.toLowerCase().includes('blocker') || trimmed.toLowerCase().includes('challenge')) {
+      html += `<div class="feedback-section warning"><span class="feedback-icon">⚠️</span><div>${escapeHtml(trimmed)}</div></div>`;
+    } else if (trimmed.toLowerCase().includes('career') || trimmed.toLowerCase().includes('growth')) {
+      html += `<div class="feedback-section growth"><span class="feedback-icon">🚀</span><div>${escapeHtml(trimmed)}</div></div>`;
+    } else {
+      html += `<div class="feedback-section"><span class="feedback-icon">💡</span><div>${escapeHtml(trimmed)}</div></div>`;
+    }
+  });
+  html += '</div>';
+  return html;
+}
+
 async function deleteStandup(id) {
   if (!confirm('Delete this standup?')) return;
   try {
-    const res = await fetch(`/api/career/standups/${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/career/standups/${id}`, { method: 'DELETE', credentials: 'same-origin' });
     const data = await res.json();
     if (data.status === 'ok') {
-      standups = standups.filter(s => s.id !== id);
+      // Use loose equality to handle both string and number IDs
+      standups = standups.filter(s => String(s.id) !== String(id));
       renderStandups();
     } else {
-      alert('Failed to delete standup.');
+      alert('Failed to delete standup: ' + (data.error || 'Unknown error'));
     }
   } catch (err) {
-    alert('Failed to delete standup.');
+    console.error('Delete error:', err);
+    alert('Failed to delete standup: ' + err.message);
   }
-}
 }
 
 function toggleFeedback(id) {

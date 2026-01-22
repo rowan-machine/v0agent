@@ -174,10 +174,11 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
             cur = conn.execute(
                 """
                 INSERT INTO docs
-                    (source, content, document_date)
-                VALUES (?, ?, ?)
+                    (meeting_id, source, content, document_date)
+                VALUES (?, ?, ?, ?)
                 """,
                 (
+                    meeting_id,
                     f"Transcript: {meeting_name}",
                     transcript_text,
                     meeting_date,
