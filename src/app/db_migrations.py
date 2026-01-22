@@ -303,13 +303,48 @@ def run_all_migrations() -> dict:
 
 
 def get_migration_status() -> dict:
-    """Get current migration status."""
+    """Get current migration status with detailed info for each migration."""
     applied = get_applied_migrations()
-    all_migrations = ["4.1.1", "4.1.2", "4.1.3", "4.1.4", "4.1.5"]
+    
+    # Define all migrations with descriptions
+    all_migrations = [
+        ("4.1.1", "Device registry for multi-device sync"),
+        ("4.1.2", "Agent task queue for inter-agent communication"),
+        ("4.1.3", "Sync log and device sync state tables"),
+        ("4.1.4", "Added sync metadata to meeting_summaries"),
+        ("4.1.5", "Added sync metadata to docs and tickets"),
+    ]
+    
+    # Get applied timestamps from database
+    applied_info = {}
+    with connect() as conn:
+        conn.execute(MIGRATIONS_SCHEMA)  # Ensure table exists
+        rows = conn.execute(
+            "SELECT version, description, applied_at FROM schema_migrations"
+        ).fetchall()
+        for row in rows:
+            applied_info[row["version"]] = {
+                "description": row["description"],
+                "applied_at": row["applied_at"]
+            }
+    
+    # Build migration list with full details
+    migrations = []
+    for version, description in all_migrations:
+        is_applied = version in applied
+        migrations.append({
+            "version": version,
+            "description": applied_info.get(version, {}).get("description", description),
+            "applied": is_applied,
+            "applied_at": applied_info.get(version, {}).get("applied_at"),
+        })
+    
+    pending = [m["version"] for m in migrations if not m["applied"]]
     
     return {
+        "migrations": migrations,
         "applied": list(applied),
-        "pending": [m for m in all_migrations if m not in applied],
+        "pending": pending,
         "total": len(all_migrations),
         "applied_count": len(applied),
     }

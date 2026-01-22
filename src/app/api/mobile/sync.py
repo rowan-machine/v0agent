@@ -198,13 +198,13 @@ async def get_sync_status(device_id: str):
         """, (device_id,)).fetchone()
         
         if state:
-        state = dict(state)
-        pending = state.get("pending_count", 0)
-        last_sync = state.get("last_sync_timestamp")
-        last_sync_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last_sync)) if last_sync else None
-    else:
-        pending = 0
-        last_sync_str = None
+            state = dict(state)
+            pending = state.get("pending_count", 0)
+            last_sync = state.get("last_sync_timestamp")
+            last_sync_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last_sync)) if last_sync else None
+        else:
+            pending = 0
+            last_sync_str = None
     
     return SyncStatusResponse(
         device_id=device_id,

@@ -52,8 +52,8 @@ def get_migrations():
     
     return MigrationStatusResponse(
         total_migrations=status["total"],
-        applied_count=status["applied"],
-        pending_count=status["pending"],
+        applied_count=status["applied_count"],
+        pending_count=len(status["pending"]),
         migrations=migrations
     )
 
@@ -90,6 +90,7 @@ class HealthResponse(BaseModel):
     database: str
     migrations_pending: int
     version: str
+    infrastructure: dict | None = None
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -113,9 +114,188 @@ def health_check():
     # Check migrations
     migration_status = get_migration_status()
     
+    # Check infrastructure components
+    infra_status = {}
+    try:
+        from ..infrastructure import get_task_queue, get_cache, get_rate_limiter
+        
+        queue = get_task_queue()
+        infra_status["task_queue"] = "redis" if queue.is_redis_available else "fallback"
+        
+        cache = get_cache()
+        infra_status["cache"] = "redis" if cache.is_redis_available else "memory"
+        
+        limiter = get_rate_limiter()
+        infra_status["rate_limiter"] = "redis" if limiter.is_redis_available else "memory"
+        
+        from ..infrastructure import get_supabase_client
+        supabase = get_supabase_client()
+        infra_status["supabase"] = "connected" if supabase else "not_configured"
+    except Exception as e:
+        infra_status["error"] = str(e)
+    
     return HealthResponse(
         status="healthy" if db_status == "ok" else "degraded",
         database=db_status,
-        migrations_pending=migration_status["pending"],
-        version="2.0.0-phase4"  # Update as we progress
+        migrations_pending=len(migration_status["pending"]),
+        version="2.0.0-phase4",
+        infrastructure=infra_status
+    )
+
+
+class InfrastructureStatusResponse(BaseModel):
+    """Schema for infrastructure status response."""
+    task_queue: dict
+    cache: dict
+    rate_limiter: dict
+    mdns: dict
+    supabase: dict
+
+
+@router.get("/infrastructure", response_model=InfrastructureStatusResponse)
+def get_infrastructure_status():
+    """
+    Get detailed infrastructure component status.
+    
+    Returns status of all Phase 4 infrastructure components:
+    - Task queue (RQ/Redis)
+    - Cache (Redis/Memory)
+    - Rate limiter
+    - mDNS discovery
+    - Supabase connection
+    """
+    from ..infrastructure import (
+        get_task_queue,
+        get_cache,
+        get_rate_limiter,
+        get_mdns_discovery,
+        get_supabase_client,
+    )
+    
+    # Task queue
+    queue = get_task_queue()
+    task_queue_status = {
+        "mode": "redis" if queue.is_redis_available else "fallback",
+        "pending_jobs": len(queue.get_pending_jobs()),
+    }
+    
+    # Cache
+    cache = get_cache()
+    cache_status = cache.get_stats()
+    
+    # Rate limiter
+    limiter = get_rate_limiter()
+    rate_limiter_status = {
+        "mode": "redis" if limiter.is_redis_available else "memory",
+    }
+    
+    # mDNS
+    mdns = get_mdns_discovery()
+    mdns_status = {
+        "running": mdns.is_running,
+        "devices_discovered": mdns.device_count,
+    }
+    
+    # Supabase
+    supabase = get_supabase_client()
+    supabase_status = {
+        "connected": supabase is not None,
+    }
+    
+    return InfrastructureStatusResponse(
+        task_queue=task_queue_status,
+        cache=cache_status,
+        rate_limiter=rate_limiter_status,
+        mdns=mdns_status,
+        supabase=supabase_status,
+    )
+
+
+class SyncRequest(BaseModel):
+    """Request for data sync."""
+    tables: List[str] | None = None  # None = all tables
+    direction: str = "sqlite_to_supabase"  # or "supabase_to_sqlite"
+
+
+class SyncResponse(BaseModel):
+    """Response from data sync."""
+    status: str
+    synced: dict
+    errors: List[str]
+
+
+@router.post("/sync", response_model=SyncResponse)
+async def sync_data(request: SyncRequest):
+    """
+    Sync data between SQLite and Supabase.
+    
+    By default syncs all tables from SQLite to Supabase.
+    Can specify specific tables or reverse direction.
+    """
+    from ..infrastructure import get_supabase_sync
+    from ..db import connect
+    
+    sync = get_supabase_sync()
+    
+    if not sync.is_available:
+        return SyncResponse(
+            status="error",
+            synced={},
+            errors=["Supabase not configured. Set SUPABASE_URL and SUPABASE_KEY."]
+        )
+    
+    tables = request.tables or ["meetings", "documents", "tickets", "dikw_items"]
+    synced = {}
+    errors = []
+    
+    try:
+        with connect() as conn:
+            for table in tables:
+                try:
+                    if table == "meetings":
+                        rows = conn.execute("SELECT * FROM meeting_summaries").fetchall()
+                        count = 0
+                        for row in rows:
+                            result = await sync.sync_meeting(dict(row))
+                            if result:
+                                count += 1
+                        synced["meetings"] = count
+                        
+                    elif table == "documents":
+                        rows = conn.execute("SELECT * FROM docs").fetchall()
+                        count = 0
+                        for row in rows:
+                            result = await sync.sync_document(dict(row))
+                            if result:
+                                count += 1
+                        synced["documents"] = count
+                        
+                    elif table == "tickets":
+                        rows = conn.execute("SELECT * FROM tickets").fetchall()
+                        count = 0
+                        for row in rows:
+                            result = await sync.sync_ticket(dict(row))
+                            if result:
+                                count += 1
+                        synced["tickets"] = count
+                        
+                    elif table == "dikw_items":
+                        rows = conn.execute("SELECT * FROM dikw_items").fetchall()
+                        count = 0
+                        for row in rows:
+                            result = await sync.sync_dikw_item(dict(row))
+                            if result:
+                                count += 1
+                        synced["dikw_items"] = count
+                        
+                except Exception as e:
+                    errors.append(f"{table}: {str(e)}")
+                    
+    except Exception as e:
+        errors.append(f"Database error: {str(e)}")
+    
+    return SyncResponse(
+        status="completed" if not errors else "partial",
+        synced=synced,
+        errors=errors
     )

@@ -1,46 +1,57 @@
 ---
-description: Documentation of core data models for meetings and documents, their relationships and business logic
+description: Documentation of database models, schemas and data relationships for meeting and document management
 ---
 
 
 # data-models
 
-IMPORTANCE SCORE: 75/100
+Core business entities and relationships focused on meeting intelligence and knowledge management:
 
-Two primary data models form the core of the system:
+## Meetings Model
+- Primary storage for meeting transcripts and metadata 
+- Tracks meeting types: one-on-one, team sync, planning, reviews
+- Maintains relationships to:
+  - Extracted signals (decisions, actions, blockers, risks)
+  - Participating team members
+  - Related documents/tickets
+  - Sprint context
+  - Parent/child meeting references
+- Meeting bundles capability for multi-source transcript merging
+- Signal extraction status tracking
 
-1. Meetings Model
-- Structured representation of meeting content with signal extraction
-- Properties:
-  - title, date, participants
-  - raw_transcript: Original meeting text
-  - synthesized_notes: AI-processed summary
-  - signals: Extracted business signals (decisions, actions, risks)
-  - screenshots: Visual context from meeting
-  - related_docs: Linked document references
+**Importance Score**: 85
 
-2. Documents Model  
-- Knowledge artifacts with version control and relationships
-- Properties:
-  - title, created_date, updated_date
-  - content: Main document text
-  - doc_type: Type classification (spec, design, notes)
-  - related_meetings: Associated meeting references
-  - signals: Extracted business signals
-  - versions: Historical content snapshots
+## Documents Model
+- Knowledge artifact storage with categorization
+- Types include: design docs, RFCs, implementation plans, retros
+- Links to:
+  - Associated meetings and signals  
+  - Parent/child document hierarchy
+  - Sprint and milestone context
+  - Authors and reviewers
+- Version tracking for document evolution
+- DIKW pyramid classification status
 
-Key Relationships:
-- Meeting <-> Document: Many-to-many with context preservation
-- Meeting -> Signals: One-to-many for extracted business intelligence 
-- Document -> Versions: One-to-many for change tracking
-- Meeting <-> Meeting: Predecessor/successor relationships for series
+**Importance Score**: 80
 
-The models emphasize:
-1. Signal extraction and classification
-2. Relationship tracking between knowledge artifacts
-3. Version control of document evolution
-4. Meeting context preservation
-5. Business intelligence derivation from raw content
+## Core Relationships
+1. Meeting -> Signal -> Document
+   - Tracks how decisions/actions flow into documentation
+   
+2. Meeting -> Sprint -> Document
+   - Associates artifacts with development cycles
+
+3. Document -> DIKW Level
+   - Maps knowledge progression through hierarchy
+
+4. Meeting/Document -> Career Development
+   - Links artifacts to professional growth tracking
+
+The data model emphasizes:
+- Signal-centric organization of knowledge
+- Multi-source meeting transcript handling  
+- Document versioning with DIKW progression
+- Integration with sprint and career tracking
 
 $END$
 

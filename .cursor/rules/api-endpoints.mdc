@@ -1,43 +1,51 @@
 ---
-description: Specification for FastAPI endpoints implementing core business operations for meetings and documents
+description: Documents FastAPI routes and endpoints implementing CRUD operations for meetings, documents and related business entities
 ---
 
 
 # api-endpoints
 
-IMPORTANCE SCORE: 70/100
+Core API Routes:
 
-FastAPI routes implementing domain-specific operations:
+1. Meeting Signal Management
+Path: src/app/api/meetings.py
+Importance Score: 85
+- Extracts and categorizes business signals from meetings (decisions, actions, blockers, risks)
+- Handles multi-source transcript merging with deduplication
+- Maintains signal relationships and dependencies
+- Processes meeting bundles for batch signal extraction
 
-1. Meeting Management Routes:
-- Custom transcript processing pipelines
-- Signal extraction from meeting content 
-- Integration with knowledge graph construction
-- Context preservation for linked documents
+2. Knowledge Graph Operations  
+Path: src/app/api/neo4j_graph.py
+Importance Score: 90
+- DIKW pyramid implementation for knowledge classification
+- Manages hierarchical relationships between knowledge entities
+- Tag-based clustering with weighted relationships
+- Domain-specific traversal patterns for organizational context
 
-2. Document Processing Endpoints:
-- Domain-specific categorization system
-- Signal-based content analysis
-- Auto-tagging based on content patterns
-- Knowledge hierarchy integration (DIKW)
+3. Accountability System
+Path: src/app/api/accountability.py
+Importance Score: 75
+- Tracks "waiting-for" dependencies between team members
+- Custom status workflow for blocked/waiting items
+- Context preservation for accountability chains
+- Integration with sprint management system
 
-3. Knowledge Endpoints:
-- Signal synthesis across documents/meetings
-- Custom tag relationship management
-- Entity extraction and relationship mapping
-- Context-aware content linking
+4. Career Development Tracking
+Path: src/app/api/career.py
+Importance Score: 80
+- Career profile management with technical role specialization
+- Integration between tickets and skill progression
+- Custom fields for technical domain expertise
+- Growth metrics across different competency areas
 
-4. Accountability Tracking:
-- Status transition workflows
-- Dependency tracking for action items
-- Source attribution for decisions/items
-- Context preservation across entities
-
-Key Business Patterns:
-- Signal-first architecture
-- Knowledge graph integration
-- Context-aware processing
-- Entity relationship mapping
+5. Sprint Management
+Path: src/app/api/sprints.py
+Importance Score: 75
+- Sprint transition workflow with automated archival
+- Custom sprint length calculations (7/10/14/21 days)
+- Business-specific completion checklist validation
+- Progress tracking with working days calculation
 
 $END$
 

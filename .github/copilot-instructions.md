@@ -18,50 +18,45 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
+A knowledge management and productivity system built around the DIKW (Data, Information, Knowledge, Wisdom) pyramid with specialized components for meeting intelligence, career development, and sprint management.
+
 Core Business Components:
 
-1. Assistant Widget System (Importance: 60/100)
-- Conversation persistence with 24-hour retention
-- Context-aware suggestion system for workflow commands
-- Command usage analytics with domain-specific categorization
-- Weighted sorting for command relevance based on usage patterns
+1. DIKW Knowledge Management (90/100)
+- Hierarchical knowledge promotion through DIKW levels
+- Custom signal synthesis algorithms for knowledge item merging
+- Tag-based knowledge clustering with mindmap generation
+- Confidence scoring system for knowledge validation
 
-2. Meeting Intelligence (Importance: 85/100)
-- Signal extraction from meeting transcripts
-- Multi-category classification: decisions, actions, blockers, risks, ideas
-- Auto-categorization with content analysis
-- Domain-specific signal taxonomy mapping
+2. Meeting Intelligence System (85/100)
+- Signal extraction framework for decisions, actions, blockers, risks
+- Multi-source transcript processing with semantic deduplication 
+- Meeting bundle synthesis with context preservation
+- Screenshot analysis integration with transcript content
 
-3. Knowledge Management (Importance: 90/100)
-- DIKW pyramid implementation (Data-Information-Knowledge-Wisdom)
-- Hierarchical progression system for knowledge items
-- Custom signal merging logic between pyramid levels
-- Multi-item synthesis with confidence scoring
+3. Sprint Management & Career Development (80/100)
+- Sprint transition workflow with time tracking archival
+- Career capability synthesis and recommendation engine
+- Standup analytics with sentiment analysis
+- Task decomposition with AI-powered time estimation
 
-4. Career Development Framework (Importance: 75/100)
-- Career signal analysis system
-- Skills-to-projects correlation tracking
-- Growth pattern detection from standups
-- Repository context-based suggestion generation
+4. Command Pattern System (75/100)
+- Hierarchical command system with domain categories
+- Natural language command inference
+- Context-aware suggestion rotation
+- Frequency-based command ranking
 
-5. Sprint Management (Importance: 80/100)
-- Sprint lifecycle orchestration
-- Time tracking archival system
-- Workflow mode transitions (A-G modes)
-- Ticket backlog organization
+5. Knowledge Graph Implementation (85/100)
+- Custom DIKW pyramid schema
+- Signal relationship mapping
+- Person mention tracking
+- Domain-specific traversal patterns
 
-Business Logic Integration Points:
-- Signal-based knowledge extraction forms core data pipeline
-- Meeting analysis feeds knowledge synthesis system
-- Career tracking integrates with sprint/project data
-- Command suggestions adapt to workflow context
-
-Key Domain Patterns:
-1. Signal-First Architecture
-2. Multi-level Knowledge Synthesis
-3. Context-Aware Command Routing
-4. Workflow Mode Management
-5. Career Development Integration
+The system integrates these components through:
+- Model Context Protocol (MCP) for signal processing
+- Agent Communication Bus for multi-agent coordination
+- Workflow Mode Management with 7 distinct operational modes
+- Hybrid retrieval combining lexical and semantic search
 
 $END$
 
