@@ -1,0 +1,99 @@
+# Default SignalFlow Configuration
+# Environment: Development
+# Load this file first, then override with environment-specific configs
+
+environment: development
+debug: true
+
+# Device identification
+device_name: signalflow-personal
+device_type: desktop
+
+# Agent configurations
+agents:
+  arjuna:
+    description: Conversational assistant with intent parsing
+    primary_model: gpt-4o-mini
+    fallback_model: gpt-3.5-turbo
+    temperature: 0.7
+    max_tokens: 1000
+    system_prompt_file: prompts/agents/arjuna/system.jinja2
+    tools:
+      - search_meetings
+      - search_documents
+      - create_ticket
+      - update_ticket
+      - create_accountability_item
+      - get_sprint_status
+  
+  career_coach:
+    description: Career development and insights agent
+    primary_model: gpt-4o-mini
+    fallback_model: gpt-3.5-turbo
+    temperature: 0.8
+    max_tokens: 1500
+    system_prompt_file: prompts/agents/career_coach/system.jinja2
+    tools:
+      - search_career_memories
+      - analyze_skills
+      - get_standup_history
+  
+  dikw_synthesizer:
+    description: DIKW pyramid promotion and synthesis
+    primary_model: gpt-4o-mini
+    fallback_model: gpt-3.5-turbo
+    temperature: 0.6
+    max_tokens: 2000
+    system_prompt_file: prompts/agents/dikw_synthesizer/system.jinja2
+    tools:
+      - search_dikw_items
+      - promote_item
+      - create_dikw_item
+  
+  meeting_analyzer:
+    description: Meeting analysis and signal extraction
+    primary_model: gpt-4o-mini
+    fallback_model: gpt-3.5-turbo
+    temperature: 0.5
+    max_tokens: 1500
+    system_prompt_file: prompts/agents/meeting_analyzer/system.jinja2
+    tools:
+      - extract_signals
+      - summarize_meeting
+      - find_related_meetings
+
+# Multi-device synchronization
+sync:
+  # Local network synchronization via mDNS
+  use_mdns: true
+  mdns_discovery_timeout: 1
+  
+  # Cloud backup and sync via Supabase
+  enable_supabase: true
+  supabase_url: ${SUPABASE_URL}
+  supabase_key: ${SUPABASE_KEY}
+  supabase_encryption_key: ${SUPABASE_ENCRYPTION_KEY}
+  auto_sync_interval: 300  # 5 minutes
+  
+  # Mobile app sync
+  mobile_enabled: true
+  mobile_sync_interval: 300
+  mobile_cache_size_mb: 100
+  
+  # Conflict resolution strategy
+  conflict_resolution: last-write-wins
+
+# API configuration
+api_host: 0.0.0.0
+api_port: 8001
+api_prefix: /api
+
+# Database
+database_path: agent.db
+
+# Embeddings (ChromaDB)
+embeddings_db_path: ./chromadb_data
+embeddings_model: text-embedding-3-small
+
+# Logging
+log_level: INFO
