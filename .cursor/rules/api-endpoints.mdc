@@ -1,61 +1,50 @@
 ---
-description: Documents FastAPI endpoints implementing CRUD operations for meetings and documents with domain-specific signal processing
+description: API endpoints specification for managing meetings and documents with custom CRUD operations and business logic
 ---
 
 
 # api-endpoints
 
-Core API Routes:
-
-1. Meeting Management
+## Meeting Management Endpoints
 Importance Score: 85/100
-- POST /meetings/create
-  - Extracts signals (decisions, actions, blockers) from meeting transcripts
-  - Processes screenshots for visual context
-  - Assigns meeting categories based on content analysis
-  - Links related documents and participants
 
-- PUT /meetings/{id}/signals  
-  - Updates extracted signals with status transitions
-  - Merges overlapping signals from different sources
-  - Tracks signal approval workflow states
-  - Links signals to sprint tasks and documents
+1. Signal Extraction API
+- `/api/meetings/{id}/signals`
+- Extracts structured business signals from meeting content with custom categorization:
+  - Decisions
+  - Action Items
+  - Blockers
+  - Risks
+  - Ideas
+- Implements automatic signal deduplication and merging
+- Links signals to source meeting context
 
-2. Document Processing 
-Importance Score: 80/100
-- POST /documents/upload
-  - Classifies document type and purpose
-  - Extracts relevant signals and knowledge items
-  - Maps document relationships in knowledge graph
-  - Links to associated meetings and tickets
+2. Meeting Intelligence Endpoints 
+- `/api/meetings/analyze`
+- Process meeting transcripts through intelligence pipeline
+- Integrates screenshot analysis for visual context
+- Maintains temporal relationships between related meetings
+- Associates extracted signals with parent meetings
 
-- PUT /documents/{id}/categorize
-  - Updates document categorization
-  - Processes document relationships
-  - Extracts new signals from content updates
-  - Maintains document version history
+## Document Management Endpoints
+Importance Score: 75/100
 
-3. Signal Management
-Importance Score: 90/100
-- POST /signals/extract
-  - Processes meeting/document content for signal extraction
-  - Categorizes signals (decision, action, blocker, risk, idea)
-  - Assigns signal priority and status
-  - Links signals to knowledge graph entities
+1. Knowledge Graph Integration
+- `/api/documents/knowledge`
+- Builds semantic relationships between documents
+- Implements DIKW pyramid classification:
+  - Data level documents
+  - Information synthesis
+  - Knowledge extraction
+  - Wisdom distillation
+- Maintains document hierarchies and relationships
 
-- PUT /signals/{id}/status
-  - Updates signal workflow status
-  - Handles signal approval/rejection flow
-  - Tracks signal archival states
-  - Maintains signal relationship mapping
-
-4. Knowledge Integration
-Importance Score: 75/100 
-- POST /knowledge/map
-  - Creates knowledge graph relationships
-  - Maps signal connections and dependencies
-  - Tracks knowledge entity progression
-  - Links related meetings and documents
+2. Document Intelligence
+- `/api/documents/analyze`
+- Extracts domain-specific insights
+- Links related meetings and signals
+- Maintains document version relationships
+- Generates semantic tags for knowledge organization
 
 $END$
 

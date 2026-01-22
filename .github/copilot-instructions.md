@@ -18,47 +18,47 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-AI-Powered Career Development & Project Management System 
+## Core System Components
 
-Core Business Components:
+### Assistant Widget Intelligence
+Importance Score: 75/100
+- 24-hour conversation persistence with automatic cleanup
+- Rotating contextual suggestion system with 4 distinct suggestion sets
+- Command history tracking with frequency-based ranking
+- Contextual response handling for AI clarifications
+- Domain-specific workflow integrations for sprints and tickets
 
-1. Intelligent Assistant (Arjuna)
-- Conversation persistence with 24-hour expiry
-- Domain-specific suggestion rotation (tickets, sprints, tasks)
-- Command frequency tracking and prioritization 
-- Smart command categorization with emoji mapping
+### Knowledge Management System
+Importance Score: 85/100
+- DIKW (Data-Information-Knowledge-Wisdom) transformation pipeline
+- Signal promotion logic through knowledge hierarchy levels
+- Semantic merging of related knowledge items
+- Custom confidence scoring for knowledge validation
+- Business rules for DIKW level transitions
 
-2. Meeting Intelligence System
-- Signal extraction for decisions, actions, blockers, risks
-- Multi-source transcript processing (Pocket, Teams)
-- Screenshot analysis with AI vision integration
-- Automated signal categorization and merging
+### Meeting Intelligence Pipeline 
+Importance Score: 90/100
+- Adaptive meeting summary parsing system
+- Signal extraction for decisions, action items, blockers, risks
+- Domain-specific signal categorization
+- Semantic deduplication of extracted content
+- Integration with career development tracking
 
-3. Career Development Platform
-- AI-powered standup analysis with sentiment detection
-- Growth suggestion generation based on skills/profile matching
-- Career insight synthesis from multiple data sources
-- Professional development tracking via DIKW pyramid
+### Workflow Orchestration
+Importance Score: 85/100
+- Mode-based workflow engine (Modes A-G)
+- Context-aware command routing system
+- Tool discovery and capability management
+- Custom accountability tracking system
+- Sprint management with AI-assisted task breakdown
 
-4. Knowledge Graph Engine
-- Signal-based relationship mapping
-- DIKW pyramid progression tracking
-- Person-mention relationship analysis
-- Meeting-document temporal connections
-- Custom semantic relationship inference
-
-5. Sprint Management
-- Sprint lifecycle management with archival
-- Work mode progress tracking (A-G modes)
-- AI-assisted ticket decomposition
-- Sprint health monitoring
-- Time tracking analytics
-
-Integration Points:
-- Agent communication bus with priority routing
-- Hybrid context retrieval combining lexical/semantic search
-- Multi-model routing based on task classification
-- Pre/post call guardrails for AI safety
+### Agent Communication Framework
+Importance Score: 80/100
+- Priority-based message queuing
+- TTL management for agent messages
+- Directed and broadcast messaging patterns
+- Message state transition tracking
+- Context preservation across agent interactions
 
 $END$
 

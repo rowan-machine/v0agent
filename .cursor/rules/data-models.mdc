@@ -1,54 +1,65 @@
 ---
-description: Documents the core data models for Meetings and Documents, including their relationship structure and domain logic
+description: Documents core data models and relationships for meetings and documents in a knowledge management system
 ---
 
 
 # data-models
 
-Two primary data models drive the core business functionality:
+The system implements two primary data models with sophisticated relationships:
 
 ## Meeting Model
 Importance Score: 90/100
 
-Key Attributes:
-- Structured signal extraction categories (decisions, action items, blockers, risks)
-- Temporal state tracking (scheduled, in-progress, completed)
-- Screenshot integration for visual context
-- Multi-source transcript handling (Pocket, Teams)
-- Signal merging capabilities with versioning
+Core fields:
+- UUID identifier
+- Title & description  
+- Meeting date/time
+- Summary content
+- Extracted signals:
+  - Decisions
+  - Action items 
+  - Blockers
+  - Risks
+  - Ideas
+- Related documents
+- Participants
+- Status tracking
 
-## Document Model  
+## Document Model
 Importance Score: 85/100
 
-Key Attributes:
-- Signal-based knowledge extraction
-- DIKW pyramid categorization (Data, Information, Knowledge, Wisdom)
-- Version control with diff tracking
-- Implementation plan generation
-- Code locker system for file changes
+Core fields:
+- UUID identifier
+- Title & description
+- Document type 
+- Content/body
+- Related meetings
+- Version history
+- Signal references
+- Knowledge category
+- DIKW pyramid level
 
 ## Relationship Structure
 
-Meeting-Document Relationships:
-- Bi-directional linking between meetings and related documents
+Bidirectional linking between meetings and documents with:
+- Signal cross-referencing
+- Knowledge hierarchy mapping
+- Context preservation
+- Temporal relationships
+- Participant attribution
+
+Knowledge items are classified within the DIKW pyramid levels:
+- Data: Raw meeting/document content
+- Information: Structured extracts
+- Knowledge: Analyzed patterns
+- Wisdom: Strategic insights
+
+The models support:
+- Signal propagation through related items
+- Automatic knowledge categorization
+- Meeting-document context linking
 - Temporal relationship tracking
-- Signal inheritance and merging
-- Context preservation across entities
-- Knowledge graph integration points
-
-Meeting-Signal Relationships:
-- One-to-many signal extraction
-- Category-based signal organization
-- Status tracking state machine
-- Approval workflow states
-- Signal validation system
-
-Document-Signal Relationships:
-- Structured knowledge extraction
-- Implementation tracking
-- Version-controlled changes
-- File relationship mapping
-- Code progress metrics
+- Multi-level attribution
 
 $END$
 
