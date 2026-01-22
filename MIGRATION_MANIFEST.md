@@ -364,6 +364,104 @@ VALUES ('transcript_match_threshold', '0.75', 'Minimum similarity score for tran
 
 ---
 
+#### Phase F6: Modern Frontend Redesign (Priority: MEDIUM-HIGH)
+**Goal:** Replace Jinja2 templates with modern React-based SPA for better UX
+
+**Why redesign:**
+- Current Jinja2 templates are server-rendered, limited interactivity
+- No real-time updates without page refresh
+- Inconsistent styling across pages
+- Difficult to build rich interactions (drag-drop, inline editing, etc.)
+
+**Framework Options:**
+
+| Option | Pros | Cons | Recommendation |
+|--------|------|------|----------------|
+| **Next.js** | SSR/SSG, great DX, file-based routing | Needs Node server or Vercel | ✅ Best overall |
+| **Vite + React** | Fast, lightweight, pure SPA | No SSR, SEO considerations | Good for internal app |
+| **Remix** | Nested routes, progressive enhancement | Newer, smaller ecosystem | Alternative to Next |
+| **SvelteKit** | Small bundle, fast | Different paradigm, learning curve | If exploring new stacks |
+
+**Recommended: Next.js 14+ (App Router)**
+- Works perfectly with existing FastAPI backend (`/api/v1/*`)
+- Can deploy frontend separately (Vercel) or alongside backend
+- TypeScript + Tailwind CSS for modern DX
+- shadcn/ui for consistent, accessible components
+- React Query for data fetching with caching
+
+**Architecture:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SignalFlow Frontend                       │
+│                     (Next.js on Vercel)                      │
+├─────────────────────────────────────────────────────────────┤
+│  Pages:                                                      │
+│  ├── /dashboard ──────── Main overview                       │
+│  ├── /meetings ───────── List + detail views                 │
+│  ├── /tickets ────────── Kanban + list views                 │
+│  ├── /dikw ───────────── Interactive pyramid                 │
+│  ├── /knowledge-graph ── D3/Cytoscape visualization          │
+│  ├── /career ─────────── Analytics dashboard                 │
+│  ├── /notifications ──── Notification inbox                  │
+│  ├── /search ─────────── Unified search                      │
+│  └── /settings ───────── App configuration                   │
+├─────────────────────────────────────────────────────────────┤
+│  Components:                                                 │
+│  ├── CommandPalette ──── ⌘K quick actions                    │
+│  ├── NotificationBell ── Header notification center          │
+│  ├── QuickAsk ────────── Arjuna chat drawer                  │
+│  └── SignalCards ─────── Drag-drop signal management         │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼ HTTP/REST
+┌─────────────────────────────────────────────────────────────┐
+│                   SignalFlow Backend                         │
+│                  (FastAPI - unchanged)                       │
+│  /api/v1/* ─────── RESTful endpoints                         │
+│  /api/mobile/* ─── Sync endpoints                            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key UI Improvements:**
+| Current (Jinja2) | New (Next.js) |
+|------------------|---------------|
+| Full page refreshes | SPA navigation, instant transitions |
+| Basic forms | Inline editing, auto-save |
+| Static tables | Sortable, filterable data tables |
+| No keyboard shortcuts | Command palette (⌘K) |
+| Alert-based notifications | Toast notifications + inbox |
+| Separate pages | Slide-over panels, modals |
+| Basic charts | Interactive dashboards (Recharts) |
+
+**Migration Strategy:**
+1. **Phase 1:** Create Next.js app in `frontend/` directory
+2. **Phase 2:** Implement core pages (dashboard, meetings, tickets)
+3. **Phase 3:** Add notification system, command palette
+4. **Phase 4:** Migrate remaining pages (DIKW, career, settings)
+5. **Phase 5:** Deprecate Jinja2 templates (keep as fallback initially)
+6. **Phase 6:** Remove old templates, update deployment
+
+**Backend Changes Required:** NONE
+- All data flows through existing `/api/v1/*` endpoints
+- Add CORS config for frontend domain if deployed separately
+- Optionally add WebSocket endpoint for real-time updates
+
+**Tech Stack:**
+```json
+{
+  "framework": "next@14",
+  "styling": "tailwindcss + shadcn/ui",
+  "state": "zustand + react-query",
+  "forms": "react-hook-form + zod",
+  "charts": "recharts",
+  "graph": "cytoscape.js or react-flow",
+  "icons": "lucide-react",
+  "dates": "date-fns"
+}
+```
+
+---
+
 ### Implementation Priority Order
 
 ```
@@ -373,9 +471,15 @@ Q1 2026:
   └── F3: Scheduled Jobs (pg_cron) ────────── Week 4-5
 
 Q2 2026:
-  ├── F4: Enhanced Semantic Search ────────── Week 1-3
-  ├── F2b: Mobile Push Notifications ──────── Week 4-5
-  └── F5: Mobile Companion Features ───────── Week 6-8
+  ├── F6: Frontend Redesign (Core) ────────── Week 1-4
+  │   └── Dashboard, Meetings, Tickets pages
+  ├── F4: Enhanced Semantic Search ────────── Week 5-6
+  └── F6b: Frontend Redesign (Advanced) ───── Week 7-10
+      └── DIKW, Career, Notifications UI
+
+Q3 2026:
+  ├── F5: Mobile Companion Features ───────── Week 1-4
+  └── F6c: Jinja2 Template Deprecation ────── Week 5-6
 
 Ongoing:
   └── Test coverage improvement to >80%
