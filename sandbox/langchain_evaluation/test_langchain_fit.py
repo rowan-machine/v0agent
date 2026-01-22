@@ -22,6 +22,15 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+# Load environment variables (sandbox env first, then main .env for OPENAI_API_KEY)
+from dotenv import load_dotenv
+sandbox_env = Path(__file__).parent / ".env.sandbox"
+if sandbox_env.exists():
+    load_dotenv(sandbox_env, override=True)
+main_env = project_root / ".env"
+if main_env.exists():
+    load_dotenv(main_env, override=False)  # Don't override sandbox vars
+
 # Check if LangChain is available
 LANGCHAIN_AVAILABLE = False
 LANGGRAPH_AVAILABLE = False

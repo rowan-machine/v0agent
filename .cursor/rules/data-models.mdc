@@ -1,57 +1,47 @@
 ---
-description: Documents the core Meeting and Document data models and their relationship structure in a knowledge management system
+description: Documents the core data models for Meetings and Documents, including their relationships and business rules
 ---
 
 
 # data-models
 
-The system is built around two primary data models and their relationships:
+## Core Data Models
 
-## Meeting Model
-Importance Score: 90/100
+### Meetings Model
+Importance Score: 95
 
-Core Structure:
-- Meeting metadata (title, date, duration)
-- Extracted signals with categorization:
-  - Decisions
-  - Action Items  
-  - Blockers
-  - Risks
-  - Ideas
-- Contextual knowledge relationships
-- Participant tracking
-- State transitions (draft, active, archived)
+Primary business entity representing organizational meetings with:
+- Unique signal extraction categories (decisions, action items, blockers, risks)
+- Screenshot collection with contextual metadata
+- Multi-source transcript integration (Pocket + Teams)
+- Structured signal relationships to related entities
+- 24-hour expiration window for conversation history
+- Weighted command tracking with frequency/recency metrics
+- Domain-specific categorization (sprints, tickets, standups)
 
-## Document Model
-Importance Score: 85/100
+### Documents Model
+Importance Score: 90
 
-Core Structure:
-- Document versioning
-- Signal extraction mapping
-- Related meeting references
-- Knowledge graph connections
-- Domain categorization
-- Change history tracking
+Knowledge base documents with:
+- Business domain tagging system
+- Hierarchical relationship mapping
+- Time-based data organization with burndown tracking
+- Signal extraction patterns
+- Context-aware categorization
 
-## Relationship Structure
+## Model Relationships
 
-1. Meeting-to-Document Links
-- Bi-directional references 
-- Signal propagation between entities
-- Version-aware relationships
+### Meeting-Signal Flow
+- Meetings contain extracted signals
+- Signals link to source meetings
+- Hierarchical signal promotion system
+- Status tracking workflow (pending/approved/rejected/archived)
+
+### Document-Meeting Context
+- Documents reference related meetings
+- Bi-directional relationship tracking
 - Context preservation across entities
-
-2. Signal Inheritance
-- Signals can flow between meetings and documents
-- Hierarchical signal organization
-- Cross-reference tracking between sources
-- Signal deduplication and merging
-
-3. Knowledge Context
-- DIKW pyramid organization
-- Domain-specific categorization
-- Entity relationships in knowledge graph
-- Context preservation across entities
+- Domain-specific tag clustering
 
 $END$
 

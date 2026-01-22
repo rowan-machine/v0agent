@@ -18,67 +18,48 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The system implements an AI-powered project management platform with sophisticated knowledge extraction capabilities. The core business logic is organized around three main pillars:
+The project implements an AI-assisted workflow management system with three primary business domains:
 
-## AI Assistant Intelligence System
-Importance Score: 85/100
+## Assistant Interface System (75/100)
+Core implementation in `src/app/templates/components/assistant_widget.html`
+- Persistent conversation management with 24-hour expiration
+- Domain-specific command categorization for software workflows
+- Context-aware response handling with multi-model AI integration
+- Intelligent suggestion rotation based on usage patterns
 
-- Contextual conversation management with 24-hour persistence
-- Domain-specific suggestion rotation across 4 categorized sets
-- Command usage analytics with hybrid frequency/recency scoring
-- Auto-categorization of commands using emoji-based domain classification
-- Business context preservation across page reloads
+## Meeting Signal Processing (85/100)
+Core implementation in `src/app/agents/base.py` and `src/app/mcp/extract.py`
+- Structured signal extraction from meeting content
+- Multi-agent orchestration with domain-specific guardrails
+- Categorization of decisions, action items, blockers and risks
+- Integration with sprint management and ticket systems
 
-## Meeting Signal Processing Engine
-Importance Score: 90/100
+## Career Development Engine (75/100)
+Core implementation in `src/app/agents/career_coach.py`
+- Career growth analysis and recommendation generation
+- Standup analysis with sentiment detection
+- Skills-to-project synthesis
+- Custom progression tracking with profiling
 
-- Extracts structured business signals from meetings:
-  * Decisions
-  * Action Items
-  * Blockers
-  * Risks
-  * Ideas
-- Signal correlation and merging between meetings
-- Intelligent theme extraction and categorization
-- AI-powered sentiment analysis for standups
-- Screenshot analysis integration with vision AI
+Key Business Workflows:
 
-## Workflow Mode Management
-Importance Score: 80/100
+1. Knowledge Management
+- Signal extraction from meetings and documents
+- Context-aware information retrieval
+- Domain-specific tag clustering
+- Custom mindmap visualization
 
-Seven distinct workflow modes:
-1. Context Distillation
-2. Implementation Planning
-3. Assisted Draft Intake
-4. Deep Review
-5. Promotion Readiness
-6. Controlled Ingress/Egress
-7. Execution Writing Code
+2. Sprint Operations
+- Ticket lifecycle management
+- AI-powered implementation planning
+- Task decomposition with priority handling
+- Code versioning integration
 
-Each mode contains:
-- Phase-specific behaviors
-- Progress tracking
-- Custom validation rules
-- Career development mapping
-- Sprint integration points
-
-## Knowledge Organization
-Importance Score: 75/100
-
-- Hierarchical knowledge graph (DIKW pyramid)
-- Signal-based relationship mapping
-- Tag clustering system
-- Multi-view visualizations
-- Real-time graph manipulation
-
-## Accountability Framework
-Importance Score: 70/100
-
-- Task ownership tracking
-- Status-based workflow progression
-- Dependency chain management
-- Automated accountability item creation
-- Integration with signal extraction system
+3. Agent Communication
+- Model selection based on task complexity
+- Safety guardrails with domain rules
+- Cost tier management
+- Fallback chains for model failures
 
 $END$
 

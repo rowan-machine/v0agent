@@ -1,48 +1,54 @@
 ---
-description: Documentation for FastAPI routes implementing domain-specific CRUD operations for meetings and documents
+description: FastAPI route specifications for meetings and documents with custom business workflows
 ---
 
 
 # api-endpoints
 
-Core API routes for meeting and document intelligence system:
+Key API Endpoints and Business Logic:
 
-1. Meeting Signal Management
-Path: `/api/v1/meetings/signals`
-- Extracts and categorizes business signals from meeting content
-- Processes signals into structured categories:
-  * Decisions
-  * Action Items
-  * Blockers
-  * Risks
-  * Ideas
-- Maintains signal relationships and context chains
-- Auto-classifies signal importance using domain rules
-- Handles signal merging across related meetings
+## Meeting Management (Importance: 85)
+File: src/app/routes/meetings.py
 
-2. Meeting Context Management 
-Path: `/api/v1/meetings/context`
-- Maintains contextual knowledge graph for meetings
-- Links related meetings through signal overlap analysis
-- Tracks meeting series and recurring patterns
-- Preserves business context across meeting cycles
+- Structured signal extraction during meeting creation
+- Auto-categorization of extracted content into:
+  - Decisions
+  - Action items 
+  - Blockers
+  - Key risks
+  - Ideas
+  - Context
+- Meeting transcript processing with dual-source handling
+- Screenshot analysis integration with meeting context
 
-3. Document Signal Processing
-Path: `/api/v1/docs/signals`  
-- Extracts business signals from document content
-- Maps document signals to meeting contexts
-- Handles bi-directional signal propagation
-- Maintains document-meeting relationship graph
+## Document Processing (Importance: 80)
+File: src/app/routes/documents.py
 
-4. Signal Query System
-Path: `/api/v1/signals/search`
-- Multi-dimensional signal filtering and search
-- Context-aware signal retrieval
-- Category-based signal aggregation
-- Time-based signal correlation
+- Custom signal extraction pipeline for documents
+- Business-specific document categorization system
+- Integration with knowledge graph for relationship mapping
+- Document-to-signal extraction with meeting associations
 
-Importance Score: 85/100
-The API endpoints implement sophisticated business logic for extracting, categorizing and managing business signals across meetings and documents. The signal extraction and context preservation capabilities represent core domain-specific functionality.
+## Ticket Lifecycle (Importance: 75)
+File: src/app/routes/tickets.py
+
+- Sprint-based task decomposition
+- Custom timeboxing calculations
+- Code file version tracking per ticket
+- Working days calculation excluding weekends
+
+## Signal Processing (Importance: 90)
+File: src/app/routes/signals.py
+
+- Domain-specific signal classification
+- Signal evolution tracking through states:
+  - Pending
+  - Approved
+  - Rejected
+  - Archived
+  - Completed
+- Signal aggregation based on business dates
+- Meeting-to-signal relationship management
 
 $END$
 
