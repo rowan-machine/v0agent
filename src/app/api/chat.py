@@ -299,6 +299,13 @@ def chat_turn(
     meetings_list = get_meetings_for_selector()
     documents_list = get_documents_for_selector()
     
+    # Re-fetch meeting/document context from refreshed conversation
+    meeting_id = None
+    document_id = None
+    if conversation:
+        meeting_id = conversation.get("meeting_id") if hasattr(conversation, "get") else (conversation["meeting_id"] if "meeting_id" in conversation.keys() else None)
+        document_id = conversation.get("document_id") if hasattr(conversation, "get") else (conversation["document_id"] if "document_id" in conversation.keys() else None)
+    
     # Get linked meeting/document names for display
     selected_meeting = None
     selected_document = None
@@ -383,12 +390,26 @@ def api_sprint_stats():
     stats = get_sprint_stats()
     return JSONResponse(stats)
 
+# Cache for sprint signals to improve loading speed
+_sprint_signals_cache = {
+    "blockers": {"data": None, "timestamp": 0},
+    "action_items": {"data": None, "timestamp": 0}
+}
+_SIGNALS_CACHE_TTL = 120  # 2 minutes cache
 
 @router.get("/api/sprint-signals/{signal_type}")
-def api_sprint_signals(signal_type: str, days: int = 14):
+def api_sprint_signals(signal_type: str, days: int = 14, force: bool = False):
     """Get actual signal items (blockers or actions) for the sprint period."""
+    import time
+    
     if signal_type not in ["blockers", "action_items"]:
         return JSONResponse({"error": "Invalid signal type"}, status_code=400)
+    
+    # Check cache unless forced
+    now = time.time()
+    cache_entry = _sprint_signals_cache.get(signal_type, {"data": None, "timestamp": 0})
+    if not force and cache_entry["data"] is not None and (now - cache_entry["timestamp"]) < _SIGNALS_CACHE_TTL:
+        return JSONResponse(cache_entry["data"])
     
     cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
     
@@ -423,7 +444,12 @@ def api_sprint_signals(signal_type: str, days: int = 14):
         except:
             pass
     
-    return JSONResponse({"signals": signals, "count": len(signals)})
+    result = {"signals": signals, "count": len(signals)}
+    
+    # Update cache with per-type timestamp
+    _sprint_signals_cache[signal_type] = {"data": result, "timestamp": time.time()}
+    
+    return JSONResponse(result)
 
 
 @router.post("/api/signal-action")

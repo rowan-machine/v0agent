@@ -324,26 +324,135 @@
     <h2>🤖 AI Settings</h2>
     <p>Configure AI model and behavior</p>
 
-    <div class="setting-item">
-      <div class="setting-info">
-        <h3>AI Model</h3>
-        <p>Select the OpenAI model to use for AI features</p>
+    <div class="setting-item" style="flex-direction: column; align-items: stretch;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <div class="setting-info">
+          <h3>AI Model</h3>
+          <p>Select which AI model powers the app</p>
+        </div>
+        <span id="currentModelBadge" style="padding: 0.25rem 0.75rem; background: #ede9fe; color: #7c3aed; font-size: 0.85rem; font-weight: 500; border-radius: 9999px;">
+          gpt-4o-mini
+        </span>
       </div>
-      <select id="modelSelect" onchange="changeModel()" style="padding: 0.5rem 1rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; background: white; cursor: pointer; min-width: 180px;">
-        <option value="gpt-4o-mini">GPT-4o Mini (Fast)</option>
-        <option value="gpt-4o">GPT-4o (Balanced)</option>
-        <option value="gpt-4-turbo">GPT-4 Turbo (Advanced)</option>
-        <option value="gpt-4">GPT-4 (Legacy)</option>
-        <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Budget)</option>
-        <option value="o1-mini">o1 Mini (Reasoning)</option>
-        <option value="o1-preview">o1 Preview (Deep Reasoning)</option>
-      </select>
-    </div>
-    
-    <div class="model-info" id="modelInfo" style="margin-top: 0.5rem; padding: 0.75rem; background: #f0f9ff; border-radius: 6px; font-size: 0.85rem; color: #0369a1;">
-      <strong>gpt-4o-mini:</strong> Fast and cost-effective for most tasks
+      
+      <div id="modelOptions" style="display: flex; flex-direction: column; gap: 0.5rem;">
+        <!-- OpenAI Models -->
+        <div style="font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem;">OpenAI</div>
+        
+        <label class="model-option" data-model="gpt-4o-mini">
+          <input type="radio" name="ai_model" value="gpt-4o-mini">
+          <div class="model-info-row">
+            <span class="model-name">GPT-4o Mini</span>
+            <span class="model-cost cost-low">$ Fast</span>
+          </div>
+        </label>
+        
+        <label class="model-option" data-model="gpt-4.1-mini">
+          <input type="radio" name="ai_model" value="gpt-4.1-mini">
+          <div class="model-info-row">
+            <span class="model-name">GPT-4.1 Mini</span>
+            <span class="model-cost cost-low">$ Fast</span>
+          </div>
+        </label>
+        
+        <label class="model-option" data-model="gpt-4o">
+          <input type="radio" name="ai_model" value="gpt-4o">
+          <div class="model-info-row">
+            <span class="model-name">GPT-4o</span>
+            <span class="model-cost cost-medium">$$ Balanced</span>
+          </div>
+        </label>
+        
+        <label class="model-option" data-model="gpt-4.1">
+          <input type="radio" name="ai_model" value="gpt-4.1">
+          <div class="model-info-row">
+            <span class="model-name">GPT-4.1</span>
+            <span class="model-cost cost-medium">$$ Balanced</span>
+          </div>
+        </label>
+        
+        <label class="model-option" data-model="o1-mini">
+          <input type="radio" name="ai_model" value="o1-mini">
+          <div class="model-info-row">
+            <span class="model-name">o1 Mini</span>
+            <span class="model-cost cost-high">$$$ Reasoning</span>
+          </div>
+        </label>
+        
+        <!-- Anthropic Models -->
+        <div style="font-size: 0.75rem; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin: 0.75rem 0 0.25rem;">Anthropic</div>
+        
+        <label class="model-option" data-model="claude-3-5-haiku-20241022">
+          <input type="radio" name="ai_model" value="claude-3-5-haiku-20241022">
+          <div class="model-info-row">
+            <span class="model-name">Claude 3.5 Haiku</span>
+            <span class="model-cost cost-low">$ Fast</span>
+          </div>
+        </label>
+        
+        <label class="model-option" data-model="claude-sonnet-4-20250514">
+          <input type="radio" name="ai_model" value="claude-sonnet-4-20250514">
+          <div class="model-info-row">
+            <span class="model-name">Claude Sonnet 4</span>
+            <span class="model-cost cost-medium">$$ Balanced</span>
+          </div>
+        </label>
+        
+        <label class="model-option" data-model="claude-opus-4-20250514">
+          <input type="radio" name="ai_model" value="claude-opus-4-20250514">
+          <div class="model-info-row">
+            <span class="model-name">Claude Opus 4</span>
+            <span class="model-cost cost-premium">$$$$ Premium</span>
+          </div>
+        </label>
+      </div>
+      
+      <p id="modelStatus" style="margin-top: 0.75rem; font-size: 0.85rem; color: #6b7280; display: none;"></p>
     </div>
   </div>
+
+  <style>
+    .model-option {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .model-option:hover {
+      background: #f9fafb;
+    }
+    .model-option.selected {
+      border-color: #8b5cf6;
+      background: #faf5ff;
+    }
+    .model-option input[type="radio"] {
+      width: 1rem;
+      height: 1rem;
+      accent-color: #8b5cf6;
+    }
+    .model-info-row {
+      margin-left: 0.75rem;
+      display: flex;
+      align-items: center;
+      flex: 1;
+    }
+    .model-name {
+      font-weight: 500;
+      color: #111827;
+    }
+    .model-cost {
+      margin-left: 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .cost-low { color: #16a34a; }
+    .cost-medium { color: #ca8a04; }
+    .cost-high { color: #ea580c; }
+    .cost-premium { color: #dc2626; }
+  </style>
 
   <div class="settings-section">
     <h2>🎯 Sprint Configuration</h2>
@@ -464,61 +573,65 @@
     }
   }
 
-  // Model descriptions
-  const modelDescriptions = {
-    'gpt-4o-mini': '<strong>gpt-4o-mini:</strong> Fast and cost-effective for most tasks',
-    'gpt-4o': '<strong>gpt-4o:</strong> Best balance of speed, quality, and cost',
-    'gpt-4-turbo': '<strong>gpt-4-turbo:</strong> Advanced capabilities with 128K context window',
-    'gpt-4': '<strong>gpt-4:</strong> Original GPT-4, reliable for complex tasks',
-    'gpt-3.5-turbo': '<strong>gpt-3.5-turbo:</strong> Fastest and most affordable option',
-    'o1-mini': '<strong>o1-mini:</strong> Optimized for reasoning tasks, slower but more thorough',
-    'o1-preview': '<strong>o1-preview:</strong> Advanced reasoning model for complex problems'
-  };
-
-  // Load current model
+  // Model selector functionality
   async function loadCurrentModel() {
     try {
-      const response = await fetch('/api/settings/model', { credentials: 'same-origin' });
+      const response = await fetch('/api/settings/ai-model', { credentials: 'same-origin' });
       const data = await response.json();
       const model = data.model || 'gpt-4o-mini';
-      document.getElementById('modelSelect').value = model;
-      updateModelInfo(model);
+      
+      document.getElementById('currentModelBadge').textContent = model;
+      
+      const radio = document.querySelector(`input[name="ai_model"][value="${model}"]`);
+      if (radio) {
+        radio.checked = true;
+        radio.closest('.model-option').classList.add('selected');
+      }
     } catch (err) {
       console.error('Error loading model:', err);
     }
   }
 
-  // Change model
-  async function changeModel() {
-    const select = document.getElementById('modelSelect');
-    const model = select.value;
-    
-    try {
-      const response = await fetch('/api/settings/model', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ model: model })
-      });
+  // Handle model selection
+  document.querySelectorAll('input[name="ai_model"]').forEach(radio => {
+    radio.addEventListener('change', async (e) => {
+      const model = e.target.value;
+      const status = document.getElementById('modelStatus');
       
-      if (response.ok) {
-        updateModelInfo(model);
-        showToast(`Model changed to ${model}`, 'success');
-      } else {
-        throw new Error('Failed to save');
+      // Update visual state
+      document.querySelectorAll('.model-option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+      e.target.closest('.model-option').classList.add('selected');
+      
+      status.textContent = 'Saving...';
+      status.style.display = 'block';
+      status.style.color = '#6b7280';
+      
+      try {
+        const resp = await fetch('/api/settings/ai-model', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ model })
+        });
+        
+        if (resp.ok) {
+          document.getElementById('currentModelBadge').textContent = model;
+          status.textContent = '✓ Model updated!';
+          status.style.color = '#16a34a';
+          setTimeout(() => { status.style.display = 'none'; }, 2000);
+          showToast(`Model changed to ${model}`, 'success');
+        } else {
+          throw new Error('Failed to save');
+        }
+      } catch (err) {
+        status.textContent = '✗ Failed to update model';
+        status.style.color = '#dc2626';
+        showToast('Failed to change model', 'error');
       }
-    } catch (err) {
-      console.error('Failed to change model:', err);
-      showToast('Failed to change model', 'error');
-      loadCurrentModel(); // Revert on error
-    }
-  }
-
-  // Update model info display
-  function updateModelInfo(model) {
-    const infoEl = document.getElementById('modelInfo');
-    infoEl.innerHTML = modelDescriptions[model] || `<strong>${model}:</strong> Custom model`;
-  }
+    });
+  });
 
   // Load career profile
   async function loadCareerProfile() {

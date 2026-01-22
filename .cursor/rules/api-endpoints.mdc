@@ -1,43 +1,42 @@
 ---
-description: Documentation for FastAPI routes implementing CRUD operations for meetings and documents
+description: Specification for FastAPI endpoints implementing meeting and document CRUD operations
 ---
 
 
 # api-endpoints
 
-The API implements specialized knowledge management endpoints for meetings and documents:
+FastAPI routes define specialized meeting and document management operations with the following key business endpoints:
 
-1. Meeting Signal Processing (Importance Score: 85/100)
-- Custom signal extraction from meeting transcripts
-- Categorizes signals into decisions, actions, blockers, risks, ideas
-- Routes for merging related signals across meetings 
-- Validates signal status transitions through approval workflow
+## Signal Management
+Importance Score: 85
+- `/api/signals/{signal_id}`
+  - Processes multi-category signal classification (decisions, actions, blockers, risks, ideas)
+  - Handles signal state transitions with accountability tracking
+  - Manages signal-to-ticket conversions with tracking metadata
 
-2. Knowledge Pyramid Integration (Importance Score: 90/100)
-- Routes for promoting content through DIKW (Data, Information, Knowledge, Wisdom) levels
-- AI-assisted validation for knowledge promotion requests
-- Signal aggregation across related meetings
-- Routes for merging related knowledge nodes
+## Sprint Analytics
+Importance Score: 80
+- `/api/reports/sprint`
+  - Generates domain-specific workflow mode tracking reports
+  - Calculates time allocation across different work modes
+  - Processes signal type distribution analytics
+  - Tracks career development metrics with role progression
 
-3. Career Development Routes (Importance Score: 80/100) 
-- Endpoints integrating career suggestions with meeting content
-- Progress tracking with AI-synthesized career context
-- Routes for code change tracking with version comparison
-- Knowledge mapping to career development themes
+## Knowledge Graph Operations
+Importance Score: 75
+- `/api/knowledge`
+  - Implements DIKW pyramid visualization endpoints
+  - Manages knowledge relationship mapping with hierarchical categories
+  - Processes tag-based knowledge clustering
+  - Calculates knowledge node relationship strengths
 
-4. Sprint Workflow Integration (Importance Score: 75/100)
-- Sprint-aware routing for meeting content organization
-- Endpoints for signal categorization within sprint context
-- Routes for accountability tracking with responsible party assignment
-- Time period customization for sprint metrics
-
-The API implements domain-specific knowledge extraction and organization through:
-- Multi-level signal categorization
-- DIKW pyramid progression
-- Career development correlation  
-- Sprint-based content organization
-- AI-assisted content synthesis
-- Accountability tracking
+## Task Management
+Importance Score: 70
+- `/api/tasks`
+  - Handles task decomposition with AI assistance
+  - Manages implementation planning workflow
+  - Tracks code changes with version management
+  - Processes sprint point allocation and burndown data
 
 $END$
 

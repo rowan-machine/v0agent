@@ -201,6 +201,25 @@ CREATE INDEX IF NOT EXISTS idx_dikw_status ON dikw_items(status);
 CREATE INDEX IF NOT EXISTS idx_dikw_source ON dikw_items(source_type);
 CREATE INDEX IF NOT EXISTS idx_dikw_meeting ON dikw_items(meeting_id);
 
+-- DIKW item evolution history - tracks the journey from Data to Wisdom
+CREATE TABLE IF NOT EXISTS dikw_evolution (
+  id INTEGER PRIMARY KEY,
+  item_id INTEGER NOT NULL,         -- the DIKW item being tracked
+  event_type TEXT NOT NULL,         -- 'created' | 'promoted' | 'merged' | 'edited'
+  from_level TEXT,                  -- level before (null for created)
+  to_level TEXT NOT NULL,           -- level after
+  source_meeting_id INTEGER,        -- meeting that sourced this
+  source_meeting_name TEXT,         -- cached meeting name
+  source_document_id INTEGER,       -- document that sourced this
+  source_document_name TEXT,        -- cached document name
+  source_item_ids TEXT,             -- JSON array of item IDs that contributed (for merges)
+  content_snapshot TEXT,            -- snapshot of content at this point
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_dikw_evolution_item ON dikw_evolution(item_id);
+CREATE INDEX IF NOT EXISTS idx_dikw_evolution_type ON dikw_evolution(event_type);
+
 -- Mode time tracking for productivity analytics
 CREATE TABLE IF NOT EXISTS mode_sessions (
   id INTEGER PRIMARY KEY,
@@ -354,6 +373,40 @@ CREATE TABLE IF NOT EXISTS documents (
 );
 
 CREATE INDEX IF NOT EXISTS idx_documents_meeting_id ON documents(meeting_id);
+
+-- Career memories with pinning support
+CREATE TABLE IF NOT EXISTS career_memories (
+  id INTEGER PRIMARY KEY,
+  memory_type TEXT NOT NULL,        -- 'completed_project' | 'skill_milestone' | 'ai_implementation' | 'achievement'
+  title TEXT NOT NULL,
+  description TEXT,
+  source_type TEXT,                 -- 'ticket' | 'standup' | 'codebase' | 'manual'
+  source_id INTEGER,                -- reference to source (ticket id, etc.)
+  skills TEXT,                      -- comma-separated skills related to this memory
+  is_pinned INTEGER DEFAULT 0,      -- 1 if pinned (protected from refresh)
+  is_ai_work INTEGER DEFAULT 0,     -- 1 if this is AI implementation work
+  metadata TEXT,                    -- JSON for additional metadata
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_career_memories_type ON career_memories(memory_type);
+CREATE INDEX IF NOT EXISTS idx_career_memories_pinned ON career_memories(is_pinned);
+
+-- Skills tracker for development progress
+CREATE TABLE IF NOT EXISTS skill_tracker (
+  id INTEGER PRIMARY KEY,
+  skill_name TEXT NOT NULL UNIQUE,
+  category TEXT,                    -- 'ddd' | 'python' | 'analytics' | 'backend' | 'api' | 'airflow' | 'aws' | 'ai' | 'data'
+  proficiency_level INTEGER DEFAULT 0,  -- 0-100
+  tickets_count INTEGER DEFAULT 0,  -- number of tickets involving this skill
+  last_used_at TEXT,
+  evidence TEXT,                    -- JSON array of evidence (ticket ids, code files, etc.)
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_skill_tracker_category ON skill_tracker(category);
 """
 
 def connect():

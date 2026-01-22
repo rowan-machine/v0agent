@@ -714,6 +714,73 @@
     margin-bottom: 0.75rem;
   }
 
+  .ai-update-text ol,
+  .ai-update-text ul {
+    padding-left: 1.5rem;
+    margin: 0.5rem 0;
+  }
+
+  .ai-update-text ol li,
+  .ai-update-text ul li {
+    margin-bottom: 0.4rem;
+    line-height: 1.5;
+  }
+
+  .ai-update-text p {
+    margin: 0.5rem 0;
+  }
+
+  .ai-update-text h1, .ai-update-text h2, .ai-update-text h3, .ai-update-text h4 {
+    margin: 0.75rem 0 0.5rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  /* Clickable reference citations */
+  .ai-reference {
+    display: inline-block;
+    background: #e0e7ff;
+    color: #4338ca;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    position: relative;
+    margin: 0 0.1rem;
+    transition: all 0.2s;
+  }
+
+  .ai-reference:hover {
+    background: #4338ca;
+    color: white;
+  }
+
+  .ai-reference-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1f2937;
+    color: white;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    margin-bottom: 4px;
+  }
+
+  .ai-reference:hover .ai-reference-tooltip {
+    opacity: 1;
+  }
+
   .ai-update-actions {
     display: flex;
     gap: 0.5rem;
@@ -2707,6 +2774,34 @@ document.addEventListener('DOMContentLoaded', () => {
 // AI Response Actions (per item)
 function extractAIItems(response) {
   if (!response) return [];
+  
+  // Filter out preamble/intro text patterns that aren't actual items
+  const preamblePatterns = [
+    /^here are the/i,
+    /^here is a/i,
+    /^based on/i,
+    /^from the meetings/i,
+    /^the following/i,
+    /^###?\s*(meetings?|items?|mentions?)/i,
+    /^slack w\s/i,
+    /^action items:$/i,
+    /^items assigned to/i,
+    /^mentions of \w+/i,
+  ];
+  
+  const isJunkLine = (line) => {
+    const trimmed = line.trim();
+    if (!trimmed) return true;
+    if (trimmed.length < 5) return true;
+    // Check if line is just a header or preamble
+    for (const pattern of preamblePatterns) {
+      if (pattern.test(trimmed)) return true;
+    }
+    // Check if it's just a section header ending with colon
+    if (/^[A-Za-z\s]+:$/.test(trimmed) && trimmed.length < 30) return true;
+    return false;
+  };
+  
   const lines = response.split('\n').map(line => line.trim()).filter(Boolean);
   const items = [];
   let current = '';
@@ -2715,27 +2810,51 @@ function extractAIItems(response) {
 
   for (const line of lines) {
     if (isBullet(line)) {
-      if (current) items.push(current.trim());
+      if (current && !isJunkLine(current)) items.push(current.trim());
       current = stripBullet(line);
     } else if (current) {
       current += ' ' + line;
-    } else {
+    } else if (!isJunkLine(line)) {
       current = line;
     }
   }
-  if (current) items.push(current.trim());
-  return items.length ? items : [response.trim()];
+  if (current && !isJunkLine(current)) items.push(current.trim());
+  
+  // Filter out items that are too short or look like headers
+  const validItems = items.filter(item => {
+    if (item.length < 15) return false;
+    if (/^###?\s/.test(item)) return false; // Markdown headers
+    if (/^[A-Za-z\s]+:$/.test(item)) return false; // Section headers
+    return true;
+  });
+  
+  return validItems.length ? validItems : (items.length ? items : [response.trim()]);
 }
 
-function renderAIResponseItems(response) {
+// Add reference citation support for [1], [2] etc
+function addReferenceTooltips(html, sources) {
+  // Replace [N] patterns with clickable tooltips
+  return html.replace(/\[(\d+)\]/g, (match, num) => {
+    const source = sources && sources[parseInt(num) - 1];
+    const tooltip = source ? `${source.name || source.meeting_name || 'Meeting'} - ${source.date || ''}` : `Reference ${num}`;
+    return `<span class="ai-reference" onclick="scrollToReference(${num})">${match}<span class="ai-reference-tooltip">${escapeHtml(tooltip)}</span></span>`;
+  });
+}
+
+function renderAIResponseItems(response, sources) {
   currentAIItems = extractAIItems(response);
   // Track processed status for each item
   if (!window.processedAIItems) window.processedAIItems = {};
   aiResponseContent.innerHTML = currentAIItems.map((item, index) => {
     if (window.processedAIItems[index]) return '';
+    let renderedHtml = marked.parse(item);
+    // Add clickable reference tooltips if sources available
+    if (sources) {
+      renderedHtml = addReferenceTooltips(renderedHtml, sources);
+    }
     return `
       <div class="ai-update-item" data-ai-item-index="${index}">
-        <div class="ai-update-text">${marked.parse(item)}</div>
+        <div class="ai-update-text">${renderedHtml}</div>
         <div class="ai-update-actions">
           <button class="ai-action-btn approve" onclick="approveAIItem(${index})" title="Save to memory">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>

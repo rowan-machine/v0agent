@@ -539,6 +539,469 @@
   .memory-refresh:hover {
     background: #e5e7eb;
   }
+
+  /* Skills Tracker Styles */
+  .skills-graph-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+
+  .skill-category {
+    background: #fafafa;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 1rem;
+  }
+
+  .skill-category-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.9rem;
+    text-transform: capitalize;
+  }
+
+  .skill-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+  }
+
+  .skill-name {
+    flex: 1;
+    color: #4b5563;
+  }
+
+  .skill-bar-container {
+    width: 100px;
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .skill-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #8b5cf6, #6366f1);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+
+  .skill-level {
+    width: 32px;
+    text-align: right;
+    font-size: 0.75rem;
+    color: #6b7280;
+  }
+
+  /* Completed Projects Bank */
+  .projects-bank {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .project-item {
+    background: #fafafa;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 0.875rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    transition: all 0.2s;
+  }
+
+  .project-item:hover {
+    background: #f3f4f6;
+  }
+
+  .project-item.pinned {
+    border-color: #8b5cf6;
+    background: #faf5ff;
+  }
+
+  .project-icon {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .project-details {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .project-title {
+    font-weight: 500;
+    color: #1a1a1a;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .project-desc {
+    font-size: 0.8rem;
+    color: #6b7280;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .project-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+  }
+
+  .project-tag {
+    background: #e0e7ff;
+    color: #4338ca;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.7rem;
+  }
+
+  .project-actions {
+    display: flex;
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+
+  .project-action-btn {
+    padding: 0.25rem 0.5rem;
+    background: transparent;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .project-action-btn:hover {
+    background: #f3f4f6;
+  }
+
+  .project-action-btn.pinned {
+    background: #8b5cf6;
+    border-color: #8b5cf6;
+    color: white;
+  }
+
+  /* AI Memories */
+  .ai-memory-item {
+    background: linear-gradient(135deg, #faf5ff 0%, #ede9fe 100%);
+    border: 1px solid #c4b5fd;
+    border-radius: 8px;
+    padding: 0.875rem;
+    margin-bottom: 0.75rem;
+    position: relative;
+  }
+
+  .ai-memory-badge {
+    position: absolute;
+    top: 0.5rem;
+    right: 2.5rem;
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    color: white;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.65rem;
+    font-weight: 600;
+  }
+
+  .ai-memory-delete {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    color: #9ca3af;
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+
+  .ai-memory-delete:hover {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+
+  .ai-memory-title {
+    font-weight: 600;
+    color: #5b21b6;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+    padding-right: 80px;
+  }
+
+  .ai-memory-desc {
+    font-size: 0.85rem;
+    color: #4c1d95;
+    line-height: 1.4;
+  }
+
+  .ai-memory-desc p {
+    margin: 0.5rem 0;
+  }
+
+  .ai-memory-desc strong {
+    color: #5b21b6;
+  }
+
+  .ai-memory-desc code {
+    background: rgba(139, 92, 246, 0.1);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.8rem;
+  }
+
+  .sync-btn {
+    padding: 0.4rem 0.8rem;
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .sync-btn:hover {
+    background: #e5e7eb;
+  }
+
+  .sync-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Skills Settings Slide-out Panel */
+  .skills-settings-panel {
+    position: fixed;
+    top: 0;
+    right: -360px;
+    width: 350px;
+    height: 100vh;
+    background: white;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    transition: right 0.3s ease;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .skills-settings-panel.open {
+    right: 0;
+  }
+
+  .skills-settings-panel.pinned {
+    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+  }
+
+  .panel-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    color: white;
+  }
+
+  .panel-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .panel-header-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .panel-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background 0.2s;
+  }
+
+  .panel-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .panel-btn.pinned {
+    background: white;
+    color: #7c3aed;
+  }
+
+  .panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem;
+  }
+
+  .panel-section {
+    margin-bottom: 1.25rem;
+  }
+
+  .panel-section-label {
+    font-weight: 500;
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #374151;
+    font-size: 0.9rem;
+  }
+
+  .panel-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .panel-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.5rem 0.75rem;
+    background: #f3f4f6;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+
+  .panel-checkbox-label.checked {
+    background: #ddd6fe;
+    color: #5b21b6;
+  }
+
+  .panel-checkbox-label input {
+    margin: 0;
+  }
+
+  .panel-input-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+
+  .panel-input {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+
+  .panel-select {
+    padding: 0.5rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    min-width: 80px;
+  }
+
+  .panel-warning {
+    padding: 0.75rem;
+    background: #fef3c7;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: #92400e;
+    margin-bottom: 1rem;
+  }
+
+  .panel-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .panel-footer-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .panel-action-btn {
+    flex: 1;
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .panel-action-btn.primary {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    color: white;
+    border: none;
+  }
+
+  .panel-action-btn.primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4);
+  }
+
+  .panel-action-btn.secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+  }
+
+  .panel-action-btn.secondary:hover {
+    background: #e5e7eb;
+  }
+
+  .panel-action-btn.danger {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+  }
+
+  .panel-action-btn.danger:hover {
+    background: #fecaca;
+  }
+
+  /* Overlay for non-pinned panel */
+  .panel-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 999;
+    display: none;
+  }
+
+  .panel-overlay.active {
+    display: block;
+  }
 </style>
 
 <div class="career-container">
@@ -572,7 +1035,10 @@
     <div class="career-card">
       <div class="card-header">
         <h2>💡 AI Suggestions</h2>
-        <span id="suggestionCount" style="font-size: 0.85rem; color: #6b7280;">0 suggestions</span>
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span id="suggestionCount" style="font-size: 0.85rem; color: #6b7280;">0 suggestions</span>
+          <button class="sync-btn" onclick="compressSuggestions()" id="compressSuggestionsBtn" style="font-size: 0.8rem; padding: 0.25rem 0.5rem;">🗜️ Compress</button>
+        </div>
       </div>
       <div class="card-body">
         <div class="suggestion-list" id="suggestionList">
@@ -597,6 +1063,104 @@
           <div class="empty-state">
             <p>Track your career development progress here.</p>
             <p style="font-size: 0.85rem;">Accept suggestions and convert them to tickets to start tracking.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Skills Tracker -->
+    <div class="career-card" style="grid-column: 1 / -1;">
+      <div class="card-header">
+        <h2>📊 Skills Development Graph</h2>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="sync-btn" onclick="assessSkillsFromCodebase()" id="assessCodeBtn">🔍 Assess Codebase</button>
+          <button class="sync-btn" onclick="showSkillsSettings()" id="skillsSettingsBtn">⚙️ Settings</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="skillsGraphContent" class="skills-graph-container">
+          <div class="empty-state">
+            <p>Skills graph will appear here.</p>
+            <p style="font-size: 0.85rem;">Click "Settings" to configure skill categories for your role, then "Assess Codebase" to analyze your code.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Skills Settings Slide-out Panel -->
+    <div id="panelOverlay" class="panel-overlay" onclick="closeSkillsSettings()"></div>
+    <div id="skillsSettingsPanel" class="skills-settings-panel">
+      <div class="panel-header">
+        <h3>⚙️ Skills Settings</h3>
+        <div class="panel-header-actions">
+          <button class="panel-btn" id="pinPanelBtn" onclick="togglePinPanel()" title="Pin panel">📌</button>
+          <button class="panel-btn" onclick="closeSkillsSettings()" title="Close">&times;</button>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="panel-section">
+          <label class="panel-section-label">Select skill categories for your role:</label>
+          <div id="skillCategoriesCheckboxes" class="panel-checkboxes">
+            <!-- Checkboxes populated dynamically -->
+          </div>
+        </div>
+        
+        <div class="panel-section">
+          <label class="panel-section-label">Add custom skill:</label>
+          <div class="panel-input-group">
+            <input type="text" id="customSkillInput" class="panel-input" placeholder="Skill name">
+            <select id="customSkillCategory" class="panel-select">
+              <option value="Custom">Custom</option>
+            </select>
+          </div>
+          <button onclick="addCustomSkill()" class="panel-action-btn secondary" style="margin-top: 0.5rem; width: 100%;">➕ Add Skill</button>
+        </div>
+        
+        <div class="panel-warning">
+          ⚠️ Initialize will only add new skills (won't reset existing proficiency levels)
+        </div>
+      </div>
+      <div class="panel-footer">
+        <div class="panel-footer-row">
+          <button onclick="initializeSelectedSkills()" class="panel-action-btn primary">⚡ Initialize Selected</button>
+        </div>
+        <div class="panel-footer-row">
+          <button onclick="resetAllSkills()" class="panel-action-btn danger" style="flex: 0.4;">🗑️ Reset All</button>
+          <button onclick="closeSkillsSettings()" class="panel-action-btn secondary" style="flex: 0.6;">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Completed Projects Bank -->
+    <div class="career-card">
+      <div class="card-header">
+        <h2>🏆 Completed Projects Bank</h2>
+        <button class="sync-btn" onclick="syncCompletedProjects()" id="syncProjectsBtn">🔄 Sync from Tickets</button>
+      </div>
+      <div class="card-body">
+        <div id="completedProjectsContent" class="projects-bank">
+          <div class="empty-state">
+            <p>No completed projects yet.</p>
+            <p style="font-size: 0.85rem;">Complete tickets or click "Sync from Tickets" to auto-populate.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Implementation Memories -->
+    <div class="career-card">
+      <div class="card-header">
+        <h2>🤖 AI Implementation Memories</h2>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="sync-btn" onclick="assessCodebaseWithAI()" id="assessAIBtn">🔍 Assess with AI</button>
+          <button class="sync-btn" onclick="showAddAIMemory()">➕ Add Memory</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="aiMemoriesContent">
+          <div class="empty-state">
+            <p>Track your AI implementation work here.</p>
+            <p style="font-size: 0.85rem;">Click "Assess with AI" to auto-discover technical patterns from your codebase.</p>
           </div>
         </div>
       </div>
@@ -648,24 +1212,49 @@
         </div>
       </div>
 
-      <!-- Memory Sidebar -->
+      <!-- AI Insights Sidebar -->
       <div class="career-memory-sidebar">
         <div class="memory-header">
-          <h3>🧠 Career Memory</h3>
-          <p>AI-summarized career context</p>
+          <h3>🎯 AI Career Insights</h3>
+          <p>Generated from your profile & skills</p>
         </div>
         <div class="memory-body">
           <div class="memory-content" id="careerMemoryContent">
             <div class="memory-empty">
-              No career memory yet.<br>
-              Start chatting to build your career context.
+              No insights yet.<br>
+              Add skills and projects to generate personalized insights.
             </div>
           </div>
         </div>
-        <div class="memory-footer">
-          <span class="memory-timestamp" id="memoryTimestamp"></span>
-          <button class="memory-refresh" onclick="loadCareerMemory()">🔄 Refresh</button>
+        <div class="memory-footer" style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span class="memory-timestamp" id="memoryTimestamp"></span>
+            <button class="memory-refresh" onclick="generateCareerInsights()">✨ Generate</button>
+          </div>
+          <button class="sync-btn" onclick="showCareerTweaksSafe()" style="width: 100%; font-size: 0.8rem;">🔒 Career Tweaks Safe</button>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Career Tweaks Safe Modal -->
+<div id="careerTweaksSafeModal" class="modal-overlay" style="display: none;">
+  <div class="modal" style="max-width: 600px; max-height: 80vh;">
+    <div class="modal-header" style="padding: 1rem 1.25rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="margin: 0; font-size: 1.1rem;">🔒 Career Tweaks Safe</h3>
+      <button onclick="closeCareerTweaksSafe()" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: #6b7280;">&times;</button>
+    </div>
+    <div class="modal-body" style="padding: 1.25rem; overflow-y: auto; max-height: 60vh;">
+      <p style="margin-bottom: 1rem; color: #6b7280; font-size: 0.9rem;">
+        Save important AI-generated insights and career recommendations. These won't be overwritten when new insights are generated.
+      </p>
+      <div id="careerTweaksList" style="display: flex; flex-direction: column; gap: 0.75rem;">
+        <div class="empty-state" style="padding: 2rem;">No saved tweaks yet</div>
+      </div>
+      <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+        <textarea id="newCareerTweak" placeholder="Add a career insight or recommendation to save..." style="width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 8px; resize: vertical; min-height: 80px;"></textarea>
+        <button onclick="saveCareerTweak()" class="sync-btn" style="margin-top: 0.5rem; width: 100%;">💾 Save to Safe</button>
       </div>
     </div>
   </div>
@@ -680,6 +1269,9 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSuggestions();
   loadCareerChatHistory();
   loadCareerMemory();
+  loadSkills();
+  loadCompletedProjects();
+  loadAIMemories();
 });
 
 // Profile management
@@ -819,6 +1411,35 @@ async function convertToTicket(id) {
   }
 }
 
+async function compressSuggestions() {
+  const btn = document.getElementById('compressSuggestionsBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '🔄 Compressing...';
+  }
+
+  try {
+    const response = await fetch('/api/career/suggestions/compress', {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      showToast(`Compressed: ${data.merged} duplicates merged, ${data.removed} removed`);
+      await loadSuggestions();
+    }
+  } catch (err) {
+    console.error('Failed to compress suggestions:', err);
+    showToast('Failed to compress suggestions');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🗜️ Compress';
+    }
+  }
+}
+
 // Utilities
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -886,13 +1507,117 @@ async function loadCareerMemory() {
     } else {
       content.innerHTML = `
         <div class="memory-empty">
-          No career memory yet.<br>
-          Start chatting to build your career context.
+          No insights yet.<br>
+          Add skills and projects to generate insights.
         </div>
       `;
     }
   } catch (err) {
     console.error('Failed to load career memory:', err);
+  }
+}
+
+// Generate AI Career Insights based on skills, projects, and profile
+async function generateCareerInsights() {
+  const content = document.getElementById('careerMemoryContent');
+  const timestamp = document.getElementById('memoryTimestamp');
+  if (!content) return;
+  
+  content.innerHTML = '<div class="memory-empty">✨ Generating insights...</div>';
+  
+  try {
+    const response = await fetch('/api/career/generate-insights', {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+    
+    if (!response.ok) throw new Error('Failed to generate');
+    
+    const data = await response.json();
+    
+    if (data.insights) {
+      content.innerHTML = marked ? marked.parse(data.insights) : `<p>${escapeHtml(data.insights)}</p>`;
+      if (timestamp) {
+        timestamp.textContent = `Generated: ${new Date().toLocaleString()}`;
+      }
+      showToast('Career insights generated!');
+    }
+  } catch (err) {
+    console.error('Failed to generate insights:', err);
+    content.innerHTML = '<div class="memory-empty">Failed to generate insights. Try again.</div>';
+    showToast('Failed to generate insights');
+  }
+}
+
+// Career Tweaks Safe
+function showCareerTweaksSafe() {
+  loadCareerTweaks();
+  document.getElementById('careerTweaksSafeModal').style.display = 'flex';
+}
+
+function closeCareerTweaksSafe() {
+  document.getElementById('careerTweaksSafeModal').style.display = 'none';
+}
+
+async function loadCareerTweaks() {
+  const list = document.getElementById('careerTweaksList');
+  if (!list) return;
+  
+  try {
+    const response = await fetch('/api/career/tweaks', { credentials: 'same-origin' });
+    const data = await response.json();
+    
+    if (data.tweaks && data.tweaks.length > 0) {
+      list.innerHTML = data.tweaks.map(tweak => `
+        <div class="tweak-item" style="padding: 0.75rem; background: #f9fafb; border-radius: 8px; position: relative;">
+          <button onclick="deleteCareerTweak(${tweak.id})" style="position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none; cursor: pointer; font-size: 0.8rem; color: #9ca3af;">✕</button>
+          <div style="font-size: 0.9rem; padding-right: 1.5rem;">${marked ? marked.parse(tweak.content) : escapeHtml(tweak.content)}</div>
+          <div style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.5rem;">Saved: ${new Date(tweak.created_at).toLocaleDateString()}</div>
+        </div>
+      `).join('');
+    } else {
+      list.innerHTML = '<div class="empty-state" style="padding: 2rem;">No saved tweaks yet</div>';
+    }
+  } catch (err) {
+    console.error('Failed to load tweaks:', err);
+  }
+}
+
+async function saveCareerTweak() {
+  const textarea = document.getElementById('newCareerTweak');
+  const content = textarea?.value?.trim();
+  if (!content) return;
+  
+  try {
+    const response = await fetch('/api/career/tweaks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ content })
+    });
+    
+    if (response.ok) {
+      textarea.value = '';
+      loadCareerTweaks();
+      showToast('Saved to Career Tweaks Safe!');
+    }
+  } catch (err) {
+    console.error('Failed to save tweak:', err);
+    showToast('Failed to save tweak');
+  }
+}
+
+async function deleteCareerTweak(id) {
+  if (!confirm('Remove this tweak?')) return;
+  
+  try {
+    await fetch(`/api/career/tweaks/${id}`, {
+      method: 'DELETE',
+      credentials: 'same-origin'
+    });
+    loadCareerTweaks();
+  } catch (err) {
+    console.error('Failed to delete tweak:', err);
   }
 }
 
@@ -971,6 +1696,520 @@ if (typeof marked === 'undefined') {
   const script = document.createElement('script');
   script.src = 'https://cdn.jsdelivr.net/npm/marked/marked.min.js';
   document.head.appendChild(script);
+}
+
+// ============================================
+// Skills Tracker Functions
+// ============================================
+
+const skillCategoryIcons = {
+  'ddd': '🏗️',
+  'python': '🐍',
+  'analytics': '📊',
+  'backend': '⚙️',
+  'airflow': '🌪️',
+  'aws': '☁️',
+  'ai': '🤖',
+  'data': '💾',
+  'knowledge': '🧠',
+  'other': '📦'
+};
+
+async function loadSkills() {
+  const container = document.getElementById('skillsGraphContent');
+  if (!container) return;
+
+  try {
+    const response = await fetch('/api/career/skills', { credentials: 'same-origin' });
+    if (!response.ok) throw new Error('Failed to load skills');
+    
+    const data = await response.json();
+    
+    if (Object.keys(data.by_category).length === 0) {
+      container.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1;">
+          <p>Skills graph will appear here.</p>
+          <p style="font-size: 0.85rem;">Click "Initialize Skills" to set up skill categories, then "Assess Codebase" to analyze your code.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = Object.entries(data.by_category).map(([category, skills]) => `
+      <div class="skill-category">
+        <div class="skill-category-header">
+          ${skillCategoryIcons[category] || '📦'} ${category.toUpperCase()}
+        </div>
+        ${skills.map(skill => `
+          <div class="skill-item">
+            <span class="skill-name">${escapeHtml(skill.skill_name)}</span>
+            <div class="skill-bar-container">
+              <div class="skill-bar" style="width: ${skill.proficiency_level}%"></div>
+            </div>
+            <span class="skill-level">${skill.proficiency_level}%</span>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Failed to load skills:', err);
+    container.innerHTML = `<div class="empty-state" style="grid-column: 1 / -1;"><p style="color: #ef4444;">Failed to load skills.</p></div>`;
+  }
+}
+
+// Skills Settings Modal
+const SKILL_CATEGORIES = {
+  'Full Stack': ['JavaScript/TypeScript', 'Python', 'React/Vue/Angular', 'Node.js', 'SQL/Databases', 'REST APIs', 'Git/Version Control', 'Testing', 'CI/CD', 'Docker/Containers'],
+  'Data/ML': ['Python', 'SQL/Databases', 'Machine Learning', 'Data Analysis', 'Statistics', 'TensorFlow/PyTorch', 'Pandas/NumPy', 'Data Visualization'],
+  'Backend': ['Python', 'Java/Kotlin', 'Go/Rust', 'SQL/Databases', 'REST APIs', 'GraphQL', 'Microservices', 'Docker/Containers', 'Kubernetes', 'Message Queues'],
+  'Frontend': ['JavaScript/TypeScript', 'React/Vue/Angular', 'CSS/Tailwind', 'HTML5', 'Accessibility', 'Performance', 'Testing', 'Build Tools'],
+  'DevOps': ['Docker/Containers', 'Kubernetes', 'CI/CD', 'Terraform/IaC', 'Cloud Platforms', 'Monitoring', 'Linux/Shell', 'Networking'],
+  'Agentic AI': ['LLM Integration', 'RAG Systems', 'Embeddings', 'Prompt Engineering', 'MCP Servers', 'Tool Calling', 'Agent Orchestration', 'ReAct Patterns', 'Function Calling', 'Multi-Agent Systems']
+};
+
+let selectedSkillCategories = new Set(['Full Stack']);
+let panelPinned = false;
+
+function showSkillsSettings() {
+  const panel = document.getElementById('skillsSettingsPanel');
+  const overlay = document.getElementById('panelOverlay');
+  const checkboxContainer = document.getElementById('skillCategoriesCheckboxes');
+  const categorySelect = document.getElementById('customSkillCategory');
+  
+  // Populate checkboxes
+  checkboxContainer.innerHTML = Object.keys(SKILL_CATEGORIES).map(cat => `
+    <label class="panel-checkbox-label ${selectedSkillCategories.has(cat) ? 'checked' : ''}">
+      <input type="checkbox" value="${cat}" ${selectedSkillCategories.has(cat) ? 'checked' : ''} onchange="toggleSkillCategory('${cat}', this.checked)">
+      ${cat}
+    </label>
+  `).join('');
+  
+  // Populate category dropdown for custom skills
+  categorySelect.innerHTML = Object.keys(SKILL_CATEGORIES).map(cat => 
+    `<option value="${cat}">${cat}</option>`
+  ).join('') + '<option value="Custom">Custom</option>';
+  
+  panel.classList.add('open');
+  if (!panelPinned) {
+    overlay.classList.add('active');
+  }
+}
+
+function closeSkillsSettings() {
+  const panel = document.getElementById('skillsSettingsPanel');
+  const overlay = document.getElementById('panelOverlay');
+  panel.classList.remove('open');
+  overlay.classList.remove('active');
+}
+
+function togglePinPanel() {
+  panelPinned = !panelPinned;
+  const panel = document.getElementById('skillsSettingsPanel');
+  const overlay = document.getElementById('panelOverlay');
+  const pinBtn = document.getElementById('pinPanelBtn');
+  
+  if (panelPinned) {
+    panel.classList.add('pinned');
+    overlay.classList.remove('active');
+    pinBtn.classList.add('pinned');
+    pinBtn.title = 'Unpin panel';
+  } else {
+    panel.classList.remove('pinned');
+    if (panel.classList.contains('open')) {
+      overlay.classList.add('active');
+    }
+    pinBtn.classList.remove('pinned');
+    pinBtn.title = 'Pin panel';
+  }
+}
+
+function toggleSkillCategory(category, isChecked) {
+  if (isChecked) {
+    selectedSkillCategories.add(category);
+  } else {
+    selectedSkillCategories.delete(category);
+  }
+  // Update checkbox styling
+  const checkboxContainer = document.getElementById('skillCategoriesCheckboxes');
+  checkboxContainer.querySelectorAll('label').forEach(label => {
+    const checkbox = label.querySelector('input');
+    label.classList.toggle('checked', checkbox.checked);
+  });
+}
+
+async function initializeSelectedSkills() {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = '⏳ Initializing...';
+
+  try {
+    // Collect all skills with their categories
+    const skillsWithCategories = [];
+    selectedSkillCategories.forEach(cat => {
+      SKILL_CATEGORIES[cat]?.forEach(skill => {
+        skillsWithCategories.push({ name: skill, category: cat });
+      });
+    });
+
+    const response = await fetch('/api/career/skills/initialize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ skills_with_categories: skillsWithCategories })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      showToast(`Initialized ${data.initialized} new skills!`);
+      closeSkillsSettings();
+      await loadSkills();
+    }
+  } catch (err) {
+    console.error('Failed to initialize skills:', err);
+    showToast('Failed to initialize skills');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⚡ Initialize Selected';
+  }
+}
+
+async function addCustomSkill() {
+  const input = document.getElementById('customSkillInput');
+  const categorySelect = document.getElementById('customSkillCategory');
+  const skillName = input.value.trim();
+  const category = categorySelect?.value || 'Custom';
+  if (!skillName) return;
+
+  try {
+    const response = await fetch('/api/career/skills/initialize', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ skills_with_categories: [{ name: skillName, category: category }] })
+    });
+    
+    if (response.ok) {
+      showToast(`Added skill: ${skillName} (${category})`);
+      input.value = '';
+      await loadSkills();
+      
+      // If it's a new category, add it to settings
+      if (category !== 'Custom' && !SKILL_CATEGORIES[category]) {
+        SKILL_CATEGORIES[category] = [skillName];
+        // Refresh the settings panel if open
+        const panel = document.getElementById('skillsSettingsPanel');
+        if (panel && panel.classList.contains('open')) {
+          showSkillsSettings();
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to add custom skill:', err);
+    showToast('Failed to add skill');
+  }
+}
+
+async function resetAllSkills() {
+  if (!confirm('⚠️ This will DELETE all your skill data including proficiency levels. This cannot be undone. Are you sure?')) {
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/career/skills/reset', {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+    
+    if (response.ok) {
+      showToast('All skills reset');
+      closeSkillsSettings();
+      await loadSkills();
+    }
+  } catch (err) {
+    console.error('Failed to reset skills:', err);
+    showToast('Failed to reset skills');
+  }
+}
+
+// Keep old function for backwards compatibility
+async function initializeSkills() {
+  showSkillsSettings();
+}
+
+async function assessSkillsFromCodebase() {
+  const btn = document.getElementById('assessCodeBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '🔍 Scanning...';
+  }
+
+  try {
+    const response = await fetch('/api/career/skills/assess-from-codebase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({})
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      const categories = Object.keys(data.evidence || {}).length;
+      showToast(`Found evidence in ${categories} skill categories!`);
+      await loadSkills();
+    }
+  } catch (err) {
+    console.error('Failed to assess codebase:', err);
+    showToast('Failed to assess codebase');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🔍 Assess Codebase';
+    }
+  }
+}
+
+// ============================================
+// Completed Projects Bank Functions
+// ============================================
+
+async function loadCompletedProjects() {
+  const container = document.getElementById('completedProjectsContent');
+  if (!container) return;
+
+  try {
+    const response = await fetch('/api/career/completed-projects', { credentials: 'same-origin' });
+    if (!response.ok) throw new Error('Failed to load');
+    
+    const data = await response.json();
+    
+    // Combine tickets and memories
+    const allProjects = [
+      ...data.memories.map(m => ({
+        id: m.id,
+        title: m.title,
+        description: m.description,
+        tags: m.skills,
+        is_pinned: m.is_pinned,
+        type: 'memory',
+        updated_at: m.updated_at
+      })),
+      ...data.tickets.map(t => ({
+        id: t.id,
+        title: t.title,
+        description: t.ai_summary || t.description,
+        tags: t.tags,
+        is_pinned: false,
+        type: 'ticket',
+        updated_at: t.updated_at
+      }))
+    ];
+
+    if (allProjects.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <p>No completed projects yet.</p>
+          <p style="font-size: 0.85rem;">Complete tickets or click "Sync from Tickets" to auto-populate.</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Sort: pinned first, then by date
+    allProjects.sort((a, b) => {
+      if (a.is_pinned && !b.is_pinned) return -1;
+      if (!a.is_pinned && b.is_pinned) return 1;
+      return new Date(b.updated_at) - new Date(a.updated_at);
+    });
+
+    container.innerHTML = allProjects.slice(0, 20).map(p => `
+      <div class="project-item ${p.is_pinned ? 'pinned' : ''}">
+        <div class="project-icon">${p.type === 'memory' ? '📁' : '✅'}</div>
+        <div class="project-details">
+          <div class="project-title">${escapeHtml(p.title)}</div>
+          <div class="project-desc">${escapeHtml(p.description || '')}</div>
+          ${p.tags ? `
+            <div class="project-tags">
+              ${p.tags.split(',').slice(0, 4).map(tag => `<span class="project-tag">${escapeHtml(tag.trim())}</span>`).join('')}
+            </div>
+          ` : ''}
+        </div>
+        <div class="project-actions">
+          ${p.type === 'memory' ? `
+            <button class="project-action-btn ${p.is_pinned ? 'pinned' : ''}" onclick="togglePinMemory(${p.id})" title="${p.is_pinned ? 'Unpin' : 'Pin'}">
+              ${p.is_pinned ? '📌' : '📍'}
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Failed to load completed projects:', err);
+  }
+}
+
+async function syncCompletedProjects() {
+  const btn = document.getElementById('syncProjectsBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '🔄 Syncing...';
+  }
+
+  try {
+    const response = await fetch('/api/career/sync-completed-projects', {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      showToast(`Added ${data.added} projects from tickets!`);
+      await loadCompletedProjects();
+    }
+  } catch (err) {
+    console.error('Failed to sync projects:', err);
+    showToast('Failed to sync projects');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🔄 Sync from Tickets';
+    }
+  }
+}
+
+async function togglePinMemory(memoryId) {
+  try {
+    const response = await fetch(`/api/career/memories/${memoryId}/pin`, {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      showToast(data.is_pinned ? 'Memory pinned!' : 'Memory unpinned');
+      await loadCompletedProjects();
+    }
+  } catch (err) {
+    console.error('Failed to toggle pin:', err);
+  }
+}
+
+// ============================================
+// AI Implementation Memories Functions
+// ============================================
+
+async function loadAIMemories() {
+  const container = document.getElementById('aiMemoriesContent');
+  if (!container) return;
+
+  try {
+    const response = await fetch('/api/career/ai-memories', { credentials: 'same-origin' });
+    if (!response.ok) throw new Error('Failed to load');
+    
+    const memories = await response.json();
+    
+    if (memories.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <p>Track your AI implementation work here.</p>
+          <p style="font-size: 0.85rem;">Click "Assess with AI" to auto-discover technical patterns from your codebase.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = memories.map(m => `
+      <div class="ai-memory-item" data-id="${m.id}">
+        <div class="ai-memory-badge">🤖 AI Work</div>
+        <button onclick="deleteAIMemory(${m.id})" class="ai-memory-delete" title="Delete">✕</button>
+        <div class="ai-memory-title">${escapeHtml(m.title)}</div>
+        <div class="ai-memory-desc">${m.description ? marked.parse(m.description) : ''}</div>
+        ${m.skills ? `
+          <div class="project-tags" style="margin-top: 0.5rem;">
+            ${m.skills.split(',').map(s => `<span class="project-tag" style="background: #ddd6fe; color: #5b21b6;">${escapeHtml(s.trim())}</span>`).join('')}
+          </div>
+        ` : ''}
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Failed to load AI memories:', err);
+  }
+}
+
+async function deleteAIMemory(id) {
+  if (!confirm('Delete this AI implementation memory?')) return;
+  
+  try {
+    const response = await fetch(`/api/career/ai-memories/${id}`, {
+      method: 'DELETE',
+      credentials: 'same-origin'
+    });
+    
+    if (response.ok) {
+      showToast('Memory deleted');
+      await loadAIMemories();
+    }
+  } catch (err) {
+    console.error('Failed to delete:', err);
+    showToast('Failed to delete');
+  }
+}
+
+async function assessCodebaseWithAI() {
+  const btn = document.getElementById('assessAIBtn');
+  btn.disabled = true;
+  btn.textContent = '🔄 Analyzing...';
+  
+  try {
+    const response = await fetch('/api/career/assess-codebase-ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin'
+    });
+    
+    const data = await response.json();
+    
+    if (data.status === 'ok') {
+      showToast(`Discovered ${data.count} technical patterns!`);
+      await loadAIMemories();
+    } else {
+      showToast(data.message || 'Assessment failed');
+    }
+  } catch (err) {
+    console.error('Failed to assess codebase:', err);
+    showToast('Failed to assess codebase');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Assess with AI';
+  }
+}
+
+function showAddAIMemory() {
+  const title = prompt('Title of AI Implementation:');
+  if (!title) return;
+  
+  const description = prompt('Technical description of what you built:');
+  const skills = prompt('Technologies used (comma-separated):', 'Python, FastAPI, OpenAI API, SQLite');
+  
+  addAIMemory(title, description, skills);
+}
+
+async function addAIMemory(title, description, skills) {
+  try {
+    const response = await fetch('/api/career/add-ai-memory', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ title, description, skills })
+    });
+    
+    if (response.ok) {
+      showToast('AI memory added!');
+      await loadAIMemories();
+    }
+  } catch (err) {
+    console.error('Failed to add AI memory:', err);
+    showToast('Failed to add memory');
+  }
 }
 </script>
 {% endblock %}

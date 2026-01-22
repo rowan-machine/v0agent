@@ -667,14 +667,109 @@
     align-items: center;
   }
 
-  .model-selector {
+  .model-selector-btn {
     padding: 0.4rem 0.8rem;
     border: 1px solid #ddd;
     border-radius: 6px;
     font-size: 0.85rem;
     background: white;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
   }
+  .model-selector-btn:hover {
+    background: #f9fafb;
+    border-color: #bbb;
+  }
+  .model-cost-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  .model-cost-dot.cost-low { background: #16a34a; }
+  .model-cost-dot.cost-medium { background: #ca8a04; }
+  .model-cost-dot.cost-high { background: #ea580c; }
+  .model-cost-dot.cost-premium { background: #dc2626; }
+
+  /* Model Panel (Collapsible) */
+  .model-panel {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.5rem;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    z-index: 100;
+    width: 280px;
+    display: none;
+  }
+  .model-panel.open {
+    display: block;
+  }
+  .model-panel-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .model-panel-body {
+    padding: 0.5rem;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .model-group-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.5rem 0.75rem 0.25rem;
+  }
+  .model-option-chat {
+    display: flex;
+    align-items: center;
+    padding: 0.6rem 0.75rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .model-option-chat:hover {
+    background: #f3f4f6;
+  }
+  .model-option-chat.selected {
+    background: #ede9fe;
+  }
+  .model-option-chat input[type="radio"] {
+    width: 14px;
+    height: 14px;
+    accent-color: #8b5cf6;
+  }
+  .model-option-chat .model-info-row {
+    margin-left: 0.6rem;
+    display: flex;
+    align-items: center;
+    flex: 1;
+  }
+  .model-option-chat .model-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #111827;
+  }
+  .model-option-chat .model-cost {
+    margin-left: auto;
+    font-size: 0.7rem;
+    font-weight: 500;
+  }
+  .cost-low { color: #16a34a; }
+  .cost-medium { color: #ca8a04; }
+  .cost-high { color: #ea580c; }
+  .cost-premium { color: #dc2626; }
 
   .icon-btn {
     background: none;
@@ -1425,14 +1520,82 @@
     {% if active_conversation %}
       <div class="chat-header">
         <h3>{{ active_conversation.title or "New conversation" }}</h3>
-        <div class="chat-header-actions">
-          <select id="modelSelector" class="model-selector" onchange="updateModel()">
-            <option value="gpt-4o-mini">GPT-4o Mini</option>
-            <option value="gpt-4o">GPT-4o</option>
-            <option value="o1">o1</option>
-            <option value="o1-mini">o1 Mini</option>
-            <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-          </select>
+        <div class="chat-header-actions" style="position: relative;">
+          <button class="model-selector-btn" onclick="toggleModelPanel()" id="modelSelectorBtn">
+            <span class="model-cost-dot cost-low" id="modelCostDot"></span>
+            <span id="currentModelName">GPT-4o Mini</span>
+            <span style="font-size: 0.7rem;">▼</span>
+          </button>
+          
+          <!-- Model Panel (Collapsible) -->
+          <div class="model-panel" id="modelPanel">
+            <div class="model-panel-header">
+              <span>🤖 Select Model</span>
+              <button onclick="toggleModelPanel()" style="background: none; border: none; cursor: pointer; font-size: 1rem;">✕</button>
+            </div>
+            <div class="model-panel-body">
+              <div class="model-group-label">OpenAI</div>
+              <label class="model-option-chat" data-model="gpt-4o-mini" data-cost="low">
+                <input type="radio" name="chat_model" value="gpt-4o-mini">
+                <div class="model-info-row">
+                  <span class="model-name">GPT-4o Mini</span>
+                  <span class="model-cost cost-low">$ Fast</span>
+                </div>
+              </label>
+              <label class="model-option-chat" data-model="gpt-4.1-mini" data-cost="low">
+                <input type="radio" name="chat_model" value="gpt-4.1-mini">
+                <div class="model-info-row">
+                  <span class="model-name">GPT-4.1 Mini</span>
+                  <span class="model-cost cost-low">$ Fast</span>
+                </div>
+              </label>
+              <label class="model-option-chat" data-model="gpt-4o" data-cost="medium">
+                <input type="radio" name="chat_model" value="gpt-4o">
+                <div class="model-info-row">
+                  <span class="model-name">GPT-4o</span>
+                  <span class="model-cost cost-medium">$$ Balanced</span>
+                </div>
+              </label>
+              <label class="model-option-chat" data-model="gpt-4.1" data-cost="medium">
+                <input type="radio" name="chat_model" value="gpt-4.1">
+                <div class="model-info-row">
+                  <span class="model-name">GPT-4.1</span>
+                  <span class="model-cost cost-medium">$$ Balanced</span>
+                </div>
+              </label>
+              <label class="model-option-chat" data-model="o1-mini" data-cost="high">
+                <input type="radio" name="chat_model" value="o1-mini">
+                <div class="model-info-row">
+                  <span class="model-name">o1 Mini</span>
+                  <span class="model-cost cost-high">$$$ Reasoning</span>
+                </div>
+              </label>
+              
+              <div class="model-group-label" style="margin-top: 0.5rem;">Anthropic</div>
+              <label class="model-option-chat" data-model="claude-3-5-haiku-20241022" data-cost="low">
+                <input type="radio" name="chat_model" value="claude-3-5-haiku-20241022">
+                <div class="model-info-row">
+                  <span class="model-name">Claude 3.5 Haiku</span>
+                  <span class="model-cost cost-low">$ Fast</span>
+                </div>
+              </label>
+              <label class="model-option-chat" data-model="claude-sonnet-4-20250514" data-cost="medium">
+                <input type="radio" name="chat_model" value="claude-sonnet-4-20250514">
+                <div class="model-info-row">
+                  <span class="model-name">Claude Sonnet 4</span>
+                  <span class="model-cost cost-medium">$$ Balanced</span>
+                </div>
+              </label>
+              <label class="model-option-chat" data-model="claude-opus-4-20250514" data-cost="premium">
+                <input type="radio" name="chat_model" value="claude-opus-4-20250514">
+                <div class="model-info-row">
+                  <span class="model-name">Claude Opus 4</span>
+                  <span class="model-cost cost-premium">$$$$ Premium</span>
+                </div>
+              </label>
+            </div>
+          </div>
+          
           <a href="/signals" class="icon-btn" title="Search Signals" style="text-decoration: none;">🔍 Signals</a>
           <button class="icon-btn" onclick="archiveConversation({{ active_conversation.id }})" title="Archive">📦</button>
           <button class="icon-btn danger" onclick="deleteConversation({{ active_conversation.id }})" title="Delete">🗑️</button>
@@ -1664,17 +1827,7 @@
   </div>
 </div>
 
-<!-- Floating Action Buttons -->
-<div class="fab-container">
-  <a href="/signals" class="fab secondary" style="text-decoration: none;">
-    <span class="fab-tooltip">Search Signals</span>
-    🔍
-  </a>
-  <a href="/chat/new" class="fab primary">
-    <span class="fab-tooltip">New Chat</span>
-    +
-  </a>
-</div>
+<!-- Floating Action Buttons removed - using AI agent button instead -->
 
 <!-- Blockers Modal -->
 <div class="modal-overlay" id="blockersModal">
@@ -1712,13 +1865,35 @@
   // These must be defined before the HTML parses onclick attributes
   // ========================================
   
-  // Sprint Phase
-  let currentPhase = localStorage.getItem('sprintPhase') || 'implementation';
+  // Get current conversation ID from URL or data attribute
+  function getCurrentConversationId() {
+    const match = window.location.pathname.match(/\/chat\/(\d+)/);
+    return match ? match[1] : 'new';
+  }
+  
+  // Get context preferences for a conversation
+  function getConversationContext(convId) {
+    const stored = localStorage.getItem(`chatContext_${convId}`);
+    return stored ? JSON.parse(stored) : { phase: 'implementation', techs: [] };
+  }
+  
+  // Save context preferences for a conversation  
+  function saveConversationContext(convId, context) {
+    localStorage.setItem(`chatContext_${convId}`, JSON.stringify(context));
+  }
+  
+  // Sprint Phase - per conversation
+  const convId = getCurrentConversationId();
+  const savedContext = getConversationContext(convId);
+  let currentPhase = savedContext.phase || 'implementation';
   
   function setPhase(phase) {
     console.log('setPhase called with:', phase);
     currentPhase = phase;
-    localStorage.setItem('sprintPhase', phase);
+    const convId = getCurrentConversationId();
+    const context = getConversationContext(convId);
+    context.phase = phase;
+    saveConversationContext(convId, context);
     document.querySelectorAll('.phase-chip').forEach(chip => {
       chip.classList.toggle('active', chip.dataset.phase === phase);
     });
@@ -1728,8 +1903,8 @@
   }
   window.setPhase = setPhase;
   
-  // Tech Stack Tags
-  let activeTechs = JSON.parse(localStorage.getItem('activeTechs') || '[]');
+  // Tech Stack Tags - per conversation
+  let activeTechs = savedContext.techs || [];
   
   function toggleTech(tech) {
     console.log('toggleTech called with:', tech);
@@ -1739,7 +1914,10 @@
     } else {
       activeTechs.push(tech);
     }
-    localStorage.setItem('activeTechs', JSON.stringify(activeTechs));
+    const convId = getCurrentConversationId();
+    const context = getConversationContext(convId);
+    context.techs = activeTechs;
+    saveConversationContext(convId, context);
     updateTechTags();
   }
   window.toggleTech = toggleTech;
@@ -1974,80 +2152,99 @@
   // MAIN SCRIPT
   // ========================================
 
-  // Simple Markdown Parser for assistant messages
+  // Markdown Parser - use marked.js library for proper rendering
   function parseMarkdown(text) {
     if (!text) return '';
     
-    // Escape HTML first
+    // Use marked.js for proper markdown parsing
+    if (typeof marked !== 'undefined' && typeof marked.parse === 'function') {
+      try {
+        // Configure marked for safe rendering
+        marked.setOptions({
+          breaks: true,  // Convert \n to <br>
+          gfm: true,     // GitHub Flavored Markdown
+          sanitize: false // We trust our AI output
+        });
+        return marked.parse(text);
+      } catch (e) {
+        console.error('marked.js error:', e);
+      }
+    }
+    
+    // Fallback to basic parsing if marked.js not loaded
     let html = text
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
     
-    // Code blocks (must be before other processing)
+    // Code blocks
     html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
-    
-    // Inline code
     html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
     
-    // Headers (### Header)
+    // Headers
     html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
     html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
     html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
     
-    // Bold (**text** or __text__)
+    // Bold and italic
     html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
     
-    // Italic (*text* or _text_) - careful not to match already processed bold
-    html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
-    html = html.replace(/(?<!_)_([^_]+)_(?!_)/g, '<em>$1</em>');
-    
-    // Blockquotes
-    html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
-    
-    // Unordered lists (- item or * item)
+    // Lists
     html = html.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
-    
-    // Ordered lists (1. item)
     html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+    html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
     
-    // Wrap consecutive <li> elements in <ul>
-    html = html.replace(/(<li>.*<\/li>\n?)+/g, function(match) {
-      return '<ul>' + match + '</ul>';
-    });
-    
-    // Convert line breaks to paragraphs for non-list, non-header content
-    // Split by double newlines for paragraphs
-    const blocks = html.split(/\n\n+/);
-    html = blocks.map(block => {
-      block = block.trim();
-      if (!block) return '';
-      // Don't wrap if already wrapped in block element
-      if (block.match(/^<(h[1-6]|ul|ol|pre|blockquote|p)/)) {
-        return block;
-      }
-      // Replace single newlines with <br> within paragraphs
-      block = block.replace(/\n/g, '<br>');
-      return '<p>' + block + '</p>';
-    }).join('\n');
-    
-    // Clean up empty paragraphs
+    // Paragraphs
+    html = html.replace(/\n\n+/g, '</p><p>');
+    html = '<p>' + html + '</p>';
     html = html.replace(/<p>\s*<\/p>/g, '');
-    
-    // Clean up <br> at start/end of paragraphs
-    html = html.replace(/<p><br>/g, '<p>');
-    html = html.replace(/<br><\/p>/g, '</p>');
     
     return html;
   }
 
-  // Apply markdown parsing to all assistant messages on page load
-  document.addEventListener('DOMContentLoaded', function() {
+  // Apply markdown parsing to all assistant messages
+  function applyMarkdownToMessages() {
     document.querySelectorAll('.message.assistant .message-content').forEach(function(el) {
+      // Skip if already processed
+      if (el.dataset.markdownApplied === 'true') return;
+      
       const rawText = el.textContent;
-      el.innerHTML = parseMarkdown(rawText);
+      if (rawText && rawText.trim()) {
+        el.innerHTML = parseMarkdown(rawText);
+        el.dataset.markdownApplied = 'true';
+      }
     });
+  }
+
+  // Apply markdown on page load - wait for marked.js to be available
+  document.addEventListener('DOMContentLoaded', function() {
+    // Try to apply markdown immediately
+    applyMarkdownToMessages();
+    
+    // If marked wasn't loaded yet, try again after a short delay
+    if (typeof marked === 'undefined') {
+      setTimeout(applyMarkdownToMessages, 100);
+      setTimeout(applyMarkdownToMessages, 500);
+    }
+    
+    // Restore saved context for this conversation
+    const convId = getCurrentConversationId();
+    const savedCtx = getConversationContext(convId);
+    
+    // Restore phase selection
+    if (savedCtx.phase) {
+      currentPhase = savedCtx.phase;
+      document.querySelectorAll('.phase-chip').forEach(chip => {
+        chip.classList.toggle('active', chip.dataset.phase === savedCtx.phase);
+      });
+    }
+    
+    // Restore tech tag selection
+    if (savedCtx.techs && savedCtx.techs.length > 0) {
+      activeTechs = savedCtx.techs;
+      updateTechTags();
+    }
   });
 
   // Auto-resize textarea
@@ -2569,32 +2766,86 @@
     }
   }
 
-  // Model selector
-  async function updateModel() {
-    const model = document.getElementById('modelSelector').value;
-    try {
-      const response = await fetch('/api/settings/model', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ model: model })
-      });
-      if (response.ok) {
-        showToast('Model updated to ' + model, 'success');
-      }
-    } catch (err) {
-      console.error('Failed to update model:', err);
-    }
+  // Model Panel - mapping for display names and costs
+  const MODEL_INFO = {
+    'gpt-4o-mini': { name: 'GPT-4o Mini', cost: 'low' },
+    'gpt-4.1-mini': { name: 'GPT-4.1 Mini', cost: 'low' },
+    'gpt-4o': { name: 'GPT-4o', cost: 'medium' },
+    'gpt-4.1': { name: 'GPT-4.1', cost: 'medium' },
+    'o1-mini': { name: 'o1 Mini', cost: 'high' },
+    'claude-3-5-haiku-20241022': { name: 'Claude 3.5 Haiku', cost: 'low' },
+    'claude-sonnet-4-20250514': { name: 'Claude Sonnet 4', cost: 'medium' },
+    'claude-opus-4-20250514': { name: 'Claude Opus 4', cost: 'premium' },
+  };
+
+  function toggleModelPanel() {
+    const panel = document.getElementById('modelPanel');
+    panel.classList.toggle('open');
   }
+
+  // Close panel when clicking outside
+  document.addEventListener('click', function(e) {
+    const panel = document.getElementById('modelPanel');
+    const btn = document.getElementById('modelSelectorBtn');
+    if (panel && !panel.contains(e.target) && !btn.contains(e.target)) {
+      panel.classList.remove('open');
+    }
+  });
+
+  // Handle model selection in chat
+  document.querySelectorAll('input[name="chat_model"]').forEach(radio => {
+    radio.addEventListener('change', async (e) => {
+      const model = e.target.value;
+      const info = MODEL_INFO[model] || { name: model, cost: 'medium' };
+      
+      // Update visual state
+      document.querySelectorAll('.model-option-chat').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+      e.target.closest('.model-option-chat').classList.add('selected');
+      
+      // Update button display
+      document.getElementById('currentModelName').textContent = info.name;
+      const dot = document.getElementById('modelCostDot');
+      dot.className = 'model-cost-dot cost-' + info.cost;
+      
+      // Save to server
+      try {
+        const response = await fetch('/api/settings/ai-model', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ model })
+        });
+        if (response.ok) {
+          showToast('Model: ' + info.name, 'success');
+          toggleModelPanel(); // Close panel after selection
+        }
+      } catch (err) {
+        console.error('Failed to update model:', err);
+      }
+    });
+  });
 
   // Load current model setting
   async function loadCurrentModel() {
     try {
-      const response = await fetch('/api/settings/model', { credentials: 'same-origin' });
+      const response = await fetch('/api/settings/ai-model', { credentials: 'same-origin' });
       if (response.ok) {
         const data = await response.json();
-        if (data.model) {
-          document.getElementById('modelSelector').value = data.model;
+        const model = data.model || 'gpt-4o-mini';
+        const info = MODEL_INFO[model] || { name: model, cost: 'medium' };
+        
+        // Update button display
+        document.getElementById('currentModelName').textContent = info.name;
+        const dot = document.getElementById('modelCostDot');
+        dot.className = 'model-cost-dot cost-' + info.cost;
+        
+        // Select the radio
+        const radio = document.querySelector(`input[name="chat_model"][value="${model}"]`);
+        if (radio) {
+          radio.checked = true;
+          radio.closest('.model-option-chat').classList.add('selected');
         }
       }
     } catch (err) {
