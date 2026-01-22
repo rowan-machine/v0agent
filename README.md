@@ -182,18 +182,25 @@ signalflow/
 ├── src/app/
 │   ├── main.py          # FastAPI routes & API endpoints
 │   ├── db.py            # SQLite schema & connections
+│   ├── db_adapter.py    # DualWriteDB (SQLite + Supabase)
+│   ├── tracing.py       # LangSmith tracing integration
 │   ├── llm.py           # OpenAI integration
 │   ├── auth.py          # Session authentication
 │   ├── meetings.py      # Meeting parsing & signal extraction
-│   ├── search.py        # Full-text search
+│   ├── search.py        # Full-text & semantic search
+│   ├── agents/          # Multi-agent system
+│   │   ├── registry.py  # AgentRegistry
+│   │   ├── arjuna.py    # Arjuna intent classifier
+│   │   ├── career_coach.py
+│   │   ├── meeting_analyzer.py
+│   │   └── dikw_synthesizer.py
+│   ├── api/v1/          # REST API endpoints
+│   ├── services/        # Business logic & agent bus
 │   ├── templates/       # Jinja2 HTML templates
-│   │   ├── base.html    # Base layout with themes
-│   │   ├── dashboard.html
-│   │   └── ...
 │   └── static/          # CSS, JS assets
-│       ├── signalflow-theme.css
-│       └── signalflow-modes.css
-├── agent.db             # SQLite database
+├── mobile/              # React Native Expo app
+├── prompts/             # Agent-specific prompts
+├── agent.db             # SQLite database (local-first)
 ├── .env                 # Environment variables
 └── requirements.txt
 ```
@@ -374,12 +381,27 @@ uvicorn src.app.main:app --reload --log-level debug
 
 ## 🗺️ Roadmap
 
-- [ ] MCP (Model Context Protocol) server integration
-- [ ] Embeddings-based semantic search
+### ✅ Completed (v2.0 Migration)
+- [x] Multi-agent architecture with AgentRegistry
+- [x] MCP (Model Context Protocol) tool integration
+- [x] Embeddings-based semantic search (pgvector on Supabase)
+- [x] Hybrid search (keyword + semantic)
+- [x] Supabase cloud backend (28 tables migrated)
+- [x] DualWriteDB adapter for local-first + cloud sync
+- [x] LangSmith tracing for observability
+- [x] API v1 endpoints with Pydantic validation
+- [x] React Native Expo mobile app scaffold
+- [x] Smart suggestions based on embeddings
+
+### 📋 Future Enhancements (Deferred)
 - [ ] Calendar integration for meeting imports
 - [ ] Multi-user support with roles
 - [ ] Export to Notion/Obsidian
 - [ ] Mobile-responsive PWA
+- [ ] Push notifications for action items
+- [ ] Voice input for meetings
+- [ ] APK build for Android distribution
+- [ ] Real-time Supabase subscriptions
 
 ---
 
