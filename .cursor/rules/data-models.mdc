@@ -1,45 +1,57 @@
 ---
-description: Defines the core data models for Meetings and Documents, including their relationship structures and business rules
+description: Documents the core Meeting and Document data models and their relationship structure in a knowledge management system
 ---
 
 
 # data-models
 
-## Core Data Models
+The system is built around two primary data models and their relationships:
 
-### Meetings Model
+## Meeting Model
 Importance Score: 90/100
 
-Key attributes and relationships:
-- Structured signal extraction system for meetings categorizing:
+Core Structure:
+- Meeting metadata (title, date, duration)
+- Extracted signals with categorization:
   - Decisions
-  - Action items 
+  - Action Items  
   - Blockers
   - Risks
   - Ideas
-- Integrated with knowledge graph through signal relationships
-- Custom signal state management workflow with approval states
-- Meeting bundle concept linking related sessions
-- Source-linked accountability tracking
+- Contextual knowledge relationships
+- Participant tracking
+- State transitions (draft, active, archived)
 
-### Documents Model
+## Document Model
 Importance Score: 85/100
 
-Key attributes and relationships:
-- Document-to-signal transformation pipeline
-- Hierarchical organization with document bundles
-- Integration with meeting signals through knowledge graph
-- Custom validation workflow states
-- Sprint phase awareness for documentation
+Core Structure:
+- Document versioning
+- Signal extraction mapping
+- Related meeting references
+- Knowledge graph connections
+- Domain categorization
+- Change history tracking
 
-### Model Relationships
-- Meetings and Documents connected through extracted signals
-- Signal promotion chains track knowledge evolution
-- Hierarchical bundling for related content
-- Sprint-based organization and filtering
-- Career development tracking integration
+## Relationship Structure
 
-Both models implement sophisticated business-specific features around signal extraction, knowledge management, and sprint integration. The relationship structure enables tracking of knowledge evolution and accountability chains across different content types.
+1. Meeting-to-Document Links
+- Bi-directional references 
+- Signal propagation between entities
+- Version-aware relationships
+- Context preservation across entities
+
+2. Signal Inheritance
+- Signals can flow between meetings and documents
+- Hierarchical signal organization
+- Cross-reference tracking between sources
+- Signal deduplication and merging
+
+3. Knowledge Context
+- DIKW pyramid organization
+- Domain-specific categorization
+- Entity relationships in knowledge graph
+- Context preservation across entities
 
 $END$
 

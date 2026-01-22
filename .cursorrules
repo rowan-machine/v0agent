@@ -10,62 +10,67 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-Project implements an AI-powered workflow management system with sophisticated meeting intelligence and signal processing capabilities.
+The system implements an AI-powered project management platform with sophisticated knowledge extraction capabilities. The core business logic is organized around three main pillars:
 
-Core Business Components (Importance: 85/100):
+## AI Assistant Intelligence System
+Importance Score: 85/100
 
-1. AI Assistant System
-- Maintains 24-hour conversation history with contextual awareness
-- Command categorization with domain-specific handlers:
-  * Sprint operations (📊)
-  * Ticket management (🎫)
-  * Task creation (➕)
-  * Meeting queries (📅)
-  * Blocked items (🚫)
-- Supports dynamic AI model switching while preserving context
-- Custom suggestion rotation using frequency-based ranking
+- Contextual conversation management with 24-hour persistence
+- Domain-specific suggestion rotation across 4 categorized sets
+- Command usage analytics with hybrid frequency/recency scoring
+- Auto-categorization of commands using emoji-based domain classification
+- Business context preservation across page reloads
 
-2. Meeting Signal Processing (src/app/mcp/extract.py)
-- Extracts structured signals from meetings:
+## Meeting Signal Processing Engine
+Importance Score: 90/100
+
+- Extracts structured business signals from meetings:
   * Decisions
-  * Action items
+  * Action Items
   * Blockers
   * Risks
   * Ideas
-- Implements hierarchical signal categorization
-- Time-aware signal filtering with sprint integration
+- Signal correlation and merging between meetings
+- Intelligent theme extraction and categorization
+- AI-powered sentiment analysis for standups
+- Screenshot analysis integration with vision AI
 
-3. Workflow Mode System (src/app/api/settings.py)
-- 7-mode progression system:
-  * Context Distillation
-  * Implementation Planning
-  * Assisted Draft Intake
-  * Deep Review & Validation
-  * Promotion Readiness
-  * Controlled Ingress/Egress
-  * Code Execution
-- Phase-specific theme adaptation
-- Custom mode transitions with sprint integration
+## Workflow Mode Management
+Importance Score: 80/100
 
-4. Knowledge Management
-- Graph-based knowledge representation
-- Tag-based clustering for topic organization
-- Signal extraction with relationship inference
-- Meeting bundle processing pipeline
-- Sprint-aware knowledge evolution tracking
+Seven distinct workflow modes:
+1. Context Distillation
+2. Implementation Planning
+3. Assisted Draft Intake
+4. Deep Review
+5. Promotion Readiness
+6. Controlled Ingress/Egress
+7. Execution Writing Code
 
-5. Career Development Integration
-- AI-assisted task decomposition
-- Implementation planning system
-- Sprint point management
-- Progress tracking with completion states
-- Standup pattern analysis
+Each mode contains:
+- Phase-specific behaviors
+- Progress tracking
+- Custom validation rules
+- Career development mapping
+- Sprint integration points
 
-Key Integration Points:
-- Meeting intelligence feeds signal processing
-- Signals drive sprint management
-- Knowledge graph maintains relationships
-- Career tracking integrates across components
+## Knowledge Organization
+Importance Score: 75/100
+
+- Hierarchical knowledge graph (DIKW pyramid)
+- Signal-based relationship mapping
+- Tag clustering system
+- Multi-view visualizations
+- Real-time graph manipulation
+
+## Accountability Framework
+Importance Score: 70/100
+
+- Task ownership tracking
+- Status-based workflow progression
+- Dependency chain management
+- Automated accountability item creation
+- Integration with signal extraction system
 
 $END$
 

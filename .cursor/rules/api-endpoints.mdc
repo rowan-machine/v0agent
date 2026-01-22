@@ -1,56 +1,48 @@
 ---
-description: FastAPI routes specification for managing meetings and documents with custom signal processing and workflow states
+description: Documentation for FastAPI routes implementing domain-specific CRUD operations for meetings and documents
 ---
 
 
 # api-endpoints
 
+Core API routes for meeting and document intelligence system:
+
+1. Meeting Signal Management
+Path: `/api/v1/meetings/signals`
+- Extracts and categorizes business signals from meeting content
+- Processes signals into structured categories:
+  * Decisions
+  * Action Items
+  * Blockers
+  * Risks
+  * Ideas
+- Maintains signal relationships and context chains
+- Auto-classifies signal importance using domain rules
+- Handles signal merging across related meetings
+
+2. Meeting Context Management 
+Path: `/api/v1/meetings/context`
+- Maintains contextual knowledge graph for meetings
+- Links related meetings through signal overlap analysis
+- Tracks meeting series and recurring patterns
+- Preserves business context across meeting cycles
+
+3. Document Signal Processing
+Path: `/api/v1/docs/signals`  
+- Extracts business signals from document content
+- Maps document signals to meeting contexts
+- Handles bi-directional signal propagation
+- Maintains document-meeting relationship graph
+
+4. Signal Query System
+Path: `/api/v1/signals/search`
+- Multi-dimensional signal filtering and search
+- Context-aware signal retrieval
+- Category-based signal aggregation
+- Time-based signal correlation
+
 Importance Score: 85/100
-
-## Meeting Management Endpoints
-
-1. Signal Processing Routes
-- POST /api/meetings/{id}/signals
-  - Extracts and categorizes meeting signals into decisions, action items, blockers, risks and ideas
-  - Implements custom signal validation workflow
-  - Associates signals with meeting context and participants
-
-2. Meeting State Management
-- PUT /api/meetings/{id}/state
-  - Controls meeting workflow states: draft, in-progress, completed, archived
-  - Manages signal extraction triggers based on state transitions
-  - Links meeting artifacts (transcripts, recordings) based on state
-
-3. Document Integration Routes
-- POST /api/meetings/{id}/documents
-  - Associates relevant documentation with meeting context
-  - Extracts signals from attached documents
-  - Creates knowledge graph relationships between meetings and docs
-
-## Document Management Endpoints 
-
-1. Signal Extraction Routes
-- POST /api/documents/{id}/process
-  - Processes documents for business signals
-  - Categorizes extracted information into defined signal types
-  - Maps document sections to meeting contexts
-
-2. Document State Control
-- PUT /api/documents/{id}/state
-  - Manages document workflow through states: draft, review, approved, archived
-  - Triggers signal reprocessing on state changes
-  - Updates associated meeting signal graphs
-
-3. Document Context Routes
-- GET /api/documents/{id}/context
-  - Retrieves related meetings and signal chains
-  - Provides document hierarchy in knowledge graph
-  - Maps document signals to meeting outcomes
-
-File Paths:
-- src/app/api/meetings.py
-- src/app/api/documents.py
-- src/app/api/signals.py
+The API endpoints implement sophisticated business logic for extracting, categorizing and managing business signals across meetings and documents. The signal extraction and context preservation capabilities represent core domain-specific functionality.
 
 $END$
 
