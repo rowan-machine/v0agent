@@ -1,49 +1,74 @@
 ---
-description: Documents FastAPI endpoints implementing domain-specific meeting and document management operations with signal extraction
+description: Documents FastAPI route implementations for managing meetings and documents with custom CRUD operations.
 ---
 
 
 # api-endpoints
 
-API routes implementing specialized meeting and document management:
+## Meeting Signal Management
+Importance Score: 85/100
 
-1. Meeting Signal Routes
-Path: src/app/api/meetings.py
-- Extracts and processes signals from meeting content
-- Classifies decisions, action items, blockers and risks
-- Correlates signals across meetings for pattern detection
-- Manages signal lifecycle with promotion workflow
-Importance Score: 85
+API routes implementing custom meeting signal extraction and processing:
 
-2. Document Processing Routes
-Path: src/app/api/documents.py  
-- Implements document-to-signal transformation pipeline
-- Extracts structured data from unstructured content
-- Links related signals across document corpus
-- Maintains document knowledge graph relationships
-Importance Score: 80
+```python
+# src/app/api/meetings.py
+@router.post("/meetings/{meeting_id}/signals")
+def extract_signals(meeting_id: int):
+    """Extracts structured signals from meeting content"""
+    # Custom signal categorization and processing
 
-3. Sprint Management Routes
-Path: src/app/api/sprints.py
-- Handles sprint transitions and archival
-- Processes sprint metrics and burndown data
-- Manages workflow mode transitions (A-G modes)
-- Coordinates sprint signal consolidation
-Importance Score: 75
+@router.put("/meetings/{meeting_id}/signals/{signal_id}")
+def merge_signals(meeting_id: int, signal_id: int):
+    """Merges related signals with deduplication"""
+```
 
-4. Career Development Routes
-Path: src/app/api/career.py
-- Processes standup updates with sentiment analysis
-- Tracks skill development patterns
-- Maps activities to career progression paths
-- Generates coaching insights
-Importance Score: 70
+## Document Context Integration 
+Importance Score: 80/100
 
-The API implements a domain-specific knowledge management system focused on:
-- Meeting and document signal extraction
-- Sprint-based workflow management  
-- Career development tracking
-- Cross-entity relationship mapping
+API routes handling document-meeting context preservation:
+
+```python
+# src/app/api/documents.py
+@router.post("/documents/{doc_id}/context")
+def link_meeting_context(doc_id: int):
+    """Associates documents with meeting context"""
+
+@router.get("/documents/{doc_id}/signals")
+def get_document_signals(doc_id: int):
+    """Retrieves signals extracted from document context"""
+```
+
+## DIKW Knowledge Management
+Importance Score: 90/100
+
+Routes implementing the Data-Information-Knowledge-Wisdom hierarchy:
+
+```python
+# src/app/api/knowledge.py
+@router.post("/knowledge/promote")
+def promote_signal():
+    """Promotes signals through DIKW levels"""
+
+@router.post("/knowledge/synthesize")
+def synthesize_knowledge():
+    """Merges related knowledge items with semantic understanding"""
+```
+
+## Career Development Tracking
+Importance Score: 75/100
+
+API endpoints for career progression monitoring:
+
+```python
+# src/app/api/career.py
+@router.post("/career/evidence")
+def track_skill_evidence():
+    """Records skill development evidence from meetings/documents"""
+
+@router.get("/career/insights")
+def generate_career_insights():
+    """Synthesizes career development patterns"""
+```
 
 $END$
 

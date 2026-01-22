@@ -28,6 +28,7 @@ from .api.neo4j_graph import router as neo4j_router
 from .api.v1 import router as v1_router  # API v1 (Phase 3.1)
 from .api.mobile import router as mobile_router  # Mobile sync (Phase 3.2)
 from .api.admin import router as admin_router  # Admin endpoints (Phase 4.1)
+from .api.search import router as api_search_router  # Semantic/Hybrid search (Phase 5.2)
 from .mcp.registry import TOOL_REGISTRY
 from .llm import ask as ask_llm
 from .auth import (
@@ -3186,3 +3187,4 @@ app.include_router(neo4j_router)
 app.include_router(v1_router)  # API v1 versioned endpoints (Phase 3.1)
 app.include_router(mobile_router)  # Mobile sync endpoints (Phase 3.2)
 app.include_router(admin_router)  # Admin endpoints (Phase 4.1)
+app.include_router(api_search_router)  # Semantic/Hybrid search (Phase 5.2)

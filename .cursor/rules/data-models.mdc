@@ -1,63 +1,51 @@
 ---
-description: Core data model specification for meetings and documents, including their relationship structure and signal extraction capabilities
+description: Specification for core data models handling meetings and documents with their relationships and signal extraction capabilities
 ---
 
 
 # data-models
 
-Primary Data Models:
+## Meeting Model
+Importance Score: 90/100
 
-1. Meetings Model (Importance Score: 85/100)
-- Core fields:
-  - title: Meeting identifier
-  - date: Meeting occurrence timestamp
-  - transcript: Raw meeting content from multiple sources
-  - screenshots: Associated visual content
-  - signals: Extracted insights and action items
-  - participants: Attendee tracking
-- Relationships:
-  - Many-to-many with Documents
-  - One-to-many with Signals
-  - Many-to-many with Topics
+Core Structure:
+- Meeting metadata (title, date, attendees)
+- Signal extraction layer with categorization
+- Contextual linking to related documents
+- Intelligent tagging system for topic classification
+- Meeting-signal relationship mapping
 
-2. Documents Model (Importance Score: 80/100)
-- Core fields:
-  - title: Document identifier
-  - content: Main document body
-  - version: Document revision tracking
-  - signals: Extracted insights
-  - tags: Classification metadata
-- Relationships:
-  - Many-to-many with Meetings
-  - One-to-many with Signals
-  - One-to-many with Versions
+Signal Categories:
+- Decisions with approval status
+- Action items with assignee tracking 
+- Blockers with dependency mapping
+- Risks with impact assessments
+- Ideas with categorization
 
-3. Shared Signal Architecture
-- Signal Types:
-  - Decisions
-  - Action Items
-  - Blockers
-  - Risks
-  - Ideas
-- Signal States:
-  - New
-  - In Progress
-  - Waiting
-  - Done
-  - Archived
+## Document Model
+Importance Score: 85/100
 
-4. Knowledge Graph Integration
-- Entity Relationships:
-  - Meeting-to-Meeting connections
-  - Document-to-Meeting references
-  - Signal cross-references
-  - Topic clustering
+Core Structure:
+- Document content with version tracking
+- Bi-directional meeting references
+- Signal extraction integration
+- Transcript support for meeting summaries
+- Document-signal relationship tracking
 
-5. Versioning System
-- Document version control
-- Meeting transcript revisions
-- Signal evolution tracking
-- Reference preservation
+Key Features:
+- Multi-source content integration
+- Meeting context preservation
+- Signal categorization system
+- Historical tracking capabilities
+
+## Relationship Structure
+Importance Score: 80/100
+
+Entity Relationships:
+- Meetings ↔ Documents (bi-directional references)
+- Meetings ↔ Signals (hierarchical categorization)
+- Documents ↔ Signals (extraction context)
+- Signals ↔ Signals (dependency mapping)
 
 $END$
 

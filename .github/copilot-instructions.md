@@ -18,49 +18,71 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The project implements an AI-powered knowledge management and workflow automation system with several core components:
+SignalFlow Platform implements specialized business logic for software development workflow management and knowledge synthesis through interconnected core systems:
 
-## Knowledge Processing Pipeline (Importance: 90/100)
-- DIKW (Data-Information-Knowledge-Wisdom) hierarchy implementation
+## DIKW Knowledge Management
+Importance Score: 90/100
+
+Central knowledge processing pipeline implementing Data-Information-Knowledge-Wisdom hierarchy:
 - Signal extraction from meetings and documents
-- Custom knowledge promotion rules between hierarchy levels
-- Automated synthesis and relationship mapping
-- Contextual tagging and classification system
+- Progressive knowledge promotion through DIKW levels
+- Domain-specific signal categorization (decisions, actions, blockers, risks)
+- Custom knowledge synthesis with semantic deduplication
+- Context-aware tagging system
 
-## Project Management Intelligence (Importance: 85/100)
-- Sprint lifecycle orchestration with custom workflows
-- Meeting signal extraction and categorization (decisions, actions, blockers)
-- Ticket management with AI-powered decomposition
-- Implementation planning with status tracking
-- Working days calculation and sprint metrics
+Location: src/app/agents/dikw_synthesizer.py
 
-## Career Development System (Importance: 80/100)
-- Standup analysis with AI feedback mechanisms
-- Growth pattern recognition across updates
-- Skills-to-project mapping
-- Career coaching integration
-- Historical trend analysis
+## Workflow Mode System 
+Importance Score: 85/100
 
-## Agent Communication Architecture (Importance: 85/100)
-- Multi-agent messaging system with priority routing
-- Domain-specific command processing
-- Context-aware query planning
-- Meeting intelligence extraction
-- Source-specific embedding strategies
+Implements seven distinct operational modes for development workflow:
+- Mode A: Context Distillation
+- Mode B: Implementation Planning
+- Mode C: Assisted Draft Intake
+- Mode D: Deep Review & Validation
+- Mode E: Promotion Readiness
+- Mode F: Controlled Ingress/Egress
+- Mode G: Execution
 
-## Knowledge Graph Implementation (Importance: 90/100)
-- Custom schema for project signals and relationships
-- Automated entity extraction and linking
-- Semantic relationship creation
-- Person/topic mapping
-- DIKW pyramid relationship tracking
+Each mode contains specific validation rules, progression criteria and contextual behaviors.
 
-Key integration points connect these systems through:
-1. Meeting content processing pipeline
-2. Signal extraction and classification
-3. Knowledge promotion workflows
-4. Career development tracking
-5. Sprint management integration
+Location: src/app/api/settings.py
+
+## Career Intelligence System
+Importance Score: 80/100
+
+Integrated career development tracking:
+- Skill progression monitoring with evidence collection
+- AI-powered standup analysis with sentiment detection
+- Career pattern recognition
+- Custom suggestion generation
+- Professional memory building
+
+Location: src/app/agents/career_coach.py
+
+## Meeting Intelligence
+Importance Score: 75/100
+
+Specialized meeting analysis pipeline:
+- Adaptive format detection
+- Multi-source signal extraction
+- Custom categorization system
+- Contextual signal merging
+- Historical pattern analysis
+
+Location: src/app/templates/signals.html
+
+## Assistant Integration
+Importance Score: 70/100
+
+Domain-aware AI assistance:
+- Development context management
+- Intent parsing for software tasks
+- Smart follow-up generation
+- Focus recommendations
+- Command frequency optimization
+
+Location: src/app/api/assistant.py
 
 $END$
 
