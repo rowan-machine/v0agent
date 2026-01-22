@@ -31,13 +31,13 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PATH=/root/.local/bin:$PATH
+    PATH=/home/appuser/.local/bin:$PATH
 
-# Install runtime dependencies only
-COPY --from=builder /root/.local /root/.local
-
-# Create non-root user for security
+# Create non-root user for security FIRST
 RUN useradd -m -u 1000 appuser
+
+# Copy Python packages to appuser's directory
+COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
 
 # Copy application code
 COPY --chown=appuser:appuser src/ ./src/

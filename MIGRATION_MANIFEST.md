@@ -627,6 +627,156 @@ jobs:
 
 ---
 
+### Phase F7: External MCP Tool Integrations (Priority: MEDIUM)
+**Goal:** Extend agent capabilities with external service integrations
+
+**Current MCP Tools (in `src/app/mcp/`):**
+| Tool | Purpose | Status |
+|------|---------|--------|
+| `store_meeting_synthesis` | Save meeting + extract signals | ✅ Working |
+| `store_doc` | Save document with embeddings | ✅ Working |
+| `query_memory` | RAG query across meetings/docs | ✅ Working |
+| `load_meeting_bundle` | Bulk import meeting + transcript | ✅ Working |
+| `collect_meeting_signals` | Extract signals from text | ✅ Working |
+| `get_meeting_signals` | Retrieve signals | ✅ Working |
+| `update_meeting_signals` | Modify signals | ✅ Working |
+| `export_meeting_signals` | Export signals to formats | ✅ Working |
+| `draft_summary_from_transcript` | AI summary generation | ✅ Working |
+
+**Recommended External MCP Integrations:**
+
+#### Tier 1: High Value (Implement Q1-Q2 2026)
+
+| Integration | Use Case | MCP Server | Priority |
+|-------------|----------|------------|----------|
+| **Google Drive** | Import Pocket transcripts/summaries without mobile upload | `@anthropic/google-drive-mcp` | 🔴 High |
+| **Google Calendar** | Auto-create meetings from calendar events | `@anthropic/google-calendar-mcp` | 🔴 High |
+| **Linear/Jira** | Sync tickets bidirectionally | Custom or `@anthropic/linear-mcp` | 🔴 High |
+| **Slack** | Import messages as signals, send notifications | `@anthropic/slack-mcp` | 🟡 Medium |
+| **GitHub** | Link PRs to tickets, track commits | `@anthropic/github-mcp` | 🟡 Medium |
+
+**Google Drive Integration (Pocket Replacement):**
+```yaml
+# config/mcp_servers.yaml
+mcp_servers:
+  google_drive:
+    enabled: true
+    server: "@anthropic/google-drive-mcp"
+    credentials:
+      client_id: "${GOOGLE_CLIENT_ID}"
+      client_secret: "${GOOGLE_CLIENT_SECRET}"
+    
+    # Auto-import rules
+    auto_import:
+      folder_id: "1234abcd..."  # Pocket sync folder
+      file_types: ["md", "txt", "pdf", "docx"]
+      on_new_file: "import_as_meeting"
+      
+    # Agent permissions
+    agent_access:
+      arjuna:
+        - read_files
+        - search_files
+      meeting_analyzer:
+        - read_files
+        - import_transcript
+```
+
+#### Tier 2: Career & Productivity (Implement Q2-Q3 2026)
+
+| Integration | Use Case | MCP Server | Priority |
+|-------------|----------|------------|----------|
+| **LinkedIn** | Job search, profile updates for career page | Custom scraper or API | 🟡 Medium |
+| **Indeed/Glassdoor** | Job recommendations, salary data | Custom API wrapper | 🟡 Medium |
+| **Notion** | Alternative knowledge base sync | `@anthropic/notion-mcp` | 🟢 Low |
+| **Obsidian** | Personal knowledge graph sync | Custom file watcher | 🟢 Low |
+
+**Career Page Job Search Integration:**
+```python
+# src/app/agents/career_coach.py - Extension
+
+class JobSearchTool:
+    """MCP tool for job search integration."""
+    
+    async def search_jobs(
+        self,
+        skills: List[str],
+        location: str = "remote",
+        experience_level: str = "senior",
+    ) -> List[JobPosting]:
+        """Search jobs matching user's DIKW skills."""
+        # Use LinkedIn/Indeed APIs
+        pass
+    
+    async def match_to_profile(
+        self,
+        job_posting: JobPosting,
+        user_profile: DIKWProfile,
+    ) -> JobMatch:
+        """Score job fit against user's knowledge graph."""
+        # Embedding similarity between job requirements and user skills
+        pass
+```
+
+#### Tier 3: Automation & Workflow (Implement Q3-Q4 2026)
+
+| Integration | Use Case | MCP Server | Priority |
+|-------------|----------|------------|----------|
+| **Zapier/Make** | No-code automation triggers | Webhook endpoints | 🟢 Low |
+| **Email (IMAP)** | Import action items from emails | Custom IMAP client | 🟢 Low |
+| **Voice (Whisper)** | Transcribe audio recordings | Local Whisper or API | 🟢 Low |
+| **Browser Extension** | Capture web content as DIKW | Custom extension | 🟢 Low |
+
+**MCP Architecture for External Tools:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SignalFlow Agents                         │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
+│  │ Arjuna   │  │ Career   │  │ Meeting  │  │ DIKW     │    │
+│  │ Agent    │  │ Coach    │  │ Analyzer │  │ Synth    │    │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘    │
+│       │             │             │             │           │
+│       └─────────────┴─────────────┴─────────────┘           │
+│                           │                                  │
+│                    MCP Tool Router                           │
+│                           │                                  │
+└───────────────────────────┼──────────────────────────────────┘
+                            │
+    ┌───────────────────────┼───────────────────────┐
+    │                       │                       │
+    ▼                       ▼                       ▼
+┌─────────┐           ┌─────────┐           ┌─────────┐
+│ Internal│           │ Google  │           │ Linear  │
+│ MCP     │           │ Drive   │           │ MCP     │
+│ Tools   │           │ MCP     │           │ Server  │
+└─────────┘           └─────────┘           └─────────┘
+    │                       │                       │
+    ▼                       ▼                       ▼
+┌─────────┐           ┌─────────┐           ┌─────────┐
+│Supabase │           │ Google  │           │ Linear  │
+│ DB      │           │ APIs    │           │ API     │
+└─────────┘           └─────────┘           └─────────┘
+```
+
+**Implementation Priority for MCP Tools:**
+
+```
+Q1 2026:
+  └── Google Drive MCP ─────────── Replace mobile uploads for Pocket
+  
+Q2 2026:
+  ├── Google Calendar MCP ──────── Auto-create meetings
+  └── Linear/Jira MCP ──────────── Ticket sync
+
+Q3 2026:
+  ├── Slack MCP ────────────────── Notifications + message import
+  ├── GitHub MCP ───────────────── PR/commit linking
+  └── LinkedIn/Job Search ──────── Career recommendations
+```
+
+---
+
 ### Implementation Priority Order
 
 ```

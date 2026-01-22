@@ -6,7 +6,7 @@ openai==2.15.0
 python-multipart==0.0.21
 # Configuration management
 PyYAML==6.0.1
-pydantic==2.0.0
+pydantic>=2.0.0
 
 # Embeddings and vector search
 chromadb==0.4.24
@@ -25,4 +25,7 @@ zeroconf==0.130.0
 supabase==2.4.0
 
 # SQLite extensions
-pysqlite3==2.6.3
+# pysqlite3-binary - not needed, using standard sqlite3
+# Redis for caching and task queue
+redis>=5.0.0
+rq>=1.15.0

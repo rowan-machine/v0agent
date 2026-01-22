@@ -1,55 +1,43 @@
 ---
-description: Documentation standards for core data models, relationships, and domain-specific data structures
+description: Documents core data models and relationships for a project management system with focus on meetings and documents
 ---
 
 
 # data-models
 
-## Core Data Models
+Two primary data models form the core of the system:
 
-### Meeting Model
-- Primary container for all meeting-related data
-- Unique fields:
-  - `signals`: Array of extracted business signals (decisions, actions, risks, blockers)
-  - `mode`: Current workflow mode (A-G) affecting signal extraction
-  - `dikw_items`: References to DIKW hierarchy items generated from meeting
-  - `confidence_score`: Signal extraction quality metric (0-100)
+1. Meeting Model
+Importance Score: 90/100
+- Central entity for knowledge capture and signal extraction
+- Contains:
+  - Transcript data with speaker identification
+  - Extracted signals (decisions, actions, blockers, risks)
+  - Knowledge relationships to documents and tickets
+  - Contextual metadata for AI analysis
+- Maintains bidirectional references with Documents model
 
-### Document Model
-- Knowledge artifact container with DIKW integration
-- Key attributes:
-  - `dikw_level`: Current position in Data-Information-Knowledge-Wisdom hierarchy
-  - `validation_count`: Number of confirmations before promotion
-  - `signals`: Extracted business signals linked to document
-  - `semantic_score`: Relationship strength to connected entities (0.0-1.0)
+2. Document Model
+Importance Score: 85/100
+- Knowledge artifact container with versioning support
+- Contains:
+  - Content with version history
+  - Signal annotations and extractions
+  - Related meeting references
+  - DIKW hierarchy classification tags
+- Links to Meetings through contextual relationships
 
-## Relationships
+Relationship Structure:
+- Meetings ⟷ Documents: Many-to-many with context metadata
+- Both models support the DIKW (Data-Information-Knowledge-Wisdom) hierarchy
+- Signal extraction flows from Meetings to Documents
+- Knowledge synthesis occurs across both model types
 
-### Meeting-Document Links
-- Bidirectional references between meetings and referenced documents
-- Weighted relationship scoring based on:
-  - Direct references in meeting notes
-  - Shared signals
-  - Topic similarity
-  - Temporal proximity
-
-### DIKW Hierarchy
-- Progressive promotion system between levels:
-  - Data → Information: Requires 3 validations
-  - Information → Knowledge: Requires 5 validations
-  - Knowledge → Wisdom: Requires 10 validations and multi-source confirmation
-- Each promotion preserves full lineage tracking
-- Automatic relationship strength decay over time (0.1/month)
-
-### Signal Graph
-- Links meetings and documents through extracted signals
-- Signal types:
-  - Decisions (highest weight)
-  - Action Items
-  - Blockers
-  - Risks
-  - Ideas (lowest weight)
-- Automatic signal deduplication with 0.78 similarity threshold
+Key File Paths:
+- src/app/models/meetings.py
+- src/app/models/documents.py
+- src/app/schemas/meeting_schema.py
+- src/app/schemas/document_schema.py
 
 $END$
 

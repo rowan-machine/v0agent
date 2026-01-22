@@ -1,62 +1,59 @@
 ---
-description: Specification for FastAPI routes implementing CRUD operations for meetings, documents, and workflow management
+description: Specifies FastAPI route implementations for meetings and documents CRUD operations
 ---
 
 
 # api-endpoints
 
-FastAPI routes implementing domain-specific business logic for meeting management and knowledge workflows:
+## Core API Routes
 
-## Meeting Intelligence Routes
+### Meeting Signal Management
+Path: src/app/api/v1/meetings.py
 Importance Score: 85
+- Signal extraction endpoints for processing meeting content
+- Automatic categorization of signals into decisions, action items, blockers, and risks
+- Meeting bundle processing with contextual analysis
+- Signal promotion through DIKW hierarchy stages
 
-`/api/v1/meetings/`
-- Signal extraction with confidence scoring (0-1.0)
-- Meeting chain linking and relationship tracking
-- Hierarchical organization with parent/child meeting structures
-- Automatic tag generation from content analysis
-
-`/api/v1/meetings/signals/`
-- Signal categorization (decisions, actions, blockers, risks)
-- Signal validation workflow with approval states
-- Signal promotion through DIKW pyramid levels
-- Cross-meeting signal relationship mapping
-
-## Document Knowledge Routes  
+### Document Intelligence 
+Path: src/app/api/v1/documents.py
 Importance Score: 80
+- Specialized document analysis with signal extraction
+- Semantic linking between documents and meetings
+- Knowledge graph relationship management
+- Document context synthesis for AI assistant
 
-`/api/v1/documents/`
-- Document hierarchy management with knowledge graph integration
-- Semantic relationship tracking between documents
-- Version control with knowledge state tracking
-- Automatic tag clustering and organization
+### AI Memory Management
+Path: src/app/api/v1/ai_memory.py
+Importance Score: 90
+- Context-aware memory system for AI interactions
+- Semantic retrieval with importance weighting
+- Memory lifecycle management (approve/reject/archive)
+- Token budget optimization for context windows
 
-## Career Development Routes
+### Signal Feedback Loop
+Path: src/app/api/v1/feedback.py
+Importance Score: 85
+- Confidence boosting system for signal extraction
+- User feedback processing for AI improvement
+- Signal validation tracking
+- Automated confidence adjustment based on user actions
+
+### Knowledge Graph Operations
+Path: src/app/api/v1/knowledge.py
+Importance Score: 85
+- Graph-based knowledge organization
+- Multi-level categorization (DIKW hierarchy)
+- Relationship management between entities
+- Smart tag clustering and filtering
+
+### Career Development Tracking
+Path: src/app/api/v1/career.py
 Importance Score: 75
-
-`/api/v1/career/`
-- Professional development tracking with evidence collection
-- Skill progression management tied to meetings/documents
-- Career insight generation from workflow patterns
-- Meeting participation impact scoring
-
-## Workflow Management Routes
-Importance Score: 70
-
-`/api/v1/workflow/`
-- Custom workflow mode system (modes A-G)
-- Mode-specific validation rules
-- State tracking and progression management
-- Integration with sprint and career systems
-
-## Status Management Routes
-Importance Score: 65
-
-`/api/v1/status/`
-- Meeting signal state machine (pending/approved/rejected)
-- Document validation workflow
-- Knowledge item maturity tracking
-- Signal confidence adjustments based on feedback
+- Career milestone tracking endpoints
+- Skills evidence collection
+- Growth recommendation engine
+- Professional development analytics
 
 $END$
 

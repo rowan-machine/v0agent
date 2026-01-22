@@ -10,47 +10,47 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The AI Assistant knowledge management system implements specialized logic for meeting intelligence and career development tracking.
+The SignalFlow system implements an AI-powered knowledge management and project intelligence platform with four core business domains:
 
-Core Business Logic Architecture:
-Importance Score: 85/100
+1. Conversation & Memory Management (75/100)
+- 24-hour conversation persistence with cleanup
+- Contextual history for AI interactions
+- Command frequency tracking and sorting
+- Custom suggestion rotation system
+- Smart emoji categorization based on content
 
-1. AI Assistant System
-- Persistent 24-hour conversation management
-- Context-aware suggestion cycling through predefined sets
-- Frequency/recency-based command ranking
-- Domain-specific emoji mapping for commands
-- Integration with ticket/sprint management workflows
+2. Knowledge Graph Intelligence (90/100)
+- Multi-level DIKW hierarchy implementation
+- Graph-based information organization 
+- Custom node relationship handling
+- Domain-specific knowledge synthesis rules
+- Tag clustering for knowledge organization
 
-2. Knowledge Management
-- DIKW (Data-Information-Knowledge-Wisdom) pyramid implementation
-- Signal extraction from meetings (decisions, actions, blockers, risks)
-- Custom semantic relationship builder for knowledge graphs
-- Automatic entity linking between meetings, documents, and tickets
-- Confidence-based validation system for knowledge items
+3. Meeting Signal Processing (85/100)
+- Signal extraction from meeting content
+- Classification into decisions, actions, blockers, risks
+- Contextual signal categorization
+- Signal approval/rejection workflows
+- Meeting intelligence synthesis
 
-3. Career Development Framework
-- Technical specialization tracking with evidence-based updates
-- Multi-dimensional goal tracking system
-- Skill progression with repository integration
-- Standup pattern analysis for performance tracking
-- AI-powered career guidance generation
+4. Career Development Analytics (80/100)
+- Sprint performance visualization
+- Career milestone tracking
+- Growth suggestion generation
+- Capability analysis
+- Professional development metrics
 
-4. Sprint Intelligence
-- Custom burndown implementation with points tracking
-- Signal extraction and categorization system
-- Multi-mode time tracking analytics
-- Workflow progress tracking across development modes
-- Meeting-specific productivity metrics
+Key Integration Points:
+- Knowledge synthesis between DIKW levels
+- Signal extraction feeding knowledge graph
+- Career analytics linked to meeting signals
+- Contextual suggestion management
 
-5. Integration Architecture
-- Bidirectional sync with conflict detection
-- Time-based change tracking 
-- Token-aware context injection for LLM prompts
-- Pattern-based confidence boosting
-- Historical validation tracking
-
-The system uniquely combines meeting intelligence with career development tracking, creating an integrated knowledge management platform focused on software development workflows and team communication patterns.
+Core Files:
+- src/app/agents/dikw_synthesizer.py: Knowledge hierarchy implementation
+- src/app/agents/meeting_analyzer.py: Signal extraction system
+- src/app/api/knowledge_graph.py: Graph relationship management
+- src/app/services/signal_learning.py: Signal quality improvement
 
 $END$
 
