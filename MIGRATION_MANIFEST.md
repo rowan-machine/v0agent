@@ -441,9 +441,9 @@ VALUES ('transcript_match_threshold', '0.75', 'Minimum similarity score for tran
 5. **Phase 5:** Deprecate Jinja2 templates (keep as fallback initially)
 6. **Phase 6:** Remove old templates, update deployment
 
-**Backend Changes Required:** NONE
+**Backend Changes Required:** Minimal (CORS only)
 - All data flows through existing `/api/v1/*` endpoints
-- Add CORS config for frontend domain if deployed separately
+- Add CORS config for frontend domain (see Deployment Architecture below)
 - Optionally add WebSocket endpoint for real-time updates
 
 **Tech Stack:**
@@ -459,6 +459,171 @@ VALUES ('transcript_match_threshold', '0.75', 'Minimum similarity score for tran
   "dates": "date-fns"
 }
 ```
+
+---
+
+### Deployment Architecture
+
+**Strategy:** Monorepo with split deployment (best of both worlds)
+
+```
+v0agent/                          ← Single Git repository (monorepo)
+├── src/app/                      ← FastAPI backend → Railway
+├── frontend/                     ← Next.js frontend → Vercel
+├── mobile/                       ← React Native → EAS Build
+├── tests/
+├── docker-compose.yml
+└── README.md
+```
+
+**Production Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              VERCEL                                      │
+│                        (Next.js Frontend)                                │
+│                                                                          │
+│   Domain: signalflow.app (or signalflow.vercel.app)                     │
+│   Deploys: frontend/ directory only                                      │
+│   Build: next build                                                      │
+│                                                                          │
+│   vercel.json:                                                           │
+│   {                                                                      │
+│     "buildCommand": "cd frontend && npm run build",                      │
+│     "outputDirectory": "frontend/.next"                                  │
+│   }                                                                      │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼ HTTPS (CORS enabled)
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              RAILWAY                                     │
+│                        (FastAPI Backend)                                 │
+│                                                                          │
+│   Domain: api.signalflow.app (or signalflow-api.up.railway.app)         │
+│   Deploys: Root directory with Dockerfile                                │
+│   Start: uvicorn src.app.main:app --host 0.0.0.0 --port $PORT           │
+│                                                                          │
+│   Environment Variables:                                                 │
+│   - SUPABASE_URL                                                         │
+│   - SUPABASE_SERVICE_KEY                                                 │
+│   - OPENAI_API_KEY                                                       │
+│   - ALLOWED_ORIGINS=https://signalflow.app,http://localhost:3000        │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              SUPABASE                                    │
+│                    (Database + Auth + Storage)                           │
+│                                                                          │
+│   Project: wluchuiyhggiigcuiaya                                         │
+│   Region: US East                                                        │
+│   Features: PostgreSQL, pgvector, pg_cron, Edge Functions, Storage      │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**CORS Configuration (add to src/app/main.py):**
+
+```python
+from fastapi.middleware.cors import CORSMiddleware
+import os
+
+# Add after app = FastAPI(...)
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+---
+
+### Cost Breakdown (Target: <$60/month)
+
+| Service | Plan | What You Get | Monthly Cost |
+|---------|------|--------------|--------------|
+| **Supabase** | Pro | 8GB database, 250GB storage, 50GB bandwidth, pg_cron, Edge Functions | $25 |
+| **Railway** | Hobby | 512MB RAM, $5 credit + usage | ~$5-10 |
+| **Vercel** | Hobby | 100GB bandwidth, serverless functions | $0 (free) |
+| **Domain** | Namecheap/Cloudflare | signalflow.app or similar | ~$12/year ($1/mo) |
+| **OpenAI API** | Pay-as-you-go | GPT-4o-mini for most tasks | ~$10-20 |
+| **Anthropic API** | Pay-as-you-go | Claude for complex tasks (optional) | ~$5-10 |
+| **EAS Build** | Free tier | 30 builds/month, 15 iOS/15 Android | $0 |
+| **Total** | | | **$41-66/month** |
+
+**Cost Optimization Tips:**
+- Use GPT-4o-mini for routine tasks, GPT-4o/Claude only for complex synthesis
+- Cache AI responses where possible (Redis on Railway)
+- Supabase Free tier works initially (500MB DB, 1GB storage)
+- Railway Hobby tier includes $5 free credit/month
+- Vercel free tier is generous for single-user apps
+
+**Alternative: DigitalOcean Droplet**
+
+If you prefer a VPS over Railway:
+
+| Service | Plan | Cost |
+|---------|------|------|
+| **DigitalOcean Droplet** | Basic $12/mo (1GB RAM, 25GB SSD) | $12 |
+| **DigitalOcean App Platform** | Basic $5/mo (512MB RAM) | $5 |
+
+Droplet setup:
+```bash
+# On droplet
+apt update && apt install docker.io docker-compose nginx certbot
+git clone https://github.com/rowan-machine/v0agent.git
+cd v0agent
+docker-compose up -d
+
+# Nginx reverse proxy + Let's Encrypt SSL
+certbot --nginx -d api.signalflow.app
+```
+
+**Recommendation:** Start with Railway (easier setup, same price as Droplet), migrate to Droplet later if you want more control.
+
+---
+
+### Monorepo CI/CD Setup
+
+**GitHub Actions for split deployment:**
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Railway
+        uses: railwayapp/railway-deploy@v1
+        with:
+          railway-token: ${{ secrets.RAILWAY_TOKEN }}
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+```
+
+**Or use platform-native Git integrations:**
+- Vercel: Connect repo → Auto-deploy `frontend/` on push
+- Railway: Connect repo → Auto-deploy on push (uses Dockerfile/Procfile)
 
 ---
 
