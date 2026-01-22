@@ -2235,9 +2235,6 @@
           <div class="workflow-progress-bar"><div class="workflow-progress-fill" style="width: 0%;"></div></div>
           <span class="workflow-progress-text">0 of 4 complete</span>
         </div>
-        <div style="margin-top: 1rem; padding: 0.75rem; background: #fef3c7; border-radius: 8px; font-size: 0.85rem; color: #92400e;">
-          ⚠️ <strong>Work Machine Mode:</strong> Execution only. No thinking. No new decisions.
-        </div>
       </div>
 
       <!-- Mode G: Execution (Writing Code) -->
@@ -3588,7 +3585,7 @@ function renderModeContent(mode) {
     <li class="workflow-checklist-item">
       <div class="workflow-checkbox" onclick="toggleCheckbox(this)"></div>
       <div class="workflow-checklist-content">
-        <div class="workflow-checklist-title">${escapeHtml(step.title || step)}</div>
+        <div class="workflow-checklist-title">${escapeHtml(step.heading || step.title || step)}</div>
         <div class="workflow-checklist-desc">${escapeHtml(step.description || '')}</div>
       </div>
     </li>
