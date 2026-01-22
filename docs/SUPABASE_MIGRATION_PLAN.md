@@ -257,6 +257,36 @@ create table public.career_profiles (
 alter table public.career_profiles enable row level security;
 create policy "Users can CRUD own profile" on public.career_profiles
   for all using (auth.uid() = user_id);
+
+-- =====================
+-- ENTITY LINKS (Knowledge Graph - P5.10)
+-- =====================
+create table public.entity_links (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade,
+  source_type text not null,  -- 'meeting' | 'document' | 'ticket' | 'dikw' | 'signal'
+  source_id uuid not null,
+  target_type text not null,  -- 'meeting' | 'document' | 'ticket' | 'dikw' | 'signal'
+  target_id uuid not null,
+  link_type text not null,  -- 'semantic_similar' | 'related' | 'derived_from' | 'referenced' | 'same_topic' | 'blocks' | 'depends_on'
+  similarity_score real,  -- 0.0-1.0 for semantic links
+  confidence real default 0.5,  -- 0.0-1.0 confidence in the link
+  is_bidirectional boolean default true,
+  metadata jsonb,  -- Additional link metadata
+  created_by text default 'system',  -- 'system' | 'user' | 'ai'
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(source_type, source_id, target_type, target_id, link_type)
+);
+
+alter table public.entity_links enable row level security;
+create policy "Users can CRUD own entity links" on public.entity_links
+  for all using (auth.uid() = user_id);
+
+create index idx_entity_links_source on public.entity_links(source_type, source_id);
+create index idx_entity_links_target on public.entity_links(target_type, target_id);
+create index idx_entity_links_type on public.entity_links(link_type);
+create index idx_entity_links_similarity on public.entity_links(similarity_score);
 ```
 
 ### Phase 2: Real-time Subscriptions

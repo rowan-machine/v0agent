@@ -1,51 +1,47 @@
 ---
-description: Documents the FastAPI route specifications for meetings and documents management with CRUD operations
+description: Documentation for FastAPI routes implementing CRUD operations for meetings and documents with domain-specific business logic
 ---
 
 
 # api-endpoints
 
-## Meeting Management Routes
+API routes implementing the meeting and document management system:
+
+1. Meeting Signal Processing Routes
 Importance Score: 85
+- Custom signal extraction endpoints for processing meeting transcripts
+- Auto-categorization of extracted signals into decisions, blockers, risks
+- DIKW hierarchy promotion endpoints for meeting-derived knowledge
+- Meeting bundle processing with transcript correlation
 
-Key endpoints implementing domain-specific meeting workflows:
-
-1. Meeting Signal Processing
-- POST /meetings/{id}/signals
-  - Extracts structured signals (decisions, actions, risks) from meeting content
-  - Applies custom signal categorization rules
-  - Links signals to relevant tickets and documents
-
-2. Meeting Bundle Operations  
-- POST /meetings/bundle
-  - Processes multi-source meeting transcripts (Teams, Pocket)
-  - Merges related content with deduplication
-  - Extracts participants and relationships
-
-3. Meeting Knowledge Graph
-- GET /meetings/{id}/graph
-  - Generates meeting-specific knowledge subgraphs
-  - Maps relationships between signals, people and documents
-  - Provides temporal context for meeting content
-
-## Document Operations 
+2. Document Intelligence Routes 
 Importance Score: 80
+- Semantic similarity matching for document relationships
+- Knowledge graph integration endpoints
+- Document signal extraction and classification
+- Cross-document linking based on content relationships
 
-Document processing endpoints with specialized business logic:
+3. Meeting Analytics Routes
+Importance Score: 75
+- Meeting effectiveness scoring endpoints
+- Signal quality validation routes
+- Historical meeting trend analysis
+- Action item tracking and followup endpoints
 
-1. Document Synthesis
-- POST /documents/synthesize
-  - Implements DIKW pyramid promotion rules
-  - Merges related document fragments
-  - Maps document-signal relationships
+4. Sprint Integration Routes
+Importance Score: 70
+- Meeting-to-sprint correlation endpoints
+- Sprint signal aggregation 
+- Meeting impact analysis for sprint planning
+- Action item to ticket conversion
 
-2. Document Signals
-- GET /documents/{id}/signals
-  - Extracts actionable signals from documents
-  - Categories signals by business impact
-  - Links to relevant meetings and tickets
+Core Business Rules:
+- Meeting signals must be categorized into predefined types (decisions, blockers, risks)
+- Documents must maintain bidirectional relationships in knowledge graph
+- Meeting bundles require correlation with all associated transcripts
+- Signals promote through DIKW hierarchy based on validation rules
 
-The remaining standard CRUD operations for meetings and documents have been omitted as they implement basic functionality without specialized business logic.
+The API's unique value lies in its sophisticated handling of meeting intelligence, document relationships, and knowledge promotion through the DIKW hierarchy.
 
 $END$
 

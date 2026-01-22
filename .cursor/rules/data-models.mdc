@@ -1,62 +1,58 @@
 ---
-description: Documents core data models and relationships for meetings and documents with their associated signals and metadata
+description: Defines the core data model structure for meetings and documents including their relationships and business rules
 ---
 
 
 # data-models
 
-## Core Data Models
+The system implements two primary data models with specialized business logic:
 
-### Meetings Model
-Importance Score: 90
-- Complex meeting data structure with multi-source transcript support
-- Signal extraction and categorization system:
-  - Decisions
-  - Action items 
-  - Blockers
-  - Risks
-  - Ideas
-- Metadata tracking:
-  - Source type (Teams, Pocket, etc)
-  - Participant mapping
-  - Signal relationships
-  - Document correlations
-- 24-hour conversation persistence with cleanup
+## Meeting Model (Importance: 90)
+Core structure defining business meetings with:
+- Intelligent signal extraction and categorization
+- DIKW hierarchy classification of content
+- Temporal relationship tracking between recurring meetings
+- Auto-linking with transcripts and recordings
+- Custom signal promotion workflow through knowledge levels
 
-### Documents Model
-Importance Score: 85
+Key Business Rules:
+1. Signal Classification
+- Decisions require explicit approval markers
+- Action items must have assigned owners
+- Blockers automatically link to relevant tickets
+- Risks require impact/probability assessment
+
+2. Meeting Relationships
+- Parent/child meeting hierarchy
+- Series tracking for recurring meetings
+- Cross-meeting signal correlation
+- Historical context preservation
+
+## Document Model (Importance: 85) 
+Implements version-aware document management with:
+- Bidirectional signal relationships
+- Knowledge graph integration
+- Custom metadata extraction
+- Domain-specific categorization
+
+Key Business Rules:
+1. Document Classification
+- Auto-categorization based on content analysis
+- Required metadata based on document type
+- Validation rules for completeness
+
+2. Relationship Management
 - Bidirectional linking with meetings
-- Hierarchical signal organization
-- Custom versioning system ("code locker")
-- Domain-specific metadata:
-  - Implementation plans
-  - Signal extractions
-  - Meeting references
+- Signal extraction and correlation
+- Version control with signal preservation
+- Knowledge graph position tracking
 
 ## Relationship Structure
-
-### Meeting-Document Relationships
-- Direct linkage between meetings and referenced documents
-- Automatic correlation based on content analysis
-- Signal inheritance across related items
-- Version tracking for document references
-
-### Signal Mapping
-- Cross-reference system between meetings and documents
-- Bidirectional signal propagation
-- Relationship strength scoring
-- Context preservation across references
-
-### Content Organization
-- Hierarchical structure for document management
-- Meeting bundle system for transcript aggregation
-- Signal categorization framework
-- Context-aware relationship mapping
-
-File paths with core data model implementations:
-- src/app/models/meetings.py
-- src/app/models/documents.py
-- src/app/database/relationships.py
+- Meetings and Documents maintain many-to-many relationships through signals
+- Signals act as connective tissue in knowledge graph
+- Custom promotion rules govern signal movement through DIKW levels
+- Temporal relationships track meeting series and document versions
+- Bi-directional integrity constraints maintain graph consistency
 
 $END$
 
