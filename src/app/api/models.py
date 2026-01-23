@@ -508,6 +508,48 @@ class SmartSuggestionsResponse(BaseModel):
 
 
 # -------------------------
+# Unified Search Models (F5)
+# -------------------------
+
+class UnifiedSearchRequest(BaseModel):
+    """Request for unified cross-entity semantic search."""
+    query: str = Field(..., min_length=1, max_length=1000)
+    entity_types: List[str] = Field(
+        default=["meetings", "documents", "tickets", "dikw"],
+        description="Entity types to search: meetings, documents, tickets, dikw, signals"
+    )
+    limit: int = Field(20, ge=1, le=100)
+    use_semantic: bool = Field(True, description="Use semantic similarity (embeddings)")
+    use_keyword: bool = Field(True, description="Use keyword matching")
+    min_score: float = Field(0.3, ge=0.0, le=1.0)
+    my_mentions_only: bool = Field(False, description="Filter to @Rowan mentions only")
+
+
+class UnifiedSearchResultItem(BaseModel):
+    """Single result from unified search."""
+    id: Union[int, str]
+    entity_type: str  # meetings | documents | tickets | dikw | signals
+    title: str
+    snippet: str
+    date: Optional[str] = None
+    score: float  # Combined relevance score
+    match_type: str  # semantic | keyword | hybrid
+    icon: str  # Emoji for entity type
+    url: str  # Link to view the item
+    metadata: Dict[str, Any] = {}
+
+
+class UnifiedSearchResponse(BaseModel):
+    """Response from unified search."""
+    query: str
+    results: List[UnifiedSearchResultItem]
+    total_results: int
+    entity_counts: Dict[str, int] = {}  # Count per entity type
+    search_duration_ms: int = 0
+    search_type: str = "unified"
+
+
+# -------------------------
 # Health Check Models
 # -------------------------
 

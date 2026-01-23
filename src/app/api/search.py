@@ -1,16 +1,20 @@
 # src/app/api/search.py
 """
-Search API Routes - Keyword, Semantic, and Hybrid Search
+Search API Routes - Keyword, Semantic, Hybrid, and Unified Search
 
 P5.2: Implements hybrid search combining pgvector semantic search
 with PostgreSQL full-text search using Reciprocal Rank Fusion (RRF).
+
+F5: Unified Semantic Search across all entity types.
 """
 
 from fastapi import APIRouter, Query, HTTPException, status
 from fastapi.responses import JSONResponse
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import os
 import logging
+import asyncio
+import time
 
 from .models import (
     SearchRequest,
@@ -20,6 +24,9 @@ from .models import (
     SmartSuggestionsRequest,
     SmartSuggestionItem,
     SmartSuggestionsResponse,
+    UnifiedSearchRequest,
+    UnifiedSearchResultItem,
+    UnifiedSearchResponse,
     APIResponse,
     ErrorResponse,
 )
@@ -320,6 +327,7 @@ async def search_health():
         "keyword_search": True,  # Always available
         "semantic_search": False,
         "hybrid_search": False,
+        "unified_search": True,  # F5: Always available (falls back to keyword)
     }
     
     # Check Supabase connection
@@ -346,6 +354,397 @@ async def search_health():
             "services": status_info,
         },
         status_code=status.HTTP_200_OK
+    )
+
+
+# -------------------------
+# F5: Unified Semantic Search
+# -------------------------
+
+# Entity type configuration
+ENTITY_CONFIG = {
+    "meetings": {
+        "icon": "📅",
+        "table": "meeting_summaries",
+        "id_field": "id",
+        "title_field": "meeting_name",
+        "content_field": "synthesized_notes",
+        "date_field": "meeting_date",
+        "url_template": "/meetings/{id}",
+    },
+    "documents": {
+        "icon": "📄",
+        "table": "docs",
+        "id_field": "id",
+        "title_field": "source",
+        "content_field": "content",
+        "date_field": "document_date",
+        "url_template": "/documents/{id}",
+    },
+    "tickets": {
+        "icon": "🎫",
+        "table": "tickets",
+        "id_field": "id",
+        "title_field": "title",
+        "content_field": "description",
+        "date_field": "created_at",
+        "url_template": "/tickets/{id}",
+        "extra_fields": ["ticket_id", "status"],
+    },
+    "dikw": {
+        "icon": "💡",
+        "table": "dikw_items",
+        "id_field": "id",
+        "title_field": "level",
+        "content_field": "content",
+        "date_field": "created_at",
+        "url_template": "/dikw/{id}",
+        "extra_fields": ["level", "summary"],
+    },
+    "signals": {
+        "icon": "📡",
+        "table": "signal_status",
+        "id_field": "id",
+        "title_field": "signal_type",
+        "content_field": "signal_text",
+        "date_field": "created_at",
+        "url_template": "/signals/{id}",
+        "extra_fields": ["status", "meeting_id"],
+    },
+}
+
+
+def highlight_snippet(text: str, query: str, max_length: int = 200) -> str:
+    """Extract relevant snippet with search term highlighted."""
+    if not text:
+        return ""
+    
+    text = text.strip()
+    query_lower = query.lower()
+    text_lower = text.lower()
+    
+    # Find query position
+    pos = text_lower.find(query_lower)
+    
+    if pos >= 0:
+        # Extract window around match
+        start = max(0, pos - 50)
+        end = min(len(text), pos + len(query) + 150)
+        snippet = text[start:end]
+        if start > 0:
+            snippet = "..." + snippet
+        if end < len(text):
+            snippet = snippet + "..."
+    else:
+        # No match, take beginning
+        snippet = text[:max_length]
+        if len(text) > max_length:
+            snippet += "..."
+    
+    return snippet
+
+
+async def search_entity_keyword(
+    entity_type: str,
+    query: str,
+    limit: int,
+    my_mentions_only: bool = False,
+) -> List[UnifiedSearchResultItem]:
+    """Keyword search for a single entity type."""
+    config = ENTITY_CONFIG.get(entity_type)
+    if not config:
+        return []
+    
+    results = []
+    like = f"%{query.lower()}%"
+    
+    try:
+        with connect() as conn:
+            # Build query
+            title_field = config["title_field"]
+            content_field = config["content_field"]
+            date_field = config["date_field"]
+            
+            # Base where clause
+            where_parts = [f"(LOWER({content_field}) LIKE ? OR LOWER({title_field}) LIKE ?)"]
+            params = [like, like]
+            
+            # My mentions filter
+            if my_mentions_only and content_field:
+                where_parts.append(f"LOWER({content_field}) LIKE '%@rowan%'")
+            
+            where_clause = " AND ".join(where_parts)
+            
+            # Execute query
+            extra_select = ""
+            if "extra_fields" in config:
+                extra_select = ", " + ", ".join(config["extra_fields"])
+            
+            sql = f"""
+                SELECT {config['id_field']} as id, 
+                       {title_field} as title,
+                       {content_field} as content,
+                       {date_field} as date
+                       {extra_select}
+                FROM {config['table']}
+                WHERE {where_clause}
+                ORDER BY {date_field} DESC NULLS LAST
+                LIMIT ?
+            """
+            
+            rows = conn.execute(sql, (*params, limit)).fetchall()
+            
+            for row in rows:
+                row_dict = dict(row)
+                
+                # Build title
+                title = row_dict.get("title") or "Untitled"
+                if entity_type == "dikw":
+                    level = row_dict.get("level", "")
+                    title = f"{level}: {title[:50]}" if level else title[:50]
+                elif entity_type == "tickets" and row_dict.get("ticket_id"):
+                    title = f"{row_dict['ticket_id']}: {title}"
+                
+                # Calculate score (keyword matches get base score)
+                content = row_dict.get("content") or ""
+                score = 0.5  # Base score for keyword match
+                query_lower = query.lower()
+                content_lower = content.lower()
+                title_lower = title.lower()
+                
+                # Boost for title match
+                if query_lower in title_lower:
+                    score += 0.3
+                
+                # Boost for multiple content matches
+                match_count = content_lower.count(query_lower)
+                if match_count > 1:
+                    score += min(0.2, match_count * 0.05)
+                
+                results.append(UnifiedSearchResultItem(
+                    id=row_dict["id"],
+                    entity_type=entity_type,
+                    title=title,
+                    snippet=highlight_snippet(content, query),
+                    date=str(row_dict.get("date") or ""),
+                    score=round(score, 3),
+                    match_type="keyword",
+                    icon=config["icon"],
+                    url=config["url_template"].format(id=row_dict["id"]),
+                    metadata={k: row_dict.get(k) for k in config.get("extra_fields", []) if row_dict.get(k)},
+                ))
+    
+    except Exception as e:
+        logger.error(f"Keyword search failed for {entity_type}: {e}")
+    
+    return results
+
+
+async def search_entity_semantic(
+    entity_type: str,
+    embedding: List[float],
+    limit: int,
+    min_score: float,
+) -> List[UnifiedSearchResultItem]:
+    """Semantic search for a single entity type using embeddings."""
+    config = ENTITY_CONFIG.get(entity_type)
+    if not config:
+        return []
+    
+    results = []
+    sb = get_supabase_client()
+    
+    if not sb:
+        return results
+    
+    try:
+        # Map entity_type to ref_type used in embeddings table
+        ref_type_map = {
+            "meetings": "meeting",
+            "documents": "document",
+            "tickets": "ticket",
+            "dikw": "dikw",
+            "signals": "signal",
+        }
+        ref_type = ref_type_map.get(entity_type, entity_type)
+        
+        # Call semantic_search RPC filtered by type
+        response = sb.rpc("semantic_search", {
+            "query_embedding": embedding,
+            "match_threshold": min_score,
+            "match_count": limit,
+        }).execute()
+        
+        with connect() as conn:
+            for item in response.data or []:
+                if item.get("ref_type") != ref_type:
+                    continue
+                
+                ref_id = item.get("ref_id")
+                similarity = item.get("similarity", 0)
+                
+                # Fetch actual content from SQLite
+                title_field = config["title_field"]
+                content_field = config["content_field"]
+                date_field = config["date_field"]
+                
+                extra_select = ""
+                if "extra_fields" in config:
+                    extra_select = ", " + ", ".join(config["extra_fields"])
+                
+                sql = f"""
+                    SELECT {config['id_field']} as id,
+                           {title_field} as title,
+                           {content_field} as content,
+                           {date_field} as date
+                           {extra_select}
+                    FROM {config['table']}
+                    WHERE {config['id_field']} = ?
+                """
+                
+                row = conn.execute(sql, (ref_id,)).fetchone()
+                if not row:
+                    continue
+                
+                row_dict = dict(row)
+                
+                # Build title
+                title = row_dict.get("title") or "Untitled"
+                if entity_type == "dikw":
+                    level = row_dict.get("level", "")
+                    title = f"{level}: {title[:50]}" if level else title[:50]
+                elif entity_type == "tickets" and row_dict.get("ticket_id"):
+                    title = f"{row_dict['ticket_id']}: {title}"
+                
+                results.append(UnifiedSearchResultItem(
+                    id=row_dict["id"],
+                    entity_type=entity_type,
+                    title=title,
+                    snippet=highlight_snippet(row_dict.get("content", ""), ""),
+                    date=str(row_dict.get("date") or ""),
+                    score=round(similarity, 3),
+                    match_type="semantic",
+                    icon=config["icon"],
+                    url=config["url_template"].format(id=row_dict["id"]),
+                    metadata={k: row_dict.get(k) for k in config.get("extra_fields", []) if row_dict.get(k)},
+                ))
+    
+    except Exception as e:
+        logger.error(f"Semantic search failed for {entity_type}: {e}")
+    
+    return results
+
+
+@router.get("/unified")
+async def unified_search(
+    q: str = Query(..., min_length=1, max_length=1000, description="Search query"),
+    entity_types: str = Query("meetings,documents,tickets,dikw", description="Comma-separated entity types"),
+    limit: int = Query(20, ge=1, le=100),
+    use_semantic: bool = Query(True, description="Use semantic similarity"),
+    use_keyword: bool = Query(True, description="Use keyword matching"),
+    min_score: float = Query(0.3, ge=0.0, le=1.0),
+    my_mentions: bool = Query(False, description="Filter to @Rowan mentions"),
+) -> UnifiedSearchResponse:
+    """
+    F5: Unified search across all entity types.
+    
+    Combines semantic (embedding-based) and keyword search with
+    intelligent ranking and deduplication.
+    
+    Args:
+        q: Search query
+        entity_types: Comma-separated list of types to search
+        limit: Max results per entity type
+        use_semantic: Enable semantic similarity search
+        use_keyword: Enable keyword matching
+        min_score: Minimum relevance score (0.0-1.0)
+        my_mentions: Only show items mentioning @Rowan
+    
+    Returns:
+        UnifiedSearchResponse with ranked, merged results
+    """
+    start_time = time.time()
+    
+    # Parse entity types
+    types_list = [t.strip() for t in entity_types.split(",") if t.strip()]
+    valid_types = [t for t in types_list if t in ENTITY_CONFIG]
+    
+    if not valid_types:
+        valid_types = ["meetings", "documents", "tickets", "dikw"]
+    
+    all_results: List[UnifiedSearchResultItem] = []
+    entity_counts: Dict[str, int] = {}
+    
+    # Run keyword search if enabled
+    if use_keyword:
+        keyword_tasks = [
+            search_entity_keyword(et, q, limit, my_mentions)
+            for et in valid_types
+        ]
+        keyword_results = await asyncio.gather(*keyword_tasks)
+        
+        for et, results in zip(valid_types, keyword_results):
+            entity_counts[et] = entity_counts.get(et, 0) + len(results)
+            all_results.extend(results)
+    
+    # Run semantic search if enabled
+    if use_semantic:
+        embedding = get_embedding(q)
+        if embedding:
+            semantic_tasks = [
+                search_entity_semantic(et, embedding, limit, min_score)
+                for et in valid_types
+            ]
+            semantic_results = await asyncio.gather(*semantic_tasks)
+            
+            for et, results in zip(valid_types, semantic_results):
+                # Avoid duplicates - only add if not already from keyword
+                existing_ids = {(r.entity_type, r.id) for r in all_results}
+                for r in results:
+                    if (r.entity_type, r.id) not in existing_ids:
+                        entity_counts[et] = entity_counts.get(et, 0) + 1
+                        all_results.append(r)
+                    else:
+                        # Boost score for items found in both keyword and semantic
+                        for existing in all_results:
+                            if existing.entity_type == r.entity_type and existing.id == r.id:
+                                existing.score = min(1.0, existing.score + 0.2)
+                                existing.match_type = "hybrid"
+                                break
+    
+    # Sort by score (descending) then date
+    all_results.sort(key=lambda r: (r.score, r.date or ""), reverse=True)
+    
+    # Limit total results
+    all_results = all_results[:limit]
+    
+    # Calculate duration
+    duration_ms = int((time.time() - start_time) * 1000)
+    
+    return UnifiedSearchResponse(
+        query=q,
+        results=all_results,
+        total_results=len(all_results),
+        entity_counts=entity_counts,
+        search_duration_ms=duration_ms,
+        search_type="unified",
+    )
+
+
+@router.post("/unified")
+async def unified_search_post(request: UnifiedSearchRequest) -> UnifiedSearchResponse:
+    """
+    F5: POST endpoint for unified search (allows complex requests).
+    """
+    entity_types_str = ",".join(request.entity_types)
+    return await unified_search(
+        q=request.query,
+        entity_types=entity_types_str,
+        limit=request.limit,
+        use_semantic=request.use_semantic,
+        use_keyword=request.use_keyword,
+        min_score=request.min_score,
+        my_mentions=request.my_mentions_only,
     )
 
 

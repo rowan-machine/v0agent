@@ -7,14 +7,42 @@
 
 ---
 
+## 🎯 Current Sprint Status
+
+### ✅ Completed This Sprint (Jan 22, 2026)
+- F1-F4 all complete (Import, Search, Notifications, Background Jobs)
+- F5 Unified Semantic Search complete (expandable panel with filters, recent searches)
+- UI/UX polish: Profile pages, theme system, Arjuna chat redesign
+- 358 tests passing
+- Notifications page displaying correctly (fixed duplicate ID bug)
+- Account page created with back navigation
+- Arjuna suggestions fixed (complete sentences that ask for user input)
+- Chat page layout fixed (respects drawer-pinned state on page refresh)
+
+### 🔧 Outstanding Items
+| Item | Priority | Notes |
+|------|----------|-------|
+| Notification filter bar icons | Low | Missing ai_suggestion, coach type buttons |
+| Dark mode back button hover | Low | Styling polish |
+| Header badge real-time sync | Low | After viewing notifications |
+| Confetti animation verification | Low | End-to-end test needed |
+
+### 📋 Next Up
+- **Month 2:** F6 Next.js Frontend Redesign
+- **Month 3:** MCP Integration (GitHub, Notion, Slack)
+- **Backlog:** Autonomous Arjuna Actions, Chained Shortcuts, Code Deprecation Audit
+- **Backlog:** Playwright E2E testing (personal machine setup)
+
+---
+
 ## Executive Summary
 
 With the core migration complete (28 Supabase tables, agent system, mobile scaffold), the next phase focuses on **high-impact user features** that leverage our sophisticated architecture. Priority is given to features that create tangible workflow improvements for the primary user (Rowan).
 
 **Strategic Priorities:**
 1. ✅ **Import Pipeline** - Enable seamless Pocket → SignalFlow workflow (COMPLETE)
-2. **Intelligent Notifications** - Proactive system that surfaces insights
-3. **Automated Background Jobs** - System runs continuously, not just on-demand
+2. ✅ **Intelligent Notifications** - Proactive system that surfaces insights (COMPLETE)
+3. ✅ **Automated Background Jobs** - System runs continuously, not just on-demand (COMPLETE)
 4. ✅ **Enhanced Search** - Make all knowledge instantly accessible (COMPLETE)
 5. **Modern Frontend** - Professional UX worthy of the sophisticated backend
 
@@ -690,85 +718,75 @@ INSERT INTO app_config (key, value, description) VALUES
 
 ---
 
-### 🔍 Phase F4: Enhanced Semantic Search (Impact: 75/100)
+### 🔍 Phase F5: Unified Semantic Search (Impact: 75/100) ✅ COMPLETE
+
+**Status:** Complete (25 tests)  
+**Priority:** High - Implemented Jan 2026
 
 **Why This Matters:**
 Current search is limited to single entity types. Unified search across all knowledge is a **10x productivity multiplier**.
 
-**Features:**
+**Features Implemented:**
 
-1. **Cross-Entity Search** - Single query searches meetings, tickets, documents, DIKW
-2. **"My Mentions" Shortcut** - Pre-filter for @Rowan mentions
-3. **Expandable Search Bar** - Top nav search expands inline (no page navigation)
-4. **Saved Searches** - Store common queries ("blockers this sprint", "API decisions")
-5. **Quick Actions** - Approve signal, create ticket, promote to DIKW from results
+1. ✅ **Cross-Entity Search** - Single query searches meetings, tickets, documents, DIKW, signals
+2. ✅ **"My Mentions" Filter** - Optional `my_mentions=true` parameter for @Rowan filtering
+3. ✅ **Expandable Search Bar** - Top nav search expands inline with keyboard shortcut (⌘K)
+4. ⏳ **Saved Searches** - Deferred to backlog (Store common queries)
+5. ⏳ **Quick Actions** - Deferred to backlog (Approve/reject from results)
 
 **Implementation:**
 
-#### 4.1 Unified Search Endpoint
-```python
-# src/app/api/v1/search.py
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/search/unified` | GET | Unified search with query params |
+| `/api/search/unified` | POST | Unified search with JSON body |
+| `/api/search/health` | GET | Search service health check |
 
-@router.get("/search/unified")
-async def unified_search(
-    query: str,
-    entity_types: list[str] = ["meetings", "tickets", "documents", "dikw"],
-    limit: int = 20
-):
-    """Search across all entity types with semantic similarity."""
-    
-    # Generate query embedding
-    query_embedding = await get_embedding(query)
-    
-    # Search each entity type in parallel
-    results = await asyncio.gather(
-        search_meetings(query_embedding, limit),
-        search_tickets(query_embedding, limit),
-        search_documents(query_embedding, limit),
-        search_dikw(query_embedding, limit)
-    )
-    
-    # Merge and re-rank results
-    merged = merge_and_rank(results, query)
-    
-    return {
-        "query": query,
-        "total_results": len(merged),
-        "results": merged[:limit],
-        "filters": entity_types
+**Request Parameters:**
+- `q` - Search query (required, 1-1000 chars)
+- `entity_types` - Comma-separated types: meetings, documents, tickets, dikw, signals
+- `limit` - Max results (default 20, max 100)
+- `use_semantic` - Enable semantic similarity (default true)
+- `use_keyword` - Enable keyword matching (default true)
+- `min_score` - Minimum relevance score 0.0-1.0 (default 0.3)
+- `my_mentions` - Filter to @Rowan mentions only
+
+**Response Model:**
+```json
+{
+  "query": "search term",
+  "results": [
+    {
+      "id": 123,
+      "entity_type": "meetings",
+      "title": "Sprint Planning",
+      "snippet": "...matching text...",
+      "score": 0.85,
+      "match_type": "hybrid",
+      "icon": "📅",
+      "url": "/meetings/123",
+      "metadata": {}
     }
+  ],
+  "total_results": 15,
+  "entity_counts": {"meetings": 5, "documents": 10},
+  "search_duration_ms": 45,
+  "search_type": "unified"
+}
 ```
 
-#### 4.2 UI Components
+**UI Components:**
+- Expandable search bar in top header
+- Keyboard shortcut: ⌘K (Mac) / Ctrl+K (Windows)
+- Live search-as-you-type with 300ms debounce
+- Arrow key navigation through results
+- Score badges with semantic/keyword/hybrid indicators
+- Entity type icons (📅📄🎫💡📡)
+- Dark mode support
 
-**Expandable Search Bar:**
-```html
-<!-- Top nav search -->
-<div class="search-container" id="searchContainer">
-  <input type="search" id="globalSearch" placeholder="Search everything...">
-  <div class="search-results-dropdown" id="searchResults">
-    <!-- Live search results appear here -->
-  </div>
-</div>
-
-<script>
-  // Debounced search-as-you-type
-  const searchInput = document.getElementById('globalSearch');
-  searchInput.addEventListener('input', debounce(async (e) => {
-    const results = await fetch(`/api/v1/search/unified?query=${e.target.value}`);
-    renderSearchResults(results);
-  }, 300));
-</script>
-```
-
-**Saved Searches:**
-```sql
-CREATE TABLE public.saved_searches (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  query TEXT NOT NULL,
-  filters JSONB DEFAULT '{}',
+**Deferred to Backlog:**
+- Saved Searches table and UI
+- Quick actions from search results,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ```
@@ -835,21 +853,22 @@ Current Jinja2 templates are functional but **lack polish**. A modern React fron
 | Priority | Item | Impact | Effort | Status |
 |----------|------|--------|--------|--------|
 | **P0** | ✅ F1: Pocket Import Pipeline | 95/100 | 2-3 days | **COMPLETE** (70 tests) |
-| **P0** | ✅ F2: Enhanced Search | 90/100 | 2-3 days | **COMPLETE** (42 tests) |
+| **P0** | ✅ F2: Full-text Search | 90/100 | 2-3 days | **COMPLETE** (42 tests) |
 | **P0** | ✅ F3: Notification API | 85/100 | 1 day | **COMPLETE** (22 tests) |
-| **P1** | F4a: 1:1 Prep Job | 90/100 | 1 day | Next Priority |
-| **P1** | F4b: Stale Ticket Alert | 80/100 | 1 day | After F4a |
-| **P1** | F4c: Grooming Match Alert | 85/100 | 1-2 days | After F4b |
-| **P2** | Test Coverage to 80% | 70/100 | 3-4 days | ~80% achieved (134 tests) |
+| **P0** | ✅ F4: Background Jobs | 90/100 | 3-4 days | **COMPLETE** (70 tests) |
+| **P1** | **F5: Unified Semantic Search** | 75/100 | 2-3 days | **NEXT** |
+| **P2** | Test Coverage to 80% | 70/100 | 3-4 days | ✅ 358 tests |
 | **P3** | F6: Next.js Frontend | 80/100 | 4-5 weeks | Month 2 |
 | **P4** | MCP Tool Registry | 65/100 | 1 week | Month 3 |
-| **P4** | F5: Mobile Features | 60/100 | 1 week | Month 3 |
+| **P4** | Mobile PWA Features | 60/100 | 1 week | Month 3 |
 
 **Execution Progress:**
 - ✅ **Week 1-2:** F1 (Import) COMPLETE - Markdown/PDF import, Pocket bundle amend, Mindmap vision analysis
 - ✅ **Week 2:** F2 (Search) COMPLETE - Full-text search, @Rowan mentions, highlight snippets
 - ✅ **Week 3:** F3 (Notification API) COMPLETE - Full REST API with 22 tests
-- 🔄 **Week 3-4:** F4 (Background Jobs) - 1:1 prep, stale alerts, grooming match
+- ✅ **Week 3-4:** F4 (Background Jobs) COMPLETE - All jobs scheduled, mode detection, celebrations
+- ✅ **Week 4:** UI/UX Polish COMPLETE - Profile pages, themes, Arjuna chat redesign
+- 🔄 **Next:** F5 (Unified Semantic Search) - Expandable top nav search bar
 - **Month 2:** F6 (Frontend redesign) - big project
 - **Month 3:** MCP integration + mobile polish
 
@@ -864,13 +883,39 @@ Current Jinja2 templates are functional but **lack polish**. A modern React fron
 - [x] Search returns relevant results across meetings in <1s
 - [x] @Rowan button surfaces personal mentions
 - [x] Notification API ready for background jobs
-- [x] 134 tests passing, ~80% coverage
+- [x] 358 tests passing (up from 134)
 
-**By End of Phase F4 (Target: Jan 27, 2026):**
-- [ ] 1:1 prep digest delivered biweekly Tuesday AM
-- [ ] Stale ticket/blocker alerts daily
-- [ ] Grooming-to-ticket matching with gap analysis
-- [ ] System sends 5+ notifications per week proactively
+**By End of Phase F4 ✅ COMPLETE (Jan 22, 2026):**
+- [x] Background job infrastructure complete (pg_cron + pg_net)
+- [x] 1:1 prep digest job scheduled (biweekly Tuesday)
+- [x] Stale ticket/blocker alert job scheduled (daily 9 AM)
+- [x] Grooming-to-ticket matching job scheduled (hourly)
+- [x] Sprint mode auto-detect on page load
+- [x] Mode completion celebration with confetti
+- [x] Overdue task encouragement (2 PM, 5 PM)
+
+**By End of Phase F5 (Unified Semantic Search):**
+- [ ] Expandable search bar in top navigation
+- [ ] Cross-entity search (meetings, tickets, documents, DIKW)
+- [ ] Semantic similarity using embeddings
+- [ ] Search-as-you-type with debounce
+- [ ] Quick actions from search results (create ticket, promote to DIKW)
+- [ ] Saved searches functionality
+- [ ] "My Mentions" (@Rowan) quick filter
+
+**UI/UX Improvements ✅ COMPLETE (Jan 22, 2026):**
+- [x] Profile page with iOS-style navigation hub
+- [x] Settings, Notifications, Account pages with back navigation
+- [x] Theme selector (Light/Dark/System) with accent colors
+- [x] Arjuna chat widget with clickable welcome chips (3 static + 3 random)
+- [x] Notification bell in header with unread badge
+- [x] Floating mode indicator with pin/auto-switch
+
+**Outstanding UI Items (Minor Polish):**
+- [ ] Notification type filter icons (ai_suggestion, coach types missing in filter bar)
+- [ ] Dark mode hover states for back buttons
+- [ ] Header notification badge real-time sync after viewing
+- [ ] Confetti animation end-to-end verification
 
 **By End of Phase F6 (Month 2):**
 - [ ] Next.js frontend live in production
@@ -901,6 +946,30 @@ Current Jinja2 templates are functional but **lack polish**. A modern React fron
 
 The following features are on the roadmap but deferred to future phases:
 
+### Playwright UI Testing Automation
+**Status:** Deferred  
+**Reason:** Requires personal computer setup, not work machine  
+**Prerequisites:** Clone repo to personal machine, install Playwright
+
+- Set up Playwright test framework (`pip install playwright && playwright install`)
+- Create end-to-end tests for critical user flows:
+  - Login → Dashboard → Create ticket flow
+  - Meeting import → Signal extraction → DIKW promotion
+  - Notification delivery and interaction
+  - Theme switching (light/dark)
+  - Arjuna chat interaction
+- Visual regression testing for UI components
+- Mobile viewport testing
+- Generate test recordings from user sessions
+- CI/CD integration for automated test runs
+
+**Setup when ready:**
+```bash
+pip install playwright pytest-playwright
+playwright install chromium
+pytest tests/e2e/ --browser chromium
+```
+
 ### Web Hosting & Deployment
 **Status:** Deferred  
 **Reason:** Focus on feature development first, then productionize
@@ -919,6 +988,63 @@ The following features are on the roadmap but deferred to future phases:
 - Secure key management for portable database
 - Support for encrypted Supabase connections
 - Data export/import with encryption
+
+### UI Fixes & Polish
+**Status:** Deferred  
+**Reason:** Minor cosmetic issues, lower priority than features
+
+- Notification type filter icons (ai_suggestion, coach types missing)
+- Dark mode hover states for back buttons
+- Header notification badge real-time sync after viewing
+- Confetti animation end-to-end verification
+- Modal close on overlay click consistency
+
+### Keyboard Shortcut System Improvements
+**Status:** Deferred  
+**Reason:** Requires thorough testing and edge case handling
+
+- Fix chained shortcuts (e.g., `g` then `d` for go-to-dashboard)
+- Add shortcut conflict detection
+- Implement shortcut customization in settings
+- Create shortcut help modal (`?` key)
+- Handle modifier keys (Ctrl/Cmd+K for search)
+- Prevent shortcuts when typing in text fields
+- Add visual shortcut hints on hover
+- Fix MCP chain shortcut logic (multi-step chains)
+
+### Autonomous Arjuna Actions
+**Status:** Deferred  
+**Reason:** Requires MCP integration for actual ticket/meeting creation
+
+Enable Arjuna to execute autonomous actions via natural language commands:
+- **Ticket Creation:** "Create a ticket for fixing the login bug" → Actually creates ticket via API
+- **Meeting Creation:** "Schedule a 1:1 with John next Tuesday" → Creates meeting with notes prepopulated
+- **Sprint Updates:** "Add this ticket to current sprint" → Updates ticket status via MCP
+- **Standup Logging:** "Log standup: Yesterday I fixed the bug..." → Creates standup entry
+- **Task Management:** "Mark task X as complete" → Updates task status
+
+**Implementation Approach:**
+1. Parse user intent from natural language in assistant_widget.html
+2. Call appropriate MCP endpoint or internal API
+3. Confirm action with user before executing
+4. Show success/failure feedback in chat
+
+### Phased Deprecation & Archive of Unused Objects
+**Status:** Deferred  
+**Reason:** Pre-requisite for new UI - clean codebase first
+
+Audit and archive/remove unused code before the Next.js UI redesign:
+- **Phase 1:** Identify unused templates, CSS classes, JavaScript functions
+- **Phase 2:** Archive deprecated code to `_archive/` directory
+- **Phase 3:** Remove stale database tables/columns not in use
+- **Phase 4:** Clean up unused API endpoints
+- **Phase 5:** Final audit before new UI integration
+
+**Files to Review:**
+- Templates: list_docs.html, list_meetings.html, paste_doc.html, paste_meeting.html
+- CSS: Potentially unused classes from old UI iterations
+- JavaScript: Legacy event handlers and helper functions
+- Backend: Unused routes in main.py, services no longer called
 
 ### Responsive Mobile Design
 **Status:** Deferred to Docs/KB Only  

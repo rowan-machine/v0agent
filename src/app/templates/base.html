@@ -746,6 +746,359 @@
       background: rgba(255,255,255,0.2);
     }
 
+    /* F5: Expandable Unified Search */
+    .unified-search-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .unified-search-trigger {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s;
+    }
+
+    .unified-search-trigger:hover {
+      background: rgba(255,255,255,0.2);
+    }
+
+    /* Unified search panel - expands DOWN from header */
+    .unified-search-panel {
+      position: fixed;
+      top: 56px; /* Below header */
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      max-width: 90vw;
+      background: white;
+      border-radius: 0 0 12px 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      z-index: 1001;
+      display: none;
+      flex-direction: column;
+      max-height: calc(100vh - 80px);
+      overflow: hidden;
+    }
+
+    .unified-search-panel.active {
+      display: flex;
+    }
+
+    .unified-search-header {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #e5e7eb;
+      gap: 0.5rem;
+    }
+
+    .unified-search-input {
+      flex: 1;
+      border: none;
+      outline: none;
+      padding: 0.5rem;
+      font-size: 1rem;
+      background: transparent;
+      color: var(--sf-text);
+    }
+
+    .unified-search-input::placeholder {
+      color: #9ca3af;
+    }
+
+    .unified-search-close {
+      background: none;
+      border: none;
+      color: #6b7280;
+      cursor: pointer;
+      padding: 0.5rem;
+      display: flex;
+      align-items: center;
+      border-radius: 4px;
+    }
+
+    .unified-search-close:hover {
+      background: #f3f4f6;
+    }
+
+    /* Search options bar */
+    .unified-search-options {
+      display: flex;
+      align-items: center;
+      padding: 0.5rem 1rem;
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .search-filter-chip {
+      padding: 0.35rem 0.65rem;
+      background: white;
+      border: 1px solid #d1d5db;
+      border-radius: 16px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .search-filter-chip:hover {
+      border-color: var(--sf-primary);
+      color: var(--sf-primary);
+    }
+
+    .search-filter-chip.active {
+      background: var(--sf-primary);
+      border-color: var(--sf-primary);
+      color: white;
+    }
+
+    /* Saved searches section */
+    .saved-searches-section {
+      padding: 0.5rem 1rem;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .saved-searches-title {
+      font-size: 0.7rem;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.5rem;
+    }
+
+    .saved-search-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.6rem;
+      background: #f3f4f6;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      margin-right: 0.5rem;
+      margin-bottom: 0.35rem;
+      transition: all 0.15s;
+    }
+
+    .saved-search-item:hover {
+      background: #e5e7eb;
+    }
+
+    /* Search results */
+    .unified-search-results {
+      flex: 1;
+      overflow-y: auto;
+      max-height: 400px;
+    }
+
+    .unified-search-loading {
+      padding: 2rem;
+      text-align: center;
+      color: #6b7280;
+    }
+
+    .unified-search-empty {
+      padding: 2rem;
+      text-align: center;
+      color: #6b7280;
+    }
+
+    .unified-search-result {
+      display: flex;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #f3f4f6;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      transition: background 0.15s;
+    }
+
+    .unified-search-result:hover,
+    .unified-search-result.active {
+      background: #f3f4f6;
+    }
+
+    .unified-search-result:last-child {
+      border-bottom: none;
+    }
+
+    .unified-search-result-icon {
+      font-size: 1.25rem;
+      margin-right: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .unified-search-result-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .unified-search-result-title {
+      font-weight: 500;
+      font-size: 0.9rem;
+      color: var(--sf-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .unified-search-result-snippet {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-top: 0.25rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .unified-search-result-meta {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.35rem;
+      font-size: 0.75rem;
+      color: #9ca3af;
+    }
+
+    .unified-search-score {
+      background: #f3f4f6;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    .unified-search-score.high {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .unified-search-footer {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f9fafb;
+    }
+
+    .unified-search-footer-text {
+      font-size: 0.8rem;
+      color: #6b7280;
+    }
+
+    .unified-search-footer-link {
+      font-size: 0.8rem;
+      color: var(--sf-primary);
+      text-decoration: none;
+    }
+
+    .unified-search-footer-link:hover {
+      text-decoration: underline;
+    }
+
+    /* Overlay behind search panel */
+    .unified-search-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.3);
+      z-index: 1000;
+      display: none;
+    }
+
+    .unified-search-overlay.active {
+      display: block;
+    }
+
+    /* Dark mode for unified search */
+    [data-theme="dark"] .unified-search-panel {
+      background: var(--sf-card-bg);
+      border-color: #374151;
+    }
+
+    [data-theme="dark"] .unified-search-header {
+      border-color: #374151;
+    }
+
+    [data-theme="dark"] .unified-search-input {
+      color: var(--sf-text);
+    }
+
+    [data-theme="dark"] .unified-search-close {
+      color: #9ca3af;
+    }
+
+    [data-theme="dark"] .unified-search-close:hover {
+      background: #374151;
+    }
+
+    [data-theme="dark"] .unified-search-options {
+      background: #1f2937;
+      border-color: #374151;
+    }
+
+    [data-theme="dark"] .search-filter-chip {
+      background: #374151;
+      border-color: #4b5563;
+      color: #d1d5db;
+    }
+
+    [data-theme="dark"] .search-filter-chip:hover {
+      border-color: var(--sf-primary);
+    }
+
+    [data-theme="dark"] .search-filter-chip.active {
+      background: var(--sf-primary);
+      border-color: var(--sf-primary);
+      color: white;
+    }
+
+    [data-theme="dark"] .saved-searches-section {
+      border-color: #374151;
+    }
+
+    [data-theme="dark"] .saved-search-item {
+      background: #374151;
+      color: #d1d5db;
+    }
+
+    [data-theme="dark"] .saved-search-item:hover {
+      background: #4b5563;
+    }
+
+    [data-theme="dark"] .unified-search-result {
+      border-color: #374151;
+    }
+
+    [data-theme="dark"] .unified-search-result:hover,
+    [data-theme="dark"] .unified-search-result.active {
+      background: #374151;
+    }
+
+    [data-theme="dark"] .unified-search-footer {
+      background: #1f2937;
+      border-color: #374151;
+    }
+
+    [data-theme="dark"] .unified-search-score {
+      background: #374151;
+    }
+
+    [data-theme="dark"] .unified-search-overlay {
+      background: rgba(0,0,0,0.6);
+    }
+
     /* Notification Bell */
     .notification-bell {
       position: relative;
@@ -1416,6 +1769,38 @@
   <!-- Global Toast Container -->
   <div class="toast-container" id="globalToastContainer"></div>
 
+  <!-- F5: Unified Search Panel (expands down from header) -->
+  <div class="unified-search-overlay" id="unifiedSearchOverlay" onclick="closeUnifiedSearch()"></div>
+  <div class="unified-search-panel" id="unifiedSearchPanel">
+    <div class="unified-search-header">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#9ca3af">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      <input type="text" class="unified-search-input" id="unifiedSearchInput" placeholder="Search meetings, docs, tickets, tasks..." autocomplete="off">
+      <button class="unified-search-close" onclick="closeUnifiedSearch()" title="Close (Esc)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="unified-search-options">
+      <button class="search-filter-chip active" data-filter="all" onclick="toggleSearchFilter(this)">🔍 All</button>
+      <button class="search-filter-chip" data-filter="meetings" onclick="toggleSearchFilter(this)">📅 Meetings</button>
+      <button class="search-filter-chip" data-filter="documents" onclick="toggleSearchFilter(this)">📄 Docs</button>
+      <button class="search-filter-chip" data-filter="tickets" onclick="toggleSearchFilter(this)">🎫 Tickets</button>
+      <button class="search-filter-chip" data-filter="dikw" onclick="toggleSearchFilter(this)">🧠 Knowledge</button>
+    </div>
+    <div class="saved-searches-section" id="savedSearchesSection">
+      <div class="saved-searches-title">Recent Searches</div>
+      <div id="savedSearchesList">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+    <div class="unified-search-results" id="unifiedSearchResults">
+      <!-- Results populated by JS -->
+    </div>
+  </div>
+
   <!-- Top Header Bar -->
   <header class="top-header">
     <button class="menu-toggle" onclick="toggleDrawer()" title="Menu">
@@ -1425,12 +1810,12 @@
     </button>
     <a href="/" class="header-brand"></a>
     <div class="header-actions">
-      <a href="/search" class="header-btn">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <!-- F5: Unified Search - Trigger Button -->
+      <button class="unified-search-trigger" onclick="toggleUnifiedSearch()" title="Search everything">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
-        Search
-      </a>
+      </button>
       <a href="/chat" class="header-btn">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -2791,6 +3176,276 @@
         .then(data => updateNotificationBadge(data.unread || 0))
         .catch(() => {});
     });
+
+    // ============================
+    // F5: Unified Semantic Search
+    // ============================
+    // F5: Unified Search Panel
+    // ============================
+    
+    let unifiedSearchTimeout = null;
+    let lastSearchQuery = '';
+    let activeSearchFilters = ['all'];
+    let recentSearches = JSON.parse(localStorage.getItem('recentSearches') || '[]');
+    
+    function toggleUnifiedSearch() {
+      const panel = document.getElementById('unifiedSearchPanel');
+      const overlay = document.getElementById('unifiedSearchOverlay');
+      
+      if (panel.classList.contains('active')) {
+        closeUnifiedSearch();
+      } else {
+        panel.classList.add('active');
+        overlay.classList.add('active');
+        document.getElementById('unifiedSearchInput').focus();
+        loadRecentSearches();
+      }
+    }
+    
+    function closeUnifiedSearch() {
+      const panel = document.getElementById('unifiedSearchPanel');
+      const overlay = document.getElementById('unifiedSearchOverlay');
+      const results = document.getElementById('unifiedSearchResults');
+      
+      panel.classList.remove('active');
+      overlay.classList.remove('active');
+      results.innerHTML = '';
+      document.getElementById('unifiedSearchInput').value = '';
+      lastSearchQuery = '';
+    }
+    
+    function toggleSearchFilter(btn) {
+      const filter = btn.dataset.filter;
+      
+      // If clicking "All", deselect others
+      if (filter === 'all') {
+        document.querySelectorAll('.search-filter-chip[data-filter]').forEach(c => {
+          c.classList.remove('active');
+        });
+        btn.classList.add('active');
+        activeSearchFilters = ['all'];
+      } else {
+        // Remove "All" if selecting specific filter
+        document.querySelector('.search-filter-chip[data-filter="all"]').classList.remove('active');
+        btn.classList.toggle('active');
+        
+        // Update active filters
+        activeSearchFilters = Array.from(document.querySelectorAll('.search-filter-chip.active[data-filter]:not([data-filter="all"]):not([data-filter="semantic"])'))
+          .map(c => c.dataset.filter);
+        
+        // If none selected, revert to "All"
+        if (activeSearchFilters.length === 0) {
+          document.querySelector('.search-filter-chip[data-filter="all"]').classList.add('active');
+          activeSearchFilters = ['all'];
+        }
+      }
+      
+      // Re-run search if there's a query
+      const query = document.getElementById('unifiedSearchInput').value.trim();
+      if (query.length >= 2) {
+        performUnifiedSearch(query);
+      }
+    }
+    
+    // Search is always hybrid (keyword + semantic) - no toggle needed
+    
+    function loadRecentSearches() {
+      const container = document.getElementById('savedSearchesList');
+      if (recentSearches.length === 0) {
+        document.getElementById('savedSearchesSection').style.display = 'none';
+        return;
+      }
+      
+      document.getElementById('savedSearchesSection').style.display = 'block';
+      container.innerHTML = recentSearches.slice(0, 5).map(search => {
+        const safeSearch = search.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        return `<span class="saved-search-item" onclick="applyRecentSearch('${safeSearch}')">${escapeHtml(search)}</span>`;
+      }).join('');
+    }
+    
+    function applyRecentSearch(query) {
+      document.getElementById('unifiedSearchInput').value = query;
+      performUnifiedSearch(query);
+    }
+    
+    function saveRecentSearch(query) {
+      // Remove if exists, then add to front
+      recentSearches = recentSearches.filter(s => s !== query);
+      recentSearches.unshift(query);
+      recentSearches = recentSearches.slice(0, 10);
+      localStorage.setItem('recentSearches', JSON.stringify(recentSearches));
+    }
+    
+    // Keyboard shortcut: Cmd+K or Ctrl+K
+    document.addEventListener('keydown', function(e) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        toggleUnifiedSearch();
+      }
+      // Escape to close
+      if (e.key === 'Escape') {
+        const panel = document.getElementById('unifiedSearchPanel');
+        if (panel && panel.classList.contains('active')) {
+          closeUnifiedSearch();
+        }
+      }
+    });
+    
+    // Search input handler - attach directly (DOM already loaded at this point)
+    (function() {
+      const searchInput = document.getElementById('unifiedSearchInput');
+      if (!searchInput) {
+        console.error('Search input not found!');
+        return;
+      }
+      console.log('Search input event listener attached successfully');
+      
+      searchInput.addEventListener('input', function(e) {
+        const query = e.target.value.trim();
+        console.log('Input event, query:', query);
+        
+        // Clear previous timeout
+        if (unifiedSearchTimeout) {
+          clearTimeout(unifiedSearchTimeout);
+        }
+        
+        // Show recent searches if empty
+        if (query.length < 2) {
+          document.getElementById('unifiedSearchResults').innerHTML = '';
+          loadRecentSearches();
+          return;
+          }
+          
+          // Hide recent searches when typing
+          document.getElementById('savedSearchesSection').style.display = 'none';
+          
+          // Debounce search (150ms for fast search-as-you-type)
+          unifiedSearchTimeout = setTimeout(() => {
+            if (query !== lastSearchQuery) {
+              performUnifiedSearch(query);
+              lastSearchQuery = query;
+            }
+          }, 150);
+        });
+        
+        // Navigate results with arrow keys
+        searchInput.addEventListener('keydown', function(e) {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            navigateSearchResults(e.key === 'ArrowDown' ? 1 : -1);
+          } else if (e.key === 'Enter') {
+            const activeResult = document.querySelector('.unified-search-result.active');
+            if (activeResult) {
+              window.location.href = activeResult.getAttribute('href');
+            }
+          }
+        });
+    })();
+    
+    async function performUnifiedSearch(query) {
+      console.log('performUnifiedSearch called with:', query);
+      const resultsDiv = document.getElementById('unifiedSearchResults');
+      
+      if (!resultsDiv) {
+        console.error('Results div not found!');
+        return;
+      }
+      
+      // Show loading indicator
+      resultsDiv.innerHTML = '<div class="unified-search-loading">🔍 Searching...</div>';
+      
+      // Build query params - search is always hybrid (keyword + semantic)
+      const filters = activeSearchFilters.includes('all') ? '' : `&entity_types=${activeSearchFilters.join(',')}`;
+      const url = `/api/search/unified?q=${encodeURIComponent(query)}&limit=10${filters}`;
+      console.log('Fetching:', url);
+      
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        console.log('Search response:', data);
+        
+        // Save to recent searches
+        saveRecentSearch(query);
+        
+        renderUnifiedSearchResults(data, query);
+      } catch (error) {
+        console.error('Unified search error:', error);
+        resultsDiv.innerHTML = '<div class="unified-search-empty">Search failed. Try again.</div>';
+      }
+    }
+    
+    function renderUnifiedSearchResults(data, query) {
+      const resultsDiv = document.getElementById('unifiedSearchResults');
+      
+      if (!data.results || data.results.length === 0) {
+        resultsDiv.innerHTML = `
+          <div class="unified-search-empty">
+            <p>No results for "<strong>${escapeHtml(query)}</strong>"</p>
+            <p style="font-size: 0.75rem; margin-top: 0.5rem;">Try different keywords or check spelling</p>
+          </div>
+        `;
+        return;
+      }
+      
+      let html = '';
+      
+      data.results.forEach((result, index) => {
+        const scoreClass = result.score >= 0.7 ? 'high' : '';
+        const matchBadge = result.match_type === 'hybrid' ? '✨' : 
+                          result.match_type === 'semantic' ? '🧠' : '';
+        
+        html += `
+          <a href="${escapeHtml(result.url)}" class="unified-search-result${index === 0 ? ' active' : ''}" data-index="${index}">
+            <span class="unified-search-result-icon">${result.icon}</span>
+            <div class="unified-search-result-content">
+              <div class="unified-search-result-title">${escapeHtml(result.title)}</div>
+              <div class="unified-search-result-snippet">${escapeHtml(result.snippet)}</div>
+              <div class="unified-search-result-meta">
+                <span class="unified-search-score ${scoreClass}">${Math.round(result.score * 100)}% ${matchBadge}</span>
+                ${result.date ? `<span>${result.date}</span>` : ''}
+                <span>${result.entity_type}</span>
+              </div>
+            </div>
+          </a>
+        `;
+      });
+      
+      // Add footer with search link
+      html += `
+        <div class="unified-search-footer">
+          <span class="unified-search-footer-text">${data.total_results} results in ${data.search_duration_ms}ms</span>
+          <a href="/search?q=${encodeURIComponent(query)}" class="unified-search-footer-link">Advanced search →</a>
+        </div>
+      `;
+      
+      resultsDiv.innerHTML = html;
+    }
+    
+    function navigateSearchResults(direction) {
+      const results = document.querySelectorAll('.unified-search-result');
+      if (results.length === 0) return;
+      
+      let activeIndex = -1;
+      results.forEach((r, i) => {
+        if (r.classList.contains('active')) {
+          activeIndex = i;
+        }
+      });
+      
+      // Remove current active
+      if (activeIndex >= 0) {
+        results[activeIndex].classList.remove('active');
+      }
+      
+      // Calculate new index
+      let newIndex = activeIndex + direction;
+      if (newIndex < 0) newIndex = results.length - 1;
+      if (newIndex >= results.length) newIndex = 0;
+      
+      // Set new active
+      results[newIndex].classList.add('active');
+      results[newIndex].scrollIntoView({ block: 'nearest' });
+    }
   </script>
 
   <!-- Include assistant chatbot widget -->

@@ -282,6 +282,57 @@
     z-index: 100;
   }
 
+  /* Welcome chips - clickable action buttons */
+  .welcome-chips {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    padding: 0.75rem 0;
+  }
+
+  .welcome-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    background: var(--sf-surface, #f9fafb);
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 10px;
+    font-size: 0.8rem;
+    color: var(--sf-text, #374151);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: left;
+  }
+
+  .welcome-chip:hover {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: transparent;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  }
+
+  .chip-emoji {
+    font-size: 1rem;
+  }
+
+  .chip-label {
+    font-weight: 500;
+  }
+
+  [data-theme="dark"] .welcome-chip {
+    background: var(--sf-surface, #2d2d2d);
+    border-color: var(--sf-border, #3a3a3a);
+    color: var(--sf-text, #e0e0e0);
+  }
+
+  [data-theme="dark"] .welcome-chip:hover {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: transparent;
+  }
+
   /* Dark mode for assistant widget */
   [data-theme="dark"] .assistant-chat {
     background: #1e1e1e;
@@ -432,18 +483,61 @@
     ],
   ];
 
-  const WELCOME_MESSAGE = `<strong>Hare Krishna! 🙏</strong> I'm Arjuna, your SignalFlow assistant.
-<br><br>
-<strong style="color: #1f2937;">🛠️ What I can do:</strong>
-<ul style="margin: 0.5rem 0 0 0; padding-left: 1.25rem; font-size: 0.85rem; color: #374151;">
-  <li><strong>Tasks:</strong> Create, update, list tickets</li>
-  <li><strong>Settings:</strong> Change AI model, update sprint</li>
-  <li><strong>Workflow:</strong> Reset progress for new sprint</li>
-  <li><strong>Search:</strong> Query meetings, signals, docs</li>
-  <li><strong>Track:</strong> Standups, waiting-for items</li>
-</ul>
-<br>
-<em style="font-size: 0.8rem; color: #4b5563;">Try: "Switch to GPT-4o" or "Create a task"</em>`;
+  const WELCOME_MESSAGE = `<div style="text-align: center; padding: 0.5rem 0;">
+<strong style="font-size: 1.1rem;">Hare Krishna! 🙏</strong>
+<br><span style="color: var(--sf-text-muted, #6b7280); font-size: 0.85rem;">I'm Arjuna, your SignalFlow assistant</span>
+</div>`;
+
+  // Static chips - always shown (complete sentences that Arjuna will execute)
+  const STATIC_CHIPS = [
+    { emoji: '🎯', label: 'What to focus on', message: 'What should I focus on today?' },
+    { emoji: '📋', label: 'My open tickets', message: 'What are my open tickets?' },
+    { emoji: '➕', label: 'Create a task', message: 'I want to create a new task. What should I call it and what are the details?' },
+  ];
+
+  // Random chips pool - 3 picked randomly each session (Arjuna asks for input before acting)
+  const RANDOM_CHIPS_POOL = [
+    { emoji: '🚫', label: 'Blocked items', message: 'What are my blocked tickets?' },
+    { emoji: '📝', label: 'Log standup', message: 'I want to log my standup. What did you work on yesterday, what are you doing today, and any blockers?' },
+    { emoji: '🔍', label: 'Search everything', message: 'I want to search for something. What would you like me to find?' },
+    { emoji: '🤖', label: 'Switch to GPT-4o', message: 'Switch to GPT-4o' },
+    { emoji: '🧠', label: 'Switch to Claude', message: 'Switch to Claude Sonnet' },
+    { emoji: '📊', label: 'Sprint status', message: 'What is the sprint status?' },
+    { emoji: '✅', label: 'Done tickets', message: 'What tickets are done?' },
+    { emoji: '🏃', label: 'In progress', message: 'What tickets are in progress?' },
+    { emoji: '📅', label: 'New meeting', message: 'I want to create a new meeting. What should the meeting be called and do you have any notes to include?' },
+    { emoji: '⏳', label: 'Add waiting-for', message: 'I want to add a waiting-for item. Who are you waiting on and for what?' },
+    { emoji: '🎫', label: 'High priority', message: 'What are my high priority tickets?' },
+    { emoji: '💡', label: 'What can you do?', message: 'What can you help me with?' },
+  ];
+
+  // Get random chips for this session (cached in sessionStorage)
+  function getRandomChips() {
+    const cacheKey = 'arjuna-random-chips';
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {}
+    }
+    
+    // Shuffle and pick 3 random chips
+    const shuffled = [...RANDOM_CHIPS_POOL].sort(() => Math.random() - 0.5);
+    const picked = shuffled.slice(0, 3);
+    sessionStorage.setItem(cacheKey, JSON.stringify(picked));
+    return picked;
+  }
+
+  function createWelcomeChips() {
+    const randomChips = getRandomChips();
+    const allChips = [...STATIC_CHIPS, ...randomChips];
+    return allChips.map(c => 
+      `<button class="welcome-chip" onclick="sendQuickMessage('${c.message.replace(/'/g, "\\'")}')">
+        <span class="chip-emoji">${c.emoji}</span>
+        <span class="chip-label">${c.label}</span>
+      </button>`
+    ).join('');
+  }
 
   // Get suggestion set index from sessionStorage, cycling on each page load
   function getAndCycleSuggestionIndex() {
@@ -488,8 +582,8 @@
     
     const saved = loadConversation();
     
-    // Always start with welcome message
-    container.innerHTML = `<div class="assistant-message assistant">${WELCOME_MESSAGE}</div>`;
+    // Show welcome message with clickable chips
+    container.innerHTML = `<div class="assistant-message assistant">${WELCOME_MESSAGE}<div class="welcome-chips">${createWelcomeChips()}</div></div>`;
     
     if (saved && saved.history && saved.history.length > 0) {
       // Restore the conversation history
@@ -507,11 +601,11 @@
         div.innerHTML = content;
         container.appendChild(div);
       }
+      
+      // Add quick suggestions after conversation history
+      const suggestionsEl = createSuggestionsElement(suggestionSets[currentSuggestionSet]);
+      container.appendChild(suggestionsEl);
     }
-    
-    // Add suggestions at the end
-    const suggestionsEl = createSuggestionsElement(suggestionSets[currentSuggestionSet]);
-    container.appendChild(suggestionsEl);
     
     // Scroll to bottom
     container.scrollTop = container.scrollHeight;
@@ -525,9 +619,7 @@
     
     const container = document.getElementById('assistantMessages');
     if (container) {
-      container.innerHTML = `<div class="assistant-message assistant">${WELCOME_MESSAGE}</div>`;
-      const suggestionsEl = createSuggestionsElement(suggestionSets[currentSuggestionSet]);
-      container.appendChild(suggestionsEl);
+      container.innerHTML = `<div class="assistant-message assistant">${WELCOME_MESSAGE}<div class="welcome-chips">${createWelcomeChips()}</div></div>`;
     }
   }
 

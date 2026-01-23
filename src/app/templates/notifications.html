@@ -186,7 +186,14 @@
 
 <div class="notifications-page">
   <div class="notifications-header">
-    <h1>🔔 Notifications</h1>
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <a href="/profile" class="back-btn" style="display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; background: var(--sf-surface, #f3f4f6); color: var(--sf-text-muted, #6b7280); text-decoration: none; transition: all 0.15s;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 19l-7-7 7-7"/>
+        </svg>
+      </a>
+      <h1>🔔 Notifications</h1>
+    </div>
     <div class="notifications-actions">
       <button class="mark-all-read-btn" onclick="markAllAsRead()">Mark all as read</button>
     </div>
@@ -200,10 +207,10 @@
     <button class="filter-btn" data-filter="coach_suggestion" onclick="filterNotifications('coach_suggestion', this)">💡 Suggestions</button>
   </div>
 
-  <div class="notification-list" id="notificationList">
+  <div class="notification-list" id="pageNotificationList">
     <div class="empty-state" id="initialLoadState">
-      <div class="empty-state-icon">🔔</div>
-      <p>Checking for notifications...</p>
+      <div class="empty-state-icon">⏳</div>
+      <p>Loading notifications...</p>
     </div>
   </div>
 </div>
@@ -218,20 +225,30 @@
     standup_reminder: '📝',
     blocker_alert: '🚧',
     coach_suggestion: '💡',
+    coach: '💡',
+    ai_suggestion: '🤖',
     system: '🔔',
-    info: 'ℹ️'
+    info: 'ℹ️',
+    mention: '👋',
+    dikw: '📚'
   };
 
-  async function loadNotifications() {
+  async function loadNotificationsPage() {
+    console.log('loadNotificationsPage called');
+    const list = document.getElementById('pageNotificationList');
     try {
+      console.log('Fetching notifications...');
       const response = await fetch('/api/notifications?limit=50');
-      if (!response.ok) throw new Error('Failed to load');
+      console.log('Response status:', response.status);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
+      console.log('Data received:', data);
       allNotifications = data.notifications || data || [];
-      renderNotifications();
+      console.log('Notifications count:', allNotifications.length);
+      renderNotificationsPage();
     } catch (err) {
       console.error('Error loading notifications:', err);
-      document.getElementById('notificationList').innerHTML = `
+      list.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">⚠️</div>
           <p>Could not load notifications</p>
@@ -241,8 +258,8 @@
     }
   }
 
-  function renderNotifications() {
-    const list = document.getElementById('notificationList');
+  function renderNotificationsPage() {
+    const list = document.getElementById('pageNotificationList');
     let filtered = allNotifications;
 
     if (currentFilter === 'unread') {
@@ -285,14 +302,14 @@
     currentFilter = filter;
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    renderNotifications();
+    renderNotificationsPage();
   }
 
   async function markAllAsRead() {
     try {
       await fetch('/api/notifications/read-all', { method: 'POST' });
       allNotifications.forEach(n => n.read_at = new Date().toISOString());
-      renderNotifications();
+      renderNotificationsPage();
       showToast('Success', 'All notifications marked as read', 'success');
     } catch (err) {
       showToast('Error', 'Could not mark as read', 'error');
@@ -303,7 +320,7 @@
     try {
       await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
       allNotifications = allNotifications.filter(n => n.id !== id);
-      renderNotifications();
+      renderNotificationsPage();
     } catch (err) {
       console.error('Error dismissing notification:', err);
     }
@@ -318,18 +335,29 @@
 
   function formatTime(isoDate) {
     if (!isoDate) return '';
-    const date = new Date(isoDate);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+    try {
+      const date = new Date(isoDate);
+      if (isNaN(date.getTime())) return '';
+      const now = new Date();
+      const diffMs = now - date;
+      
+      // Handle future dates
+      if (diffMs < 0) {
+        return date.toLocaleDateString();
+      }
+      
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      return date.toLocaleDateString();
+    } catch (e) {
+      return '';
+    }
   }
 
   function escapeHtml(text) {
@@ -340,6 +368,6 @@
   }
 
   // Load on page load
-  loadNotifications();
+  loadNotificationsPage();
 </script>
 {% endblock %}

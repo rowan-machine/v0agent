@@ -560,6 +560,13 @@ def notifications_page(request: Request):
     return templates.TemplateResponse("notifications.html", {"request": request})
 
 
+@app.get("/account")
+def account_page(request: Request):
+    """Account page."""
+    user_name = os.getenv("USER_NAME", "Rowan")
+    return templates.TemplateResponse("account.html", {"request": request, "user_name": user_name})
+
+
 @app.get("/dikw")
 def dikw_page(request: Request):
     """DIKW Pyramid page for knowledge management."""

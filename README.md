@@ -84,7 +84,7 @@ Simple password-based authentication with secure session management.
 ```bash
 # Clone the repository
 git clone https://github.com/rowan-machine/v0agent.git
-cd signalflow
+cd v0agent
 
 # Create virtual environment
 python -m venv .venv
@@ -109,6 +109,8 @@ OPENAI_API_KEY=sk-your-api-key-here
 # Optional
 AUTH_PASSWORD=your-secure-password  # Default: signalflow
 SECRET_KEY=your-secret-key          # For session encryption
+USER_NAME=YourName                  # Display name in profile (default: Rowan)
+DEFAULT_AI_MODEL=gpt-4o-mini        # AI model to use
 ```
 
 ### Run the Server
@@ -122,6 +124,55 @@ uvicorn src.app.main:app --host 0.0.0.0 --port 8000
 ```
 
 Open http://localhost:8000 and log in with your password.
+
+---
+
+## 🛠️ Development Setup (Clone to New Machine)
+
+If you're setting up this project on a new machine (personal computer, etc.):
+
+### 1. Clone & Basic Setup
+```bash
+git clone https://github.com/rowan-machine/v0agent.git
+cd v0agent
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. Database Initialization
+The SQLite database (`agent.db`) is created automatically on first run. If you need to start fresh:
+```bash
+rm agent.db  # Remove existing database
+uvicorn src.app.main:app --reload --port 8000  # Creates new DB with schema
+```
+
+### 3. Optional: Supabase Sync
+If using Supabase for cloud sync:
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-anon-key
+SUPABASE_SERVICE_KEY=your-service-key  # For migrations
+```
+
+### 4. Running Tests
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run specific test file
+pytest tests/test_notifications_api.py -v
+
+# Run with coverage
+pytest tests/ --cov=src/app --cov-report=html
+```
+
+### 5. Optional: Playwright E2E Tests
+```bash
+pip install playwright pytest-playwright
+playwright install chromium
+pytest tests/e2e/ --browser chromium  # When e2e tests are created
+```
 
 ---
 
