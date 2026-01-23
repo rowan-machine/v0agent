@@ -538,7 +538,8 @@ def table_exists(conn, table_name):
 @app.get("/profile")
 def profile_page(request: Request):
     """Profile router page with links to settings, career, and account."""
-    return templates.TemplateResponse("profile.html", {"request": request})
+    user_name = os.getenv("USER_NAME", "Rowan")
+    return templates.TemplateResponse("profile.html", {"request": request, "user_name": user_name})
 
 
 @app.get("/settings")

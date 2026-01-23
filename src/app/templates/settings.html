@@ -1370,13 +1370,38 @@
       
       document.getElementById('currentModelBadge').textContent = model;
       
+      // Clear any existing selections first
+      document.querySelectorAll('.model-option').forEach(opt => {
+        opt.classList.remove('selected');
+      });
+      document.querySelectorAll('input[name="ai_model"]').forEach(r => {
+        r.checked = false;
+      });
+      
+      // Find and select the matching radio button
       const radio = document.querySelector(`input[name="ai_model"][value="${model}"]`);
       if (radio) {
         radio.checked = true;
         radio.closest('.model-option').classList.add('selected');
+      } else {
+        // If exact match not found, try to find by model name prefix (for versioned models)
+        const allRadios = document.querySelectorAll('input[name="ai_model"]');
+        for (const r of allRadios) {
+          if (model.startsWith(r.value) || r.value.startsWith(model.split('-')[0])) {
+            r.checked = true;
+            r.closest('.model-option').classList.add('selected');
+            break;
+          }
+        }
       }
     } catch (err) {
       console.error('Error loading model:', err);
+      // Default to gpt-4o-mini if error
+      const defaultRadio = document.querySelector('input[name="ai_model"][value="gpt-4o-mini"]');
+      if (defaultRadio) {
+        defaultRadio.checked = true;
+        defaultRadio.closest('.model-option').classList.add('selected');
+      }
     }
   }
 
