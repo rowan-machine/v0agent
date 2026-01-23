@@ -42,6 +42,8 @@ try:
     SUPABASE_AVAILABLE = True
 except ImportError:
     SUPABASE_AVAILABLE = False
+    Client = None  # Define as None for type hints when not available
+    create_client = None
     logger.warning("⚠️ supabase package not installed")
 
 
