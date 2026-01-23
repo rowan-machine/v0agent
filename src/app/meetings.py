@@ -199,10 +199,11 @@ def edit_meeting(meeting_id: int, request: Request, from_transcript: int = None)
         
         # If coming from a transcript edit, also load the transcript content
         linked_transcript = None
+        pocket_summary_doc = None
         if meeting:
-            # First check for transcript docs linked by meeting_id
+            # Check for transcript docs linked by meeting_id
             transcript = conn.execute(
-                "SELECT id, source, content FROM docs WHERE meeting_id = ?",
+                "SELECT id, source, content FROM docs WHERE meeting_id = ? AND source LIKE 'Transcript:%'",
                 (meeting_id,)
             ).fetchone()
             # Fallback to name matching if no meeting_id link
@@ -213,6 +214,14 @@ def edit_meeting(meeting_id: int, request: Request, from_transcript: int = None)
                 ).fetchone()
             if transcript:
                 linked_transcript = dict(transcript)
+            
+            # Also check for Pocket summary doc linked by meeting_id
+            pocket_doc = conn.execute(
+                "SELECT id, source, content FROM docs WHERE meeting_id = ? AND source LIKE 'Pocket Summary%'",
+                (meeting_id,)
+            ).fetchone()
+            if pocket_doc:
+                pocket_summary_doc = dict(pocket_doc)
     
     # Convert to dict and parse out pocket/teams transcripts from raw_text
     meeting_dict = dict(meeting) if meeting else {}
@@ -236,12 +245,20 @@ def edit_meeting(meeting_id: int, request: Request, from_transcript: int = None)
         if len(parts) > 1:
             teams_transcript = parts[1].strip()
     
+    # If raw_text doesn't have section markers, use it as the transcript
+    if raw_text and not pocket_transcript and not teams_transcript and '===' not in raw_text:
+        teams_transcript = raw_text
+    
     # If we have a linked transcript and no teams_transcript yet, use it
     if linked_transcript and not teams_transcript:
         teams_transcript = linked_transcript.get('content', '')
     
     meeting_dict['pocket_transcript'] = pocket_transcript
     meeting_dict['teams_transcript'] = teams_transcript
+    
+    # If pocket_ai_summary is empty but we found a Pocket doc, use that
+    if not meeting_dict.get('pocket_ai_summary') and pocket_summary_doc:
+        meeting_dict['pocket_ai_summary'] = pocket_summary_doc.get('content', '')
 
     return templates.TemplateResponse(
         "edit_meeting.html",

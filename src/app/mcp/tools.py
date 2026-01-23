@@ -216,20 +216,29 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
     # -----------------------------
     # 5. Persist to database
     # -----------------------------
+    
+    # Detect Pocket template type if pocket summary provided
+    pocket_template = None
+    if pocket_ai_summary and pocket_ai_summary.strip():
+        pocket_template = _detect_pocket_template(pocket_ai_summary)
+    
     with connect() as conn:
 
-        # ---- Insert meeting synthesis + signals
+        # ---- Insert meeting synthesis + signals (include raw_text and pocket_ai_summary)
         cur = conn.execute(
             """
             INSERT INTO meeting_summaries
-                (meeting_name, synthesized_notes, meeting_date, signals_json)
-            VALUES (?, ?, ?, ?)
+                (meeting_name, synthesized_notes, meeting_date, signals_json, raw_text, pocket_ai_summary, pocket_template_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 meeting_name,
                 synthesized_notes,
                 meeting_date,
                 json.dumps(signals),
+                transcript_text or "",
+                pocket_ai_summary.strip() if pocket_ai_summary else "",
+                pocket_template,
             ),
         )
 
