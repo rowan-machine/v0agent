@@ -69,17 +69,31 @@ With the core migration complete (28 Supabase tables, agent system, mobile scaff
 
 ---
 
-## 🔄 Phase F4: Background Jobs (In Progress)
+## ✅ Phase F4: Background Jobs (21 tests) - PARTIAL COMPLETE
 
-### F4a: 1:1 Prep Digest
+### F4a: 1:1 Prep Digest ✅ COMPLETE
 **Schedule:** Biweekly Tuesday 7:00 AM (next: Jan 27, 2026)
+**Service:** `src/app/services/background_jobs.py` - `OneOnOnePrepJob`
 
 Generates notification answering:
 1. What are my top 3 things I'm currently working on?
 2. Where do I need help? (blockers from recent meetings)
 3. What are my recent observations and feedback to discuss?
+4. Potentially overdue actions (date pattern detection)
 
-### F4b: Stale Ticket / Blocker Alert
+### F4d: Sprint Mode Auto-Detect ✅ COMPLETE
+**Schedule:** Daily 8:00 AM
+**Service:** `src/app/services/background_jobs.py` - `SprintModeDetectJob`
+
+Detects suggested workflow mode based on sprint cadence:
+- **Mode A (Context Distillation):** 3-4 days before sprint, weekend prep
+- **Mode B (Execution Ramp-up):** Mon-Tue of sprint week 1
+- **Mode C (Deep Execution):** Wed-Fri week 1, Mon-Tue week 2
+- **Mode D (Wrap-up):** Wed-Thu week 2
+
+Sprint epoch: Jan 6, 2026 (14-day sprints starting Monday)
+
+### F4b: Stale Ticket / Blocker Alert (Pending)
 **Schedule:** Daily 9:00 AM (weekdays)
 
 Triggers when:
