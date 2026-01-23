@@ -1,48 +1,62 @@
 ---
-description: Specification for FastAPI routes implementing core CRUD operations for meetings and documents with domain-specific business logic
+description: Specification for FastAPI routes implementing CRUD operations for meetings and documents management system
 ---
 
 
 # api-endpoints
 
-## Meeting Management API
+Primary API routes implementing business logic for meetings and document management:
+
+## Meeting Intelligence Endpoints
+Location: src/app/api/v1/meetings.py
 Importance Score: 85
 
-1. /api/v1/meetings
-- Custom signal extraction workflow from meeting transcripts
-- Intelligent meeting type classification (standup, planning, review)
-- Integration with knowledge graph for relationship mapping
-- Automated DIKW item generation from meeting content
+1. Signal Extraction Pipeline
+- Custom extraction of structured signals from meeting content:
+  - Decisions 
+  - Action items
+  - Blockers
+  - Risks
+  - Ideas
+- Automatic categorization and tagging
+- Integration with DIKW hierarchy for knowledge promotion
 
-2. /api/v1/meetings/signals
-- Domain-specific signal classification system
-- Categories: decisions, action items, blockers, risks, ideas
-- Signal promotion workflow for converting to tickets/tasks
-- Historical tracking of signal evolution
+2. Meeting Intelligence Processing
+- Multi-source transcript handling (Teams, Pocket)
+- Template-aware AI summary generation
+- Context preservation across meeting series
+- Automated signal correlation between meetings
 
-## Document Processing API 
+## Document Management Endpoints  
+Location: src/app/api/v1/documents.py
 Importance Score: 80
 
-1. /api/v1/documents/import
-- Multi-source document integration pipeline
-- Vision AI analysis for mindmap processing
-- Automatic DIKW hierarchy generation
-- Document relationship mapping to knowledge graph
+1. Intelligent Document Processing
+- Semantic relationship mapping between documents
+- Auto-classification into DIKW hierarchy levels
+- Cross-reference detection and linking
+- Source material preservation for knowledge evolution
 
-2. /api/v1/documents/analyze
-- Semantic content analysis with domain-specific categorization
+2. Document Signal Integration
 - Signal extraction from document content
-- Integration with meeting context and relationships
-- Smart tagging system for knowledge organization
+- Knowledge synthesis across multiple documents
+- Contextual linking with related meetings
+- Automated promotion through knowledge hierarchy
 
-## Memory Management API
-Importance Score: 75
+## Knowledge Synthesis API
+Importance Score: 90
 
-1. /api/v1/memory
-- Semantic-based memory storage and retrieval
-- Relevance scoring (1-10) based on business importance
-- Context-aware memory merging with deduplication
-- Token budget management for AI context
+1. DIKW Promotion Rules
+- Structured validation for hierarchy level changes
+- Confidence scoring system for promotions
+- Multi-source verification requirements
+- Historical tracking of promotion paths
+
+2. Knowledge Graph Integration
+- Semantic relationship typing between entities
+- Cross-entity linking (meetings, docs, tickets)
+- Confidence scoring for relationships
+- Hybrid similarity detection system
 
 $END$
 

@@ -1118,17 +1118,45 @@ async def get_notifications(limit: int = 10):
         if not table_check:
             return JSONResponse({"notifications": []})
         
-        notifications = conn.execute(
-            """SELECT id, type, title, message, link, read, created_at 
-               FROM notifications 
-               ORDER BY created_at DESC 
-               LIMIT ?""",
-            (limit,)
-        ).fetchall()
+        # Query using new schema (notification_type, body) with fallback for old schema
+        try:
+            notifications = conn.execute(
+                """SELECT id, notification_type as type, title, body as message, 
+                          data, read, created_at, actioned, action_taken, expires_at
+                   FROM notifications 
+                   WHERE actioned = 0 OR actioned IS NULL
+                   ORDER BY 
+                     CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,
+                     created_at DESC 
+                   LIMIT ?""",
+                (limit,)
+            ).fetchall()
+        except Exception:
+            # Fall back to old schema if new columns don't exist
+            notifications = conn.execute(
+                """SELECT id, type, title, message, link, read, created_at 
+                   FROM notifications 
+                   ORDER BY created_at DESC 
+                   LIMIT ?""",
+                (limit,)
+            ).fetchall()
         
-        return JSONResponse({
-            "notifications": [dict(n) for n in notifications]
-        })
+        result = []
+        for n in notifications:
+            n_dict = dict(n)
+            # Parse action_url from data JSON if available
+            if 'data' in n_dict and n_dict['data']:
+                try:
+                    import json
+                    data = json.loads(n_dict['data']) if isinstance(n_dict['data'], str) else n_dict['data']
+                    n_dict['action_url'] = data.get('action_url', '')
+                    # Include read_at for frontend compatibility
+                    n_dict['read_at'] = n_dict['created_at'] if n_dict.get('read') else None
+                except:
+                    pass
+            result.append(n_dict)
+        
+        return JSONResponse({"notifications": result})
 
 
 @app.get("/api/notifications/count")
@@ -1192,6 +1220,15 @@ async def mark_all_notifications_read():
         conn.execute("UPDATE notifications SET read = 1 WHERE read = 0")
         conn.commit()
     
+    return JSONResponse({"status": "ok"})
+
+
+@app.delete("/api/notifications/{notification_id}")
+async def delete_notification(notification_id: str):
+    """Delete a notification."""
+    with connect() as conn:
+        conn.execute("DELETE FROM notifications WHERE id = ?", (notification_id,))
+        conn.commit()
     return JSONResponse({"status": "ok"})
 
 
