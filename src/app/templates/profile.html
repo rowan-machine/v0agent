@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .profile-page {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+
+  .profile-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+
+  .profile-avatar {
+    width: 96px;
+    height: 96px;
+    background: linear-gradient(135deg, var(--sf-primary, #3b82f6), var(--sf-accent, #8b5cf6));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    color: white;
+  }
+
+  .profile-avatar svg {
+    width: 48px;
+    height: 48px;
+  }
+
+  .profile-name {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--sf-text, #1f2937);
+    margin-bottom: 0.25rem;
+  }
+
+  .profile-role {
+    font-size: 0.875rem;
+    color: var(--sf-text-muted, #6b7280);
+  }
+
+  .profile-nav {
+    background: var(--sf-card-bg, white);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+
+  .profile-nav-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    text-decoration: none;
+    color: var(--sf-text, #1f2937);
+    border-bottom: 1px solid var(--sf-border, #e5e7eb);
+    transition: background 0.15s ease;
+  }
+
+  .profile-nav-item:last-child {
+    border-bottom: none;
+  }
+
+  .profile-nav-item:hover {
+    background: var(--sf-surface, #f9fafb);
+  }
+
+  .profile-nav-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+    flex-shrink: 0;
+  }
+
+  .profile-nav-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .profile-nav-icon.career {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+  }
+
+  .profile-nav-icon.settings {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: white;
+  }
+
+  .profile-nav-icon.account {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+  }
+
+  .profile-nav-icon.notifications {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+  }
+
+  .profile-nav-text {
+    flex: 1;
+  }
+
+  .profile-nav-title {
+    font-weight: 500;
+    font-size: 1rem;
+    margin-bottom: 0.125rem;
+  }
+
+  .profile-nav-subtitle {
+    font-size: 0.8rem;
+    color: var(--sf-text-muted, #6b7280);
+  }
+
+  .profile-nav-arrow {
+    color: var(--sf-text-muted, #9ca3af);
+  }
+
+  .profile-nav-arrow svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .profile-section {
+    margin-top: 1.5rem;
+  }
+
+  .profile-section-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--sf-text-muted, #6b7280);
+    margin-bottom: 0.75rem;
+    padding-left: 0.5rem;
+  }
+
+  .profile-danger-item {
+    color: #dc2626;
+  }
+
+  .profile-danger-item:hover {
+    background: #fef2f2;
+  }
+
+  .profile-danger-item .profile-nav-icon {
+    background: linear-gradient(135deg, #f87171, #ef4444);
+  }
+
+  /* Dark Mode */
+  [data-theme="dark"] .profile-nav {
+    background: var(--sf-card-bg, #1f2937);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  [data-theme="dark"] .profile-nav-item:hover {
+    background: var(--sf-surface, #374151);
+  }
+
+  [data-theme="dark"] .profile-danger-item:hover {
+    background: rgba(220, 38, 38, 0.1);
+  }
+</style>
+
+<div class="profile-page">
+  <div class="profile-header">
+    <div class="profile-avatar">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      </svg>
+    </div>
+    <div class="profile-name">{{ user_name or 'User' }}</div>
+    <div class="profile-role">SignalFlow Member</div>
+  </div>
+
+  <div class="profile-section">
+    <div class="profile-section-title">Profile</div>
+    <nav class="profile-nav">
+      <a href="/career" class="profile-nav-item">
+        <div class="profile-nav-icon career">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        </div>
+        <div class="profile-nav-text">
+          <div class="profile-nav-title">Career Profile</div>
+          <div class="profile-nav-subtitle">Track skills, growth, and achievements</div>
+        </div>
+        <div class="profile-nav-arrow">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </a>
+
+      <a href="/notifications" class="profile-nav-item">
+        <div class="profile-nav-icon notifications">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+        </div>
+        <div class="profile-nav-text">
+          <div class="profile-nav-title">Notifications</div>
+          <div class="profile-nav-subtitle">Manage notification preferences</div>
+        </div>
+        <div class="profile-nav-arrow">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </a>
+    </nav>
+  </div>
+
+  <div class="profile-section">
+    <div class="profile-section-title">Settings</div>
+    <nav class="profile-nav">
+      <a href="/settings" class="profile-nav-item">
+        <div class="profile-nav-icon settings">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </div>
+        <div class="profile-nav-text">
+          <div class="profile-nav-title">App Settings</div>
+          <div class="profile-nav-subtitle">Theme, preferences, and configuration</div>
+        </div>
+        <div class="profile-nav-arrow">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </a>
+
+      <a href="/account" class="profile-nav-item">
+        <div class="profile-nav-icon account">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div class="profile-nav-text">
+          <div class="profile-nav-title">Account</div>
+          <div class="profile-nav-subtitle">Manage your account details</div>
+        </div>
+        <div class="profile-nav-arrow">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </a>
+    </nav>
+  </div>
+
+  <div class="profile-section">
+    <nav class="profile-nav">
+      <a href="/logout" class="profile-nav-item profile-danger-item">
+        <div class="profile-nav-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+        </div>
+        <div class="profile-nav-text">
+          <div class="profile-nav-title">Sign Out</div>
+          <div class="profile-nav-subtitle">Log out of your account</div>
+        </div>
+        <div class="profile-nav-arrow">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </div>
+      </a>
+    </nav>
+  </div>
+</div>
+{% endblock %}

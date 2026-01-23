@@ -196,6 +196,50 @@ The encouragement system:
 
 ---
 
+### Notification UI & Profile Page ✅ COMPLETE (27 tests)
+**Files:** `src/app/templates/base.html`, `src/app/templates/profile.html`
+**Tests:** `tests/test_notifications_ui.py`
+
+**Notification Bell Component:**
+- **Location:** Header actions (top-right, alongside theme toggle)
+- **Badge:** Shows unread count (max 99+), hidden when 0
+- **Dropdown:** 360px width, max 480px height, animated appearance
+- **Actions:** Mark all read, click to navigate to notification link
+
+**Notification Types (color-coded):**
+| Type | Icon | Color | Use Case |
+|------|------|-------|----------|
+| `action` | 📋 | Blue | Action items, tasks |
+| `alert` | ⚠️ | Red | Warnings, sprint deadlines |
+| `coach` | 🧠 | Green | Coaching tips, suggestions |
+| `mention` | @ | Yellow | User mentions in transcripts |
+| `signal` | 📡 | Purple | Signal reviews |
+
+**Lightweight Notification APIs:**
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/notifications` | GET | List notifications (limit param) |
+| `/api/notifications/count` | GET | Unread & total count for badge |
+| `/api/notifications/{id}/read` | POST | Mark single notification read |
+| `/api/notifications/read-all` | POST | Mark all as read |
+
+**Note:** These lightweight endpoints use the SQLite `notifications` table directly for fast UI responses. The full F3 notification service (`/api/v1/notifications`) provides more features like filtering, actions, and notification types.
+
+**Profile Router Page:**
+- **Route:** `/profile`
+- **Purpose:** Central navigation hub for user settings
+- **Links:** Career Profile, Notifications, App Settings, Account, Sign Out
+- **Design:** iOS-style list with gradient icons
+
+**Nav Drawer Reorganization:**
+- User button moved to drawer header (next to pin button)
+- Clicking user button navigates to profile page
+- Career Profile link removed from nav bottom (accessible via profile)
+- Kebab menu removed (functionality moved to profile page)
+- Settings link retained in nav bottom
+
+---
+
 ### UI Settings & Mode Pin ✅ COMPLETE (15 tests)
 **File:** `src/app/templates/base.html`, `src/app/static/signalflow-modes.css`
 **Tests:** `tests/test_ui_settings.py`

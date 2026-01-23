@@ -535,6 +535,12 @@ def table_exists(conn, table_name):
     return result is not None
 
 
+@app.get("/profile")
+def profile_page(request: Request):
+    """Profile router page with links to settings, career, and account."""
+    return templates.TemplateResponse("profile.html", {"request": request})
+
+
 @app.get("/settings")
 def settings_page(request: Request):
     """Settings page."""
@@ -1085,6 +1091,99 @@ async def reject_ai_response(request: Request):
                VALUES ('quick_ask', ?, ?, 'rejected', 0, CURRENT_TIMESTAMP)""",
             (source_query, content[:500])  # Store truncated for training feedback
         )
+        conn.commit()
+    
+    return JSONResponse({"status": "ok"})
+
+
+# ============================================
+# Notification API Endpoints
+# ============================================
+
+@app.get("/api/notifications")
+async def get_notifications(limit: int = 10):
+    """Get user notifications with optional limit."""
+    with connect() as conn:
+        # Check if notifications table exists
+        table_check = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='notifications'"
+        ).fetchone()
+        
+        if not table_check:
+            return JSONResponse({"notifications": []})
+        
+        notifications = conn.execute(
+            """SELECT id, type, title, message, link, read, created_at 
+               FROM notifications 
+               ORDER BY created_at DESC 
+               LIMIT ?""",
+            (limit,)
+        ).fetchall()
+        
+        return JSONResponse({
+            "notifications": [dict(n) for n in notifications]
+        })
+
+
+@app.get("/api/notifications/count")
+async def get_notification_count():
+    """Get count of unread notifications."""
+    with connect() as conn:
+        # Check if notifications table exists
+        table_check = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='notifications'"
+        ).fetchone()
+        
+        if not table_check:
+            return JSONResponse({"unread": 0, "total": 0})
+        
+        result = conn.execute(
+            """SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN read = 0 THEN 1 ELSE 0 END) as unread
+               FROM notifications"""
+        ).fetchone()
+        
+        return JSONResponse({
+            "unread": result["unread"] or 0,
+            "total": result["total"] or 0
+        })
+
+
+@app.post("/api/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id: int):
+    """Mark a notification as read."""
+    with connect() as conn:
+        # Check if notifications table exists
+        table_check = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='notifications'"
+        ).fetchone()
+        
+        if not table_check:
+            return JSONResponse({"status": "ok"})
+        
+        conn.execute(
+            "UPDATE notifications SET read = 1 WHERE id = ?",
+            (notification_id,)
+        )
+        conn.commit()
+    
+    return JSONResponse({"status": "ok"})
+
+
+@app.post("/api/notifications/read-all")
+async def mark_all_notifications_read():
+    """Mark all notifications as read."""
+    with connect() as conn:
+        # Check if notifications table exists
+        table_check = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='notifications'"
+        ).fetchone()
+        
+        if not table_check:
+            return JSONResponse({"status": "ok"})
+        
+        conn.execute("UPDATE notifications SET read = 1 WHERE read = 0")
         conn.commit()
     
     return JSONResponse({"status": "ok"})
