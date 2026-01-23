@@ -1,45 +1,48 @@
 ---
-description: Documents FastAPI routes implementing CRUD operations for meetings and documents with custom business logic
+description: Specification for FastAPI routes implementing core CRUD operations for meetings and documents with domain-specific business logic
 ---
 
 
 # api-endpoints
 
-Meeting Management Endpoints:
-- /meetings/signals - Extracts and processes domain-specific signals from meetings
-- /meetings/analyze - Implements meeting intelligence pipeline with custom template detection
-- /meetings/bundle - Processes meeting bundles with multi-document correlation
+## Meeting Management API
+Importance Score: 85
 
-Document Management Endpoints:
-- /documents/sync - Handles bidirectional sync with conflict detection
-- /documents/knowledge - Manages DIKW hierarchy and knowledge promotion system
-- /documents/signals - Extracts structured signals from document content
+1. /api/v1/meetings
+- Custom signal extraction workflow from meeting transcripts
+- Intelligent meeting type classification (standup, planning, review)
+- Integration with knowledge graph for relationship mapping
+- Automated DIKW item generation from meeting content
 
-Notable Business Logic:
+2. /api/v1/meetings/signals
+- Domain-specific signal classification system
+- Categories: decisions, action items, blockers, risks, ideas
+- Signal promotion workflow for converting to tickets/tasks
+- Historical tracking of signal evolution
 
-1. Meeting Intelligence System
-- Template detection supporting 30+ meeting types (All-Hands, Sprint Retro, etc.)
-- Signal categorization: decisions, action items, blockers, risks
-- Meeting bundle processing with cross-document correlation
-Importance Score: 85/100
+## Document Processing API 
+Importance Score: 80
 
-2. Knowledge Management Pipeline
-- DIKW (Data, Information, Knowledge, Wisdom) promotion system
-- Multi-item synthesis with confidence scoring
-- Tag-based knowledge clustering
-Importance Score: 90/100
+1. /api/v1/documents/import
+- Multi-source document integration pipeline
+- Vision AI analysis for mindmap processing
+- Automatic DIKW hierarchy generation
+- Document relationship mapping to knowledge graph
 
-3. Signal Processing Framework
-- Cross-source signal deduplication
-- Confidence scoring based on feedback patterns
-- Automated signal extraction from various content types
-Importance Score: 80/100
+2. /api/v1/documents/analyze
+- Semantic content analysis with domain-specific categorization
+- Signal extraction from document content
+- Integration with meeting context and relationships
+- Smart tagging system for knowledge organization
 
-4. Document Synchronization
-- Entity-specific conflict resolution
-- Delta-based sync with timestamp tracking
-- Device-aware change propagation
-Importance Score: 75/100
+## Memory Management API
+Importance Score: 75
+
+1. /api/v1/memory
+- Semantic-based memory storage and retrieval
+- Relevance scoring (1-10) based on business importance
+- Context-aware memory merging with deduplication
+- Token budget management for AI context
 
 $END$
 

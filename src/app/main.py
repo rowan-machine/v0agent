@@ -553,6 +553,12 @@ def career_page(request: Request):
     return templates.TemplateResponse("career.html", {"request": request})
 
 
+@app.get("/notifications")
+def notifications_page(request: Request):
+    """Notifications inbox page."""
+    return templates.TemplateResponse("notifications.html", {"request": request})
+
+
 @app.get("/dikw")
 def dikw_page(request: Request):
     """DIKW Pyramid page for knowledge management."""

@@ -1,39 +1,47 @@
 ---
-description: Documents the core data model structure for meetings and documents, including relationships and signal extraction
+description: Technical specification for core data models around meetings and documents, their relationships and business logic
 ---
 
 
 # data-models
 
-## Core Data Models
+Two primary data models drive the core business logic:
 
-### Meeting Model
-- Stores meeting content with hierarchical signal classification
-- Signal categories: decisions, action items, blockers, risks, ideas
-- Status tracking system for each signal (approved, rejected, archived, waiting)
-- Version control for meeting notes with diff tracking
-- Meeting type classification (standup, sprint, allhands etc)
+## Meetings Model
+Importance Score: 90
 
-### Document Model 
-- Domain-specific document versioning with comparison capabilities
-- Multi-format content storage (markdown, plaintext)
-- Semantic linking system between related documents
-- Screenshot analysis integration
-- Document-to-signal extraction pipeline
+Structure:
+- Meeting records with signals extraction
+- Meeting types (standup, planning, review)
+- Relationship mapping to documents and tickets
+- Signal categorization (decisions, action items, blockers, risks, ideas)
+- Semantic tagging and knowledge graph integration
+- State management (draft, active, archived)
 
-## Relationships
+## Documents Model
+Importance Score: 85
 
-### Meeting-Document Links
-- Bidirectional references between meetings and source documents
-- Semantic similarity scoring (min threshold 0.78)
-- Link categorization (referenced, derived, blocked-by)
-- Version-aware relationship tracking
+Structure:
+- Document metadata and content storage
+- DIKW hierarchy classification (Data, Information, Knowledge, Wisdom)
+- Multi-source integration (Pocket, Teams transcripts)
+- Bidirectional linking with meetings
+- Version tracking with change history
+- Auto-categorization based on content analysis
 
-### Signal Extraction Pipeline
-- Automated signal classification from both meetings and documents
-- Hierarchical organization of extracted signals
-- Cross-reference validation between sources
-- Status lifecycle management
+## Relationship Architecture
+
+Key Relationships:
+1. Meeting → Document (source relationships)
+2. Meeting → Meeting (related meetings)
+3. Document → DIKW Items (knowledge hierarchy)
+4. Signals → Meetings/Documents (origin tracking)
+
+Business Rules:
+- Meetings can have multiple source documents
+- Documents promote through DIKW levels based on signal synthesis
+- Signals maintain references to originating content
+- Both models support semantic tagging for knowledge graph integration
 
 $END$
 
