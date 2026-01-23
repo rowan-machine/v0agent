@@ -69,7 +69,7 @@ With the core migration complete (28 Supabase tables, agent system, mobile scaff
 
 ---
 
-## ✅ Phase F4: Background Jobs (55 tests) - COMPLETE
+## ✅ Phase F4: Background Jobs (70 tests) - COMPLETE
 
 ### Job Scheduling Architecture ✅ COMPLETE
 **Infrastructure:** Supabase `pg_cron` + `pg_net` extensions
@@ -193,6 +193,41 @@ The encouragement system:
 3. Verifies there are remaining unchecked tasks in workflow progress
 4. Extracts task context from linked tickets (task_decomposition, implementation_plan)
 5. Creates NORMAL priority notification with contextual gut-check question
+
+---
+
+### UI Settings & Mode Pin ✅ COMPLETE (15 tests)
+**File:** `src/app/templates/base.html`, `src/app/static/signalflow-modes.css`
+**Tests:** `tests/test_ui_settings.py`
+
+Features:
+- **Mode Pin Button:** 📌 button in mode badge allows pinning current mode
+- **Auto-Switch Override:** When pinned, mode won't auto-switch based on sprint cadence
+- **Mode Name Fix:** Button text now displays correct mode name (e.g., "A: Context" not "Mode A")
+- **Settings Persistence:** All settings persist on page refresh via localStorage
+
+**localStorage Keys:**
+| Key | Values | Description |
+|-----|--------|-------------|
+| `signalflow-mode` | `mode-a` through `mode-g` | Current workflow mode |
+| `signalflow-mode-pinned` | `true`/`false` | Whether mode is pinned |
+| `drawerPinned` | `true`/`false` | Whether navigation drawer is pinned open |
+| `signalflow-auto-tracking` | `true`/`false` | Auto-track time on mode change |
+| `signalflow-tracking-mode` | `mode-a` through `mode-g` | Currently tracking mode |
+| `signalflow-tracking-start` | timestamp | Tracking start time |
+| `harekrishna-theme` | `light`/`dark` | Color theme |
+| `signalflow-accent` | `blue`/`orange`/`green`/`red` | Accent color |
+
+**Mode Names Mapping:**
+| Mode Key | Display Name |
+|----------|--------------|
+| `mode-a` | A: Context |
+| `mode-b` | B: Planning |
+| `mode-c` | C: Drafting |
+| `mode-d` | D: Review |
+| `mode-e` | E: Promote |
+| `mode-f` | F: Sync |
+| `mode-g` | G: Execute |
 
 ---
 

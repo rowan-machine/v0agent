@@ -264,6 +264,43 @@
   opacity: 0.8;
 }
 
+/* Pin Mode Button */
+.mode-pin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: var(--sf-border);
+  color: var(--sf-text-muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+  transition: all 0.2s ease;
+  margin-left: 0.25rem;
+  opacity: 0.5;
+}
+
+.mode-pin-btn:hover {
+  background: var(--sf-surface);
+  color: var(--sf-text);
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.mode-pin-btn.pinned {
+  background: #f59e0b;
+  color: white;
+  opacity: 1;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
+}
+
+.mode-pin-btn .pin-icon {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
 /* Play/Pause Button */
 .mode-play-pause-btn {
   display: flex;
@@ -447,6 +484,18 @@
 
 [data-theme="dark"] .mode-play-pause-btn:hover {
   background: var(--current-mode-color);
+}
+
+[data-theme="dark"] .mode-pin-btn {
+  background: rgba(45, 55, 72, 0.6);
+}
+
+[data-theme="dark"] .mode-pin-btn:hover {
+  background: rgba(75, 85, 99, 0.8);
+}
+
+[data-theme="dark"] .mode-pin-btn.pinned {
+  background: #f59e0b;
 }
 
 [data-theme="dark"] .mode-badge-text {

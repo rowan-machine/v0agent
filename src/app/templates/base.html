@@ -13,6 +13,18 @@
       // Set mode immediately so mode colors apply from the start
       const savedMode = localStorage.getItem('signalflow-mode') || 'mode-a';
       document.documentElement.setAttribute('data-mode', savedMode);
+      // Store mode names for early display (duplicated here for immediate access)
+      window.__earlyModeNames = {
+        'mode-a': 'A: Context',
+        'mode-b': 'B: Planning',
+        'mode-c': 'C: Drafting',
+        'mode-d': 'D: Review',
+        'mode-e': 'E: Promote',
+        'mode-f': 'F: Sync',
+        'mode-g': 'G: Execute'
+      };
+      // Store for early badge text update
+      window.__savedMode = savedMode;
       // Set accent color
       const savedAccent = localStorage.getItem('signalflow-accent') || 'blue';
       const colorMap = {
@@ -1397,9 +1409,14 @@
       <div class="mode-badge">
         <div class="mode-badge-main" onclick="toggleModeSelector()">
           <div class="mode-badge-dot"></div>
-          <span class="mode-badge-text" id="currentModeName">Mode A</span>
+          <span class="mode-badge-text" id="currentModeName">
+            <script>document.write(window.__earlyModeNames[window.__savedMode] || 'A: Context');</script>
+          </span>
           <span class="mode-sprint-time" id="currentModeSprintTime" title="Time spent this sprint">—</span>
         </div>
+        <button class="mode-pin-btn" id="modePinBtn" onclick="toggleModePin(event)" title="Pin mode to prevent auto-switching">
+          <span class="pin-icon">📌</span>
+        </button>
         <button class="mode-play-pause-btn" id="trackingPlayPause" onclick="toggleTrackingManual(event)" title="Start/Stop time tracking">
           <span class="play-icon">▶</span>
         </button>
@@ -1410,6 +1427,14 @@
         <span class="mode-badge-time" id="currentTime">--:--</span>
       </div>
       <div class="mode-selector" id="modeSelector">
+        <!-- Mode Pin Toggle -->
+        <div class="mode-tracking-toggle mode-pin-toggle">
+          <label class="tracking-switch">
+            <input type="checkbox" id="modePinToggle" onchange="toggleModePinFromSwitch(this.checked)">
+            <span class="tracking-slider"></span>
+          </label>
+          <span class="tracking-label">Pin mode (disable auto-switching)</span>
+        </div>
         <!-- Tracking Toggle -->
         <div class="mode-tracking-toggle">
           <label class="tracking-switch">
@@ -1543,6 +1568,47 @@
       'mode-g': 'G: Execute'
     };
     
+    // Check if mode is pinned
+    function isModePinned() {
+      return localStorage.getItem('signalflow-mode-pinned') === 'true';
+    }
+    
+    // Toggle mode pin from button
+    function toggleModePin(event) {
+      event.stopPropagation();
+      const isPinned = !isModePinned();
+      localStorage.setItem('signalflow-mode-pinned', isPinned ? 'true' : 'false');
+      updateModePinDisplay();
+      
+      // Show toast feedback
+      if (typeof showToast === 'function') {
+        showToast(isPinned ? 'Mode Pinned' : 'Mode Unpinned', 
+          isPinned ? 'Auto-switching disabled' : 'Auto-switching enabled', 
+          'info');
+      }
+    }
+    
+    // Toggle mode pin from switch in dropdown
+    function toggleModePinFromSwitch(pinned) {
+      localStorage.setItem('signalflow-mode-pinned', pinned ? 'true' : 'false');
+      updateModePinDisplay();
+    }
+    
+    // Update pin button and toggle visual state
+    function updateModePinDisplay() {
+      const isPinned = isModePinned();
+      const pinBtn = document.getElementById('modePinBtn');
+      const pinToggle = document.getElementById('modePinToggle');
+      
+      if (pinBtn) {
+        pinBtn.classList.toggle('pinned', isPinned);
+        pinBtn.title = isPinned ? 'Unpin mode to enable auto-switching' : 'Pin mode to prevent auto-switching';
+      }
+      if (pinToggle) {
+        pinToggle.checked = isPinned;
+      }
+    }
+    
     function setMode(mode, persist = true) {
       document.documentElement.setAttribute('data-mode', mode);
       localStorage.setItem('signalflow-mode', mode);
@@ -1598,6 +1664,9 @@
         btn.classList.toggle('active', btn.dataset.mode === savedMode);
       });
       
+      // Update pin button state
+      updateModePinDisplay();
+      
       // First, check if there's a saved mode on server
       try {
         const response = await fetch('/api/settings/mode', { credentials: 'same-origin' });
@@ -1608,6 +1677,14 @@
           }
         }
       } catch (err) {}
+      
+      // Skip auto-switching if mode is pinned
+      if (isModePinned()) {
+        console.log('[Mode] Mode is pinned, skipping auto-switch');
+        setMode(currentMode, false);
+        loadSprintTimeStats();
+        return;
+      }
       
       // Then, fetch the smart suggestion based on sprint cadence
       try {
