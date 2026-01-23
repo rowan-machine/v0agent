@@ -532,6 +532,89 @@ class NotificationQueue:
         except Exception as e:
             logger.error(f"Failed to record signal feedback: {e}")
     
+    def get_by_id(self, notification_id: str) -> Optional[Notification]:
+        """Get a notification by ID.
+        
+        Args:
+            notification_id: Notification ID
+            
+        Returns:
+            Notification or None if not found
+        """
+        supabase = get_supabase()
+        
+        if supabase:
+            try:
+                result = supabase.table("notifications").select("*").eq("id", notification_id).single().execute()
+                if result.data:
+                    return Notification.from_dict({
+                        **result.data,
+                        "notification_type": result.data.get("type"),
+                    })
+            except Exception as e:
+                logger.warning(f"Supabase query failed: {e}")
+        
+        with connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM notifications WHERE id = ?",
+                (notification_id,)
+            ).fetchone()
+        
+        if row:
+            return Notification.from_dict(dict(row))
+        return None
+    
+    def delete(self, notification_id: str) -> bool:
+        """Delete a notification.
+        
+        Args:
+            notification_id: Notification ID
+            
+        Returns:
+            True if deleted
+        """
+        supabase = get_supabase()
+        
+        if supabase:
+            try:
+                supabase.table("notifications").delete().eq("id", notification_id).execute()
+                logger.info(f"Deleted notification {notification_id}")
+                return True
+            except Exception as e:
+                logger.warning(f"Supabase delete failed: {e}")
+        
+        with connect() as conn:
+            conn.execute("DELETE FROM notifications WHERE id = ?", (notification_id,))
+            conn.commit()
+        
+        logger.info(f"Deleted notification {notification_id}")
+        return True
+    
+    def mark_all_read(self) -> int:
+        """Mark all notifications as read.
+        
+        Returns:
+            Number of notifications marked read
+        """
+        supabase = get_supabase()
+        
+        if supabase:
+            try:
+                result = supabase.table("notifications").update({"read": True}).eq("read", False).execute()
+                count = len(result.data) if result.data else 0
+                logger.info(f"Marked {count} notifications as read (Supabase)")
+                return count
+            except Exception as e:
+                logger.warning(f"Supabase update failed: {e}")
+        
+        with connect() as conn:
+            cursor = conn.execute("UPDATE notifications SET read = 1 WHERE read = 0")
+            count = cursor.rowcount
+            conn.commit()
+        
+        logger.info(f"Marked {count} notifications as read")
+        return count
+    
     def cleanup_expired(self) -> int:
         """Remove expired notifications.
         

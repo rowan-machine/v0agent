@@ -1,50 +1,45 @@
 ---
-description: Defines FastAPI routes implementing business-critical CRUD operations for meetings and document management
+description: Documents FastAPI routes implementing CRUD operations for meetings and documents with custom business logic
 ---
 
 
 # api-endpoints
 
-## Meeting Management Endpoints
+Meeting Management Endpoints:
+- /meetings/signals - Extracts and processes domain-specific signals from meetings
+- /meetings/analyze - Implements meeting intelligence pipeline with custom template detection
+- /meetings/bundle - Processes meeting bundles with multi-document correlation
 
-1. Signal Extraction API
-Path: `src/app/api/v1/meetings.py`
-Importance Score: 85
-- Extracts business signals (decisions, actions, blockers, risks) from meeting content
-- Implements domain-specific signal categorization with confidence scoring
-- Auto-tags signals based on content analysis and meeting context
-- Maintains signal state transitions (draft, approved, archived)
+Document Management Endpoints:
+- /documents/sync - Handles bidirectional sync with conflict detection
+- /documents/knowledge - Manages DIKW hierarchy and knowledge promotion system
+- /documents/signals - Extracts structured signals from document content
 
-2. Document Integration API
-Path: `src/app/api/v1/documents.py` 
-Importance Score: 80
-- Knowledge graph integration for document-meeting relationships
-- Semantic similarity linking between related content
-- DIKW hierarchy promotion workflow endpoints
-- Document version control with business context preservation
+Notable Business Logic:
 
-3. Sprint Integration
-Path: `src/app/api/v1/sprints.py`
-Importance Score: 75
-- Meeting-sprint relationship management
-- Sprint progress tracking through meeting signals
-- Career development signal extraction from sprint meetings
-- Sprint timeline synchronization with meeting schedules
+1. Meeting Intelligence System
+- Template detection supporting 30+ meeting types (All-Hands, Sprint Retro, etc.)
+- Signal categorization: decisions, action items, blockers, risks
+- Meeting bundle processing with cross-document correlation
+Importance Score: 85/100
 
-4. Knowledge Synthesis
-Path: `src/app/api/v1/knowledge.py`
-Importance Score: 90
-- Implements DIKW pyramid progression endpoints
-- Signal merging and promotion validation
-- Knowledge relationship mapping through meetings
-- Confidence scoring for synthesized knowledge items
+2. Knowledge Management Pipeline
+- DIKW (Data, Information, Knowledge, Wisdom) promotion system
+- Multi-item synthesis with confidence scoring
+- Tag-based knowledge clustering
+Importance Score: 90/100
 
-Core Business Features:
-- Meeting signal extraction and categorization
-- Knowledge graph relationship management
-- Sprint integration and progress tracking
-- DIKW hierarchy implementation
-- Career development tracking through meetings
+3. Signal Processing Framework
+- Cross-source signal deduplication
+- Confidence scoring based on feedback patterns
+- Automated signal extraction from various content types
+Importance Score: 80/100
+
+4. Document Synchronization
+- Entity-specific conflict resolution
+- Delta-based sync with timestamp tracking
+- Device-aware change propagation
+Importance Score: 75/100
 
 $END$
 

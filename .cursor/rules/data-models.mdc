@@ -1,51 +1,39 @@
 ---
-description: Documents core data models for meetings and documents, including their relationships and business rules
+description: Documents the core data model structure for meetings and documents, including relationships and signal extraction
 ---
 
 
 # data-models
 
-## Primary Data Models
+## Core Data Models
 
 ### Meeting Model
-- Core entity for tracking all meeting-related data
-- Fields:
-  - title: Meeting identifier
-  - date: Meeting occurrence timestamp
-  - type: Enumerated meeting category (standup, planning, review)
-  - status: Current meeting state (draft, active, archived)
-  - signals: One-to-many relationship with extracted meeting signals
-  - participants: Many-to-many relationship with users
-  - documents: One-to-many relationship with attached documents
+- Stores meeting content with hierarchical signal classification
+- Signal categories: decisions, action items, blockers, risks, ideas
+- Status tracking system for each signal (approved, rejected, archived, waiting)
+- Version control for meeting notes with diff tracking
+- Meeting type classification (standup, sprint, allhands etc)
 
-### Document Model
-- Container for meeting-related artifacts and references
-- Fields:
-  - content: Document body text
-  - format: Document type (markdown, mindmap, notes)
-  - meetings: Many-to-one relationship with parent meeting
-  - signals: One-to-many relationship with extracted document signals
-  - metadata: JSON field for format-specific properties
+### Document Model 
+- Domain-specific document versioning with comparison capabilities
+- Multi-format content storage (markdown, plaintext)
+- Semantic linking system between related documents
+- Screenshot analysis integration
+- Document-to-signal extraction pipeline
 
 ## Relationships
 
-### Meeting-Document Relationship
-- Documents are owned by exactly one meeting
-- Meetings can have multiple associated documents
-- Automatic document linking based on semantic similarity
-- Document inheritance through meeting hierarchies
+### Meeting-Document Links
+- Bidirectional references between meetings and source documents
+- Semantic similarity scoring (min threshold 0.78)
+- Link categorization (referenced, derived, blocked-by)
+- Version-aware relationship tracking
 
-### Meeting-Signal Relationship 
-- Signals extract key insights from meetings/documents
-- Signals maintain reference to source meeting/document
-- Signal categorization into decisions/actions/blockers
-- Signal confidence scoring based on validation counts
-
-## Business Rules
-- Documents require parent meeting association
-- Meeting status transitions follow strict workflow
-- Signals maintain source tracking and validation counts
-- Document linking uses semantic similarity threshold (0.78)
+### Signal Extraction Pipeline
+- Automated signal classification from both meetings and documents
+- Hierarchical organization of extracted signals
+- Cross-reference validation between sources
+- Status lifecycle management
 
 $END$
 

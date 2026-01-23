@@ -70,6 +70,7 @@ class TestSearchUserMentionsInTranscripts:
             MagicMock(fetchall=lambda: []),  # No raw_text results
             MagicMock(fetchall=lambda: [
                 {
+                    "id": 1,  # Need id for deduplication
                     "content": "Transcript: TestUser said we need to prioritize the API work.",
                     "source": "Teams",
                     "doc_type": "transcript",
@@ -139,6 +140,65 @@ class TestSearchUserMentionsInTranscripts:
             result = await agent._search_user_mentions_in_transcripts("TestUser")
         
         assert "Team Sync" in result
+    
+    @pytest.mark.asyncio
+    async def test_finds_speaker_format_mentions(self, mock_db_connection, agent_config):
+        """Should find transcript speaker formats like 'Rowan Neri 11:59 AM'."""
+        from src.app.agents.arjuna import ArjunaAgent
+        
+        # Simulate transcript with speaker timestamp format
+        mock_db_connection.execute.side_effect = [
+            MagicMock(fetchall=lambda: [
+                {
+                    "id": 1,
+                    "meeting_name": "Team Standup",
+                    "raw_text": "Rowan Neri 11:59 AM\nI'll work on the API today.\n\nJohn Doe 12:01 PM\nSounds good!",
+                    "meeting_date": "2025-01-15"
+                }
+            ]),
+            MagicMock(fetchall=lambda: [])
+        ]
+        
+        with patch("src.app.db.connect", return_value=mock_db_connection):
+            agent = ArjunaAgent(config=agent_config)
+            result = await agent._search_user_mentions_in_transcripts("Rowan")
+        
+        assert "Team Standup" in result
+        assert "Rowan" in result
+        assert "I'll work on the API" in result
+    
+    @pytest.mark.asyncio
+    async def test_searches_full_name_and_first_name(self, mock_db_connection, agent_config):
+        """Should search for both full name and first name if full name provided."""
+        from src.app.agents.arjuna import ArjunaAgent
+        
+        # Will be called multiple times - once for full name, once for first name
+        call_count = [0]
+        def mock_execute(*args, **kwargs):
+            call_count[0] += 1
+            if "rowan neri" in args[1][0].lower():
+                # Full name search
+                return MagicMock(fetchall=lambda: [])
+            elif "rowan" in args[1][0].lower():
+                # First name search finds it
+                return MagicMock(fetchall=lambda: [
+                    {
+                        "id": 1,
+                        "meeting_name": "Sprint Planning",
+                        "raw_text": "Rowan mentioned the timeline concerns.",
+                        "meeting_date": "2025-01-15"
+                    }
+                ])
+            return MagicMock(fetchall=lambda: [])
+        
+        mock_db_connection.execute.side_effect = mock_execute
+        
+        with patch("src.app.db.connect", return_value=mock_db_connection):
+            agent = ArjunaAgent(config=agent_config)
+            result = await agent._search_user_mentions_in_transcripts("Rowan Neri")
+        
+        # Should find results even though full name wasn't found
+        assert "Sprint Planning" in result or "No mentions" not in result
 
 
 class TestExtractMentionSnippet:

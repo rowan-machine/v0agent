@@ -1454,49 +1454,76 @@ Analyze the user's intent and respond with JSON as specified."""
         1. raw_text in meeting_summaries
         2. content in meeting_documents (Teams/Pocket transcripts)
         
+        Handles transcript formats like "Rowan Neri 11:59 AM" by searching for:
+        - First name only (e.g., "Rowan")
+        - Full name if provided (e.g., "Rowan Neri")
+        
         Returns context with snippets around user mentions.
         """
         context_parts = []
+        
+        # Build search patterns - handle "FirstName" or "FirstName LastName" formats
+        # USER_NAME might be "Rowan" or "Rowan Neri"
+        search_names = [user_name]
+        name_parts = user_name.split()
+        if len(name_parts) > 1:
+            # If full name given, also search for first name alone
+            search_names.append(name_parts[0])
         
         try:
             from ..db import connect
             
             with connect() as conn:
-                # Search meeting_summaries.raw_text for user mentions
-                meetings_raw = conn.execute(
-                    """SELECT ms.id, ms.meeting_name, ms.raw_text, ms.meeting_date
-                       FROM meeting_summaries ms
-                       WHERE LOWER(ms.raw_text) LIKE ?
-                       ORDER BY COALESCE(ms.meeting_date, ms.created_at) DESC
-                       LIMIT 10""",
-                    (f"%{user_name.lower()}%",)
-                ).fetchall()
+                seen_meeting_ids = set()
                 
-                for m in meetings_raw:
-                    if m["raw_text"]:
-                        snippet = self._extract_mention_snippet(m["raw_text"], user_name)
-                        if snippet:
-                            date_str = m["meeting_date"] or "Unknown date"
-                            context_parts.append(f"**{m['meeting_name']}** ({date_str}):\n{snippet}")
+                for search_name in search_names:
+                    # Search meeting_summaries.raw_text for user mentions
+                    meetings_raw = conn.execute(
+                        """SELECT ms.id, ms.meeting_name, ms.raw_text, ms.meeting_date
+                           FROM meeting_summaries ms
+                           WHERE LOWER(ms.raw_text) LIKE ?
+                           ORDER BY COALESCE(ms.meeting_date, ms.created_at) DESC
+                           LIMIT 10""",
+                        (f"%{search_name.lower()}%",)
+                    ).fetchall()
+                    
+                    for m in meetings_raw:
+                        if m["id"] in seen_meeting_ids:
+                            continue
+                        seen_meeting_ids.add(m["id"])
+                        
+                        if m["raw_text"]:
+                            # Search for any of the name variations in the snippet
+                            snippet = self._extract_mention_snippet(m["raw_text"], search_name)
+                            if snippet:
+                                date_str = m["meeting_date"] or "Unknown date"
+                                context_parts.append(f"**{m['meeting_name']}** ({date_str}):\n{snippet}")
                 
-                # Search meeting_documents.content for user mentions
-                docs = conn.execute(
-                    """SELECT md.content, md.source, md.doc_type, ms.meeting_name, ms.meeting_date
-                       FROM meeting_documents md
-                       JOIN meeting_summaries ms ON md.meeting_id = ms.id
-                       WHERE LOWER(md.content) LIKE ?
-                       ORDER BY COALESCE(ms.meeting_date, md.created_at) DESC
-                       LIMIT 10""",
-                    (f"%{user_name.lower()}%",)
-                ).fetchall()
+                seen_doc_ids = set()
                 
-                for d in docs:
-                    if d["content"]:
-                        snippet = self._extract_mention_snippet(d["content"], user_name)
-                        if snippet:
-                            date_str = d["meeting_date"] or "Unknown date"
-                            source = d["source"] or d["doc_type"] or "Transcript"
-                            context_parts.append(f"**{d['meeting_name']}** - {source} ({date_str}):\n{snippet}")
+                for search_name in search_names:
+                    # Search meeting_documents.content for user mentions
+                    docs = conn.execute(
+                        """SELECT md.id, md.content, md.source, md.doc_type, ms.meeting_name, ms.meeting_date
+                           FROM meeting_documents md
+                           JOIN meeting_summaries ms ON md.meeting_id = ms.id
+                           WHERE LOWER(md.content) LIKE ?
+                           ORDER BY COALESCE(ms.meeting_date, md.created_at) DESC
+                           LIMIT 10""",
+                        (f"%{search_name.lower()}%",)
+                    ).fetchall()
+                    
+                    for d in docs:
+                        if d["id"] in seen_doc_ids:
+                            continue
+                        seen_doc_ids.add(d["id"])
+                        
+                        if d["content"]:
+                            snippet = self._extract_mention_snippet(d["content"], search_name)
+                            if snippet:
+                                date_str = d["meeting_date"] or "Unknown date"
+                                source = d["source"] or d["doc_type"] or "Transcript"
+                                context_parts.append(f"**{d['meeting_name']}** - {source} ({date_str}):\n{snippet}")
                 
         except Exception as e:
             logger.error(f"Failed to search transcripts for user mentions: {e}")

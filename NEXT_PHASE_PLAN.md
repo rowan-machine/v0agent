@@ -45,6 +45,56 @@ With the core migration complete (28 Supabase tables, agent system, mobile scaff
 - Extracts context snippets around mentions
 - Uses `USER_NAME` env variable (defaults to "Rowan")
 
+### 🔔 Phase F3: Notification API ✅ COMPLETE (22 tests)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/notifications` | GET | List pending notifications with type/limit filters |
+| `/api/v1/notifications/unread-count` | GET | Badge count for UI bell |
+| `/api/v1/notifications/{id}` | GET | Get single notification |
+| `/api/v1/notifications/{id}/read` | PATCH | Mark notification as read |
+| `/api/v1/notifications/{id}/action` | POST | Approve/reject/dismiss with feedback |
+| `/api/v1/notifications/{id}` | DELETE | Remove notification |
+| `/api/v1/notifications/mark-all-read` | POST | Mark all as read |
+| `/api/v1/notifications/types/list` | GET | List available notification types |
+
+**Notification Types:**
+- `action_due` - Action item approaching deadline
+- `transcript_match` - Grooming meeting matched to ticket
+- `missed_criteria` - Items in meeting not reflected in ticket
+- `mention` - User mentioned in transcript
+- `coach` - Career growth suggestion
+- `signal_review` - AI-extracted signal needs approval
+- `dikw_synthesis` - Knowledge synthesis ready for review
+
+---
+
+## 🔄 Phase F4: Background Jobs (In Progress)
+
+### F4a: 1:1 Prep Digest
+**Schedule:** Biweekly Tuesday 7:00 AM (next: Jan 27, 2026)
+
+Generates notification answering:
+1. What are my top 3 things I'm currently working on?
+2. Where do I need help? (blockers from recent meetings)
+3. What are my recent observations and feedback to discuss?
+
+### F4b: Stale Ticket / Blocker Alert
+**Schedule:** Daily 9:00 AM (weekdays)
+
+Triggers when:
+- Ticket has no activity for 5+ days
+- Blocker mentioned but unresolved after 3 days
+- Action item with date pattern is overdue
+
+### F4c: Grooming-to-Ticket Match Alert
+**Schedule:** Hourly (on new grooming meetings)
+
+Generates:
+- Match notification with relevance score (via embeddings)
+- Gap analysis: items discussed but not in ticket implementation plan
+- Code coverage check if code files uploaded
+
 ---
 
 ## Phase Breakdown
@@ -598,9 +648,11 @@ Current Jinja2 templates are functional but **lack polish**. A modern React fron
 |----------|------|--------|--------|--------|
 | **P0** | ✅ F1: Pocket Import Pipeline | 95/100 | 2-3 days | **COMPLETE** (70 tests) |
 | **P0** | ✅ F2: Enhanced Search | 90/100 | 2-3 days | **COMPLETE** (42 tests) |
-| **P1** | F3: Notification System | 85/100 | 3-4 days | Next Priority |
-| **P1** | F4: Scheduled Background Jobs | 80/100 | 4-5 days | After F3 |
-| **P2** | Test Coverage to 80% | 70/100 | 3-4 days | ~80% achieved |
+| **P0** | ✅ F3: Notification API | 85/100 | 1 day | **COMPLETE** (22 tests) |
+| **P1** | F4a: 1:1 Prep Job | 90/100 | 1 day | Next Priority |
+| **P1** | F4b: Stale Ticket Alert | 80/100 | 1 day | After F4a |
+| **P1** | F4c: Grooming Match Alert | 85/100 | 1-2 days | After F4b |
+| **P2** | Test Coverage to 80% | 70/100 | 3-4 days | ~80% achieved (134 tests) |
 | **P3** | F6: Next.js Frontend | 80/100 | 4-5 weeks | Month 2 |
 | **P4** | MCP Tool Registry | 65/100 | 1 week | Month 3 |
 | **P4** | F5: Mobile Features | 60/100 | 1 week | Month 3 |
@@ -608,8 +660,8 @@ Current Jinja2 templates are functional but **lack polish**. A modern React fron
 **Execution Progress:**
 - ✅ **Week 1-2:** F1 (Import) COMPLETE - Markdown/PDF import, Pocket bundle amend, Mindmap vision analysis
 - ✅ **Week 2:** F2 (Search) COMPLETE - Full-text search, @Rowan mentions, highlight snippets
-- 🔄 **Week 3:** F3 (Notifications) - Next priority
-- **Week 4:** F4 (Background Jobs) + bug fixes
+- ✅ **Week 3:** F3 (Notification API) COMPLETE - Full REST API with 22 tests
+- 🔄 **Week 3-4:** F4 (Background Jobs) - 1:1 prep, stale alerts, grooming match
 - **Month 2:** F6 (Frontend redesign) - big project
 - **Month 3:** MCP integration + mobile polish
 
@@ -617,19 +669,20 @@ Current Jinja2 templates are functional but **lack polish**. A modern React fron
 
 ## Success Metrics
 
-**By End of Phase F1-F2 ✅ COMPLETE:**
+**By End of Phase F1-F3 ✅ COMPLETE:**
 - [x] Rowan can import Pocket transcripts in <10 seconds
 - [x] Multi-format support (MD, PDF, DOCX, TXT)
 - [x] Mindmap screenshots analyzed via GPT-4 Vision
 - [x] Search returns relevant results across meetings in <1s
 - [x] @Rowan button surfaces personal mentions
-- [x] 112 tests passing, ~80% coverage
+- [x] Notification API ready for background jobs
+- [x] 134 tests passing, ~80% coverage
 
-**By End of Phase F3-F4 (Target: Week 4):**
+**By End of Phase F4 (Target: Jan 27, 2026):**
+- [ ] 1:1 prep digest delivered biweekly Tuesday AM
+- [ ] Stale ticket/blocker alerts daily
+- [ ] Grooming-to-ticket matching with gap analysis
 - [ ] System sends 5+ notifications per week proactively
-- [ ] Background jobs run without manual intervention
-- [ ] Action items tracked with due date reminders
-- [ ] Transcript-ticket matching automated
 
 **By End of Phase F6 (Month 2):**
 - [ ] Next.js frontend live in production

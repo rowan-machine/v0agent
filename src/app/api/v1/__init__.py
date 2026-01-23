@@ -10,6 +10,7 @@ Phase 3.1: Modern API with proper HTTP semantics.
 
 Phase 7+: Signal feedback loop and AI memory integration
 Phase F1: File import pipeline for Pocket transcripts
+Phase F3: Notification system for proactive alerts
 """
 
 from fastapi import APIRouter
@@ -21,6 +22,7 @@ from .tickets import router as tickets_router
 from .feedback import router as feedback_router
 from .ai_memory import router as ai_memory_router
 from .imports import router as imports_router
+from .notifications import router as notifications_router
 
 router = APIRouter(prefix="/api/v1", tags=["v1"])
 
@@ -32,3 +34,4 @@ router.include_router(tickets_router, prefix="/tickets", tags=["tickets"])
 router.include_router(feedback_router, prefix="/signals", tags=["feedback"])
 router.include_router(ai_memory_router, prefix="/ai", tags=["ai-memory"])
 router.include_router(imports_router, prefix="/imports", tags=["imports"])
+router.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
