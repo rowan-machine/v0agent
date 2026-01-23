@@ -20,6 +20,7 @@ from enum import Enum
 from typing import Dict, List, Optional, Any
 
 from ..db import connect
+from ..infrastructure.supabase_client import get_supabase_client as get_supabase
 
 logger = logging.getLogger(__name__)
 

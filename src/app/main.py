@@ -1156,6 +1156,156 @@ async def get_suggested_mode():
     })
 
 
+@app.get("/api/settings/mode/expected-duration")
+async def get_expected_mode_duration():
+    """Get expected duration for each mode based on historical data with defaults.
+    
+    Returns expected minutes per mode, calculated from historical time tracking
+    data with sensible defaults when insufficient data exists.
+    """
+    # Default expected durations (in minutes) based on typical workflow
+    # These are conservative defaults that will be overridden by actual data
+    defaults = {
+        "mode-a": 60,   # Context Distillation: ~1 hour
+        "mode-b": 45,   # Implementation Planning: ~45 min
+        "mode-c": 90,   # Assisted Draft Intake: ~1.5 hours
+        "mode-d": 60,   # Deep Review: ~1 hour
+        "mode-e": 30,   # Promotion Readiness: ~30 min
+        "mode-f": 20,   # Controlled Ingress/Egress: ~20 min
+        "mode-g": 120,  # Execution: ~2 hours (variable)
+    }
+    
+    result = {}
+    
+    with connect() as conn:
+        # Get historical averages from mode_sessions table
+        for mode, default_mins in defaults.items():
+            row = conn.execute("""
+                SELECT 
+                    COUNT(*) as session_count,
+                    AVG(duration_seconds) as avg_seconds,
+                    MIN(duration_seconds) as min_seconds,
+                    MAX(duration_seconds) as max_seconds
+                FROM mode_sessions
+                WHERE mode = ? AND duration_seconds IS NOT NULL AND duration_seconds > 0
+            """, (mode,)).fetchone()
+            
+            session_count = row["session_count"] if row else 0
+            
+            if session_count >= 3:  # Need at least 3 data points to trust the average
+                avg_mins = int((row["avg_seconds"] or 0) / 60)
+                # Use a blend: 70% historical, 30% default (to avoid extreme values)
+                expected_mins = int(avg_mins * 0.7 + default_mins * 0.3)
+            else:
+                expected_mins = default_mins
+            
+            result[mode] = {
+                "expected_minutes": expected_mins,
+                "default_minutes": default_mins,
+                "historical_sessions": session_count,
+                "has_sufficient_data": session_count >= 3,
+            }
+    
+    return JSONResponse(result)
+
+
+@app.post("/api/workflow/check-completion")
+async def check_workflow_completion(request: Request):
+    """Check if a mode's workflow is complete and celebrate if done early.
+    
+    Creates a celebration notification if:
+    1. All checkboxes for the mode are complete
+    2. Completed before the expected phase end time
+    
+    Returns celebration status and creates notification if applicable.
+    """
+    from src.app.services.notification_queue import (
+        NotificationQueue, Notification, NotificationType, NotificationPriority
+    )
+    
+    data = await request.json()
+    mode = data.get("mode", "mode-a")
+    progress = data.get("progress", [])  # List of booleans
+    elapsed_seconds = data.get("elapsed_seconds", 0)  # Time spent in this mode session
+    
+    # Check if all checkboxes are complete
+    if not progress or not all(progress):
+        return JSONResponse({
+            "complete": False,
+            "celebrate": False,
+            "message": "Workflow not complete"
+        })
+    
+    # Get expected duration for this mode
+    expected_data = await get_expected_mode_duration()
+    expected_json = expected_data.body.decode()
+    import json
+    expected = json.loads(expected_json)
+    mode_expected = expected.get(mode, {})
+    expected_minutes = mode_expected.get("expected_minutes", 60)
+    expected_seconds = expected_minutes * 60
+    
+    # Check if completed early (within expected time)
+    is_early = elapsed_seconds < expected_seconds
+    time_saved_seconds = max(0, expected_seconds - elapsed_seconds)
+    time_saved_minutes = int(time_saved_seconds / 60)
+    
+    # Mode display names
+    mode_names = {
+        "mode-a": "Context Distillation",
+        "mode-b": "Implementation Planning",
+        "mode-c": "Assisted Draft Intake",
+        "mode-d": "Deep Review",
+        "mode-e": "Promotion Readiness",
+        "mode-f": "Controlled Sync",
+        "mode-g": "Execution",
+    }
+    mode_name = mode_names.get(mode, mode)
+    
+    # Create celebration notification
+    queue = NotificationQueue()
+    
+    if is_early:
+        title = f"🎉 {mode_name} Complete!"
+        body = f"Amazing work! You finished {len(progress)} tasks in {int(elapsed_seconds/60)} minutes.\n\n"
+        body += f"⏱️ **{time_saved_minutes} minutes ahead of schedule!**\n\n"
+        body += "Keep up the excellent momentum! 🚀"
+        celebration_type = "early_finish"
+    else:
+        title = f"✅ {mode_name} Complete"
+        body = f"Great job completing all {len(progress)} tasks!\n\n"
+        body += f"Time taken: {int(elapsed_seconds/60)} minutes"
+        celebration_type = "complete"
+    
+    notification = Notification(
+        notification_type=NotificationType.COACH_RECOMMENDATION,
+        title=title,
+        body=body,
+        data={
+            "type": "mode_completion",
+            "celebration_type": celebration_type,
+            "mode": mode,
+            "tasks_completed": len(progress),
+            "elapsed_seconds": elapsed_seconds,
+            "expected_seconds": expected_seconds,
+            "time_saved_seconds": time_saved_seconds if is_early else 0,
+            "show_confetti": is_early,  # Trigger confetti on open
+        },
+        priority=NotificationPriority.HIGH if is_early else NotificationPriority.NORMAL,
+        expires_at=datetime.now() + timedelta(days=1),
+    )
+    
+    notification_id = queue.create(notification)
+    
+    return JSONResponse({
+        "complete": True,
+        "celebrate": is_early,
+        "notification_id": notification_id,
+        "time_saved_minutes": time_saved_minutes if is_early else 0,
+        "message": f"Completed in {int(elapsed_seconds/60)} min (expected: {expected_minutes} min)"
+    })
+
+
 @app.post("/api/settings/mode")
 async def set_workflow_mode(request: Request):
     """Save the current workflow mode to the database."""

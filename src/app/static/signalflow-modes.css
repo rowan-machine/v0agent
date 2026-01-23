@@ -1116,3 +1116,104 @@
   color: #b0b0b0;
 }
 
+
+/* ===== CONFETTI CELEBRATION ===== */
+.confetti-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10000;
+  overflow: hidden;
+}
+
+.confetti {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #f00;
+  animation: confetti-fall 3s ease-in-out forwards;
+}
+
+.confetti:nth-child(odd) { background: #8b5cf6; }
+.confetti:nth-child(even) { background: #3b82f6; }
+.confetti:nth-child(3n) { background: #22c55e; }
+.confetti:nth-child(4n) { background: #f59e0b; }
+.confetti:nth-child(5n) { background: #ef4444; }
+.confetti:nth-child(6n) { background: #ec4899; }
+
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+/* Celebration toast */
+.celebration-toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  padding: 2rem 3rem;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  z-index: 10001;
+  text-align: center;
+  animation: celebrate-pop 0.5s ease-out forwards;
+}
+
+.celebration-toast h2 {
+  font-size: 2rem;
+  margin: 0 0 0.5rem 0;
+}
+
+.celebration-toast p {
+  font-size: 1.1rem;
+  margin: 0;
+  opacity: 0.9;
+}
+
+.celebration-toast .time-saved {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  margin-top: 1rem;
+  font-weight: 600;
+}
+
+@keyframes celebrate-pop {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Celebration fade out */
+.celebration-toast.fade-out {
+  animation: celebrate-fade 0.5s ease-in forwards;
+}
+
+@keyframes celebrate-fade {
+  to {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0;
+  }
+}
+

@@ -678,3 +678,107 @@ class TestGroomingMatchJob:
         assert "85%" in body
         assert "Gaps Found" in body
 
+
+# =============================================================================
+# F4e: MODE COMPLETION CELEBRATION TESTS
+# =============================================================================
+
+class TestModeCompletionCelebration:
+    """Tests for the workflow mode completion celebration feature."""
+    
+    @pytest.fixture
+    def client(self):
+        """Create a test client with auth bypassed."""
+        import os
+        os.environ['BYPASS_TOKEN'] = 'test-token'
+        from src.app.main import app
+        from fastapi.testclient import TestClient
+        client = TestClient(app)
+        client.headers['X-Auth-Token'] = 'test-token'
+        return client
+    
+    def test_expected_duration_returns_defaults_no_history(self, client):
+        """Should return default durations when no historical data exists."""
+        # Uses real db - test checks the response structure and defaults
+        response = client.get('/api/settings/mode/expected-duration')
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Check structure is correct and has all modes
+        assert 'mode-a' in data
+        assert 'mode-b' in data
+        assert 'mode-c' in data
+        assert 'mode-d' in data
+        assert 'mode-e' in data
+        assert 'mode-f' in data
+        assert 'mode-g' in data
+        
+        # Check structure of response
+        assert 'expected_minutes' in data['mode-a']
+        assert 'default_minutes' in data['mode-a']
+        assert 'historical_sessions' in data['mode-a']
+        assert 'has_sufficient_data' in data['mode-a']
+        
+        # Defaults should be sensible
+        assert data['mode-a']['default_minutes'] == 60
+        assert data['mode-b']['default_minutes'] == 45
+        assert data['mode-c']['default_minutes'] == 90
+    
+    def test_check_completion_requires_all_complete(self, client):
+        """Should not celebrate if not all tasks are complete."""
+        response = client.post('/api/workflow/check-completion',
+            json={'mode': 'mode-a', 'progress': [True, True, False, True], 'elapsed_seconds': 1800})
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data['complete'] is False
+        assert data['celebrate'] is False
+    
+    def test_check_completion_celebrates_early_finish(self, client):
+        """Should celebrate when completing before expected time."""
+        # Complete mode-a (default 60 min) in 30 min (1800 seconds)
+        response = client.post('/api/workflow/check-completion',
+            json={'mode': 'mode-a', 'progress': [True, True, True, True], 'elapsed_seconds': 1800})
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data['complete'] is True
+        assert data['celebrate'] is True
+        assert data['time_saved_minutes'] >= 20  # At least 20 min saved
+    
+    def test_check_completion_no_celebrate_late_finish(self, client):
+        """Should not celebrate when completing after expected time."""
+        # Complete mode-a (default 60 min) in 90 min (5400 seconds)
+        response = client.post('/api/workflow/check-completion',
+            json={'mode': 'mode-a', 'progress': [True, True, True, True], 'elapsed_seconds': 5400})
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data['complete'] is True
+        assert data['celebrate'] is False
+    
+    def test_check_completion_returns_notification_id(self, client):
+        """Should return a notification ID on completion."""
+        response = client.post('/api/workflow/check-completion',
+            json={'mode': 'mode-a', 'progress': [True, True, True, True], 'elapsed_seconds': 1800})
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Should have a notification ID (actual value depends on NotificationQueue)
+        assert 'notification_id' in data
+    
+    def test_check_completion_empty_progress(self, client):
+        """Should handle empty progress array."""
+        response = client.post('/api/workflow/check-completion',
+            json={'mode': 'mode-a', 'progress': [], 'elapsed_seconds': 1800})
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data['complete'] is False
+        assert data['celebrate'] is False

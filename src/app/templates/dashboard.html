@@ -4076,13 +4076,165 @@ function saveWorkflowProgress(mode) {
   
   localStorage.setItem(`workflow-progress-${mode}`, JSON.stringify(progress));
   
-  // Optionally sync to server
+  // Sync to server
   fetch('/api/settings/workflow-progress', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
     body: JSON.stringify({ mode, progress })
-  }).catch(() => {}); // Silent fail for now
+  }).catch(() => {});
+  
+  // Check if all tasks are complete and trigger celebration
+  if (progress.length > 0 && progress.every(Boolean)) {
+    checkWorkflowCompletion(mode, progress);
+  }
+}
+
+// Check if workflow is complete and celebrate if done early
+async function checkWorkflowCompletion(mode, progress) {
+  // Get elapsed time in this mode session from localStorage or tracking
+  const trackingStart = localStorage.getItem('signalflow-tracking-start');
+  const trackingMode = localStorage.getItem('signalflow-tracking-mode');
+  
+  let elapsedSeconds = 0;
+  if (trackingStart && trackingMode === mode) {
+    elapsedSeconds = Math.floor((Date.now() - parseInt(trackingStart)) / 1000);
+  }
+  
+  // Don't celebrate if already celebrated for this mode in this sprint
+  const celebratedKey = `celebrated-${mode}-${new Date().toISOString().slice(0, 10)}`;
+  if (localStorage.getItem(celebratedKey)) {
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/workflow/check-completion', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ mode, progress, elapsed_seconds: elapsedSeconds })
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      
+      if (data.complete) {
+        // Mark as celebrated to prevent repeat
+        localStorage.setItem(celebratedKey, 'true');
+        
+        if (data.celebrate) {
+          // Show confetti and celebration toast for early completion
+          showCelebration(data.time_saved_minutes);
+        } else {
+          // Just show a subtle completion notice
+          showCompletionNotice(mode);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to check workflow completion:', err);
+  }
+}
+
+// Show confetti celebration for early completion
+function showCelebration(timeSavedMinutes) {
+  // Create confetti container
+  const container = document.createElement('div');
+  container.className = 'confetti-container';
+  container.id = 'confettiContainer';
+  
+  // Create 100 confetti pieces
+  for (let i = 0; i < 100; i++) {
+    const confetti = document.createElement('div');
+    confetti.className = 'confetti';
+    confetti.style.left = Math.random() * 100 + '%';
+    confetti.style.animationDelay = Math.random() * 2 + 's';
+    confetti.style.animationDuration = (2 + Math.random() * 2) + 's';
+    // Random shapes
+    const shapes = ['circle', 'square', 'triangle'];
+    const shape = shapes[Math.floor(Math.random() * shapes.length)];
+    if (shape === 'circle') confetti.style.borderRadius = '50%';
+    else if (shape === 'triangle') {
+      confetti.style.width = '0';
+      confetti.style.height = '0';
+      confetti.style.borderLeft = '5px solid transparent';
+      confetti.style.borderRight = '5px solid transparent';
+      confetti.style.borderBottom = '10px solid ' + confetti.style.background;
+      confetti.style.background = 'transparent';
+    }
+    container.appendChild(confetti);
+  }
+  document.body.appendChild(container);
+  
+  // Create celebration toast
+  const toast = document.createElement('div');
+  toast.className = 'celebration-toast';
+  toast.innerHTML = `
+    <h2>🎉 Amazing!</h2>
+    <p>You crushed this mode!</p>
+    ${timeSavedMinutes > 0 ? `<div class="time-saved">⏱️ ${timeSavedMinutes} min ahead of schedule!</div>` : ''}
+  `;
+  document.body.appendChild(toast);
+  
+  // Play a subtle sound if available
+  try {
+    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleVl7e4Wfpq+yrKSalH1uX1pbZXWEk6Cora+toJaDcGA=');
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
+  } catch (e) {}
+  
+  // Remove after animation
+  setTimeout(() => {
+    toast.classList.add('fade-out');
+    setTimeout(() => {
+      container.remove();
+      toast.remove();
+    }, 500);
+  }, 3500);
+}
+
+// Show subtle completion notice (not early)
+function showCompletionNotice(mode) {
+  const modeNames = {
+    'mode-a': 'Context Distillation',
+    'mode-b': 'Implementation Planning',
+    'mode-c': 'Assisted Draft Intake',
+    'mode-d': 'Deep Review',
+    'mode-e': 'Promotion Readiness',
+    'mode-f': 'Controlled Sync',
+    'mode-g': 'Execution',
+  };
+  
+  const toast = document.createElement('div');
+  toast.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+    z-index: 9999;
+    animation: slideIn 0.3s ease-out;
+  `;
+  toast.innerHTML = `✅ ${modeNames[mode] || mode} complete!`;
+  
+  // Add animation keyframes
+  if (!document.getElementById('slideInStyle')) {
+    const style = document.createElement('style');
+    style.id = 'slideInStyle';
+    style.textContent = `
+      @keyframes slideIn {
+        from { transform: translateX(100px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
 }
 
 function loadWorkflowProgress(mode) {
