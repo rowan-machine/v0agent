@@ -69,7 +69,35 @@ With the core migration complete (28 Supabase tables, agent system, mobile scaff
 
 ---
 
-## ✅ Phase F4: Background Jobs (31 tests) - COMPLETE
+## ✅ Phase F4: Background Jobs (55 tests) - COMPLETE
+
+### Job Scheduling Architecture ✅ COMPLETE
+**Infrastructure:** Supabase `pg_cron` + `pg_net` extensions
+**Tables:** `notifications`, `job_runs` (with RLS)
+**APIs:**
+- `POST /api/v1/jobs/{job_name}/run` - Execute a job (called by pg_cron via pg_net)
+- `GET /api/v1/jobs` - List all available jobs and schedules
+
+**How It Works:**
+1. `pg_cron` triggers scheduled jobs at specified times
+2. Each job calls `run_background_job()` PostgreSQL function
+3. `pg_net` makes async HTTP POST to FastAPI `/api/v1/jobs/{name}/run`
+4. FastAPI executes the job and returns result
+5. Job results are logged in `job_runs` table
+
+**Scheduled Jobs:**
+| Job | Schedule | Cron Expression |
+|-----|----------|-----------------|
+| `one_on_one_prep` | Tuesdays 7 AM | `0 7 * * 2` |
+| `stale_ticket_alert` | Weekdays 9 AM | `0 9 * * 1-5` |
+| `grooming_match` | Hourly | `0 * * * *` |
+| `sprint_mode_detect` | Daily 8 AM | `0 8 * * *` |
+| `overdue_encouragement` | Weekdays 2 PM | `0 14 * * 1-5` |
+| `overdue_encouragement` | Weekdays 5 PM | `0 17 * * 1-5` |
+
+**Graceful Fallback:** If the FastAPI app is not running, pg_net requests will fail silently and be logged. Jobs will execute successfully next time the app is available.
+
+---
 
 ### F4a: 1:1 Prep Digest ✅ COMPLETE
 **Schedule:** Biweekly Tuesday 7:00 AM (next: Jan 27, 2026)

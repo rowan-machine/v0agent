@@ -591,7 +591,7 @@ def run_job(job_name: str) -> Dict[str, Any]:
     
     Args:
         job_name: One of 'one_on_one_prep', 'stale_ticket_alert', 
-                  'grooming_match', 'sprint_mode_detect'
+                  'grooming_match', 'sprint_mode_detect', 'overdue_encouragement'
     
     Returns:
         Job result dict
@@ -601,6 +601,7 @@ def run_job(job_name: str) -> Dict[str, Any]:
         "sprint_mode_detect": SprintModeDetectJob,
         "stale_ticket_alert": StaleTicketAlertJob,
         "grooming_match": GroomingMatchJob,
+        "overdue_encouragement": OverdueEncouragementJob,
     }
     
     if job_name not in jobs:

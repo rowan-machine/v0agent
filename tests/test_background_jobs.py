@@ -1016,3 +1016,115 @@ class TestOverdueEncouragementAPI:
         
         # Should return job result
         assert 'message' in data or 'error' in data
+
+
+# =============================================================================
+# JOB SCHEDULING API TESTS (pg_cron integration)
+# =============================================================================
+
+class TestJobSchedulingAPI:
+    """Tests for the job scheduling API endpoints."""
+    
+    @pytest.fixture
+    def client(self):
+        from fastapi.testclient import TestClient
+        from src.app.main import app
+        return TestClient(app)
+    
+    def test_list_jobs_endpoint(self, client):
+        """Should list all available background jobs."""
+        response = client.get('/api/v1/jobs')
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Should have jobs list
+        assert 'jobs' in data
+        assert isinstance(data['jobs'], list)
+        assert len(data['jobs']) >= 5  # At least 5 jobs defined
+        
+        # Each job should have required fields
+        job_names = [j['name'] for j in data['jobs']]
+        assert 'one_on_one_prep' in job_names
+        assert 'sprint_mode_detect' in job_names
+        assert 'stale_ticket_alert' in job_names
+        assert 'grooming_match' in job_names
+        assert 'overdue_encouragement' in job_names
+        
+        # Should have scheduling info
+        assert 'scheduling' in data
+        assert data['scheduling']['method'] == 'supabase_pg_cron'
+    
+    def test_run_job_invalid_name(self, client):
+        """Should return 400 for invalid job name."""
+        response = client.post('/api/v1/jobs/nonexistent_job/run')
+        
+        assert response.status_code == 400
+        data = response.json()
+        
+        assert 'error' in data
+        assert 'available_jobs' in data
+    
+    def test_run_job_valid_sprint_mode(self, client):
+        """Should execute sprint_mode_detect job successfully."""
+        response = client.post('/api/v1/jobs/sprint_mode_detect/run')
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data['job_name'] == 'sprint_mode_detect'
+        assert data['status'] == 'completed'
+        assert 'result' in data
+        assert 'executed_at' in data
+    
+    def test_run_job_accepts_run_id_header(self, client):
+        """Should accept X-Job-Run-Id header from pg_cron."""
+        response = client.post(
+            '/api/v1/jobs/sprint_mode_detect/run',
+            headers={'X-Job-Run-Id': 'test-uuid-123'}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data['run_id'] == 'test-uuid-123'
+
+
+class TestJobConfigs:
+    """Tests for job configuration registry."""
+    
+    def test_all_jobs_have_configs(self):
+        """All jobs in run_job should have configs in JOB_CONFIGS."""
+        from src.app.services.background_jobs import JOB_CONFIGS, run_job
+        
+        # Get job names from run_job function
+        # We can't easily introspect, so check known jobs
+        expected_jobs = [
+            'one_on_one_prep',
+            'sprint_mode_detect', 
+            'stale_ticket_alert',
+            'grooming_match',
+            'overdue_encouragement',
+        ]
+        
+        for job_name in expected_jobs:
+            assert job_name in JOB_CONFIGS, f"Missing config for {job_name}"
+    
+    def test_job_configs_have_required_fields(self):
+        """Each job config should have name, description, schedule."""
+        from src.app.services.background_jobs import JOB_CONFIGS
+        
+        for key, config in JOB_CONFIGS.items():
+            assert config.name, f"{key} missing name"
+            assert config.description, f"{key} missing description"
+            assert config.schedule, f"{key} missing schedule"
+    
+    def test_job_schedules_are_valid_cron(self):
+        """Job schedules should be valid cron expressions."""
+        from src.app.services.background_jobs import JOB_CONFIGS
+        
+        for key, config in JOB_CONFIGS.items():
+            schedule = config.schedule
+            # Basic validation: should have 5 parts (minute hour day month weekday)
+            parts = schedule.split()
+            assert len(parts) == 5, f"{key} has invalid cron schedule: {schedule}"

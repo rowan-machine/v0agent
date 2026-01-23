@@ -1354,6 +1354,83 @@ async def send_overdue_encouragement():
     return JSONResponse(result)
 
 
+# =============================================================================
+# BACKGROUND JOB RUNNER API (for pg_cron integration)
+# =============================================================================
+
+@app.post("/api/v1/jobs/{job_name}/run")
+async def run_background_job(job_name: str, request: Request):
+    """
+    Execute a background job by name.
+    
+    Called by Supabase pg_cron via pg_net HTTP requests.
+    Also available for manual triggering.
+    
+    Jobs:
+    - one_on_one_prep: 1:1 prep digest
+    - stale_ticket_alert: Alert for stale tickets
+    - grooming_match: Match grooming meetings to tickets
+    - sprint_mode_detect: Detect suggested workflow mode
+    - overdue_encouragement: Send encouraging messages for overdue tasks
+    """
+    from src.app.services.background_jobs import run_job, JOB_CONFIGS
+    
+    # Get optional run_id from pg_cron trigger
+    run_id = request.headers.get("X-Job-Run-Id")
+    
+    # Validate job name
+    valid_jobs = list(JOB_CONFIGS.keys())
+    if job_name not in valid_jobs:
+        return JSONResponse({
+            "error": f"Unknown job: {job_name}",
+            "available_jobs": valid_jobs,
+        }, status_code=400)
+    
+    try:
+        result = run_job(job_name)
+        
+        return JSONResponse({
+            "job_name": job_name,
+            "status": "completed",
+            "run_id": run_id,
+            "result": result,
+            "executed_at": datetime.now().isoformat(),
+        })
+    except Exception as e:
+        logger.error(f"Job {job_name} failed: {str(e)}")
+        return JSONResponse({
+            "job_name": job_name,
+            "status": "failed",
+            "run_id": run_id,
+            "error": str(e),
+            "executed_at": datetime.now().isoformat(),
+        }, status_code=500)
+
+
+@app.get("/api/v1/jobs")
+async def list_background_jobs():
+    """List all available background jobs and their schedules."""
+    from src.app.services.background_jobs import JOB_CONFIGS
+    
+    jobs = []
+    for key, config in JOB_CONFIGS.items():
+        jobs.append({
+            "name": key,
+            "display_name": config.name,
+            "description": config.description,
+            "schedule": config.schedule,
+            "enabled": config.enabled,
+        })
+    
+    return JSONResponse({
+        "jobs": jobs,
+        "scheduling": {
+            "method": "supabase_pg_cron",
+            "description": "Jobs are scheduled via Supabase pg_cron and triggered via pg_net HTTP requests",
+        }
+    })
+
+
 @app.post("/api/settings/mode")
 async def set_workflow_mode(request: Request):
     """Save the current workflow mode to the database."""
