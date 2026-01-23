@@ -249,6 +249,8 @@ Features:
 - **Auto-Switch Override:** When pinned, mode won't auto-switch based on sprint cadence
 - **Mode Name Fix:** Button text now displays correct mode name (e.g., "A: Context" not "Mode A")
 - **Settings Persistence:** All settings persist on page refresh via localStorage
+- **Tracking Independence:** Time tracking does NOT override mode selection. If user switches modes, old tracking sessions are ended automatically.
+- **Drawer Early Init:** Drawer pinned state initializes early (in `<head>`) to prevent layout flash
 
 **localStorage Keys:**
 | Key | Values | Description |
@@ -272,6 +274,14 @@ Features:
 | `mode-e` | E: Promote |
 | `mode-f` | F: Sync |
 | `mode-g` | G: Execute |
+
+**Early Initialization (Flash Prevention):**
+To prevent visual flash when the page loads, certain settings are initialized in the `<head>` section:
+- `data-theme` attribute on `<html>` for theme
+- `data-mode` attribute on `<html>` for mode colors
+- `drawer-pinned-early` class on `<html>` for drawer layout
+
+The early `drawer-pinned-early` class is removed once the body is ready and replaced with `drawer-pinned` on the body element.
 
 ---
 

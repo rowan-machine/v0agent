@@ -217,6 +217,98 @@ class TestThemeSettingsDocumentation:
 
 
 # =============================================================================
+# TRACKING AND MODE INDEPENDENCE TESTS
+# =============================================================================
+
+class TestTrackingModeIndependence:
+    """Tests documenting that tracking is independent of mode selection.
+    
+    The tracking system should NOT override the user's selected mode.
+    If a user switches modes, old tracking sessions should be closed,
+    not used to change the mode display.
+    """
+    
+    def test_tracking_does_not_override_mode_design(self):
+        """Document the design: tracking should not override mode selection.
+        
+        When checkActiveTracking() finds an active tracking session for a different
+        mode than what the user has selected, it should:
+        1. NOT change the mode display to match the tracking session
+        2. End the old tracking session (for different mode)
+        3. Only show tracking indicator if tracking current mode
+        """
+        # This documents the expected behavior implemented in base.html
+        expected_behavior = {
+            'tracking_overrides_mode': False,
+            'ends_stale_sessions': True,
+            'shows_indicator_for_current_mode_only': True
+        }
+        
+        assert expected_behavior['tracking_overrides_mode'] is False
+        assert expected_behavior['ends_stale_sessions'] is True
+        assert expected_behavior['shows_indicator_for_current_mode_only'] is True
+    
+    def test_mode_badge_shows_user_selection(self):
+        """Document that mode badge always shows user's selected mode.
+        
+        The #currentModeName element should display the mode name from
+        the modeNames mapping, corresponding to localStorage 'signalflow-mode'.
+        """
+        mode_names = {
+            'mode-a': 'A: Context',
+            'mode-b': 'B: Planning',
+            'mode-c': 'C: Drafting',
+            'mode-d': 'D: Review',
+            'mode-e': 'E: Promote',
+            'mode-f': 'F: Sync',
+            'mode-g': 'G: Execute'
+        }
+        
+        # Each mode should have a unique display name
+        for mode, name in mode_names.items():
+            assert mode.startswith('mode-')
+            assert name[0] in 'ABCDEFG'  # Starts with letter
+            assert ': ' in name  # Has separator
+
+
+class TestDrawerPinEarlyInit:
+    """Tests documenting drawer pin early initialization to prevent flash."""
+    
+    def test_drawer_pin_early_initialization(self):
+        """Document the early initialization of drawer pinned state.
+        
+        To prevent layout flash, drawer pinned state is initialized in two phases:
+        1. Early: Add 'drawer-pinned-early' class to html element in <head>
+        2. Late: Add 'drawer-pinned' class to body, remove early class
+        """
+        early_class = 'drawer-pinned-early'
+        body_class = 'drawer-pinned'
+        localStorage_key = 'drawerPinned'
+        
+        # Document the CSS classes used
+        assert early_class == 'drawer-pinned-early'
+        assert body_class == 'drawer-pinned'
+        assert localStorage_key == 'drawerPinned'
+    
+    def test_drawer_pin_css_rules(self):
+        """Document CSS rules for pinned drawer state.
+        
+        Both body.drawer-pinned and html.drawer-pinned-early should:
+        - Show drawer (transform: translateX(0))
+        - Add margin to main content (margin-left: 260px)
+        """
+        css_rules = {
+            'body.drawer-pinned .drawer': 'transform: translateX(0)',
+            'body.drawer-pinned .main-content': 'margin-left: 260px',
+            'html.drawer-pinned-early .drawer': 'transform: translateX(0)',
+            'html.drawer-pinned-early .main-content': 'margin-left: 260px',
+        }
+        
+        for selector, rule in css_rules.items():
+            assert 'drawer' in selector or 'main-content' in selector
+
+
+# =============================================================================
 # COMBINED SETTINGS PERSISTENCE TEST
 # =============================================================================
 

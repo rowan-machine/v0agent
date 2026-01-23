@@ -13,6 +13,10 @@
       // Set mode immediately so mode colors apply from the start
       const savedMode = localStorage.getItem('signalflow-mode') || 'mode-a';
       document.documentElement.setAttribute('data-mode', savedMode);
+      // Set drawer pinned state early to prevent layout flash
+      if (localStorage.getItem('drawerPinned') === 'true') {
+        document.documentElement.classList.add('drawer-pinned-early');
+      }
       // Store mode names for early display (duplicated here for immediate access)
       window.__earlyModeNames = {
         'mode-a': 'A: Context',
@@ -1007,6 +1011,14 @@
 
     body.drawer-pinned .main-content {
       margin-left: 260px;
+    }
+
+    /* Early drawer pinned state (before body is ready) */
+    html.drawer-pinned-early .main-content {
+      margin-left: 260px;
+    }
+    html.drawer-pinned-early .drawer {
+      transform: translateX(0);
     }
 
     .drawer-header {
@@ -2088,33 +2100,36 @@
           const data = await response.json();
           const activeSessions = data.active_sessions || {};
           
-          // Find any active session
-          for (const [mode, session] of Object.entries(activeSessions)) {
-            if (session && session.started_at) {
-              activeTrackingMode = mode;
-              trackingStartTime = Date.now() - (session.elapsed_seconds * 1000);
-              
-              // Sync the mode display with the active tracking session
-              const currentMode = localStorage.getItem('signalflow-mode');
-              if (currentMode !== mode) {
-                // Update localStorage and display to match active tracking
-                localStorage.setItem('signalflow-mode', mode);
-                document.documentElement.setAttribute('data-mode', mode);
-                document.getElementById('currentModeName').textContent = modeNames[mode] || mode;
-                document.querySelectorAll('.mode-option').forEach(btn => {
-                  btn.classList.toggle('active', btn.dataset.mode === mode);
-                });
+          // Find active session for the CURRENT mode only
+          // Don't override mode display - mode selection is independent of tracking
+          const currentMode = localStorage.getItem('signalflow-mode') || 'mode-a';
+          
+          if (activeSessions[currentMode] && activeSessions[currentMode].started_at) {
+            // Active session for current mode - show tracking indicator
+            activeTrackingMode = currentMode;
+            trackingStartTime = Date.now() - (activeSessions[currentMode].elapsed_seconds * 1000);
+            
+            localStorage.setItem('signalflow-tracking-mode', currentMode);
+            localStorage.setItem('signalflow-tracking-start', trackingStartTime.toString());
+            
+            showTrackingIndicator(true);
+            startTrackingTimer();
+            foundActiveSession = true;
+          } else {
+            // Check if there's ANY active session (user may have changed mode)
+            // Stop old sessions that don't match current mode
+            for (const [mode, session] of Object.entries(activeSessions)) {
+              if (session && session.started_at && mode !== currentMode) {
+                // Silently end the old tracking session
+                try {
+                  await fetch('/api/mode-timer/stop', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ mode: mode })
+                  });
+                } catch (e) {}
               }
-              
-              // Update localStorage backup
-              localStorage.setItem('signalflow-tracking-mode', mode);
-              localStorage.setItem('signalflow-tracking-start', trackingStartTime.toString());
-              
-              showTrackingIndicator(true);
-              startTrackingTimer();
-              updatePlayPauseButton();
-              foundActiveSession = true;
-              break;
             }
           }
         }
@@ -2126,24 +2141,18 @@
       if (!foundActiveSession) {
         const savedTrackingMode = localStorage.getItem('signalflow-tracking-mode');
         const savedTrackingStart = localStorage.getItem('signalflow-tracking-start');
+        const currentMode = localStorage.getItem('signalflow-mode') || 'mode-a';
         
-        if (savedTrackingMode && savedTrackingStart) {
+        // Only restore tracking if it matches the current mode
+        if (savedTrackingMode && savedTrackingStart && savedTrackingMode === currentMode) {
           activeTrackingMode = savedTrackingMode;
           trackingStartTime = parseInt(savedTrackingStart, 10);
-          
-          // Sync mode display
-          const currentMode = localStorage.getItem('signalflow-mode');
-          if (currentMode !== savedTrackingMode) {
-            localStorage.setItem('signalflow-mode', savedTrackingMode);
-            document.documentElement.setAttribute('data-mode', savedTrackingMode);
-            document.getElementById('currentModeName').textContent = modeNames[savedTrackingMode] || savedTrackingMode;
-            document.querySelectorAll('.mode-option').forEach(btn => {
-              btn.classList.toggle('active', btn.dataset.mode === savedTrackingMode);
-            });
-          }
-          
           showTrackingIndicator(true);
           startTrackingTimer();
+        } else if (savedTrackingMode && savedTrackingMode !== currentMode) {
+          // Clear stale tracking state that doesn't match current mode
+          localStorage.removeItem('signalflow-tracking-mode');
+          localStorage.removeItem('signalflow-tracking-start');
         }
       }
       
@@ -2349,10 +2358,13 @@
     // ===== DRAWER NAVIGATION (init pinned state) =====
     (function() {
       const pinBtn = document.querySelector('.pin-btn');
-      if (localStorage.getItem('drawerPinned') === 'true') {
+      const isPinned = localStorage.getItem('drawerPinned') === 'true';
+      if (isPinned) {
         document.body.classList.add('drawer-pinned');
         if (pinBtn) pinBtn.classList.add('pinned');
       }
+      // Remove early flag now that body is ready
+      document.documentElement.classList.remove('drawer-pinned-early');
     })();
 
     // ===== ARJUNA SHORTCUTS DRAWER =====
