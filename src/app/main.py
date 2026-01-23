@@ -1124,6 +1124,38 @@ async def convert_ai_to_action(request: Request):
 # Settings API Endpoints
 # ============================================
 
+@app.get("/api/settings/mode/suggested")
+async def get_suggested_mode():
+    """Get the suggested workflow mode based on sprint cadence.
+    
+    Uses SprintModeDetectJob logic to suggest A/B/C/D mode.
+    Returns suggestion along with sprint context info.
+    """
+    from src.app.services.background_jobs import SprintModeDetectJob
+    
+    job = SprintModeDetectJob()
+    sprint_info = job.get_current_sprint_info()
+    suggested = job.detect_suggested_mode()
+    mode_info = job.MODES.get(suggested, {})
+    
+    # Map internal mode (A/B/C/D) to UI mode (mode-a, mode-b, etc.)
+    ui_mode_map = {
+        "A": "mode-a",
+        "B": "mode-b", 
+        "C": "mode-c",
+        "D": "mode-d",
+    }
+    ui_mode = ui_mode_map.get(suggested, "mode-a")
+    
+    return JSONResponse({
+        "suggested_mode": ui_mode,
+        "mode_letter": suggested,
+        "mode_name": mode_info.get("name", ""),
+        "mode_description": mode_info.get("description", ""),
+        "sprint_info": sprint_info,
+    })
+
+
 @app.post("/api/settings/mode")
 async def set_workflow_mode(request: Request):
     """Save the current workflow mode to the database."""

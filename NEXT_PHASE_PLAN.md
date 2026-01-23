@@ -69,7 +69,7 @@ With the core migration complete (28 Supabase tables, agent system, mobile scaff
 
 ---
 
-## ✅ Phase F4: Background Jobs (21 tests) - PARTIAL COMPLETE
+## ✅ Phase F4: Background Jobs (31 tests) - COMPLETE
 
 ### F4a: 1:1 Prep Digest ✅ COMPLETE
 **Schedule:** Biweekly Tuesday 7:00 AM (next: Jan 27, 2026)
@@ -82,8 +82,10 @@ Generates notification answering:
 4. Potentially overdue actions (date pattern detection)
 
 ### F4d: Sprint Mode Auto-Detect ✅ COMPLETE
-**Schedule:** Daily 8:00 AM
+**Schedule:** Daily 8:00 AM + **On Page Load (Smart UI)**
 **Service:** `src/app/services/background_jobs.py` - `SprintModeDetectJob`
+**API:** `GET /api/settings/mode/suggested`
+**Frontend:** Auto-switches mode on page load in `base.html`
 
 Detects suggested workflow mode based on sprint cadence:
 - **Mode A (Context Distillation):** 3-4 days before sprint, weekend prep
@@ -93,21 +95,27 @@ Detects suggested workflow mode based on sprint cadence:
 
 Sprint epoch: Jan 6, 2026 (14-day sprints starting Monday)
 
-### F4b: Stale Ticket / Blocker Alert (Pending)
+The floating mode button (top right) now:
+- Auto-detects mode on page load via `/api/settings/mode/suggested`
+- Pulses briefly when auto-switching modes
+- Only notifies once per day about mode changes
+
+### F4b: Stale Ticket / Blocker Alert ✅ COMPLETE
 **Schedule:** Daily 9:00 AM (weekdays)
+**Service:** `src/app/services/background_jobs.py` - `StaleTicketAlertJob`
 
 Triggers when:
 - Ticket has no activity for 5+ days
 - Blocker mentioned but unresolved after 3 days
-- Action item with date pattern is overdue
 
-### F4c: Grooming-to-Ticket Match Alert
+### F4c: Grooming-to-Ticket Match Alert ✅ COMPLETE
 **Schedule:** Hourly (on new grooming meetings)
+**Service:** `src/app/services/background_jobs.py` - `GroomingMatchJob`
 
 Generates:
-- Match notification with relevance score (via embeddings)
-- Gap analysis: items discussed but not in ticket implementation plan
-- Code coverage check if code files uploaded
+- Match notification with relevance score (ID match = 100%, keyword overlap scoring)
+- Gap analysis: action items in meeting but not reflected in ticket
+- Matches grooming, planning, refinement, backlog, sprint planning meetings
 
 ---
 

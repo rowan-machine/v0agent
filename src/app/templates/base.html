@@ -1585,22 +1585,60 @@
       document.getElementById('modeSelector').classList.toggle('open');
     }
     
-    // Initialize mode
+    // Initialize mode with smart suggestion based on sprint cadence
     async function initMode() {
       const savedMode = localStorage.getItem('signalflow-mode') || 'mode-a';
+      let currentMode = savedMode;
+      
+      // First, check if there's a saved mode on server
       try {
         const response = await fetch('/api/settings/mode', { credentials: 'same-origin' });
         if (response.ok) {
           const data = await response.json();
           if (data.mode) {
-            setMode(data.mode, false);
-            loadSprintTimeStats(); // Load sprint time after mode init
-            return;
+            currentMode = data.mode;
           }
         }
       } catch (err) {}
-      setMode(savedMode);
-      loadSprintTimeStats(); // Load sprint time after mode init
+      
+      // Then, fetch the smart suggestion based on sprint cadence
+      try {
+        const suggestResp = await fetch('/api/settings/mode/suggested', { credentials: 'same-origin' });
+        if (suggestResp.ok) {
+          const suggestData = await suggestResp.json();
+          const suggestedMode = suggestData.suggested_mode;
+          
+          // If suggestion differs from current, auto-switch and show hint
+          if (suggestedMode && suggestedMode !== currentMode) {
+            setMode(suggestedMode, true); // Persist the new mode
+            
+            // Show subtle hint about auto-switch (if not already shown today)
+            const lastHintDate = localStorage.getItem('mode-hint-date');
+            const today = new Date().toDateString();
+            if (lastHintDate !== today) {
+              localStorage.setItem('mode-hint-date', today);
+              const modeName = suggestData.mode_name || suggestedMode;
+              const sprintDay = suggestData.sprint_info?.day_of_sprint ?? 0;
+              console.log(`[Mode Auto-Detect] Switched to ${modeName} (Sprint day ${sprintDay + 1})`);
+              
+              // Add subtle visual pulse to mode badge
+              const badge = document.querySelector('.mode-badge');
+              if (badge) {
+                badge.classList.add('mode-auto-switched');
+                setTimeout(() => badge.classList.remove('mode-auto-switched'), 3000);
+              }
+            }
+            loadSprintTimeStats();
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Mode suggestion unavailable:', err);
+      }
+      
+      // Fallback to current/saved mode
+      setMode(currentMode, false);
+      loadSprintTimeStats();
     }
     initMode();
     

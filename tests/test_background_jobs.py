@@ -439,3 +439,242 @@ class TestDigestContent:
         
         # Should detect items with date patterns from old meetings
         assert len(overdue) > 0
+
+
+# =============================================================================
+# F4b: STALE TICKET ALERT TESTS
+# =============================================================================
+
+class TestStaleTicketAlertJob:
+    """Tests for the Stale Ticket and Blocker Alert job."""
+    
+    @pytest.fixture
+    def mock_queue(self):
+        queue = MagicMock()
+        queue.create.return_value = "notif-stale-123"
+        return queue
+    
+    @pytest.fixture
+    def mock_db_connection(self):
+        conn = MagicMock()
+        conn.__enter__ = MagicMock(return_value=conn)
+        conn.__exit__ = MagicMock(return_value=False)
+        return conn
+    
+    def test_get_stale_tickets(self, mock_db_connection, mock_queue):
+        """Should find tickets with no activity for 5+ days."""
+        from src.app.services.background_jobs import StaleTicketAlertJob
+        
+        old_date = (datetime.now() - timedelta(days=7)).isoformat()
+        mock_db_connection.execute.return_value.fetchall.return_value = [
+            {"id": 1, "title": "Old ticket", "status": "in-progress", "updated_at": old_date, "created_at": old_date}
+        ]
+        
+        with patch('src.app.services.background_jobs.connect', return_value=mock_db_connection):
+            job = StaleTicketAlertJob(queue=mock_queue)
+            stale = job._get_stale_tickets()
+        
+        assert len(stale) == 1
+        assert stale[0]["days_stale"] >= 5
+    
+    def test_get_stale_blockers(self, mock_db_connection, mock_queue):
+        """Should find blockers that haven't been resolved."""
+        from src.app.services.background_jobs import StaleTicketAlertJob
+        
+        old_date = (datetime.now() - timedelta(days=5)).isoformat()
+        mock_db_connection.execute.return_value.fetchall.return_value = [
+            {
+                "id": 1,
+                "meeting_name": "Sprint Planning",
+                "meeting_date": old_date,
+                "signals_json": json.dumps({
+                    "blockers": [{"text": "Waiting on API access from DevOps"}]
+                })
+            }
+        ]
+        
+        with patch('src.app.services.background_jobs.connect', return_value=mock_db_connection):
+            job = StaleTicketAlertJob(queue=mock_queue)
+            blockers = job._get_stale_blockers()
+        
+        assert len(blockers) == 1
+        assert "API access" in blockers[0]["text"]
+    
+    def test_run_creates_notifications(self, mock_db_connection, mock_queue):
+        """Should create notifications for stale items."""
+        from src.app.services.background_jobs import StaleTicketAlertJob
+        
+        old_date = (datetime.now() - timedelta(days=7)).isoformat()
+        
+        # First call returns stale tickets, second returns blockers
+        mock_db_connection.execute.return_value.fetchall.side_effect = [
+            [{"id": 1, "title": "Stale ticket", "status": "todo", "updated_at": old_date, "created_at": old_date}],
+            []  # No blockers
+        ]
+        
+        with patch('src.app.services.background_jobs.connect', return_value=mock_db_connection):
+            job = StaleTicketAlertJob(queue=mock_queue)
+            result = job.run()
+        
+        assert result["alerts_created"] >= 1
+        mock_queue.create.assert_called()
+    
+    def test_run_handles_no_stale_items(self, mock_db_connection, mock_queue):
+        """Should handle case with no stale items gracefully."""
+        from src.app.services.background_jobs import StaleTicketAlertJob
+        
+        mock_db_connection.execute.return_value.fetchall.return_value = []
+        
+        with patch('src.app.services.background_jobs.connect', return_value=mock_db_connection):
+            job = StaleTicketAlertJob(queue=mock_queue)
+            result = job.run()
+        
+        assert result["stale_tickets_found"] == 0
+        assert result["alerts_created"] == 0
+
+
+# =============================================================================
+# F4c: GROOMING MATCH TESTS
+# =============================================================================
+
+class TestGroomingMatchJob:
+    """Tests for the Grooming-to-Ticket Match job."""
+    
+    @pytest.fixture
+    def mock_queue(self):
+        queue = MagicMock()
+        queue.create.return_value = "notif-match-456"
+        return queue
+    
+    @pytest.fixture
+    def mock_db_connection(self):
+        conn = MagicMock()
+        conn.__enter__ = MagicMock(return_value=conn)
+        conn.__exit__ = MagicMock(return_value=False)
+        return conn
+    
+    def test_get_recent_grooming_meetings(self, mock_db_connection, mock_queue):
+        """Should find recent grooming/planning meetings."""
+        from src.app.services.background_jobs import GroomingMatchJob
+        
+        mock_db_connection.execute.return_value.fetchall.return_value = [
+            {
+                "id": 1,
+                "meeting_name": "Sprint Planning - Jan 22",
+                "meeting_date": datetime.now().isoformat(),
+                "raw_text": "Discussed AUTH-123 ticket implementation",
+                "signals_json": "{}"
+            }
+        ]
+        
+        with patch('src.app.services.background_jobs.connect', return_value=mock_db_connection):
+            job = GroomingMatchJob(queue=mock_queue)
+            meetings = job._get_recent_grooming_meetings()
+        
+        assert len(meetings) == 1
+        assert "planning" in meetings[0]["meeting_name"].lower()
+    
+    def test_find_matching_tickets_by_id(self, mock_db_connection, mock_queue):
+        """Should match tickets by ID pattern (e.g., AUTH-123)."""
+        from src.app.services.background_jobs import GroomingMatchJob
+        
+        meeting = {
+            "id": 1,
+            "meeting_name": "Grooming",
+            "raw_text": "Discussed AUTH-123 for the login feature",
+            "signals_json": "{}"
+        }
+        
+        mock_db_connection.execute.return_value.fetchall.return_value = [
+            {"id": 1, "title": "Login feature", "status": "todo", "description": "Implement login", "tags": "auth", "ticket_id": "AUTH-123"}
+        ]
+        
+        with patch('src.app.services.background_jobs.connect', return_value=mock_db_connection):
+            job = GroomingMatchJob(queue=mock_queue)
+            matches = job._find_matching_tickets(meeting)
+        
+        assert len(matches) >= 1
+        assert matches[0]["score"] == 100  # Exact ID match
+    
+    def test_analyze_gaps(self, mock_queue):
+        """Should identify action items not in ticket."""
+        from src.app.services.background_jobs import GroomingMatchJob
+        
+        meeting = {
+            "id": 1,
+            "signals_json": json.dumps({
+                "actions": [
+                    {"text": "Add rate limiting to the API endpoint"},
+                    {"text": "Update documentation for new feature"}
+                ],
+                "decisions": [
+                    {"text": "Use Redis for caching"}
+                ]
+            })
+        }
+        
+        ticket = {
+            "title": "API Performance",
+            "description": "Improve API performance"  # Doesn't mention rate limiting or Redis
+        }
+        
+        job = GroomingMatchJob(queue=mock_queue)
+        gaps = job._analyze_gaps(meeting, ticket)
+        
+        # Should detect gaps since ticket doesn't mention rate limiting or Redis
+        assert len(gaps) >= 1
+    
+    def test_run_creates_match_notification(self, mock_db_connection, mock_queue):
+        """Should create notification when match found."""
+        from src.app.services.background_jobs import GroomingMatchJob
+        
+        # Mock grooming meeting
+        mock_db_connection.execute.return_value.fetchall.side_effect = [
+            # First call: get grooming meetings
+            [{
+                "id": 1,
+                "meeting_name": "Backlog Grooming",
+                "meeting_date": datetime.now().isoformat(),
+                "raw_text": "Working on DATA-456 pipeline optimization",
+                "signals_json": "{}"
+            }],
+            # Second call: find tickets by ID
+            [{"id": 2, "title": "Pipeline optimization", "status": "todo", "description": "Optimize data pipeline", "tags": "data", "ticket_id": "DATA-456"}],
+        ]
+        
+        with patch('src.app.services.background_jobs.connect', return_value=mock_db_connection):
+            job = GroomingMatchJob(queue=mock_queue)
+            result = job.run()
+        
+        assert len(result["matches"]) >= 1
+        mock_queue.create.assert_called()
+    
+    def test_run_no_grooming_meetings(self, mock_db_connection, mock_queue):
+        """Should handle no grooming meetings gracefully."""
+        from src.app.services.background_jobs import GroomingMatchJob
+        
+        mock_db_connection.execute.return_value.fetchall.return_value = []
+        
+        with patch('src.app.services.background_jobs.connect', return_value=mock_db_connection):
+            job = GroomingMatchJob(queue=mock_queue)
+            result = job.run()
+        
+        assert result["matches"] == []
+        assert "No recent grooming" in result["message"]
+    
+    def test_format_match_body(self, mock_queue):
+        """Should format notification body correctly."""
+        from src.app.services.background_jobs import GroomingMatchJob
+        
+        meeting = {"meeting_name": "Sprint Planning"}
+        ticket = {"title": "Feature X", "score": 85, "status": "in-progress"}
+        gaps = ["Action not in ticket: Add tests"]
+        
+        job = GroomingMatchJob(queue=mock_queue)
+        body = job._format_match_body(meeting, ticket, gaps)
+        
+        assert "Sprint Planning" in body
+        assert "Feature X" in body
+        assert "85%" in body
+        assert "Gaps Found" in body
+
