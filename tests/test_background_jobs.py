@@ -21,6 +21,11 @@ def mock_db_connection():
     mock_conn = MagicMock()
     mock_conn.__enter__ = MagicMock(return_value=mock_conn)
     mock_conn.__exit__ = MagicMock(return_value=False)
+    # Reset any potential leftover state
+    mock_conn.execute.return_value.fetchall.side_effect = None
+    mock_conn.execute.return_value.fetchall.return_value = []
+    mock_conn.execute.return_value.fetchone.side_effect = None
+    mock_conn.execute.return_value.fetchone.return_value = None
     return mock_conn
 
 
@@ -649,13 +654,17 @@ class TestGroomingMatchJob:
         assert len(result["matches"]) >= 1
         mock_queue.create.assert_called()
     
-    def test_run_no_grooming_meetings(self, mock_db_connection, mock_queue):
+    def test_run_no_grooming_meetings(self, mock_queue):
         """Should handle no grooming meetings gracefully."""
         from src.app.services.background_jobs import GroomingMatchJob
         
-        mock_db_connection.execute.return_value.fetchall.return_value = []
+        # Create fresh mock to avoid contamination from previous tests
+        mock_conn = MagicMock()
+        mock_conn.__enter__ = MagicMock(return_value=mock_conn)
+        mock_conn.__exit__ = MagicMock(return_value=False)
+        mock_conn.execute.return_value.fetchall.return_value = []
         
-        with patch('src.app.services.background_jobs.connect', return_value=mock_db_connection):
+        with patch('src.app.services.background_jobs.connect', return_value=mock_conn):
             job = GroomingMatchJob(queue=mock_queue)
             result = job.run()
         
@@ -782,3 +791,228 @@ class TestModeCompletionCelebration:
         
         assert data['complete'] is False
         assert data['celebrate'] is False
+
+# =============================================================================
+# F4f: OVERDUE TASK ENCOURAGEMENT TESTS
+# =============================================================================
+
+class TestOverdueEncouragementJob:
+    """Tests for the overdue task encouragement job."""
+    
+    @pytest.fixture
+    def mock_queue(self):
+        queue = MagicMock()
+        queue.create.return_value = "encouragement-notif-123"
+        return queue
+    
+    @pytest.fixture
+    def mock_db_connection(self):
+        conn = MagicMock()
+        conn.__enter__ = lambda s: s
+        conn.__exit__ = MagicMock(return_value=False)
+        return conn
+    
+    def test_job_config_exists(self):
+        """Should have job config defined."""
+        from src.app.services.background_jobs import JOB_CONFIGS
+        
+        assert "overdue_encouragement" in JOB_CONFIGS
+        config = JOB_CONFIGS["overdue_encouragement"]
+        assert config.name == "Overdue Task Encouragement"
+        assert config.enabled is True
+    
+    def test_mode_defaults_defined(self):
+        """Should have expected duration defaults for all modes."""
+        from src.app.services.background_jobs import OverdueEncouragementJob
+        
+        job = OverdueEncouragementJob()
+        
+        assert job.MODE_DEFAULTS["mode-a"] == 60
+        assert job.MODE_DEFAULTS["mode-b"] == 45
+        assert job.MODE_DEFAULTS["mode-c"] == 90
+        assert job.MODE_DEFAULTS["mode-d"] == 60
+        assert job.MODE_DEFAULTS["mode-e"] == 30
+        assert job.MODE_DEFAULTS["mode-f"] == 20
+        assert job.MODE_DEFAULTS["mode-g"] == 120
+    
+    def test_gut_check_templates_exist(self):
+        """Should have gut-check question templates for all modes."""
+        from src.app.services.background_jobs import OverdueEncouragementJob
+        
+        job = OverdueEncouragementJob()
+        
+        for mode in ["mode-a", "mode-b", "mode-c", "mode-d", "mode-e", "mode-f", "mode-g"]:
+            assert mode in job.GUT_CHECK_TEMPLATES
+            assert len(job.GUT_CHECK_TEMPLATES[mode]) >= 2
+    
+    def test_check_if_overdue_not_overdue(self, mock_queue):
+        """Should not be overdue when elapsed < expected."""
+        from src.app.services.background_jobs import OverdueEncouragementJob
+        
+        job = OverdueEncouragementJob(queue=mock_queue)
+        
+        mode_info = {
+            "mode": "mode-a",
+            "elapsed_seconds": 1800,  # 30 min
+            "progress": [True, True, False, False],  # 50% complete
+        }
+        
+        result = job._check_if_overdue(mode_info)
+        
+        # 30 min < 60 min expected, so not overdue
+        assert result["is_overdue"] is False
+        assert result["expected_minutes"] == 60
+        assert result["elapsed_minutes"] == 30
+    
+    def test_check_if_overdue_is_overdue(self, mock_queue):
+        """Should be overdue when elapsed > expected and tasks remain."""
+        from src.app.services.background_jobs import OverdueEncouragementJob
+        
+        job = OverdueEncouragementJob(queue=mock_queue)
+        
+        mode_info = {
+            "mode": "mode-a",
+            "elapsed_seconds": 5400,  # 90 min
+            "progress": [True, True, False, False],  # 50% complete
+        }
+        
+        result = job._check_if_overdue(mode_info)
+        
+        # 90 min > 60 min expected, and incomplete tasks
+        assert result["is_overdue"] is True
+        assert result["overdue_minutes"] == 30
+        assert result["tasks_remaining"] == 2
+    
+    def test_check_if_overdue_not_overdue_when_complete(self, mock_queue):
+        """Should not be overdue when all tasks are complete."""
+        from src.app.services.background_jobs import OverdueEncouragementJob
+        
+        job = OverdueEncouragementJob(queue=mock_queue)
+        
+        mode_info = {
+            "mode": "mode-a",
+            "elapsed_seconds": 5400,  # 90 min - over expected
+            "progress": [True, True, True, True],  # 100% complete
+        }
+        
+        result = job._check_if_overdue(mode_info)
+        
+        # Over time, but all tasks done, so not overdue
+        assert result["is_overdue"] is False
+        assert result["completion_pct"] == 100
+    
+    def test_create_notification_has_gut_check(self, mock_queue):
+        """Should create notification with gut-check question."""
+        from src.app.services.background_jobs import OverdueEncouragementJob
+        
+        job = OverdueEncouragementJob(queue=mock_queue)
+        
+        mode_info = {"mode": "mode-b", "elapsed_seconds": 5400}
+        overdue_info = {
+            "is_overdue": True,
+            "elapsed_minutes": 90,
+            "expected_minutes": 45,
+            "overdue_minutes": 45,
+            "tasks_remaining": 2,
+        }
+        context = {
+            "task_focus": "the API endpoint",
+            "ticket_title": "Implement user auth",
+            "pending_tasks": ["Add validation", "Write tests"],
+        }
+        
+        notification = job._create_encouragement_notification(
+            mode_info, overdue_info, context
+        )
+        
+        assert "Check-in" in notification.title
+        assert "Implementation Planning" in notification.title
+        assert "90 minutes" in notification.body
+        assert "Expected ~45 min" in notification.body
+        assert "Remaining tasks" in notification.body or "💭" in notification.body
+    
+    def test_run_creates_notification_when_overdue(self, mock_queue, mock_db_connection):
+        """Should create notification when user is overdue."""
+        from src.app.services.background_jobs import OverdueEncouragementJob
+        
+        # Mock database to return overdue state
+        def make_row(values):
+            row = MagicMock()
+            row.__getitem__ = lambda s, k: values.get(k)
+            return row
+        
+        mock_db_connection.execute.return_value.fetchone.side_effect = [
+            make_row({"value": "mode-a"}),  # current_mode
+            make_row({"started_at": (datetime.now() - timedelta(minutes=90)).isoformat(), "elapsed_seconds": 5400}),  # session
+            make_row({"value": json.dumps([True, False, False, False])}),  # progress
+            None,  # no ticket
+        ]
+        mock_db_connection.execute.return_value.fetchall.return_value = []
+        
+        with patch('src.app.services.background_jobs.connect', return_value=mock_db_connection):
+            job = OverdueEncouragementJob(queue=mock_queue)
+            result = job.run()
+        
+        assert result["is_overdue"] is True
+        assert result["notifications_created"] == 1
+        mock_queue.create.assert_called_once()
+    
+    def test_run_no_notification_when_not_overdue(self, mock_queue, mock_db_connection):
+        """Should not create notification when not overdue."""
+        from src.app.services.background_jobs import OverdueEncouragementJob
+        
+        def make_row(values):
+            row = MagicMock()
+            row.__getitem__ = lambda s, k: values.get(k)
+            return row
+        
+        # Mock database to return on-time state
+        mock_db_connection.execute.return_value.fetchone.side_effect = [
+            make_row({"value": "mode-a"}),  # current_mode
+            make_row({"started_at": (datetime.now() - timedelta(minutes=30)).isoformat(), "elapsed_seconds": 1800}),  # session - only 30 min
+            make_row({"value": json.dumps([True, True, False, False])}),  # 50% progress
+        ]
+        
+        with patch('src.app.services.background_jobs.connect', return_value=mock_db_connection):
+            job = OverdueEncouragementJob(queue=mock_queue)
+            result = job.run()
+        
+        assert result["is_overdue"] is False
+        assert result["notifications_created"] == 0
+        mock_queue.create.assert_not_called()
+
+
+class TestOverdueEncouragementAPI:
+    """Tests for the overdue encouragement API endpoints."""
+    
+    @pytest.fixture
+    def client(self):
+        """Create a test client with auth bypassed."""
+        import os
+        os.environ['BYPASS_TOKEN'] = 'test-token'
+        from src.app.main import app
+        from fastapi.testclient import TestClient
+        client = TestClient(app)
+        client.headers['X-Auth-Token'] = 'test-token'
+        return client
+    
+    def test_overdue_check_endpoint_returns_status(self, client):
+        """Should return overdue status."""
+        response = client.get('/api/workflow/overdue-check')
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Should have status fields
+        assert 'is_overdue' in data
+        assert 'mode' in data
+    
+    def test_send_encouragement_endpoint(self, client):
+        """Should allow manual trigger of encouragement."""
+        response = client.post('/api/workflow/send-encouragement')
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Should return job result
+        assert 'message' in data or 'error' in data

@@ -1306,6 +1306,54 @@ async def check_workflow_completion(request: Request):
     })
 
 
+@app.get("/api/workflow/overdue-check")
+async def check_overdue_status():
+    """Check if current mode is overdue and get encouragement context.
+    
+    Returns overdue status and optionally triggers an encouragement notification.
+    """
+    from src.app.services.background_jobs import OverdueEncouragementJob
+    
+    job = OverdueEncouragementJob()
+    
+    # Get current mode info without creating notification
+    mode_info = job._get_current_mode_info()
+    
+    if not mode_info.get("mode"):
+        return JSONResponse({
+            "is_overdue": False,
+            "mode": None,
+            "message": "No active mode"
+        })
+    
+    overdue_info = job._check_if_overdue(mode_info)
+    context = job._get_task_context(mode_info)
+    
+    return JSONResponse({
+        "mode": mode_info["mode"],
+        "elapsed_minutes": int(mode_info["elapsed_seconds"] / 60),
+        "expected_minutes": overdue_info["expected_minutes"],
+        "is_overdue": overdue_info["is_overdue"],
+        "overdue_minutes": overdue_info["overdue_minutes"],
+        "completion_pct": overdue_info["completion_pct"],
+        "tasks_remaining": overdue_info["tasks_remaining"],
+        "task_focus": context.get("task_focus"),
+        "ticket_title": context.get("ticket_title"),
+        "pending_tasks": context.get("pending_tasks", [])[:5],
+    })
+
+
+@app.post("/api/workflow/send-encouragement")
+async def send_overdue_encouragement():
+    """Manually trigger an overdue encouragement notification."""
+    from src.app.services.background_jobs import OverdueEncouragementJob
+    
+    job = OverdueEncouragementJob()
+    result = job.run()
+    
+    return JSONResponse(result)
+
+
 @app.post("/api/settings/mode")
 async def set_workflow_mode(request: Request):
     """Save the current workflow mode to the database."""

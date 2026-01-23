@@ -1590,6 +1590,14 @@
       const savedMode = localStorage.getItem('signalflow-mode') || 'mode-a';
       let currentMode = savedMode;
       
+      // Immediately update display with saved mode while async ops complete
+      const modeNameEl = document.getElementById('currentModeName');
+      if (modeNameEl) modeNameEl.textContent = modeNames[savedMode] || savedMode;
+      document.documentElement.setAttribute('data-mode', savedMode);
+      document.querySelectorAll('.mode-option').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === savedMode);
+      });
+      
       // First, check if there's a saved mode on server
       try {
         const response = await fetch('/api/settings/mode', { credentials: 'same-origin' });

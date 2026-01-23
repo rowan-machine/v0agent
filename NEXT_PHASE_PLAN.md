@@ -138,6 +138,36 @@ The celebration system:
 
 ---
 
+### F4f: Overdue Task Encouragement ✅ COMPLETE
+**Schedule:** Weekdays at 2 PM and 5 PM (`0 14,17 * * 1-5`)
+**APIs:**
+- `GET /api/workflow/overdue-check` - Returns overdue status without creating notification
+- `POST /api/workflow/send-encouragement` - Manually trigger encouragement notification
+
+Features:
+- **Overdue Detection:** Compares elapsed time vs expected duration with remaining tasks
+- **Gut-Check Questions:** Mode-specific contextual questions with `{task_focus}` placeholder
+- **Task Context Extraction:** Parses `task_decomposition` JSON and `implementation_plan` from tickets
+- **Smart Encouragement:** Only triggers when overdue AND has unchecked tasks remaining
+
+Gut-Check Templates per Mode:
+- **Mode A (Context):** "How's the context gathering going? Any blockers on {task_focus}?"
+- **Mode B (Planning):** "How are you feeling about the implementation approach for {task_focus}?"
+- **Mode C (Draft Intake):** "How's the draft intake going? Need more context on {task_focus}?"
+- **Mode D (Deep Review):** "How's the deep review progressing? Ready to decide on {task_focus}?"
+- **Mode E (Promotion):** "How's the promotion readiness check going on {task_focus}?"
+- **Mode F (Sync):** "How's the sync going? Any quick blockers on {task_focus}?"
+- **Mode G (Transform):** "How are you feeling about the {task_focus} transform work?"
+
+The encouragement system:
+1. Background job runs at 2 PM and 5 PM weekdays
+2. Checks if current mode session is overdue (elapsed > expected)
+3. Verifies there are remaining unchecked tasks in workflow progress
+4. Extracts task context from linked tickets (task_decomposition, implementation_plan)
+5. Creates NORMAL priority notification with contextual gut-check question
+
+---
+
 ## Phase Breakdown
 
 #### 1.1 Multi-Format Import Endpoint
