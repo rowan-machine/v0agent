@@ -129,6 +129,169 @@
     color: var(--sf-text-muted, #94a3b8);
   }
 
+  /* Theme Option Styles */
+  .theme-option {
+    cursor: pointer;
+  }
+  
+  .theme-option input[type="radio"] {
+    display: none;
+  }
+  
+  .theme-option-card {
+    border: 2px solid var(--sf-border, #e5e7eb);
+    border-radius: 12px;
+    padding: 0.75rem;
+    transition: all 0.2s;
+    background: var(--sf-surface, #f9fafb);
+  }
+  
+  .theme-option:hover .theme-option-card {
+    border-color: var(--sf-primary, #3b82f6);
+  }
+  
+  .theme-option input:checked + .theme-option-card {
+    border-color: var(--sf-primary, #3b82f6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  }
+  
+  .theme-option-label {
+    display: block;
+    text-align: center;
+    margin-top: 0.5rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: var(--sf-text, #374151);
+  }
+  
+  .theme-preview-mini {
+    height: 60px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--sf-border, #d1d5db);
+  }
+  
+  .theme-preview-mini .preview-header {
+    height: 12px;
+    background: #f3f4f6;
+  }
+  
+  .theme-preview-mini .preview-body {
+    display: flex;
+    height: 48px;
+  }
+  
+  .theme-preview-mini .preview-sidebar {
+    width: 20%;
+    background: #e5e7eb;
+  }
+  
+  .theme-preview-mini .preview-content {
+    flex: 1;
+    background: #ffffff;
+  }
+  
+  .dark-preview .preview-header {
+    background: #1e293b;
+  }
+  
+  .dark-preview .preview-sidebar {
+    background: #334155;
+  }
+  
+  .dark-preview .preview-content {
+    background: #0f172a;
+  }
+  
+  .system-preview {
+    background: linear-gradient(135deg, #ffffff 50%, #0f172a 50%);
+  }
+  
+  .system-preview .preview-header {
+    background: linear-gradient(90deg, #f3f4f6 50%, #1e293b 50%);
+  }
+  
+  .system-preview .preview-sidebar {
+    background: linear-gradient(180deg, #e5e7eb 50%, #334155 50%);
+  }
+  
+  .system-preview .preview-content {
+    background: linear-gradient(180deg, #ffffff 50%, #0f172a 50%);
+  }
+
+  /* Accent Color Styles */
+  .accent-option {
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  
+  .accent-option input[type="radio"] {
+    display: none;
+  }
+  
+  .accent-swatch {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  .accent-option:hover .accent-swatch {
+    transform: scale(1.1);
+  }
+  
+  .accent-option input:checked + .accent-swatch {
+    border-color: var(--sf-text, #374151);
+    transform: scale(1.1);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  }
+  
+  .accent-option span {
+    font-size: 0.75rem;
+    color: var(--sf-text-muted, #6b7280);
+    font-weight: 500;
+  }
+
+  [data-theme="dark"] .theme-option-card {
+    background: var(--sf-surface, #1e293b);
+    border-color: var(--sf-border, #334155);
+  }
+  
+  [data-theme="dark"] .theme-option-label {
+    color: var(--sf-text, #e2e8f0);
+  }
+  
+  [data-theme="dark"] .accent-option span {
+    color: var(--sf-text-muted, #94a3b8);
+  }
+  
+  [data-theme="dark"] .accent-option input:checked + .accent-swatch {
+    border-color: var(--sf-text, #e2e8f0);
+  }
+
+  /* Career form scrollable area */
+  .career-form-scrollable::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .career-form-scrollable::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .career-form-scrollable::-webkit-scrollbar-thumb {
+    background: var(--sf-border, #d1d5db);
+    border-radius: 3px;
+  }
+  
+  .career-form-scrollable::-webkit-scrollbar-thumb:hover {
+    background: var(--sf-text-muted, #9ca3af);
+  }
+
   .settings-container {
     max-width: 1400px;
     margin: 0 auto;
@@ -504,20 +667,96 @@
       <span class="collapse-indicator">▼</span>
     </div>
     <div class="section-content">
-      <div class="setting-item">
-        <div class="setting-info">
-          <h3>Dark Mode</h3>
-          <p>Toggle between light and dark themes</p>
+      <!-- Theme Selector -->
+      <div class="setting-item" style="flex-direction: column; align-items: stretch;">
+        <div class="setting-info" style="margin-bottom: 1rem;">
+          <h3>Theme</h3>
+          <p>Choose your preferred color scheme</p>
         </div>
-        <label class="toggle-switch">
-          <input type="checkbox" id="themeToggle" onchange="toggleThemeFromSettings()">
-          <span class="toggle-slider"></span>
-        </label>
+        <div class="theme-options" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;">
+          <label class="theme-option" data-theme-value="light">
+            <input type="radio" name="appTheme" value="light" onchange="setAppTheme('light')">
+            <div class="theme-option-card">
+              <div class="theme-preview-mini light-preview">
+                <div class="preview-header"></div>
+                <div class="preview-body">
+                  <div class="preview-sidebar"></div>
+                  <div class="preview-content"></div>
+                </div>
+              </div>
+              <span class="theme-option-label">☀️ Light</span>
+            </div>
+          </label>
+          <label class="theme-option" data-theme-value="dark">
+            <input type="radio" name="appTheme" value="dark" onchange="setAppTheme('dark')">
+            <div class="theme-option-card">
+              <div class="theme-preview-mini dark-preview">
+                <div class="preview-header"></div>
+                <div class="preview-body">
+                  <div class="preview-sidebar"></div>
+                  <div class="preview-content"></div>
+                </div>
+              </div>
+              <span class="theme-option-label">🌙 Dark</span>
+            </div>
+          </label>
+          <label class="theme-option" data-theme-value="system">
+            <input type="radio" name="appTheme" value="system" onchange="setAppTheme('system')">
+            <div class="theme-option-card">
+              <div class="theme-preview-mini system-preview">
+                <div class="preview-header"></div>
+                <div class="preview-body">
+                  <div class="preview-sidebar"></div>
+                  <div class="preview-content"></div>
+                </div>
+              </div>
+              <span class="theme-option-label">💻 System</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Accent Color -->
+      <div class="setting-item" style="flex-direction: column; align-items: stretch; margin-top: 1.5rem;">
+        <div class="setting-info" style="margin-bottom: 1rem;">
+          <h3>Accent Color</h3>
+          <p>Choose your primary accent color</p>
+        </div>
+        <div class="accent-options" style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          <label class="accent-option" data-accent="blue">
+            <input type="radio" name="accentColor" value="blue" onchange="setAccentColor('blue')">
+            <div class="accent-swatch" style="background: linear-gradient(135deg, #3b82f6, #60a5fa);"></div>
+            <span>Blue</span>
+          </label>
+          <label class="accent-option" data-accent="purple">
+            <input type="radio" name="accentColor" value="purple" onchange="setAccentColor('purple')">
+            <div class="accent-swatch" style="background: linear-gradient(135deg, #8b5cf6, #a78bfa);"></div>
+            <span>Purple</span>
+          </label>
+          <label class="accent-option" data-accent="teal">
+            <input type="radio" name="accentColor" value="teal" onchange="setAccentColor('teal')">
+            <div class="accent-swatch" style="background: linear-gradient(135deg, #14b8a6, #2dd4bf);"></div>
+            <span>Teal</span>
+          </label>
+          <label class="accent-option" data-accent="orange">
+            <input type="radio" name="accentColor" value="orange" onchange="setAccentColor('orange')">
+            <div class="accent-swatch" style="background: linear-gradient(135deg, #f97316, #fb923c);"></div>
+            <span>Orange</span>
+          </label>
+          <label class="accent-option" data-accent="rose">
+            <input type="radio" name="accentColor" value="rose" onchange="setAccentColor('rose')">
+            <div class="accent-swatch" style="background: linear-gradient(135deg, #f43f5e, #fb7185);"></div>
+            <span>Rose</span>
+          </label>
+          <label class="accent-option" data-accent="green">
+            <input type="radio" name="accentColor" value="green" onchange="setAccentColor('green')">
+            <div class="accent-swatch" style="background: linear-gradient(135deg, #22c55e, #4ade80);"></div>
+            <span>Green</span>
+          </label>
+        </div>
       </div>
       
-
-      
-      <div class="theme-preview" style="margin-top: 1rem; padding: 1rem; border-radius: 8px; border: 1px solid var(--sf-border, #e5e7eb); background: var(--sf-surface, #f9fafb);">
+      <div class="theme-preview" style="margin-top: 1.5rem; padding: 1rem; border-radius: 8px; border: 1px solid var(--sf-border, #e5e7eb); background: var(--sf-surface, #f9fafb);">
         <p style="margin: 0; font-size: 0.85rem; color: var(--sf-text-muted, #6b7280);">
           <span id="currentThemeLabel">☀️ Light mode active</span>
         </p>
@@ -746,7 +985,8 @@
       </div>
       <span class="collapse-indicator">▼</span>
     </div>
-    <div class="section-content" style="max-height: 600px; overflow-y: auto;">
+    <div class="section-content" style="display: flex; flex-direction: column; max-height: 650px;">
+    <div class="career-form-scrollable" style="flex: 1; overflow-y: auto; padding-right: 0.5rem;">
 
     <div style="display: grid; gap: 1rem;">
       <!-- Basic Info Row -->
@@ -905,8 +1145,12 @@
           style="width: 100%; padding: 0.625rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; font-family: inherit; resize: vertical;"></textarea>
       </div>
 
+    </div>
+    </div>
+    <!-- Pinned save button -->
+    <div class="career-save-pinned" style="padding-top: 1rem; border-top: 1px solid var(--sf-border, #e5e7eb); margin-top: 1rem; background: var(--sf-card-bg, white);">
       <button onclick="saveCareerProfile()" 
-        style="background: #26a69a; color: white; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+        style="width: 100%; background: #26a69a; color: white; border: none; border-radius: 8px; padding: 0.75rem 1.5rem; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 0.2s;">
         💾 Save Career Profile
       </button>
     </div>
@@ -916,36 +1160,125 @@
 </div>
 
 <script>
-  // Theme toggle from settings
+  // Theme and Accent Color Configuration
+  const themeColorMap = {
+    'blue': { primary: '#3b82f6', secondary: '#60a5fa' },
+    'purple': { primary: '#8b5cf6', secondary: '#a78bfa' },
+    'teal': { primary: '#14b8a6', secondary: '#2dd4bf' },
+    'orange': { primary: '#f97316', secondary: '#fb923c' },
+    'rose': { primary: '#f43f5e', secondary: '#fb7185' },
+    'green': { primary: '#22c55e', secondary: '#4ade80' }
+  };
+
+  // Set app theme (light, dark, or system)
+  function setAppTheme(theme) {
+    localStorage.setItem('signalflow-theme-preference', theme);
+    
+    if (theme === 'system') {
+      // Follow system preference
+      const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const actualTheme = systemDark ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', actualTheme);
+      localStorage.setItem('harekrishna-theme', actualTheme);
+    } else {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('harekrishna-theme', theme);
+    }
+    
+    updateThemeUI();
+  }
+
+  // Set accent color
+  function setAccentColor(color) {
+    if (themeColorMap[color]) {
+      document.documentElement.style.setProperty('--sf-primary', themeColorMap[color].primary);
+      document.documentElement.style.setProperty('--sf-secondary', themeColorMap[color].secondary);
+      localStorage.setItem('signalflow-accent', color);
+      updateAccentUI();
+    }
+  }
+
+  // Legacy toggle function (for backwards compatibility)
   function toggleThemeFromSettings() {
     const checkbox = document.getElementById('themeToggle');
-    const isDark = checkbox.checked;
-    const newTheme = isDark ? 'dark' : 'light';
-    
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('harekrishna-theme', newTheme);
-    
-    updateThemeLabel();
+    if (checkbox) {
+      setAppTheme(checkbox.checked ? 'dark' : 'light');
+    }
   }
   
   function updateThemeLabel() {
+    updateThemeUI();
+  }
+
+  function updateThemeUI() {
     const theme = document.documentElement.getAttribute('data-theme') || 'light';
+    const preference = localStorage.getItem('signalflow-theme-preference') || 'light';
     const label = document.getElementById('currentThemeLabel');
-    const checkbox = document.getElementById('themeToggle');
     
+    // Update radio buttons
+    const themeRadios = document.querySelectorAll('input[name="appTheme"]');
+    themeRadios.forEach(radio => {
+      radio.checked = (radio.value === preference);
+    });
+    
+    // Legacy checkbox support
+    const checkbox = document.getElementById('themeToggle');
     if (checkbox) {
       checkbox.checked = (theme === 'dark');
     }
+    
     if (label) {
-      label.textContent = theme === 'dark' ? '🌙 Dark mode active' : '☀️ Light mode active';
+      if (preference === 'system') {
+        label.textContent = `💻 System theme (${theme === 'dark' ? '🌙 Dark' : '☀️ Light'})`;
+      } else {
+        label.textContent = theme === 'dark' ? '🌙 Dark mode active' : '☀️ Light mode active';
+      }
     }
   }
+
+  function updateAccentUI() {
+    const savedAccent = localStorage.getItem('signalflow-accent') || 'blue';
+    const accentRadios = document.querySelectorAll('input[name="accentColor"]');
+    accentRadios.forEach(radio => {
+      radio.checked = (radio.value === savedAccent);
+    });
+  }
   
-  // Initialize theme on load (accent colors fixed: orange primary, purple secondary)
+  // Initialize theme on load
   (function() {
+    const preference = localStorage.getItem('signalflow-theme-preference') || 'light';
     const savedTheme = localStorage.getItem('harekrishna-theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    setTimeout(updateThemeLabel, 0);
+    const savedAccent = localStorage.getItem('signalflow-accent') || 'blue';
+    
+    // Apply theme
+    if (preference === 'system') {
+      const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.setAttribute('data-theme', systemDark ? 'dark' : 'light');
+    } else {
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    }
+    
+    // Apply accent
+    if (themeColorMap[savedAccent]) {
+      document.documentElement.style.setProperty('--sf-primary', themeColorMap[savedAccent].primary);
+      document.documentElement.style.setProperty('--sf-secondary', themeColorMap[savedAccent].secondary);
+    }
+    
+    // Listen for system theme changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      const pref = localStorage.getItem('signalflow-theme-preference');
+      if (pref === 'system') {
+        const newTheme = e.matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', newTheme);
+        localStorage.setItem('harekrishna-theme', newTheme);
+        updateThemeUI();
+      }
+    });
+    
+    setTimeout(() => {
+      updateThemeUI();
+      updateAccentUI();
+    }, 0);
   })();
 
   // Toggle settings section collapse
