@@ -10,6 +10,8 @@ pydantic>=2.0.0
 
 # Embeddings and vector search
 chromadb==0.4.24
+# Pin numpy <2.0 for chromadb compatibility (np.float_ removed in NumPy 2.0)
+numpy<2.0
 
 # Encryption
 cryptography==42.0.0

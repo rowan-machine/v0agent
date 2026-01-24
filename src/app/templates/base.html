@@ -2303,6 +2303,16 @@
       });
     };
     
+    // Listen for mode changes from other components (like dashboard)
+    document.addEventListener('modeChanged', (e) => {
+      const mode = e.detail?.mode || localStorage.getItem('signalflow-mode') || 'mode-a';
+      const modeNameEl = document.getElementById('currentModeName');
+      if (modeNameEl) modeNameEl.textContent = modeNames[mode] || mode;
+      document.querySelectorAll('.mode-option').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+      });
+    });
+    
     function toggleModeSelector() {
       document.getElementById('modeSelector').classList.toggle('open');
     }

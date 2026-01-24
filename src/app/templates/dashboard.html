@@ -2029,7 +2029,8 @@
       </div>
       <div class="workflow-panel-actions">
         <button class="workflow-btn" onclick="toggleWorkflowPanel()">Collapse</button>
-        <button class="workflow-btn primary" onclick="advanceWorkflow()">Next Step →</button>
+        <button class="workflow-btn" onclick="previousWorkflow()">← Prev</button>
+        <button class="workflow-btn primary" onclick="advanceWorkflow()">Next →</button>
       </div>
     </div>
     <div class="workflow-panel-content" id="workflowContent">
@@ -2326,11 +2327,11 @@
         </div>
         
         <!-- Quick Actions -->
-        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-          <a href="/test-plans/new" style="flex: 1; padding: 0.5rem; background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); color: white; text-align: center; border-radius: 8px; font-size: 0.85rem; font-weight: 500; text-decoration: none;">
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; padding-right: 60px;">
+          <a href="/test-plans/new" style="padding: 0.5rem 1rem; background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); color: white; text-align: center; border-radius: 8px; font-size: 0.85rem; font-weight: 500; text-decoration: none; white-space: nowrap;">
             + New Test Plan
           </a>
-          <a href="/test-plans" style="flex: 1; padding: 0.5rem; background: #f5f5f5; color: #525252; text-align: center; border-radius: 8px; font-size: 0.85rem; font-weight: 500; text-decoration: none; border: 1px solid #e5e5e5;">
+          <a href="/test-plans" style="padding: 0.5rem 1rem; background: #f5f5f5; color: #525252; text-align: center; border-radius: 8px; font-size: 0.85rem; font-weight: 500; text-decoration: none; border: 1px solid #e5e5e5; white-space: nowrap;">
             View All
           </a>
         </div>
@@ -3608,6 +3609,12 @@ let workflowModes = {
     title: 'Mode G: Execution (Writing Code)',
     subtitle: 'Implement the current ticket checklist',
     steps: []
+  },
+  'mode-h': {
+    icon: '🧪',
+    title: 'Mode H: Test Planning',
+    subtitle: 'Define acceptance criteria and test cases',
+    steps: []
   }
 };
 
@@ -4469,7 +4476,7 @@ function resetAllModes() {
 
 function advanceWorkflow() {
   const currentMode = localStorage.getItem('signalflow-mode') || 'mode-a';
-  const modes = ['mode-a', 'mode-b', 'mode-c', 'mode-d', 'mode-e', 'mode-g', 'mode-f'];
+  const modes = ['mode-a', 'mode-b', 'mode-c', 'mode-d', 'mode-e', 'mode-g', 'mode-h', 'mode-f'];
   const currentIndex = modes.indexOf(currentMode);
   const nextIndex = (currentIndex + 1) % modes.length;
   const nextMode = modes[nextIndex];
@@ -4483,9 +4490,36 @@ function advanceWorkflow() {
     updateModeDisplay();
   }
   
+  // Dispatch custom event for mode change
+  document.dispatchEvent(new CustomEvent('modeChanged', { detail: { mode: nextMode } }));
+  
   // Update workflow panel
   updateWorkflowPanel(nextMode);
   loadWorkflowProgress(nextMode);
+}
+
+function previousWorkflow() {
+  const currentMode = localStorage.getItem('signalflow-mode') || 'mode-a';
+  const modes = ['mode-a', 'mode-b', 'mode-c', 'mode-d', 'mode-e', 'mode-g', 'mode-h', 'mode-f'];
+  const currentIndex = modes.indexOf(currentMode);
+  const prevIndex = currentIndex <= 0 ? modes.length - 1 : currentIndex - 1;
+  const prevMode = modes[prevIndex];
+  
+  // Update mode in localStorage and UI
+  localStorage.setItem('signalflow-mode', prevMode);
+  document.body.setAttribute('data-mode', prevMode);
+  
+  // Update mode indicator in header
+  if (typeof updateModeDisplay === 'function') {
+    updateModeDisplay();
+  }
+  
+  // Dispatch custom event for mode change
+  document.dispatchEvent(new CustomEvent('modeChanged', { detail: { mode: prevMode } }));
+  
+  // Update workflow panel
+  updateWorkflowPanel(prevMode);
+  loadWorkflowProgress(prevMode);
 }
 
 // Listen for mode changes from the header
