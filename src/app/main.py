@@ -1153,6 +1153,41 @@ async def reject_ai_response(request: Request):
 @app.get("/api/notifications")
 async def get_notifications(limit: int = 10):
     """Get user notifications with optional limit."""
+    # Try Supabase first (primary data source in production)
+    supabase = get_supabase()
+    
+    if supabase:
+        try:
+            result = supabase.table("notifications").select("*").or_("actioned.eq.false,actioned.is.null").order("created_at", desc=True).limit(limit).execute()
+            
+            if result.data:
+                notifications = []
+                for row in result.data:
+                    n_dict = {
+                        "id": row.get("id"),
+                        "type": row.get("type") or row.get("notification_type"),
+                        "title": row.get("title"),
+                        "message": row.get("body") or row.get("message"),
+                        "data": row.get("data"),
+                        "read": row.get("read", False),
+                        "created_at": row.get("created_at"),
+                        "actioned": row.get("actioned", False),
+                        "action_taken": row.get("action_taken"),
+                        "expires_at": row.get("expires_at"),
+                    }
+                    # Parse action_url from data JSON if available
+                    if n_dict.get('data'):
+                        try:
+                            data = n_dict['data'] if isinstance(n_dict['data'], dict) else json.loads(n_dict['data'])
+                            n_dict['action_url'] = data.get('action_url', '')
+                        except:
+                            pass
+                    notifications.append(n_dict)
+                return JSONResponse({"notifications": notifications})
+        except Exception as e:
+            logger.warning(f"Supabase notifications fetch failed, falling back to SQLite: {e}")
+    
+    # SQLite fallback
     with connect() as conn:
         # Check if notifications table exists
         table_check = conn.execute(
@@ -1206,6 +1241,24 @@ async def get_notifications(limit: int = 10):
 @app.get("/api/notifications/count")
 async def get_notification_count():
     """Get count of unread notifications."""
+    # Try Supabase first
+    supabase = get_supabase()
+    
+    if supabase:
+        try:
+            # Count unread
+            unread_result = supabase.table("notifications").select("id", count="exact").eq("read", False).execute()
+            unread = unread_result.count or 0
+            
+            # Count total (non-actioned)
+            total_result = supabase.table("notifications").select("id", count="exact").or_("actioned.eq.false,actioned.is.null").execute()
+            total = total_result.count or 0
+            
+            return JSONResponse({"unread": unread, "total": total})
+        except Exception as e:
+            logger.warning(f"Supabase notification count failed: {e}")
+    
+    # SQLite fallback
     with connect() as conn:
         # Check if notifications table exists
         table_check = conn.execute(
@@ -1229,8 +1282,19 @@ async def get_notification_count():
 
 
 @app.post("/api/notifications/{notification_id}/read")
-async def mark_notification_read(notification_id: int):
+async def mark_notification_read(notification_id: str):
     """Mark a notification as read."""
+    # Try Supabase first
+    supabase = get_supabase()
+    
+    if supabase:
+        try:
+            supabase.table("notifications").update({"read": True}).eq("id", notification_id).execute()
+            return JSONResponse({"status": "ok"})
+        except Exception as e:
+            logger.warning(f"Supabase mark read failed: {e}")
+    
+    # SQLite fallback
     with connect() as conn:
         # Check if notifications table exists
         table_check = conn.execute(
@@ -1252,6 +1316,17 @@ async def mark_notification_read(notification_id: int):
 @app.post("/api/notifications/read-all")
 async def mark_all_notifications_read():
     """Mark all notifications as read."""
+    # Try Supabase first
+    supabase = get_supabase()
+    
+    if supabase:
+        try:
+            supabase.table("notifications").update({"read": True}).eq("read", False).execute()
+            return JSONResponse({"status": "ok"})
+        except Exception as e:
+            logger.warning(f"Supabase mark all read failed: {e}")
+    
+    # SQLite fallback
     with connect() as conn:
         # Check if notifications table exists
         table_check = conn.execute(
@@ -1270,6 +1345,17 @@ async def mark_all_notifications_read():
 @app.delete("/api/notifications/{notification_id}")
 async def delete_notification(notification_id: str):
     """Delete a notification."""
+    # Try Supabase first
+    supabase = get_supabase()
+    
+    if supabase:
+        try:
+            supabase.table("notifications").delete().eq("id", notification_id).execute()
+            return JSONResponse({"status": "ok"})
+        except Exception as e:
+            logger.warning(f"Supabase delete failed: {e}")
+    
+    # SQLite fallback
     with connect() as conn:
         conn.execute("DELETE FROM notifications WHERE id = ?", (notification_id,))
         conn.commit()
