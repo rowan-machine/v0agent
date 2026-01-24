@@ -176,7 +176,7 @@ def get_user_status_context() -> str:
         return ""
 
 
-def answer(question: str, context_blocks: list[str], trace_name: str = "llm.answer", return_run_id: bool = False) -> str | tuple:
+def answer(question: str, context_blocks: list[str], trace_name: str = "llm.answer", return_run_id: bool = False, thread_id: str = None) -> str | tuple:
     """Answer a question using provided context.
     
     Args:
@@ -184,6 +184,7 @@ def answer(question: str, context_blocks: list[str], trace_name: str = "llm.answ
         context_blocks: List of context blocks to use
         trace_name: Name for LangSmith tracing (optional)
         return_run_id: If True, return (answer, run_id) tuple for feedback
+        thread_id: Thread ID for LangSmith Threads feature (e.g. conversation_id)
     
     Returns:
         LLM response text, or (response, run_id) tuple if return_run_id=True
@@ -213,6 +214,18 @@ def answer(question: str, context_blocks: list[str], trace_name: str = "llm.answ
             langsmith_client = get_langsmith_client()
             if langsmith_client:
                 run_id = str(uuid.uuid4())
+                
+                # Build metadata with thread_id for Threads feature
+                metadata = {"source": "llm.answer"}
+                tags = [f"model:{model}", "source:llm.answer"]
+                
+                if thread_id:
+                    # LangSmith looks for session_id for thread grouping
+                    metadata["session_id"] = str(thread_id)
+                    metadata["thread_id"] = str(thread_id)
+                    metadata["conversation_id"] = str(thread_id)
+                    tags.append(f"thread:{str(thread_id)[:8]}")
+                
                 langsmith_client.create_run(
                     name=trace_name,
                     run_type="llm",
@@ -221,11 +234,12 @@ def answer(question: str, context_blocks: list[str], trace_name: str = "llm.answ
                         "context_blocks_count": len(context_blocks),
                         "model": model
                     },
-                    tags=[f"model:{model}", "source:llm.answer"],
+                    tags=tags,
+                    extra={"metadata": metadata},
                     project_name=get_project_name(),
                     id=run_id,
                 )
-                print(f"✅ LangSmith: created run {run_id[:8]}... for {trace_name}")
+                print(f"✅ LangSmith: created run {run_id[:8]}... for {trace_name}" + (f" thread:{thread_id}" if thread_id else ""))
     except Exception as e:
         print(f"⚠️ LangSmith: tracing init error: {e}")
     
