@@ -2270,13 +2270,15 @@
     }
     
     function setMode(mode, persist = true) {
+      console.log('[Mode] setMode called with:', mode);
       document.documentElement.setAttribute('data-mode', mode);
       localStorage.setItem('signalflow-mode', mode);
       
-      // Update mode name display - use innerHTML to force refresh
+      // Update mode name display - force refresh by clearing first
       const modeNameEl = document.getElementById('currentModeName');
       if (modeNameEl) {
         const newName = modeNames[mode] || mode;
+        console.log('[Mode] Updating mode name to:', newName);
         modeNameEl.innerHTML = '';
         modeNameEl.textContent = newName;
       }
@@ -2291,6 +2293,7 @@
       if (selector) selector.classList.remove('open');
       
       // Dispatch custom event for other components (like dashboard workflow panel)
+      console.log('[Mode] Dispatching modeChanged event');
       document.dispatchEvent(new CustomEvent('modeChanged', { detail: { mode: mode } }));
       
       // Save mode change to server for tracking
@@ -2303,6 +2306,8 @@
         }).catch(() => {}); // Silently fail if endpoint doesn't exist
       }
     }
+    // Make setMode globally available for onclick handlers
+    window.setMode = setMode;
     
     // Expose for other scripts
     window.updateModeDisplay = function() {

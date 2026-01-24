@@ -52,22 +52,26 @@ def is_tracing_enabled() -> bool:
     global _tracing_enabled
     
     if _tracing_enabled is None:
-        env_value = os.environ.get("LANGCHAIN_TRACING_V2", "false").lower()
-        api_key = os.environ.get("LANGCHAIN_API_KEY", "")
-        _tracing_enabled = env_value == "true" and bool(api_key)
+        # Check both old (LANGCHAIN_) and new (LANGSMITH_) env var formats
+        env_value_old = os.environ.get("LANGCHAIN_TRACING_V2", "false").lower()
+        env_value_new = os.environ.get("LANGSMITH_TRACING", "false").lower()
+        api_key = os.environ.get("LANGSMITH_API_KEY") or os.environ.get("LANGCHAIN_API_KEY", "")
+        
+        tracing_enabled = (env_value_old == "true" or env_value_new == "true") and bool(api_key)
+        _tracing_enabled = tracing_enabled
         
         if _tracing_enabled:
             logger.info("LangSmith tracing ENABLED")
         else:
-            if env_value == "true" and not api_key:
-                logger.warning("LANGCHAIN_TRACING_V2=true but LANGCHAIN_API_KEY not set")
+            if (env_value_old == "true" or env_value_new == "true") and not api_key:
+                logger.warning("LANGSMITH_TRACING=true but LANGSMITH_API_KEY not set")
     
     return _tracing_enabled
 
 
 def get_project_name() -> str:
     """Get the LangSmith project name."""
-    return os.environ.get("LANGCHAIN_PROJECT", "signalflow")
+    return os.environ.get("LANGSMITH_PROJECT") or os.environ.get("LANGCHAIN_PROJECT", "signalflow")
 
 
 @dataclass
