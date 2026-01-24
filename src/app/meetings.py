@@ -786,7 +786,7 @@ async def create_ticket_from_action_item(request: Request):
         
         row_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         
-        # Mark action item as converted to ticket (optional)
+        # Mark action item as converted to ticket AND completed
         if meeting_id is not None and item_index is not None:
             try:
                 meeting = conn.execute(
@@ -801,11 +801,13 @@ async def create_ticket_from_action_item(request: Request):
                         item = items[item_index]
                         if isinstance(item, dict):
                             item['converted_to_ticket'] = ticket_id
+                            item['completed'] = True  # Auto-check the action item
                         else:
                             items[item_index] = {
                                 'text': item,
                                 'description': item,
-                                'converted_to_ticket': ticket_id
+                                'converted_to_ticket': ticket_id,
+                                'completed': True  # Auto-check the action item
                             }
                         signals['action_items'] = items
                         conn.execute(
