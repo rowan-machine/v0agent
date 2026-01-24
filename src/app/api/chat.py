@@ -383,12 +383,12 @@ async def send_chat_message(conversation_id: int, request: Request):
         if not conversation:
             return JSONResponse({"error": "Conversation not found"}, status_code=404)
         
+        # Convert sqlite3.Row to dict for safe attribute access
+        conv_dict = dict(conversation) if conversation else {}
+        
         # Get meeting/document context if set
-        meeting_id = None
-        document_id = None
-        if conversation:
-            meeting_id = conversation.get("meeting_id") if hasattr(conversation, "get") else (conversation["meeting_id"] if "meeting_id" in conversation.keys() else None)
-            document_id = conversation.get("document_id") if hasattr(conversation, "get") else (conversation["document_id"] if "document_id" in conversation.keys() else None)
+        meeting_id = conv_dict.get("meeting_id")
+        document_id = conv_dict.get("document_id")
         
         # Run the chat turn with context if available
         if meeting_id or document_id:
@@ -397,7 +397,7 @@ async def send_chat_message(conversation_id: int, request: Request):
             answer, run_id = run_chat_turn(conversation_id, message)
         
         # Generate title if this is the first message
-        if conversation and not conversation.get("title"):
+        if conv_dict and not conv_dict.get("title"):
             title = generate_chat_title(message)
             update_conversation_title(conversation_id, title)
         
