@@ -395,6 +395,156 @@
     color: var(--sf-text, #faf6f1) !important;
   }
   
+  /* Weekly Intelligence Styles */
+  .intelligence-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  
+  .intelligence-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  .intelligence-card {
+    background: var(--sf-surface, #f9fafb);
+    border-radius: 10px;
+    padding: 1.25rem;
+  }
+  
+  .intelligence-card h4 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--sf-text-muted, #6b7280);
+    margin: 0 0 1rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .signal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .signal-list-item {
+    font-size: 0.9rem;
+    color: var(--sf-text, #374151);
+    padding: 0.5rem 0.75rem;
+    background: white;
+    border-radius: 6px;
+    border-left: 3px solid var(--sf-accent, #6366f1);
+  }
+  
+  .signal-list-item .meeting-source {
+    font-size: 0.75rem;
+    color: var(--sf-text-muted, #9ca3af);
+    margin-top: 0.25rem;
+  }
+  
+  .dikw-level-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--sf-border, #e5e7eb);
+  }
+  
+  .dikw-level-row:last-child {
+    border-bottom: none;
+  }
+  
+  .dikw-level-name {
+    font-weight: 500;
+    text-transform: capitalize;
+  }
+  
+  .dikw-level-stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.85rem;
+  }
+  
+  .dikw-new-badge {
+    background: #10b981;
+    color: white;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.75rem;
+  }
+  
+  .blocked-ticket {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+  }
+  
+  .blocked-ticket .ticket-id {
+    font-weight: 600;
+    color: #dc2626;
+  }
+  
+  .blocked-ticket .reason {
+    font-size: 0.85rem;
+    color: #7f1d1d;
+    margin-top: 0.25rem;
+  }
+  
+  .wisdom-item {
+    background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 4px solid #8b5cf6;
+    margin-bottom: 0.75rem;
+  }
+  
+  .wisdom-item .level-badge {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    background: #8b5cf6;
+    color: white;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    margin-bottom: 0.5rem;
+    display: inline-block;
+  }
+  
+  .wisdom-item .content {
+    font-size: 0.9rem;
+    color: var(--sf-text-dark, #1f2937);
+  }
+  
+  .no-data {
+    color: var(--sf-text-muted, #9ca3af);
+    font-style: italic;
+    font-size: 0.9rem;
+  }
+  
+  [data-theme="dark"] .intelligence-card {
+    background: #3a3a3a;
+  }
+  
+  [data-theme="dark"] .signal-list-item {
+    background: #2d2d2d;
+    color: #e5e5e5;
+  }
+  
+  [data-theme="dark"] .blocked-ticket {
+    background: #3a2020;
+    border-color: #5c2020;
+  }
+  
+  [data-theme="dark"] .wisdom-item {
+    background: linear-gradient(135deg, #2d2640, #352d4d);
+  }
+  
   [data-theme="dark"] .sprint-selector label {
     color: #a0a0a0 !important;
   }
@@ -538,6 +688,63 @@
     </div>
   </div>
 
+  <!-- Weekly Intelligence Summary -->
+  <div class="report-section">
+    <div class="intelligence-header">
+      <h2>🧠 Weekly Intelligence Summary</h2>
+      <button onclick="loadWeeklyIntelligence()" style="padding: 0.5rem 1rem; border: 1px solid var(--sf-border); border-radius: 6px; background: var(--sf-surface); cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Refresh
+      </button>
+    </div>
+    
+    <div class="intelligence-grid" id="intelligenceGrid">
+      <div class="intelligence-card">
+        <h4>✅ Key Decisions</h4>
+        <div class="signal-list" id="keyDecisions">
+          <p class="no-data">Loading...</p>
+        </div>
+      </div>
+      
+      <div class="intelligence-card">
+        <h4>🎯 Action Items</h4>
+        <div class="signal-list" id="keyActions">
+          <p class="no-data">Loading...</p>
+        </div>
+      </div>
+      
+      <div class="intelligence-card">
+        <h4>🚧 Active Blockers</h4>
+        <div class="signal-list" id="activeBlockers">
+          <p class="no-data">Loading...</p>
+        </div>
+      </div>
+      
+      <div class="intelligence-card">
+        <h4>📊 DIKW Activity</h4>
+        <div id="dikwActivity">
+          <p class="no-data">Loading...</p>
+        </div>
+      </div>
+      
+      <div class="intelligence-card">
+        <h4>🎫 Blocked Tickets</h4>
+        <div id="blockedTickets">
+          <p class="no-data">Loading...</p>
+        </div>
+      </div>
+      
+      <div class="intelligence-card">
+        <h4>💎 High-Value Knowledge</h4>
+        <div id="highValueKnowledge">
+          <p class="no-data">Loading...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Mode Time Breakdown -->
   <div class="report-section">
     <h2>⏱️ Time by Mode/Phase</h2>
@@ -618,7 +825,111 @@ const modeColors = {
   'mode-g': '#10b981'
 };
 
-document.addEventListener('DOMContentLoaded', loadReports);
+document.addEventListener('DOMContentLoaded', () => {
+  loadReports();
+  loadWeeklyIntelligence();
+});
+
+async function loadWeeklyIntelligence() {
+  try {
+    const response = await fetch('/api/reports/weekly-intelligence', { credentials: 'same-origin' });
+    const data = await response.json();
+    renderWeeklyIntelligence(data);
+  } catch (err) {
+    console.error('Failed to load weekly intelligence:', err);
+  }
+}
+
+function renderWeeklyIntelligence(data) {
+  // Key Decisions
+  const decisionsEl = document.getElementById('keyDecisions');
+  if (data.signals?.decisions?.length > 0) {
+    decisionsEl.innerHTML = data.signals.decisions.map(d => `
+      <div class="signal-list-item">
+        ${d.text}
+        <div class="meeting-source">from ${d.meeting}</div>
+      </div>
+    `).join('');
+    if (data.signals.decisions_count > 5) {
+      decisionsEl.innerHTML += `<p style="font-size: 0.8rem; color: var(--sf-text-muted);">+${data.signals.decisions_count - 5} more decisions</p>`;
+    }
+  } else {
+    decisionsEl.innerHTML = '<p class="no-data">No decisions this week</p>';
+  }
+  
+  // Action Items
+  const actionsEl = document.getElementById('keyActions');
+  if (data.signals?.action_items?.length > 0) {
+    actionsEl.innerHTML = data.signals.action_items.map(a => `
+      <div class="signal-list-item">
+        ${a.text}
+        <div class="meeting-source">from ${a.meeting}</div>
+      </div>
+    `).join('');
+    if (data.signals.action_items_count > 5) {
+      actionsEl.innerHTML += `<p style="font-size: 0.8rem; color: var(--sf-text-muted);">+${data.signals.action_items_count - 5} more actions</p>`;
+    }
+  } else {
+    actionsEl.innerHTML = '<p class="no-data">No action items this week</p>';
+  }
+  
+  // Blockers
+  const blockersEl = document.getElementById('activeBlockers');
+  if (data.signals?.blockers?.length > 0) {
+    blockersEl.innerHTML = data.signals.blockers.map(b => `
+      <div class="signal-list-item" style="border-left-color: #ef4444;">
+        ${b.text}
+        <div class="meeting-source">from ${b.meeting}</div>
+      </div>
+    `).join('');
+  } else {
+    blockersEl.innerHTML = '<p class="no-data">🎉 No blockers this week!</p>';
+  }
+  
+  // DIKW Activity
+  const dikwEl = document.getElementById('dikwActivity');
+  const dikwLevels = ['wisdom', 'knowledge', 'information', 'data'];
+  let dikwHtml = '';
+  for (const level of dikwLevels) {
+    const stats = data.dikw?.summary?.[level] || { total: 0, new: 0 };
+    dikwHtml += `
+      <div class="dikw-level-row">
+        <span class="dikw-level-name">${level}</span>
+        <div class="dikw-level-stats">
+          <span>${stats.total} total</span>
+          ${stats.new > 0 ? `<span class="dikw-new-badge">+${stats.new} new</span>` : ''}
+        </div>
+      </div>
+    `;
+  }
+  dikwEl.innerHTML = dikwHtml || '<p class="no-data">No DIKW items yet</p>';
+  
+  // Blocked Tickets
+  const blockedTicketsEl = document.getElementById('blockedTickets');
+  if (data.sprint?.blocked_tickets?.length > 0) {
+    blockedTicketsEl.innerHTML = data.sprint.blocked_tickets.map(t => `
+      <div class="blocked-ticket">
+        <span class="ticket-id">${t.ticket_id}</span>: ${t.title}
+        ${t.reason ? `<div class="reason">${t.reason}</div>` : ''}
+      </div>
+    `).join('');
+  } else {
+    blockedTicketsEl.innerHTML = '<p class="no-data">✅ No blocked tickets</p>';
+  }
+  
+  // High-Value Knowledge
+  const knowledgeEl = document.getElementById('highValueKnowledge');
+  if (data.dikw?.high_value_items?.length > 0) {
+    knowledgeEl.innerHTML = data.dikw.high_value_items.map(item => `
+      <div class="wisdom-item">
+        <span class="level-badge">${item.level}</span>
+        <div class="content">${item.summary || item.content}</div>
+      </div>
+    `).join('');
+  } else {
+    knowledgeEl.innerHTML = '<p class="no-data">Promote signals to Knowledge/Wisdom level to see them here</p>';
+  }
+}
 
 async function loadReports() {
   const days = parseInt(document.getElementById('sprintPeriod').value);

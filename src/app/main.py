@@ -2192,6 +2192,281 @@ def format_duration(seconds: int) -> str:
         return f"{hours}h {mins}m"
 
 
+@app.get("/api/reports/weekly-intelligence")
+async def get_weekly_intelligence():
+    """
+    Weekly Intelligence Summary - High-value synthesis of the week's activity.
+    
+    Provides:
+    - Meeting summary with key decisions
+    - Top signals by category
+    - DIKW pyramid activity
+    - Ticket/sprint progress
+    - Action items due soon
+    - Career standups overview
+    """
+    week_start = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%Y-%m-%d")
+    
+    with connect() as conn:
+        # =====================================================================
+        # MEETINGS THIS WEEK
+        # =====================================================================
+        meetings = conn.execute(
+            """
+            SELECT id, meeting_name, meeting_date, signals_json, created_at
+            FROM meeting_summaries 
+            WHERE (meeting_date >= ? OR (meeting_date IS NULL AND created_at >= ?))
+            ORDER BY COALESCE(meeting_date, created_at) DESC
+            LIMIT 20
+            """,
+            (week_start, week_start)
+        ).fetchall()
+        
+        meetings_data = []
+        all_decisions = []
+        all_actions = []
+        all_blockers = []
+        all_risks = []
+        all_ideas = []
+        
+        for m in meetings:
+            meeting_info = {
+                "id": m["id"],
+                "name": m["meeting_name"] or "Untitled Meeting",
+                "date": m["meeting_date"] or m["created_at"][:10]
+            }
+            
+            if m["signals_json"]:
+                try:
+                    signals = json.loads(m["signals_json"])
+                    meeting_info["signal_count"] = sum(
+                        len(signals.get(k, [])) 
+                        for k in ["decisions", "action_items", "blockers", "risks", "ideas"]
+                    )
+                    
+                    # Collect signals with meeting context
+                    for d in signals.get("decisions", []):
+                        all_decisions.append({"text": d, "meeting": meeting_info["name"], "meeting_id": m["id"]})
+                    for a in signals.get("action_items", []):
+                        all_actions.append({"text": a, "meeting": meeting_info["name"], "meeting_id": m["id"]})
+                    for b in signals.get("blockers", []):
+                        all_blockers.append({"text": b, "meeting": meeting_info["name"], "meeting_id": m["id"]})
+                    for r in signals.get("risks", []):
+                        all_risks.append({"text": r, "meeting": meeting_info["name"], "meeting_id": m["id"]})
+                    for i in signals.get("ideas", []):
+                        all_ideas.append({"text": i, "meeting": meeting_info["name"], "meeting_id": m["id"]})
+                except:
+                    meeting_info["signal_count"] = 0
+            
+            meetings_data.append(meeting_info)
+        
+        # =====================================================================
+        # DIKW PYRAMID ACTIVITY
+        # =====================================================================
+        dikw_items = conn.execute(
+            """
+            SELECT level, COUNT(*) as count,
+                   SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) as new_this_week
+            FROM dikw_pyramid
+            WHERE status = 'active'
+            GROUP BY level
+            ORDER BY 
+                CASE level 
+                    WHEN 'wisdom' THEN 1 
+                    WHEN 'knowledge' THEN 2 
+                    WHEN 'information' THEN 3 
+                    WHEN 'data' THEN 4 
+                END
+            """,
+            (week_start,)
+        ).fetchall()
+        
+        dikw_summary = {
+            row["level"]: {"total": row["count"], "new": row["new_this_week"] or 0}
+            for row in dikw_items
+        }
+        
+        # Recent wisdom/knowledge items (high value)
+        high_value_dikw = conn.execute(
+            """
+            SELECT id, level, content, summary, tags
+            FROM dikw_pyramid
+            WHERE level IN ('wisdom', 'knowledge') AND status = 'active'
+            ORDER BY created_at DESC
+            LIMIT 5
+            """
+        ).fetchall()
+        
+        # =====================================================================
+        # TICKET/SPRINT PROGRESS
+        # =====================================================================
+        ticket_stats = conn.execute(
+            """
+            SELECT 
+                status,
+                COUNT(*) as count,
+                SUM(COALESCE(sprint_points, 0)) as points
+            FROM tickets
+            WHERE in_sprint = 1
+            GROUP BY status
+            """
+        ).fetchall()
+        
+        sprint_overview = {
+            "todo": {"count": 0, "points": 0},
+            "in_progress": {"count": 0, "points": 0},
+            "in_review": {"count": 0, "points": 0},
+            "blocked": {"count": 0, "points": 0},
+            "done": {"count": 0, "points": 0}
+        }
+        for row in ticket_stats:
+            if row["status"] in sprint_overview:
+                sprint_overview[row["status"]] = {
+                    "count": row["count"],
+                    "points": row["points"] or 0
+                }
+        
+        # Blocked tickets need attention
+        blocked_tickets = conn.execute(
+            """
+            SELECT id, ticket_id, title, blocker_reason
+            FROM tickets
+            WHERE status = 'blocked' AND in_sprint = 1
+            LIMIT 5
+            """
+        ).fetchall()
+        
+        # =====================================================================
+        # ACTION ITEMS DUE SOON
+        # =====================================================================
+        # Get action items from signals that might be due (recent ones)
+        recent_actions = conn.execute(
+            """
+            SELECT id, content, meeting_id, status, created_at
+            FROM signals
+            WHERE signal_type = 'action_item' 
+            AND status = 'pending'
+            ORDER BY created_at DESC
+            LIMIT 10
+            """
+        ).fetchall()
+        
+        # =====================================================================
+        # CAREER STANDUPS
+        # =====================================================================
+        standups = conn.execute(
+            """
+            SELECT id, standup_date, yesterday_summary, today_summary, blockers
+            FROM career_standups
+            WHERE standup_date >= ?
+            ORDER BY standup_date DESC
+            LIMIT 7
+            """,
+            (week_start,)
+        ).fetchall()
+        
+        standups_data = [
+            {
+                "id": s["id"],
+                "date": s["standup_date"],
+                "yesterday": s["yesterday_summary"][:100] + "..." if s["yesterday_summary"] and len(s["yesterday_summary"]) > 100 else s["yesterday_summary"],
+                "today": s["today_summary"][:100] + "..." if s["today_summary"] and len(s["today_summary"]) > 100 else s["today_summary"],
+                "has_blockers": bool(s["blockers"])
+            }
+            for s in standups
+        ]
+        
+        # =====================================================================
+        # TIME TRACKING SUMMARY
+        # =====================================================================
+        time_by_mode = conn.execute(
+            """
+            SELECT mode, SUM(duration_seconds) as total_seconds, COUNT(*) as sessions
+            FROM mode_sessions
+            WHERE date >= ? AND duration_seconds IS NOT NULL
+            GROUP BY mode
+            ORDER BY total_seconds DESC
+            """,
+            (week_start,)
+        ).fetchall()
+        
+        time_summary = [
+            {
+                "mode": row["mode"],
+                "total_hours": round(row["total_seconds"] / 3600, 1),
+                "sessions": row["sessions"]
+            }
+            for row in time_by_mode
+        ]
+        
+        # =====================================================================
+        # BUILD RESPONSE
+        # =====================================================================
+        return JSONResponse({
+            "period": {
+                "start": week_start,
+                "end": today
+            },
+            "meetings": {
+                "count": len(meetings_data),
+                "list": meetings_data[:10],
+                "total_signals": len(all_decisions) + len(all_actions) + len(all_blockers) + len(all_risks) + len(all_ideas)
+            },
+            "signals": {
+                "decisions": all_decisions[:5],
+                "decisions_count": len(all_decisions),
+                "action_items": all_actions[:5],
+                "action_items_count": len(all_actions),
+                "blockers": all_blockers[:5],
+                "blockers_count": len(all_blockers),
+                "risks": all_risks[:3],
+                "risks_count": len(all_risks),
+                "ideas": all_ideas[:3],
+                "ideas_count": len(all_ideas)
+            },
+            "dikw": {
+                "summary": dikw_summary,
+                "high_value_items": [
+                    {
+                        "id": item["id"],
+                        "level": item["level"],
+                        "content": item["content"][:200] + "..." if len(item["content"] or "") > 200 else item["content"],
+                        "summary": item["summary"],
+                        "tags": item["tags"]
+                    }
+                    for item in high_value_dikw
+                ]
+            },
+            "sprint": {
+                "overview": sprint_overview,
+                "blocked_tickets": [
+                    {
+                        "id": t["id"],
+                        "ticket_id": t["ticket_id"],
+                        "title": t["title"],
+                        "reason": t["blocker_reason"]
+                    }
+                    for t in blocked_tickets
+                ]
+            },
+            "action_items_pending": [
+                {
+                    "id": a["id"],
+                    "content": a["content"][:150] + "..." if len(a["content"] or "") > 150 else a["content"],
+                    "meeting_id": a["meeting_id"],
+                    "created": a["created_at"]
+                }
+                for a in recent_actions
+            ],
+            "standups": {
+                "count": len(standups_data),
+                "list": standups_data
+            },
+            "time_tracking": time_summary
+        })
+
+
 @app.post("/api/mode-timer/calculate-stats")
 async def calculate_mode_statistics():
     """Calculate and store mode statistics for analytics."""
