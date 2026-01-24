@@ -1983,7 +1983,7 @@ async def submit_thumbs_feedback(request: Request):
     
     Body:
         run_id: The LangSmith run ID
-        is_positive: true for thumbs up, false for thumbs down
+        is_positive: true for thumbs up, false for thumbs down (or score: 1/0)
         comment: Optional explanation
     """
     from src.app.services.evaluations import submit_thumbs_feedback as submit_thumbs
@@ -1994,9 +1994,15 @@ async def submit_thumbs_feedback(request: Request):
     if not run_id:
         return JSONResponse({"error": "run_id is required"}, status_code=400)
     
+    # Accept both is_positive (bool) and score (0/1) formats
+    is_positive = data.get("is_positive")
+    if is_positive is None:
+        score = data.get("score")
+        is_positive = bool(score) if score is not None else True
+    
     feedback_id = submit_thumbs(
         run_id=run_id,
-        is_positive=data.get("is_positive", True),
+        is_positive=is_positive,
         comment=data.get("comment"),
         user_id=data.get("user_id"),
     )

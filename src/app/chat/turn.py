@@ -241,6 +241,21 @@ def run_chat_turn(
             f"({it['type'].capitalize()}: {it['label']})\n{it['content']}"
         )
 
+    # If no memory blocks found, try ArjunaAgent as fallback
+    if not memory_blocks:
+        try:
+            from ..agents.arjuna import get_arjuna_agent
+            agent = get_arjuna_agent()
+            result = agent.quick_ask(question)
+            if result.get("success") and result.get("response"):
+                answer = result["response"]
+                run_id = result.get("run_id")
+                add_message(conversation_id, "assistant", answer)
+                return answer, run_id
+        except Exception as e:
+            print(f"ArjunaAgent fallback failed: {e}")
+            pass
+
     conversation = get_recent_messages(conversation_id)
     context = build_context(conversation, memory_blocks)
 
@@ -324,6 +339,21 @@ If the question cannot be answered from this specific context, say so clearly.""
         memory_blocks.append(
             f"[CONTEXT - {it['type'].capitalize()}: {it['label']}]\n{it['content']}"
         )
+
+    # If no context items found (only focus instruction), use ArjunaAgent fallback
+    if len(memory_blocks) <= 1 and not items:
+        try:
+            from ..agents.arjuna import get_arjuna_agent
+            agent = get_arjuna_agent()
+            result = agent.quick_ask(question)
+            if result.get("success") and result.get("response"):
+                answer = result["response"]
+                run_id = result.get("run_id")
+                add_message(conversation_id, "assistant", answer)
+                return answer, run_id
+        except Exception as e:
+            print(f"ArjunaAgent fallback failed: {e}")
+            pass
 
     conversation = get_recent_messages(conversation_id)
     context = build_context(conversation, memory_blocks)

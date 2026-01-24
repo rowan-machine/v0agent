@@ -365,6 +365,55 @@ def chat_turn(
     )
 
 
+@router.post("/api/chat/{conversation_id}/send")
+async def send_chat_message(conversation_id: int, request: Request):
+    """
+    Send a message via AJAX and get the response without page reload.
+    Returns the assistant response and run_id for feedback.
+    """
+    try:
+        data = await request.json()
+        message = data.get("message", "").strip()
+        
+        if not message:
+            return JSONResponse({"error": "Message is required"}, status_code=400)
+        
+        # Get conversation to check context
+        conversation = get_conversation(conversation_id)
+        if not conversation:
+            return JSONResponse({"error": "Conversation not found"}, status_code=404)
+        
+        # Get meeting/document context if set
+        meeting_id = None
+        document_id = None
+        if conversation:
+            meeting_id = conversation.get("meeting_id") if hasattr(conversation, "get") else (conversation["meeting_id"] if "meeting_id" in conversation.keys() else None)
+            document_id = conversation.get("document_id") if hasattr(conversation, "get") else (conversation["document_id"] if "document_id" in conversation.keys() else None)
+        
+        # Run the chat turn with context if available
+        if meeting_id or document_id:
+            answer, run_id = run_chat_turn_with_context(conversation_id, message, meeting_id, document_id)
+        else:
+            answer, run_id = run_chat_turn(conversation_id, message)
+        
+        # Generate title if this is the first message
+        if conversation and not conversation.get("title"):
+            title = generate_chat_title(message)
+            update_conversation_title(conversation_id, title)
+        
+        return JSONResponse({
+            "success": True,
+            "response": answer,
+            "run_id": run_id,
+            "conversation_id": conversation_id,
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 @router.delete("/chat/{conversation_id}")
 def delete_chat(conversation_id: int):
     """Delete a conversation permanently."""

@@ -1739,7 +1739,93 @@
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
   }
 
-  /* Feedback Buttons for Chat */
+  /* Message wrapper for feedback positioning */
+  .message-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .message-wrapper.user {
+    justify-content: flex-end;
+  }
+  
+  .message-wrapper.assistant {
+    justify-content: flex-start;
+  }
+  
+  .message-wrapper .message {
+    margin-bottom: 0;
+  }
+
+  /* Inline feedback buttons to the right of message */
+  .message-feedback {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding-top: 0.25rem;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+  
+  .message-wrapper:hover .message-feedback {
+    opacity: 1;
+  }
+
+  .feedback-btn-inline {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 0.15rem 0.25rem;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.15s;
+    opacity: 0.7;
+  }
+
+  .feedback-btn-inline:hover {
+    opacity: 1;
+    transform: scale(1.15);
+    border-color: #ddd;
+  }
+
+  .feedback-btn-inline:active {
+    transform: scale(0.85);
+  }
+
+  .feedback-btn-inline.thumbs-up:hover {
+    background: #e8f5e9;
+    border-color: #4caf50;
+  }
+
+  .feedback-btn-inline.thumbs-down:hover {
+    background: #ffebee;
+    border-color: #f44336;
+  }
+
+  .feedback-btn-inline.selected {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  .feedback-btn-inline.selected.thumbs-up {
+    background: #4caf50;
+    border-color: #4caf50;
+    color: white;
+  }
+
+  .feedback-btn-inline.selected.thumbs-down {
+    background: #f44336;
+    border-color: #f44336;
+    color: white;
+  }
+
+  .feedback-btn-inline:disabled {
+    cursor: default;
+  }
+
+  /* Old feedback buttons (deprecated, kept for backward compat) */
   .feedback-buttons {
     display: flex;
     align-items: center;
@@ -1948,20 +2034,23 @@
       <div class="messages-container">
         {% if messages %}
           {% for m in messages %}
-            <div class="message {{ m.role }}">
-              <div class="message-role">{{ m.role }}</div>
-              <div class="message-content">{{ m.content }}</div>
-              {% if m.role == 'assistant' and loop.last %}
-                <div class="choice-chips" id="choice-chips">
-                  <!-- Choice chips will be dynamically inserted here -->
-                </div>
-                {% if last_run_id %}
-                <div class="feedback-buttons" id="chat-feedback-{{ loop.index }}">
-                  <span style="font-size: 0.75rem; color: #888; margin-right: 0.5rem;">Was this helpful?</span>
-                  <button class="feedback-btn thumbs-up" onclick="submitChatFeedback('{{ last_run_id }}', 1, this)" title="Helpful">👍</button>
-                  <button class="feedback-btn thumbs-down" onclick="submitChatFeedback('{{ last_run_id }}', 0, this)" title="Not helpful">👎</button>
-                </div>
+            <div class="message-wrapper {{ m.role }}">
+              <div class="message {{ m.role }}">
+                <div class="message-role">{{ m.role }}</div>
+                <div class="message-content">{{ m.content }}</div>
+                {% if m.role == 'assistant' and loop.last %}
+                  <div class="choice-chips" id="choice-chips">
+                    <!-- Choice chips will be dynamically inserted here -->
+                  </div>
                 {% endif %}
+              </div>
+              {% if m.role == 'assistant' %}
+              <div class="message-feedback" data-msg-index="{{ loop.index }}">
+                {% if loop.last and last_run_id %}
+                <button class="feedback-btn-inline thumbs-up" onclick="submitChatFeedback('{{ last_run_id }}', 1, this)" title="Helpful">👍</button>
+                <button class="feedback-btn-inline thumbs-down" onclick="submitChatFeedback('{{ last_run_id }}', 0, this)" title="Not helpful">👎</button>
+                {% endif %}
+              </div>
               {% endif %}
             </div>
           {% endfor %}
@@ -2630,13 +2719,20 @@
   async function submitChatFeedback(runId, score, buttonEl) {
     if (!runId) return;
     
-    // Disable both buttons
+    // Get container and sibling button
     const container = buttonEl.parentElement;
-    const buttons = container.querySelectorAll('.feedback-btn');
-    buttons.forEach(btn => btn.disabled = true);
+    const buttons = container.querySelectorAll('.feedback-btn-inline, .feedback-btn');
     
-    // Mark selected button
+    // Mark selected button immediately (stay depressed)
     buttonEl.classList.add('selected');
+    
+    // Disable other button but keep it visible
+    buttons.forEach(btn => {
+      if (btn !== buttonEl) {
+        btn.style.opacity = '0.3';
+        btn.disabled = true;
+      }
+    });
     
     try {
       const response = await fetch('/api/evaluations/thumbs', {
@@ -2656,55 +2752,125 @@
       }
     } catch (err) {
       console.error('Failed to submit feedback:', err);
-      buttons.forEach(btn => btn.disabled = false);
-      buttonEl.classList.remove('selected');
+      // Don't undo selection even on error - feedback was the user's intent
     }
   }
 
-  // Handle form submit
-  function handleChatSubmit(event) {
+  // Handle form submit - AJAX version (no page reload)
+  async function handleChatSubmit(event) {
     event.preventDefault();
-    const form = document.getElementById('chatForm');
     const textarea = document.getElementById('chatTextarea');
     const sendBtn = document.getElementById('sendBtn');
     const messagesContainer = document.querySelector('.messages-container');
     const message = textarea.value.trim();
+    const conversationId = {{ active_conversation.id if active_conversation else 'null' }};
     
-    if (!message) return false;
+    if (!message || !conversationId) return false;
     
     // Immediately show user message in the chat window
-    if (messagesContainer) {
-      const userMessageDiv = document.createElement('div');
-      userMessageDiv.className = 'message user';
-      userMessageDiv.innerHTML = `
+    const userMessageDiv = document.createElement('div');
+    userMessageDiv.className = 'message-wrapper user';
+    userMessageDiv.innerHTML = `
+      <div class="message user">
         <div class="message-role">user</div>
         <div class="message-content">${escapeHtml(message)}</div>
-      `;
-      messagesContainer.appendChild(userMessageDiv);
-      
-      // Show typing indicator for AI
-      const typingDiv = document.createElement('div');
-      typingDiv.className = 'message assistant typing-indicator';
-      typingDiv.id = 'typingIndicator';
-      typingDiv.innerHTML = `
+      </div>
+    `;
+    messagesContainer.appendChild(userMessageDiv);
+    
+    // Show typing indicator for AI
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'message-wrapper assistant';
+    typingDiv.id = 'typingIndicator';
+    typingDiv.innerHTML = `
+      <div class="message assistant typing-indicator">
         <div class="message-role">assistant</div>
         <div class="message-content"><span class="typing-dots">Thinking<span>.</span><span>.</span><span>.</span></span></div>
-      `;
-      messagesContainer.appendChild(typingDiv);
-      
-      // Scroll to bottom
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
+      </div>
+      <div class="message-feedback"></div>
+    `;
+    messagesContainer.appendChild(typingDiv);
+    
+    // Scroll to bottom
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
     
     // Disable form while submitting
     textarea.disabled = true;
     textarea.value = '';
     sendBtn.disabled = true;
-    sendBtn.textContent = 'Waiting...';
+    sendBtn.textContent = 'Sending...';
     sendBtn.style.opacity = '0.6';
     
-    // Submit form (this triggers the full page refresh with response)
-    form.submit();
+    try {
+      const response = await fetch(`/api/chat/${conversationId}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ message: message })
+      });
+      
+      const data = await response.json();
+      
+      // Remove typing indicator
+      const typingEl = document.getElementById('typingIndicator');
+      if (typingEl) typingEl.remove();
+      
+      if (data.success) {
+        // Add assistant response with feedback buttons
+        const assistantDiv = document.createElement('div');
+        assistantDiv.className = 'message-wrapper assistant';
+        
+        // Format response (basic markdown-like formatting)
+        let formattedResponse = escapeHtml(data.response)
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\n/g, '<br>');
+        
+        assistantDiv.innerHTML = `
+          <div class="message assistant">
+            <div class="message-role">assistant</div>
+            <div class="message-content">${formattedResponse}</div>
+            <div class="choice-chips" id="choice-chips"></div>
+          </div>
+          <div class="message-feedback">
+            ${data.run_id ? `
+              <button class="feedback-btn-inline thumbs-up" onclick="submitChatFeedback('${data.run_id}', 1, this)" title="Helpful">👍</button>
+              <button class="feedback-btn-inline thumbs-down" onclick="submitChatFeedback('${data.run_id}', 0, this)" title="Not helpful">👎</button>
+            ` : ''}
+          </div>
+        `;
+        messagesContainer.appendChild(assistantDiv);
+        
+        // Scroll to bottom
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      } else {
+        showToast(data.error || 'Failed to send message', 'error');
+      }
+      
+    } catch (err) {
+      console.error('Chat error:', err);
+      // Remove typing indicator
+      const typingEl = document.getElementById('typingIndicator');
+      if (typingEl) typingEl.remove();
+      
+      // Show error
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'message-wrapper assistant';
+      errorDiv.innerHTML = `
+        <div class="message assistant error">
+          <div class="message-role">assistant</div>
+          <div class="message-content" style="color: #c0392b;">Sorry, an error occurred. Please try again.</div>
+        </div>
+      `;
+      messagesContainer.appendChild(errorDiv);
+    }
+    
+    // Re-enable form
+    textarea.disabled = false;
+    textarea.focus();
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Send';
+    sendBtn.style.opacity = '1';
+    
     return false;
   }
   
