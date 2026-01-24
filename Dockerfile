@@ -51,15 +51,15 @@ RUN mkdir -p /app/data /app/uploads /app/logs && \
 # Switch to non-root user
 USER appuser
 
-# Health check
+# Health check - use PORT env var (Railway provides this)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()" || exit 1
+    CMD python -c "import urllib.request; import os; urllib.request.urlopen(f'http://localhost:{os.environ.get(\"PORT\", 8000)}/health').read()" || exit 1
 
-# Expose port
+# Expose port (Railway will set PORT dynamically)
 EXPOSE 8000
 
-# Start application
-CMD ["python", "-m", "uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start application - use shell form to expand $PORT
+CMD python -m uvicorn src.app.main:app --host 0.0.0.0 --port ${PORT:-8000}
 
 # ===== Stage 3: Development =====
 FROM python:3.11-slim as development
@@ -93,5 +93,5 @@ RUN mkdir -p /app/data /app/uploads /app/logs
 
 EXPOSE 8000
 
-# Run with hot reload
-CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Run with hot reload - use PORT env var
+CMD uvicorn src.app.main:app --host 0.0.0.0 --port ${PORT:-8000} --reload
