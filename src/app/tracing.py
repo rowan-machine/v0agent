@@ -39,6 +39,10 @@ from contextlib import contextmanager
 from functools import wraps
 from dataclasses import dataclass, field
 
+# Ensure env vars are loaded before checking tracing
+from dotenv import load_dotenv
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 
 # Track if tracing is enabled

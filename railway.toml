@@ -5,6 +5,8 @@
 # Use Dockerfile for builds
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
+# Use the runtime stage (not development)
+dockerfileTarget = "runtime"
 
 [deploy]
 # Health check endpoint

@@ -15,7 +15,7 @@ Maintains backward compatibility through an adapter layer.
 """
 
 from typing import Any, Dict, List, Optional
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from pathlib import Path
 import asyncio
 import json
@@ -1418,9 +1418,10 @@ Analyze the user's intent and respond with JSON as specified."""
             sprint = conn.execute(
                 "SELECT * FROM sprint_settings WHERE id = 1"
             ).fetchone()
-            if sprint and sprint["end_date"]:
+            if sprint and sprint["sprint_start_date"] and sprint["sprint_length_days"]:
                 try:
-                    end_date = datetime.strptime(sprint["end_date"], "%Y-%m-%d").date()
+                    start_date = datetime.strptime(sprint["sprint_start_date"], "%Y-%m-%d").date()
+                    end_date = start_date + timedelta(days=sprint["sprint_length_days"])
                     days_left = (end_date - date.today()).days
                     
                     if 0 <= days_left <= 3:
@@ -1736,6 +1737,322 @@ Analyze the user's intent and respond with JSON as specified."""
             logger.error(f"Failed to get sprint context for prompt: {e}")
             return ""
     
+    def _get_standup_context(self) -> Dict[str, Any]:
+        """
+        Get comprehensive context for standup updates.
+        
+        Gathers:
+        - Meetings attended today/yesterday
+        - Action items completed/checked off
+        - Ticket checklist items completed
+        - Test plans created/updated
+        - Current blockers
+        - Tickets worked on
+        
+        Returns dict with all relevant activity for standup generation.
+        """
+        conn = self._get_db_connection()
+        if not conn:
+            return {"error": "No database connection"}
+        
+        today = date.today().isoformat()
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        
+        context = {
+            "today": today,
+            "yesterday": yesterday,
+            "meetings_today": [],
+            "meetings_yesterday": [],
+            "completed_action_items": [],
+            "tickets_worked_on": [],
+            "checklist_items_done": [],
+            "test_plans_created": [],
+            "blockers": [],
+            "waiting_for": [],
+        }
+        
+        try:
+            # Meetings today and yesterday
+            meetings = conn.execute(
+                """SELECT id, meeting_name, meeting_date, synthesized_notes 
+                   FROM meeting_summaries 
+                   WHERE meeting_date IN (?, ?)
+                   ORDER BY meeting_date DESC, created_at DESC""",
+                (today, yesterday)
+            ).fetchall()
+            
+            for m in meetings:
+                meeting_info = {
+                    "id": m["id"],
+                    "name": m["meeting_name"],
+                    "date": m["meeting_date"],
+                    "summary": (m["synthesized_notes"] or "")[:200]
+                }
+                if m["meeting_date"] == today:
+                    context["meetings_today"].append(meeting_info)
+                else:
+                    context["meetings_yesterday"].append(meeting_info)
+            
+            # Completed action items (recently updated to 'complete')
+            completed = conn.execute(
+                """SELECT description, responsible_party, updated_at
+                   FROM accountability_items 
+                   WHERE status = 'complete' AND DATE(updated_at) IN (?, ?)
+                   ORDER BY updated_at DESC LIMIT 10""",
+                (today, yesterday)
+            ).fetchall()
+            context["completed_action_items"] = [
+                {"description": a["description"], "completed_at": a["updated_at"]}
+                for a in completed
+            ]
+            
+            # Tickets worked on (updated today/yesterday)
+            worked_tickets = conn.execute(
+                """SELECT ticket_id, title, status, task_decomposition, updated_at
+                   FROM tickets 
+                   WHERE DATE(updated_at) IN (?, ?)
+                   ORDER BY updated_at DESC LIMIT 10""",
+                (today, yesterday)
+            ).fetchall()
+            
+            for t in worked_tickets:
+                ticket_info = {
+                    "ticket_id": t["ticket_id"],
+                    "title": t["title"],
+                    "status": t["status"],
+                    "updated_at": t["updated_at"],
+                    "checklist_done": []
+                }
+                # Parse checklist for completed items
+                if t["task_decomposition"]:
+                    try:
+                        tasks = json.loads(t["task_decomposition"])
+                        ticket_info["checklist_done"] = [
+                            task.get("text", str(task))[:80]
+                            for task in tasks if task.get("done", False)
+                        ]
+                    except:
+                        pass
+                context["tickets_worked_on"].append(ticket_info)
+            
+            # Test plans created/updated
+            test_plans = conn.execute(
+                """SELECT test_plan_id, title, status, created_at, updated_at
+                   FROM test_plans 
+                   WHERE DATE(created_at) IN (?, ?) OR DATE(updated_at) IN (?, ?)
+                   ORDER BY updated_at DESC LIMIT 5""",
+                (today, yesterday, today, yesterday)
+            ).fetchall()
+            context["test_plans_created"] = [
+                {"test_plan_id": tp["test_plan_id"], "title": tp["title"], "status": tp["status"]}
+                for tp in test_plans
+            ]
+            
+            # Current blockers
+            blockers = conn.execute(
+                """SELECT signal_text, created_at FROM signal_status 
+                   WHERE signal_type = 'blocker' AND status NOT IN ('rejected', 'completed')
+                   ORDER BY created_at DESC LIMIT 5"""
+            ).fetchall()
+            context["blockers"] = [b["signal_text"] for b in blockers]
+            
+            # Waiting for items
+            waiting = conn.execute(
+                """SELECT description, responsible_party FROM accountability_items
+                   WHERE status = 'waiting'
+                   ORDER BY created_at DESC LIMIT 5"""
+            ).fetchall()
+            context["waiting_for"] = [
+                {"who": w["responsible_party"], "what": w["description"][:60]}
+                for w in waiting
+            ]
+            
+        except Exception as e:
+            logger.error(f"Failed to get standup context: {e}")
+            context["error"] = str(e)
+        
+        return context
+    
+    def _format_standup_context_for_prompt(self, ctx: Dict[str, Any]) -> str:
+        """Format standup context as a readable prompt section."""
+        lines = ["## Activity Summary for Standup\n"]
+        
+        # Yesterday's meetings
+        if ctx.get("meetings_yesterday"):
+            lines.append("**Meetings attended yesterday:**")
+            for m in ctx["meetings_yesterday"][:3]:
+                lines.append(f"- {m['name']}")
+            lines.append("")
+        
+        # Today's meetings
+        if ctx.get("meetings_today"):
+            lines.append("**Meetings today:**")
+            for m in ctx["meetings_today"][:3]:
+                lines.append(f"- {m['name']}")
+            lines.append("")
+        
+        # Completed action items
+        if ctx.get("completed_action_items"):
+            lines.append("**Action items completed:**")
+            for a in ctx["completed_action_items"][:5]:
+                lines.append(f"- {a['description'][:60]}")
+            lines.append("")
+        
+        # Tickets worked on
+        if ctx.get("tickets_worked_on"):
+            lines.append("**Tickets worked on:**")
+            for t in ctx["tickets_worked_on"][:5]:
+                lines.append(f"- {t['ticket_id']}: {t['title'][:40]} ({t['status']})")
+                if t.get("checklist_done"):
+                    for item in t["checklist_done"][:3]:
+                        lines.append(f"  ✓ {item}")
+            lines.append("")
+        
+        # Test plans
+        if ctx.get("test_plans_created"):
+            lines.append("**Test plans created/updated:**")
+            for tp in ctx["test_plans_created"][:3]:
+                lines.append(f"- {tp['test_plan_id']}: {tp['title']}")
+            lines.append("")
+        
+        # Blockers
+        if ctx.get("blockers"):
+            lines.append("**Current blockers:**")
+            for b in ctx["blockers"][:3]:
+                lines.append(f"- {b[:60]}")
+            lines.append("")
+        
+        # Waiting for
+        if ctx.get("waiting_for"):
+            lines.append("**Waiting for:**")
+            for w in ctx["waiting_for"][:3]:
+                lines.append(f"- {w['who']}: {w['what']}")
+            lines.append("")
+        
+        return "\n".join(lines) if len(lines) > 1 else "No recent activity found."
+    
+    async def generate_standup_draft(self) -> Dict[str, Any]:
+        """
+        Generate a draft standup update based on recent activity.
+        
+        Returns:
+            Dict with:
+            - draft: The generated standup text
+            - context: Activity used to generate it
+            - offer_to_log: True (always offer to save)
+        """
+        ctx = self._get_standup_context()
+        
+        if ctx.get("error"):
+            return {"success": False, "error": ctx["error"]}
+        
+        activity_summary = self._format_standup_context_for_prompt(ctx)
+        
+        prompt = f"""Based on this activity summary, generate a professional standup update.
+
+{activity_summary}
+
+Generate a standup update with these sections:
+1. **Yesterday:** What was accomplished (meetings, tickets, action items)
+2. **Today:** What you plan to work on (based on open tickets and upcoming tasks)
+3. **Blockers:** Any current blockers or waiting-for items
+
+Keep it concise but informative. Use first person ("I"). Be specific about ticket IDs when relevant."""
+
+        try:
+            response = await self.ask_llm(prompt=prompt, task_type="synthesis")
+            
+            return {
+                "success": True,
+                "draft": response,
+                "context": ctx,
+                "offer_to_log": True,
+                "message": "Here's a draft standup based on your recent activity. Would you like me to log this to your standup updates, or would you prefer to edit it first?",
+                "suggested_page": "/career",  # Standup is on career page
+            }
+        except Exception as e:
+            logger.error(f"Failed to generate standup draft: {e}")
+            return {"success": False, "error": str(e)}
+    
+    async def _get_open_tickets_with_links(self) -> Dict[str, Any]:
+        """
+        Get open tickets formatted with clickable links.
+        
+        Returns tickets as markdown with links to /tickets?id=<ticket_id>
+        """
+        conn = self._get_db_connection()
+        if not conn:
+            return {"success": False, "error": "No database connection"}
+        
+        try:
+            tickets = conn.execute(
+                """SELECT ticket_id, title, status, priority, sprint_points, updated_at
+                   FROM tickets 
+                   WHERE status NOT IN ('done', 'complete', 'closed')
+                   ORDER BY 
+                       CASE status
+                           WHEN 'blocked' THEN 1
+                           WHEN 'in_progress' THEN 2
+                           WHEN 'in_review' THEN 3
+                           WHEN 'todo' THEN 4
+                       END,
+                       CASE priority
+                           WHEN 'high' THEN 1
+                           WHEN 'medium' THEN 2
+                           WHEN 'low' THEN 3
+                       END
+                   LIMIT 20"""
+            ).fetchall()
+            
+            if not tickets:
+                return {
+                    "success": True,
+                    "response": "🎉 No open tickets! You're all caught up.",
+                }
+            
+            # Group by status
+            by_status = {}
+            for t in tickets:
+                status = t["status"]
+                if status not in by_status:
+                    by_status[status] = []
+                by_status[status].append(t)
+            
+            # Build response with clickable links
+            lines = ["## Open Tickets\n"]
+            
+            status_order = ["blocked", "in_progress", "in_review", "todo"]
+            status_emoji = {
+                "blocked": "🚫",
+                "in_progress": "🔄",
+                "in_review": "👀",
+                "todo": "📋"
+            }
+            
+            for status in status_order:
+                if status in by_status:
+                    lines.append(f"### {status_emoji.get(status, '•')} {status.replace('_', ' ').title()}")
+                    for t in by_status[status]:
+                        # Format as clickable link: [ticket_id](/tickets?highlight=ticket_id)
+                        priority_badge = "⭐" if t["priority"] == "high" else ""
+                        points = f" ({t['sprint_points']}pts)" if t["sprint_points"] else ""
+                        lines.append(
+                            f"- [{t['ticket_id']}](/tickets?highlight={t['ticket_id']}) {priority_badge}"
+                            f" {t['title'][:50]}{points}"
+                        )
+                    lines.append("")
+            
+            return {
+                "success": True,
+                "response": "\n".join(lines),
+                "ticket_count": len(tickets),
+                "suggested_page": "/tickets",
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to get open tickets: {e}")
+            return {"success": False, "error": str(e)}
+    
     async def quick_ask(
         self,
         topic: Optional[str] = None,
@@ -1768,7 +2085,17 @@ Analyze the user's intent and respond with JSON as specified."""
             "announcements": "What team-wide announcements or important updates were shared in recent meetings?",
             "sprint_status": "What is the current sprint status? What work is in progress, blocked, or pending?",
             "my_plate": "What's currently on my plate? Include tickets, action items, test plans, and blockers.",
+            "standup": "Help me prepare my standup update. What did I accomplish and what should I focus on?",
+            "open_tickets": "List my open tickets with their status. Format ticket IDs as clickable links.",
         }
+        
+        # Special handling for standup topic - use dedicated generator
+        if topic == "standup":
+            return await self.generate_standup_draft()
+        
+        # Special handling for open_tickets - include clickable links
+        if topic == "open_tickets":
+            return await self._get_open_tickets_with_links()
         
         # Build the question
         if topic:
