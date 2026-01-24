@@ -153,6 +153,17 @@ def startup():
     migration_result = run_all_migrations()
     if migration_result["applied"] > 0:
         print(f"✅ Applied {migration_result['applied']} database migrations")
+    
+    # Sync data from Supabase in production
+    try:
+        from .sync_from_supabase import sync_all_from_supabase
+        sync_results = sync_all_from_supabase()
+        if sync_results:
+            total = sum(sync_results.values())
+            if total > 0:
+                print(f"✅ Synced {total} items from Supabase to SQLite")
+    except Exception as e:
+        print(f"⚠️ Supabase sync failed (non-fatal): {e}")
 
 
 # -------------------------
