@@ -49,15 +49,9 @@ class TicketAgent(BaseAgent):
         """Initialize the ticket agent."""
         if config is None:
             config = AgentConfig(
-                agent_id="ticket",
                 name="Ticket Agent",
                 description="AI-powered ticket management and planning",
-                version="1.0.0",
-                capabilities=[
-                    "summarize",
-                    "generate_plan",
-                    "decompose",
-                ],
+                primary_model="gpt-4o-mini",
             )
         super().__init__(config)
         
@@ -71,6 +65,45 @@ class TicketAgent(BaseAgent):
         else:
             self.jinja_env = None
             logger.warning(f"Prompts directory not found: {prompts_path}")
+    
+    # =========================================================================
+    # ABSTRACT METHOD IMPLEMENTATIONS
+    # =========================================================================
+    
+    def get_system_prompt(self) -> str:
+        """Return the system prompt for the ticket agent."""
+        return """You are a ticket management assistant. Your role is to help with:
+- Summarizing ticket information clearly and concisely
+- Creating implementation plans with actionable steps
+- Decomposing tickets into subtasks
+- Identifying dependencies, risks, and blockers
+
+Always provide structured, actionable output that helps developers understand what needs to be done."""
+    
+    async def run(self, action: str = "summarize", **kwargs) -> Any:
+        """
+        Main entry point for the ticket agent.
+        
+        Args:
+            action: The action to perform - 'summarize', 'plan', or 'decompose'
+            **kwargs: Additional arguments passed to the specific action
+            
+        Returns:
+            Result from the requested action
+        """
+        if action == "summarize":
+            ticket = kwargs.get("ticket", {})
+            format_hint = kwargs.get("format_hint", "")
+            return await self.summarize(ticket, format_hint)
+        elif action == "plan":
+            ticket = kwargs.get("ticket", {})
+            return await self.generate_plan(ticket)
+        elif action == "decompose":
+            ticket = kwargs.get("ticket", {})
+            max_subtasks = kwargs.get("max_subtasks", 5)
+            return await self.decompose(ticket, max_subtasks)
+        else:
+            raise ValueError(f"Unknown action: {action}. Valid actions: summarize, plan, decompose")
     
     # =========================================================================
     # SUMMARY GENERATION
