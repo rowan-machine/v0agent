@@ -165,11 +165,12 @@ def init_scheduler():
         
         # Start the scheduler
         _scheduler.start()
-        logger.info("✅ Background job scheduler started")
+        print("✅ Background job scheduler started")
         
         # Log scheduled jobs
         for job in _scheduler.get_jobs():
-            logger.info(f"  📅 {job.name}: next run at {job.next_run_time}")
+            next_run = job.next_run_time.strftime("%Y-%m-%d %H:%M") if job.next_run_time else "N/A"
+            print(f"  📅 {job.name}: next run at {next_run}")
         
         return _scheduler
         
