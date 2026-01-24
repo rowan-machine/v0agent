@@ -508,7 +508,7 @@
               {% if item.due_date %}
               <span>⏰ Due: {{ item.due_date }}</span>
               {% endif %}
-              <span class="priority-badge {{ item.priority|lower }}">{{ item.priority }}</span>
+              <span class="priority-badge {{ item.priority|lower }}" onclick="cyclePriority({{ item.meeting_id }}, {{ item.item_index }}, '{{ item.priority|lower }}')" title="Click to change priority" style="cursor: pointer;">{{ item.priority }} ⇅</span>
               <span class="source-badge {{ item.source }}">{{ item.source|capitalize }}</span>
             </div>
           </div>
@@ -545,7 +545,7 @@
           {% if item.due_date %}
           <span>⏰ Due: {{ item.due_date }}</span>
           {% endif %}
-          <span class="priority-badge {{ item.priority|lower }}">{{ item.priority }}</span>
+          <span class="priority-badge {{ item.priority|lower }}" onclick="cyclePriority({{ item.meeting_id }}, {{ item.item_index }}, '{{ item.priority|lower }}')" title="Click to change priority" style="cursor: pointer;">{{ item.priority }} ↕</span>
           <span class="source-badge {{ item.source }}">{{ item.source|capitalize }}</span>
         </div>
       </div>
@@ -686,6 +686,37 @@ async function createTicketFromItem(meetingId, itemIndex, text) {
   } catch (err) {
     console.error('Create ticket failed:', err);
     alert('Failed to create ticket');
+  } finally {
+    loading.classList.remove('active');
+  }
+}
+
+async function cyclePriority(meetingId, itemIndex, currentPriority) {
+  const priorities = ['low', 'medium', 'high'];
+  const currentIdx = priorities.indexOf(currentPriority);
+  const nextPriority = priorities[(currentIdx + 1) % priorities.length];
+  
+  const loading = document.getElementById('loading-overlay');
+  loading.classList.add('active');
+  
+  try {
+    const response = await fetch(`/api/action-items/${meetingId}/${itemIndex}/priority`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ priority: nextPriority })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      window.location.reload();
+    } else {
+      alert('Failed to update priority: ' + (data.error || 'Unknown error'));
+    }
+  } catch (err) {
+    console.error('Priority update failed:', err);
+    alert('Failed to update priority');
   } finally {
     loading.classList.remove('active');
   }

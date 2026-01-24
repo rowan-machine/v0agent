@@ -647,6 +647,57 @@ def toggle_action_item(meeting_id: int, item_index: int):
             return {"success": False, "error": str(e)}
 
 
+@router.post("/api/action-items/{meeting_id}/{item_index}/priority")
+async def update_action_item_priority(meeting_id: int, item_index: int, request: Request):
+    """Update the priority of an action item."""
+    data = await request.json()
+    new_priority = data.get('priority', 'medium')
+    
+    # Validate priority
+    if new_priority not in ['low', 'medium', 'high']:
+        return {"success": False, "error": "Invalid priority. Must be low, medium, or high"}
+    
+    with connect() as conn:
+        meeting = conn.execute(
+            "SELECT signals_json FROM meeting_summaries WHERE id = ?",
+            (meeting_id,)
+        ).fetchone()
+        
+        if not meeting or not meeting['signals_json']:
+            return {"success": False, "error": "Meeting not found"}
+        
+        try:
+            signals = json.loads(meeting['signals_json'])
+            action_items = signals.get('action_items', [])
+            
+            if item_index < 0 or item_index >= len(action_items):
+                return {"success": False, "error": "Invalid item index"}
+            
+            item = action_items[item_index]
+            
+            # Update priority
+            if isinstance(item, dict):
+                item['priority'] = new_priority
+            else:
+                # Convert string to dict
+                action_items[item_index] = {
+                    'text': item,
+                    'description': item,
+                    'priority': new_priority
+                }
+            
+            signals['action_items'] = action_items
+            
+            conn.execute(
+                "UPDATE meeting_summaries SET signals_json = ? WHERE id = ?",
+                (json.dumps(signals), meeting_id)
+            )
+            
+            return {"success": True, "priority": new_priority}
+        except (json.JSONDecodeError, TypeError) as e:
+            return {"success": False, "error": str(e)}
+
+
 @router.post("/api/action-items/add")
 async def add_action_item(request: Request):
     """Add a custom action item."""
