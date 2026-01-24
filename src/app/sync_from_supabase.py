@@ -7,6 +7,7 @@ for production deployments where Supabase is the source of truth.
 Uses direct HTTP requests to avoid supabase-py library version conflicts.
 """
 
+import hashlib
 import json
 import logging
 import os
@@ -17,6 +18,22 @@ import httpx
 from .db import connect, table_exists
 
 logger = logging.getLogger(__name__)
+
+
+def _uuid_to_int(uuid_str: str) -> int:
+    """
+    Convert a UUID string to a stable integer for SQLite PRIMARY KEY.
+    Uses hash to create a consistent integer from UUID.
+    
+    Args:
+        uuid_str: UUID string like "21f66c92-a495-4279-9a32-164b496f4c9d"
+        
+    Returns:
+        Positive integer derived from UUID
+    """
+    # Use MD5 hash and take first 8 bytes as integer
+    hash_bytes = hashlib.md5(uuid_str.encode()).digest()[:8]
+    return int.from_bytes(hash_bytes, byteorder='big') & 0x7FFFFFFFFFFFFFFF  # Ensure positive
 
 
 def _get_supabase_rest_client() -> Optional[httpx.Client]:
@@ -98,6 +115,9 @@ def sync_meetings_from_supabase() -> int:
     synced = 0
     with connect() as conn:
         for meeting in meetings:
+            # Convert UUID to integer for SQLite PRIMARY KEY
+            meeting_id = _uuid_to_int(meeting["id"])
+            
             # Convert signals JSONB to JSON string
             signals = meeting.get("signals", {})
             signals_json = json.dumps(signals) if signals else None
@@ -105,7 +125,7 @@ def sync_meetings_from_supabase() -> int:
             # Check if already exists
             existing = conn.execute(
                 "SELECT id FROM meeting_summaries WHERE id = ?",
-                (meeting["id"],)
+                (meeting_id,)
             ).fetchone()
             
             if existing:
@@ -118,7 +138,7 @@ def sync_meetings_from_supabase() -> int:
                     (id, meeting_name, synthesized_notes, meeting_date, signals_json, raw_text, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    meeting["id"],  # Use UUID as string ID
+                    meeting_id,
                     meeting.get("meeting_name", "Untitled Meeting"),
                     meeting.get("synthesized_notes", ""),
                     meeting.get("meeting_date"),
@@ -208,9 +228,13 @@ def sync_dikw_from_supabase() -> int:
             return 0
         
         for item in items:
+            # Convert UUID to integer for SQLite PRIMARY KEY
+            item_id = _uuid_to_int(item["id"])
+            meeting_id = _uuid_to_int(item["meeting_id"]) if item.get("meeting_id") else None
+            
             existing = conn.execute(
                 "SELECT id FROM dikw_items WHERE id = ?",
-                (item["id"],)
+                (item_id,)
             ).fetchone()
             
             if existing:
@@ -226,12 +250,12 @@ def sync_dikw_from_supabase() -> int:
                      tags, confidence, status, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    item["id"],
+                    item_id,
                     item.get("level", "data"),
                     item.get("content", ""),
                     item.get("summary"),
                     item.get("source_type"),
-                    item.get("meeting_id"),
+                    meeting_id,
                     tags_json,
                     item.get("confidence", 0.5),
                     item.get("status", "active"),
@@ -266,9 +290,13 @@ def sync_signal_status_from_supabase() -> int:
             return 0
         
         for status in items:
+            # Convert UUIDs to integers for SQLite PRIMARY KEY
+            status_id = _uuid_to_int(status["id"])
+            meeting_id = _uuid_to_int(status["meeting_id"]) if status.get("meeting_id") else None
+            
             existing = conn.execute(
                 "SELECT id FROM signal_status WHERE id = ?",
-                (status["id"],)
+                (status_id,)
             ).fetchone()
             
             if existing:
@@ -281,8 +309,8 @@ def sync_signal_status_from_supabase() -> int:
                      converted_to, converted_ref_id, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    status["id"],
-                    status.get("meeting_id"),
+                    status_id,
+                    meeting_id,
                     status.get("signal_type"),
                     status.get("signal_text"),
                     status.get("status", "pending"),
