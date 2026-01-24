@@ -4,6 +4,12 @@
 -- =====================
 -- CONVERSATIONS
 -- =====================
+
+-- Drop existing table if you want a fresh start (CAUTION: loses data)
+-- drop table if exists public.messages cascade;
+-- drop table if exists public.conversations cascade;
+
+-- Create table
 create table if not exists public.conversations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid,  -- Optional: link to auth.users if using Supabase Auth
@@ -19,6 +25,26 @@ create table if not exists public.conversations (
   updated_at timestamptz default now()
 );
 
+-- Add columns if they don't exist (for existing tables)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'conversations' AND column_name = 'meeting_id') THEN
+    ALTER TABLE public.conversations ADD COLUMN meeting_id uuid;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'conversations' AND column_name = 'document_id') THEN
+    ALTER TABLE public.conversations ADD COLUMN document_id uuid;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'conversations' AND column_name = 'archived') THEN
+    ALTER TABLE public.conversations ADD COLUMN archived boolean default false;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'conversations' AND column_name = 'device_id') THEN
+    ALTER TABLE public.conversations ADD COLUMN device_id text;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'conversations' AND column_name = 'synced_at') THEN
+    ALTER TABLE public.conversations ADD COLUMN synced_at timestamptz default now();
+  END IF;
+END $$;
+
 -- RLS: Users can only see their own conversations
 alter table public.conversations enable row level security;
 
@@ -31,10 +57,17 @@ create policy "Users can update own conversations" on public.conversations
 create policy "Users can delete own conversations" on public.conversations
   for delete using (auth.uid() = user_id);
 
--- Indexes
+-- Indexes (only create if column exists)
 create index if not exists idx_conversations_user on public.conversations(user_id);
 create index if not exists idx_conversations_updated on public.conversations(updated_at desc);
-create index if not exists idx_conversations_meeting on public.conversations(meeting_id);
+
+-- Create meeting_id index only if column exists
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'conversations' AND column_name = 'meeting_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_conversations_meeting ON public.conversations(meeting_id);
+  END IF;
+END $$;
 
 -- =====================
 -- MESSAGES

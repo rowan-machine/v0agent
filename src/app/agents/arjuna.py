@@ -1690,30 +1690,62 @@ Analyze the user's intent and respond with JSON as specified."""
         return "\n".join(snippets)
     
     async def _get_recent_meetings_context(self) -> str:
-        """Get context from recent meetings for quick_ask."""
+        """Get context from recent meetings for quick_ask.
+        
+        Tries Supabase first (for Railway/production), falls back to SQLite.
+        """
+        meetings = []
+        
+        # Try Supabase first
         try:
-            from ..db import connect
-            with connect() as conn:
-                recent = conn.execute(
-                    """SELECT meeting_name, synthesized_notes, signals_json 
-                       FROM meeting_summaries 
-                       ORDER BY COALESCE(meeting_date, created_at) DESC 
-                       LIMIT 5"""
-                ).fetchall()
+            from ..infrastructure.supabase_client import get_supabase_client
+            supabase = get_supabase_client()
+            if supabase:
+                result = supabase.table("meetings").select("meeting_name, synthesized_notes, signals").order("created_at", desc=True).limit(5).execute()
+                if result.data:
+                    meetings = result.data
+                    logger.info(f"Got {len(meetings)} meetings from Supabase")
         except Exception as e:
-            logger.error(f"Failed to fetch meeting context: {e}")
+            logger.warning(f"Supabase meetings fetch failed: {e}")
+        
+        # SQLite fallback
+        if not meetings:
+            try:
+                from ..db import connect
+                with connect() as conn:
+                    recent = conn.execute(
+                        """SELECT meeting_name, synthesized_notes, signals_json 
+                           FROM meeting_summaries 
+                           ORDER BY COALESCE(meeting_date, created_at) DESC 
+                           LIMIT 5"""
+                    ).fetchall()
+                    meetings = [dict(r) for r in recent]
+                    # Normalize column name
+                    for m in meetings:
+                        if 'signals_json' in m:
+                            m['signals'] = m.pop('signals_json')
+            except Exception as e:
+                logger.error(f"Failed to fetch meeting context from SQLite: {e}")
+                return ""
+        
+        if not meetings:
             return ""
         
         context_parts = []
-        for m in recent:
-            context_parts.append(f"Meeting: {m['meeting_name']}\n{m['synthesized_notes'][:1000]}")
-            if m["signals_json"]:
+        for m in meetings:
+            notes = m.get('synthesized_notes', '')
+            name = m.get('meeting_name', 'Unknown Meeting')
+            context_parts.append(f"Meeting: {name}\n{notes[:1000] if notes else '(No notes)'}")
+            
+            signals = m.get('signals') or m.get('signals_json')
+            if signals:
                 try:
-                    signals = json.loads(m["signals_json"])
+                    if isinstance(signals, str):
+                        signals = json.loads(signals)
                     for stype in ["decisions", "action_items", "blockers", "risks", "ideas"]:
                         items = signals.get(stype, [])
                         if items:
-                            context_parts.append(f"{stype}: {', '.join(items[:3])}")
+                            context_parts.append(f"{stype}: {', '.join(str(i) for i in items[:3])}")
                 except Exception:
                     pass
         

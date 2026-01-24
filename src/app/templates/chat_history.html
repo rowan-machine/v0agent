@@ -1744,7 +1744,6 @@
   .message-wrapper {
     display: flex;
     align-items: flex-start;
-    gap: 0.5rem;
     margin-bottom: 0.5rem;
   }
   
@@ -1760,20 +1759,55 @@
     margin-bottom: 0;
   }
 
-  /* Inline feedback buttons - horizontal to the right of message */
-  .message-feedback {
+  /* Small inline feedback buttons at bottom of assistant message (like ChatGPT) */
+  .message-actions {
     display: flex;
-    flex-direction: row;
-    gap: 0.35rem;
-    padding-top: 0.25rem;
-    opacity: 0.6;
-    transition: opacity 0.2s;
-    align-items: center;
-    margin-left: 0.5rem;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid rgba(0,0,0,0.05);
+    opacity: 0;
+    transition: opacity 0.15s;
   }
   
-  .message-wrapper:hover .message-feedback {
+  .message:hover .message-actions,
+  .message-actions:focus-within,
+  .message-actions.has-selection {
     opacity: 1;
+  }
+
+  .feedback-btn-mini {
+    background: transparent;
+    border: none;
+    padding: 0.15rem 0.3rem;
+    cursor: pointer;
+    font-size: 0.7rem;
+    opacity: 0.5;
+    transition: all 0.1s;
+    border-radius: 3px;
+  }
+
+  .feedback-btn-mini:hover {
+    opacity: 1;
+    background: rgba(0,0,0,0.05);
+  }
+
+  .feedback-btn-mini.selected {
+    opacity: 1 !important;
+    transform: scale(1.1);
+  }
+
+  .feedback-btn-mini.selected.thumbs-up {
+    color: #22c55e;
+  }
+
+  .feedback-btn-mini.selected.thumbs-down {
+    color: #ef4444;
+  }
+
+  .feedback-btn-mini:disabled:not(.selected) {
+    opacity: 0.2;
+    cursor: default;
   }
 
   /* Typing indicator animation */
@@ -2072,20 +2106,20 @@
               <div class="message {{ m.role }}">
                 <div class="message-role">{{ m.role }}</div>
                 <div class="message-content">{{ m.content }}</div>
+                {% if m.role == 'assistant' %}
+                <div class="message-actions">
+                  {% if loop.last and last_run_id %}
+                  <button class="feedback-btn-mini thumbs-up" onclick="submitChatFeedback('{{ last_run_id }}', 1, this)" title="Good response">👍</button>
+                  <button class="feedback-btn-mini thumbs-down" onclick="submitChatFeedback('{{ last_run_id }}', 0, this)" title="Bad response">👎</button>
+                  {% endif %}
+                </div>
+                {% endif %}
                 {% if m.role == 'assistant' and loop.last %}
                   <div class="choice-chips" id="choice-chips">
                     <!-- Choice chips will be dynamically inserted here -->
                   </div>
                 {% endif %}
               </div>
-              {% if m.role == 'assistant' %}
-              <div class="message-feedback" data-msg-index="{{ loop.index }}">
-                {% if loop.last and last_run_id %}
-                <button class="feedback-btn-inline thumbs-up" onclick="submitChatFeedback('{{ last_run_id }}', 1, this)" title="Helpful">👍</button>
-                <button class="feedback-btn-inline thumbs-down" onclick="submitChatFeedback('{{ last_run_id }}', 0, this)" title="Not helpful">👎</button>
-                {% endif %}
-              </div>
-              {% endif %}
             </div>
           {% endfor %}
         {% else %}
@@ -2753,19 +2787,17 @@
   async function submitChatFeedback(runId, score, buttonEl) {
     if (!runId) return;
     
-    // Get container and sibling button
+    // Get container and sibling buttons
     const container = buttonEl.parentElement;
-    const buttons = container.querySelectorAll('.feedback-btn-inline, .feedback-btn');
+    const buttons = container.querySelectorAll('.feedback-btn-mini, .feedback-btn-inline, .feedback-btn');
     
-    // Mark selected button immediately (stay depressed)
+    // Mark selected button immediately and keep container visible
     buttonEl.classList.add('selected');
+    container.classList.add('has-selection');
     
-    // Disable other button but keep it visible
+    // Disable all buttons after selection
     buttons.forEach(btn => {
-      if (btn !== buttonEl) {
-        btn.style.opacity = '0.3';
-        btn.disabled = true;
-      }
+      btn.disabled = true;
     });
     
     try {
@@ -2782,11 +2814,11 @@
       });
       
       if (response.ok) {
-        showToast(score === 1 ? 'Thanks for the feedback! 👍' : 'Thanks for the feedback. We\'ll improve! 📝', 'success');
+        showToast(score === 1 ? 'Thanks! 👍' : 'Thanks for the feedback 📝', 'success');
       }
     } catch (err) {
       console.error('Failed to submit feedback:', err);
-      // Don't undo selection even on error - feedback was the user's intent
+      // Keep selection even on error
     }
   }
 
@@ -2862,13 +2894,13 @@
           <div class="message assistant">
             <div class="message-role">assistant</div>
             <div class="message-content">${formattedResponse}</div>
-            <div class="choice-chips" id="choice-chips"></div>
-          </div>
-          <div class="message-feedback">
             ${data.run_id ? `
-              <button class="feedback-btn-inline thumbs-up" onclick="submitChatFeedback('${data.run_id}', 1, this)" title="Helpful">👍</button>
-              <button class="feedback-btn-inline thumbs-down" onclick="submitChatFeedback('${data.run_id}', 0, this)" title="Not helpful">👎</button>
+            <div class="message-actions">
+              <button class="feedback-btn-mini thumbs-up" onclick="submitChatFeedback('${data.run_id}', 1, this)" title="Good response">👍</button>
+              <button class="feedback-btn-mini thumbs-down" onclick="submitChatFeedback('${data.run_id}', 0, this)" title="Bad response">👎</button>
+            </div>
             ` : ''}
+            <div class="choice-chips" id="choice-chips"></div>
           </div>
         `;
         messagesContainer.appendChild(assistantDiv);
