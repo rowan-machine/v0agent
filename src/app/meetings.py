@@ -786,7 +786,7 @@ async def add_action_item(request: Request):
 
 @router.post("/api/action-items/create-ticket")
 async def create_ticket_from_action_item(request: Request):
-    """Create a ticket from an action item."""
+    """Create a ticket from an action item with context from meeting transcript."""
     data = await request.json()
     
     meeting_id = data.get('meeting_id')
@@ -807,15 +807,24 @@ async def create_ticket_from_action_item(request: Request):
         # Map priority
         priority_map = {'high': 1, 'medium': 2, 'low': 3}
         
-        # Get action item details if available
+        # Get action item details and meeting context
         priority = 2  # Default medium
+        description_parts = []
+        meeting_name = None
+        meeting_date = None
+        assignee = None
+        
         if meeting_id is not None:
             meeting = conn.execute(
-                "SELECT signals_json, meeting_name FROM meeting_summaries WHERE id = ?",
+                """SELECT signals_json, meeting_name, meeting_date, raw_transcript, ai_summary, synthesized_notes 
+                   FROM meeting_summaries WHERE id = ?""",
                 (meeting_id,)
             ).fetchone()
             
             if meeting:
+                meeting_name = meeting['meeting_name']
+                meeting_date = meeting['meeting_date']
+                
                 try:
                     signals = json.loads(meeting['signals_json'] or '{}')
                     items = signals.get('action_items', [])
@@ -823,15 +832,83 @@ async def create_ticket_from_action_item(request: Request):
                         item = items[item_index]
                         if isinstance(item, dict):
                             priority = priority_map.get(item.get('priority', 'medium').lower(), 2)
+                            assignee = item.get('owner') or item.get('assignee')
                 except:
                     pass
+                
+                # Build rich description from meeting context
+                description_parts.append(f"## Source\n")
+                description_parts.append(f"**Meeting:** {meeting_name or f'Meeting #{meeting_id}'}")
+                if meeting_date:
+                    description_parts.append(f"**Date:** {meeting_date}")
+                if assignee:
+                    description_parts.append(f"**Assignee:** {assignee}")
+                description_parts.append("")
+                
+                # Add relevant decisions if available
+                try:
+                    signals = json.loads(meeting['signals_json'] or '{}')
+                    decisions = signals.get('decisions', [])
+                    if decisions:
+                        description_parts.append("## Related Decisions")
+                        for d in decisions[:3]:  # Limit to 3 most relevant
+                            if isinstance(d, dict):
+                                description_parts.append(f"- {d.get('text', d.get('description', str(d)))}")
+                            else:
+                                description_parts.append(f"- {d}")
+                        description_parts.append("")
+                except:
+                    pass
+                
+                # Add context from synthesized notes or AI summary
+                if meeting.get('synthesized_notes'):
+                    # Extract a relevant section (first 500 chars)
+                    notes = meeting['synthesized_notes'][:500]
+                    if len(meeting['synthesized_notes']) > 500:
+                        notes += "..."
+                    description_parts.append("## Meeting Context")
+                    description_parts.append(notes)
+                    description_parts.append("")
+                elif meeting.get('ai_summary'):
+                    summary = meeting['ai_summary'][:500]
+                    if len(meeting['ai_summary']) > 500:
+                        summary += "..."
+                    description_parts.append("## Meeting Summary")
+                    description_parts.append(summary)
+                    description_parts.append("")
+                
+                # Extract relevant transcript snippet if the action item text appears
+                if meeting.get('raw_transcript'):
+                    transcript = meeting['raw_transcript']
+                    # Find where the action item text or keywords appear in transcript
+                    keywords = text.lower().split()[:5]  # First 5 words
+                    for keyword in keywords:
+                        if len(keyword) > 4 and keyword in transcript.lower():
+                            # Find the position and extract surrounding context
+                            pos = transcript.lower().find(keyword)
+                            start = max(0, pos - 200)
+                            end = min(len(transcript), pos + 300)
+                            snippet = transcript[start:end]
+                            if start > 0:
+                                snippet = "..." + snippet
+                            if end < len(transcript):
+                                snippet = snippet + "..."
+                            description_parts.append("## Transcript Excerpt")
+                            description_parts.append(f"```\n{snippet}\n```")
+                            break
         
-        # Create ticket
+        # Fallback if no context was gathered
+        if not description_parts:
+            description_parts.append(f"Created from action item in meeting #{meeting_id}")
+        
+        description = "\n".join(description_parts)
+        
+        # Create ticket with rich description
         conn.execute(
             """INSERT INTO tickets 
                (ticket_id, title, description, priority, status, created_at)
                VALUES (?, ?, ?, ?, ?, ?)""",
-            (ticket_id, text, f"Created from action item in meeting #{meeting_id}", 
+            (ticket_id, text, description, 
              priority, 'todo', datetime.now().isoformat())
         )
         
