@@ -82,6 +82,14 @@ create table if not exists public.messages (
   created_at timestamptz default now()
 );
 
+-- Add run_id column if it doesn't exist (for existing tables)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'messages' AND column_name = 'run_id') THEN
+    ALTER TABLE public.messages ADD COLUMN run_id text;
+  END IF;
+END $$;
+
 -- RLS: Users can access messages through conversation ownership
 alter table public.messages enable row level security;
 
@@ -97,7 +105,14 @@ create policy "Users can access own conversation messages" on public.messages
 -- Indexes
 create index if not exists idx_messages_conversation on public.messages(conversation_id);
 create index if not exists idx_messages_created on public.messages(created_at);
-create index if not exists idx_messages_run_id on public.messages(run_id) where run_id is not null;
+
+-- Create run_id index only if column exists
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'messages' AND column_name = 'run_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_messages_run_id ON public.messages(run_id) WHERE run_id IS NOT NULL;
+  END IF;
+END $$;
 
 -- =====================
 -- ANONYMOUS ACCESS POLICY (for dev/demo without auth)
