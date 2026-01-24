@@ -4,5 +4,12 @@
 "type": "sse",
 "url": "https://mcp.gigamind.dev/mcp"
 }
+},
+"chat.mcp.serverSampling": {
+    "v0agent/.vscode/mcp.json: @railway/mcp-server": {
+        "allowedModels": [
+            "copilot/auto"
+        ]
+    }
 }
 }

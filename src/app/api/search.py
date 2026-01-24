@@ -39,12 +39,16 @@ router = APIRouter(prefix="/api/search", tags=["search"])
 
 def get_supabase_client():
     """Get Supabase client for semantic search."""
-    from supabase import create_client
-    url = os.getenv("SUPABASE_URL")
-    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
-    if not url or not key:
+    try:
+        from supabase import create_client
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
+        if not url or not key:
+            return None
+        return create_client(url, key)
+    except Exception as e:
+        logger.warning(f"Failed to create Supabase client: {e}")
         return None
-    return create_client(url, key)
 
 
 def get_embedding(text: str) -> Optional[List[float]]:

@@ -10,6 +10,12 @@
 				"@railway/mcp-server@0.1.5"
 			],
 			"type": "stdio"
+		},
+		"io.github.miroapp/mcp-server": {
+			"type": "http",
+			"url": "https://mcp.miro.com/",
+			"gallery": "https://api.mcp.github.com",
+			"version": "1.0.1"
 		}
 	},
 	"inputs": [

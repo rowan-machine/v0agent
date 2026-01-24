@@ -177,6 +177,44 @@
     white-space: pre-wrap;
   }
 
+  /* Parsed synthesis content */
+  .synthesis-content-parsed {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .synthesis-overview {
+    font-size: 0.95rem;
+    color: #374151;
+    line-height: 1.7;
+    padding: 1rem;
+    background: var(--sf-item-bg, #f9fafb);
+    border-radius: 8px;
+    border-left: 3px solid var(--sf-primary, #667eea);
+  }
+
+  .synthesis-section h4 {
+    font-size: 0.9rem;
+    color: var(--sf-text, #1a1a1a);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .synthesis-section ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    font-size: 0.9rem;
+    color: var(--sf-text, #374151);
+  }
+
+  .synthesis-section li {
+    margin-bottom: 0.4rem;
+    line-height: 1.5;
+  }
+
   .synthesis-empty {
     text-align: center;
     padding: 3rem;
@@ -563,32 +601,98 @@ async function loadMindmapSynthesis(type = 'default') {
 
 function renderSynthesis(synthesis) {
   const content = document.getElementById('synthesisContent');
-  const keyTopics = synthesis.key_topics || [];
-  const synthesisText = synthesis.synthesis_text || 'No synthesis available.';
+  let keyTopics = synthesis.key_topics || [];
+  let synthesisText = synthesis.synthesis_text || 'No synthesis available.';
   const createdAt = synthesis.created_at ? new Date(synthesis.created_at).toLocaleString() : '';
-  const sourceMindmaps = synthesis.source_mindmap_ids ? synthesis.source_mindmap_ids.length : 0;
-  const sourceConversations = synthesis.source_conversation_ids ? synthesis.source_conversation_ids.length : 0;
+  
+  // Parse key_topics if it's a string
+  if (typeof keyTopics === 'string') {
+    try { keyTopics = JSON.parse(keyTopics); } catch(e) { keyTopics = []; }
+  }
+  
+  // Parse source arrays
+  let sourceMindmaps = synthesis.source_mindmap_ids || [];
+  let sourceConversations = synthesis.source_conversation_ids || [];
+  if (typeof sourceMindmaps === 'string') {
+    try { sourceMindmaps = JSON.parse(sourceMindmaps); } catch(e) { sourceMindmaps = []; }
+  }
+  if (typeof sourceConversations === 'string') {
+    try { sourceConversations = JSON.parse(sourceConversations); } catch(e) { sourceConversations = []; }
+  }
+  
+  // Parse synthesis text if it's JSON wrapped in code blocks
+  let parsedContent = null;
+  if (synthesisText.includes('```json')) {
+    const jsonMatch = synthesisText.match(/```json\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      try {
+        parsedContent = JSON.parse(jsonMatch[1]);
+      } catch(e) {
+        console.warn('Failed to parse synthesis JSON:', e);
+      }
+    }
+  } else if (synthesisText.startsWith('{')) {
+    try {
+      parsedContent = JSON.parse(synthesisText);
+    } catch(e) {}
+  }
   
   // Update stats
-  document.getElementById('mindmapCount').textContent = sourceMindmaps;
-  document.getElementById('topicCount').textContent = keyTopics.length;
-  document.getElementById('conversationCount').textContent = sourceConversations;
+  document.getElementById('mindmapCount').textContent = Array.isArray(sourceMindmaps) ? sourceMindmaps.length : 0;
+  document.getElementById('topicCount').textContent = Array.isArray(keyTopics) ? keyTopics.length : 0;
+  document.getElementById('conversationCount').textContent = Array.isArray(sourceConversations) ? sourceConversations.length : 0;
   
-  content.innerHTML = `
+  // Build content HTML
+  let contentHtml = `
     <div class="synthesis-meta">
       <span>Generated: ${createdAt}</span>
-      <span>${sourceMindmaps} mindmaps from ${sourceConversations} conversations</span>
+      <span>${Array.isArray(sourceMindmaps) ? sourceMindmaps.length : 0} mindmaps from ${Array.isArray(sourceConversations) ? sourceConversations.length : 0} conversations</span>
     </div>
-    ${keyTopics.length > 0 ? `
+  `;
+  
+  // Add key topics if available
+  if (Array.isArray(keyTopics) && keyTopics.length > 0) {
+    contentHtml += `
       <div class="key-topics">
         <div class="key-topics-title">Key Topics:</div>
         <div class="key-topics-list">
-          ${keyTopics.slice(0, 15).map(t => `<span class="topic-tag">${escapeHtml(t)}</span>`).join('')}
+          ${keyTopics.slice(0, 15).map(t => `<span class="topic-tag">${escapeHtml(String(t))}</span>`).join('')}
         </div>
       </div>
-    ` : ''}
-    <div class="synthesis-text">${escapeHtml(synthesisText)}</div>
-  `;
+    `;
+  }
+  
+  // Render parsed content or raw text
+  if (parsedContent) {
+    contentHtml += `<div class="synthesis-content-parsed">`;
+    
+    // Overview
+    if (parsedContent.overview) {
+      contentHtml += `<div class="synthesis-overview">${escapeHtml(parsedContent.overview)}</div>`;
+    }
+    
+    // Themes
+    if (parsedContent.themes && parsedContent.themes.length > 0) {
+      contentHtml += `<div class="synthesis-section"><h4>🎯 Themes</h4><ul>${parsedContent.themes.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul></div>`;
+    }
+    
+    // Key Insights
+    if (parsedContent.key_insights && parsedContent.key_insights.length > 0) {
+      contentHtml += `<div class="synthesis-section"><h4>💡 Key Insights</h4><ul>${parsedContent.key_insights.map(i => `<li>${escapeHtml(i)}</li>`).join('')}</ul></div>`;
+    }
+    
+    // Recommendations
+    if (parsedContent.recommendations && parsedContent.recommendations.length > 0) {
+      contentHtml += `<div class="synthesis-section"><h4>📋 Recommendations</h4><ul>${parsedContent.recommendations.map(r => `<li>${escapeHtml(r)}</li>`).join('')}</ul></div>`;
+    }
+    
+    contentHtml += `</div>`;
+  } else {
+    // Raw text display
+    contentHtml += `<div class="synthesis-text">${escapeHtml(synthesisText)}</div>`;
+  }
+  
+  content.innerHTML = contentHtml;
 }
 
 // Generate new synthesis

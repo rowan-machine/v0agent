@@ -748,6 +748,10 @@ async def create_ticket_from_action_item(request: Request):
     with connect() as conn:
         # Create the ticket
         from datetime import datetime
+        import uuid
+        
+        # Generate unique ticket_id
+        ticket_id = f"ACT-{uuid.uuid4().hex[:8].upper()}"
         
         # Map priority
         priority_map = {'high': 1, 'medium': 2, 'low': 3}
@@ -774,13 +778,13 @@ async def create_ticket_from_action_item(request: Request):
         # Create ticket
         conn.execute(
             """INSERT INTO tickets 
-               (title, description, priority, status, created_at, source_meeting_id)
+               (ticket_id, title, description, priority, status, created_at)
                VALUES (?, ?, ?, ?, ?, ?)""",
-            (text, f"Created from action item in meeting #{meeting_id}", 
-             priority, 'open', datetime.now().isoformat(), meeting_id)
+            (ticket_id, text, f"Created from action item in meeting #{meeting_id}", 
+             priority, 'todo', datetime.now().isoformat())
         )
         
-        ticket_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        row_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         
         # Mark action item as converted to ticket (optional)
         if meeting_id is not None and item_index is not None:
@@ -811,4 +815,4 @@ async def create_ticket_from_action_item(request: Request):
             except:
                 pass  # Non-critical
     
-    return {"success": True, "ticket_id": ticket_id}
+    return {"success": True, "ticket_id": ticket_id, "row_id": row_id}
