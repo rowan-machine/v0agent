@@ -199,6 +199,49 @@
       grid-template-columns: 1fr;
     }
   }
+  
+  /* Mindmap Line Editor Styles */
+  .mindmap-line {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+    user-select: none;
+  }
+  
+  .mindmap-line:hover {
+    background: rgba(124, 58, 237, 0.08);
+  }
+  
+  .mindmap-line .level-badge {
+    min-width: 24px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 4px;
+    color: white;
+  }
+  
+  .mindmap-line.level-0 .level-badge { background: #7c3aed; }
+  .mindmap-line.level-1 .level-badge { background: #3b82f6; }
+  .mindmap-line.level-2 .level-badge { background: #10b981; }
+  
+  .mindmap-line.level-0 { border-left: 3px solid #7c3aed; padding-left: 0.5rem; }
+  .mindmap-line.level-1 { border-left: 3px solid #3b82f6; padding-left: 1.25rem; }
+  .mindmap-line.level-2 { border-left: 3px solid #10b981; padding-left: 2rem; }
+  
+  .mindmap-line .line-text {
+    flex: 1;
+    font-size: 0.9rem;
+    color: var(--sf-text, #374151);
+  }
+  }
 </style>
 
 <div class="bundle-form">
@@ -253,13 +296,43 @@
       
       <div class="form-group">
         <label>Pocket Mind Map</label>
-        <textarea name="pocket_mind_map" rows="8" placeholder="Auto-filled from Pocket if available."></textarea>
+        <textarea name="pocket_mind_map" id="mindmap-textarea" rows="6" placeholder="Auto-filled from Pocket if available." style="display: none;"></textarea>
+        
+        <!-- Interactive Mind Map Line Editor -->
+        <div id="mindmap-editor" style="display: none; margin-bottom: 0.75rem;">
+          <p class="hint" style="margin-bottom: 0.5rem;">Click on a line to cycle its level (0 → 1 → 2 → 0). Colors indicate hierarchy depth.</p>
+          <div id="mindmap-lines" style="background: #fff; border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.5rem; max-height: 300px; overflow-y: auto;"></div>
+        </div>
+        
+        <!-- Fallback textarea for manual entry -->
+        <textarea id="mindmap-manual" rows="8" placeholder="Paste mind map text here or fetch from Pocket..." style="display: block;"></textarea>
         <p class="hint">Structured mind map of key topics and relationships from the meeting.</p>
+        
+        <!-- Mind Map Level Specification -->
+        <div style="margin-top: 0.75rem; padding: 0.75rem; background: var(--purple-25, #f8f7ff); border-radius: 0.5rem; border: 1px solid var(--purple-200, #e0ddff);">
+          <label style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--purple-800, #553399); margin-bottom: 0.5rem;">📊 Max Synthesis Depth</label>
+          <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+              <input type="radio" name="mindmap_level" value="0" style="accent-color: #7c3aed;">
+              <span style="font-size: 0.85rem;"><strong>Level 0</strong> - Root topics only</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+              <input type="radio" name="mindmap_level" value="1" style="accent-color: #7c3aed;">
+              <span style="font-size: 0.85rem;"><strong>Level 1</strong> - Main branches</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+              <input type="radio" name="mindmap_level" value="2" checked style="accent-color: #7c3aed;">
+              <span style="font-size: 0.85rem;"><strong>Level 2</strong> - Full detail</span>
+            </label>
+          </div>
+          <p class="hint" style="margin-top: 0.5rem; font-size: 0.75rem;">Only items up to this level will be included in synthesis. Per-line levels are shown above.</p>
+        </div>
       </div>
       
       <div class="form-group">
         <label>Pocket Action Items</label>
-        <textarea name="pocket_action_items" readonly rows="8" placeholder="Auto-filled from Pocket if available."></textarea>
+        <textarea name="pocket_action_items_display" readonly rows="8" placeholder="Auto-filled from Pocket if available."></textarea>
+        <input type="hidden" name="pocket_action_items" id="pocket_action_items_json" value="">
         <p class="hint">Extracted action items with assignees and priorities. (Read-only - extracted from Pocket)</p>
       </div>
     </div>
@@ -357,12 +430,14 @@ document.getElementById('pocket-recording-select').addEventListener('change', as
   const statusEl = document.getElementById('fetch-status');
   const summaryEl = document.querySelector('textarea[name="pocket_ai_summary"]');
   const mindMapEl = document.querySelector('textarea[name="pocket_mind_map"]');
-  const actionItemsEl = document.querySelector('textarea[name="pocket_action_items"]');
+  const actionItemsDisplayEl = document.querySelector('textarea[name="pocket_action_items_display"]');
+  const actionItemsJsonEl = document.getElementById('pocket_action_items_json');
   
   if (!recordingId) {
     summaryEl.value = '';
     mindMapEl.value = '';
-    actionItemsEl.value = '';
+    actionItemsDisplayEl.value = '';
+    actionItemsJsonEl.value = '';
     statusEl.style.display = 'none';
     return;
   }
@@ -396,7 +471,13 @@ document.getElementById('pocket-recording-select').addEventListener('change', as
     if (summaryEl) summaryEl.value = summary;
     if (mindMapEl) mindMapEl.value = mindMap;
     
-    // Format action items as readable text
+    // Initialize interactive mindmap editor
+    initMindmapEditor(mindMap);
+    
+    // Store raw JSON for form submission
+    if (actionItemsJsonEl) actionItemsJsonEl.value = JSON.stringify(actionItems);
+    
+    // Format action items as readable text for display
     let actionItemsText = '';
     if (Array.isArray(actionItems) && actionItems.length > 0) {
       actionItemsText = actionItems.map((item, i) => {
@@ -411,7 +492,7 @@ document.getElementById('pocket-recording-select').addEventListener('change', as
         return line;
       }).join('\n\n');
     }
-    if (actionItemsEl) actionItemsEl.value = actionItemsText;
+    if (actionItemsDisplayEl) actionItemsDisplayEl.value = actionItemsText;
     
     let msg = 'Fetched';
     const hasSummary = !!summary;
@@ -432,6 +513,92 @@ document.getElementById('pocket-recording-select').addEventListener('change', as
   } catch (err) {
     statusEl.textContent = 'Error fetching: ' + (err?.message || String(err));
     console.error(err);
+  }
+});
+
+// Mindmap Line Editor Logic
+let mindmapLines = []; // Array of {text: string, level: 0|1|2}
+
+function initMindmapEditor(text) {
+  const editor = document.getElementById('mindmap-editor');
+  const linesContainer = document.getElementById('mindmap-lines');
+  const manualTextarea = document.getElementById('mindmap-manual');
+  const hiddenTextarea = document.getElementById('mindmap-textarea');
+  
+  if (!text || !text.trim()) {
+    // No mindmap text - show manual entry
+    editor.style.display = 'none';
+    manualTextarea.style.display = 'block';
+    return;
+  }
+  
+  // Parse lines and detect initial levels from indentation
+  mindmapLines = text.split('\n')
+    .filter(line => line.trim())
+    .map(line => {
+      const trimmed = line.trim();
+      const indent = line.length - line.trimStart().length;
+      let level = 0;
+      
+      // Heuristic: 4+ spaces = level 2, 2+ spaces = level 1, otherwise level 0
+      if (indent >= 4 || trimmed.startsWith('    ')) {
+        level = 2;
+      } else if (indent >= 2 || trimmed.startsWith('  ')) {
+        level = 1;
+      }
+      
+      // Clean the text (remove bullets)
+      const cleanText = trimmed.replace(/^[•\-\*]\s*/, '');
+      
+      return { text: cleanText, level };
+    });
+  
+  // Show editor, hide manual
+  editor.style.display = 'block';
+  manualTextarea.style.display = 'none';
+  
+  // Render lines
+  renderMindmapLines();
+  updateMindmapTextarea();
+}
+
+function renderMindmapLines() {
+  const container = document.getElementById('mindmap-lines');
+  container.innerHTML = mindmapLines.map((item, idx) => `
+    <div class="mindmap-line level-${item.level}" data-idx="${idx}" onclick="cycleMindmapLevel(${idx})">
+      <span class="level-badge">L${item.level}</span>
+      <span class="line-text">${escapeHtml(item.text)}</span>
+    </div>
+  `).join('');
+}
+
+function cycleMindmapLevel(idx) {
+  mindmapLines[idx].level = (mindmapLines[idx].level + 1) % 3;
+  renderMindmapLines();
+  updateMindmapTextarea();
+}
+
+function updateMindmapTextarea() {
+  const textarea = document.getElementById('mindmap-textarea');
+  // Format with indentation based on level
+  const text = mindmapLines.map(item => {
+    const indent = '  '.repeat(item.level);
+    return `${indent}• ${item.text}`;
+  }).join('\n');
+  textarea.value = text;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// Handle manual textarea changes (sync to editor if user types)
+document.getElementById('mindmap-manual').addEventListener('input', function() {
+  const text = this.value;
+  if (text.trim()) {
+    initMindmapEditor(text);
   }
 });
 

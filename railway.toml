@@ -1,0 +1,15 @@
+# Railway configuration for v0agent
+# Documentation: https://docs.railway.app/reference/config-as-code
+
+[build]
+# Use Dockerfile for builds
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Health check endpoint
+healthcheckPath = "/health"
+healthcheckTimeout = 300
+# Restart policy
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

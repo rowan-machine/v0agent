@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, BackgroundTasks
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from datetime import datetime, timedelta
 import json
 import os
+import re
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
@@ -577,8 +578,8 @@ def dikw_page(request: Request):
 
 @app.get("/knowledge-graph")
 def knowledge_graph_page(request: Request):
-    """Knowledge Mindmap visualization page."""
-    return templates.TemplateResponse("knowledge_graph.html", {"request": request})
+    """Knowledge Synthesis page - AI-generated synthesis from mindmaps."""
+    return templates.TemplateResponse("knowledge_synthesis.html", {"request": request})
 
 
 @app.post("/api/signals/feedback")
@@ -3219,7 +3220,7 @@ async def synthesize_mindmaps(request: Request):
         force = request.query_params.get("force", "false").lower() == "true"
         
         # Generate synthesis
-        synthesis_id = await MindmapSynthesizer.generate_synthesis(force=force)
+        synthesis_id = MindmapSynthesizer.generate_synthesis(force=force)
         
         if not synthesis_id:
             return JSONResponse({
@@ -3260,14 +3261,20 @@ async def synthesize_mindmaps(request: Request):
 
 
 @app.get("/api/mindmap/synthesis")
-async def get_mindmap_synthesis():
+async def get_mindmap_synthesis(type: str = None):
     """Get the current mindmap synthesis.
+    
+    Args:
+        type: Synthesis type (default, executive, technical, timeline, action_focus)
     
     Returns the most recent AI-generated synthesis of all conversation mindmaps.
     """
     from .services.mindmap_synthesis import MindmapSynthesizer
     
-    synthesis = MindmapSynthesizer.get_current_synthesis()
+    if type:
+        synthesis = MindmapSynthesizer.get_synthesis_by_type(type)
+    else:
+        synthesis = MindmapSynthesizer.get_current_synthesis()
     
     if synthesis:
         return JSONResponse({
@@ -3279,6 +3286,31 @@ async def get_mindmap_synthesis():
             "success": False,
             "message": "No synthesis available - run /api/mindmap/synthesize to generate one"
         }, status_code=404)
+
+
+@app.post("/api/mindmap/synthesize-all")
+async def generate_all_syntheses(force: str = "false"):
+    """Generate all synthesis types (executive, technical, timeline, action_focus).
+    
+    This creates multiple views of the knowledge structure for different audiences.
+    """
+    from .services.mindmap_synthesis import MindmapSynthesizer
+    
+    try:
+        force_regen = force.lower() == "true"
+        results = MindmapSynthesizer.generate_multiple_syntheses(force=force_regen)
+        
+        return JSONResponse({
+            "success": True,
+            "message": f"Generated {len([r for r in results.values() if r])} synthesis views",
+            "syntheses": results
+        })
+    except Exception as e:
+        logger.error(f"Error generating multiple syntheses: {e}")
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
 
 
 @app.post("/api/mindmap/generate")
@@ -3844,10 +3876,14 @@ def load_meeting_bundle_page(request: Request):
 @app.post("/meetings/load")
 async def load_meeting_bundle_ui(
     request: Request,
+    background_tasks: BackgroundTasks,
     meeting_name: str = Form(...),
     meeting_date: str = Form(None),
     summary_text: str = Form(...),
     pocket_ai_summary: str = Form(None),
+    pocket_mind_map: str = Form(None),
+    mindmap_level: int = Form(0),
+    pocket_action_items: str = Form(None),
     pocket_transcript: str = Form(None),
     teams_transcript: str = Form(None),
 ):
@@ -3855,6 +3891,8 @@ async def load_meeting_bundle_ui(
     Load a complete meeting bundle with:
     - Structured summary (canonical format)
     - Optional Pocket AI summary (creates document for signal extraction)
+    - Optional Pocket Mind Map (triggers synthesis)
+    - Optional Pocket Action Items (merged into signals_json)
     - Optional transcripts (merged into searchable document)
     - Optional screenshots (attached to meeting)
     """
@@ -3875,10 +3913,45 @@ async def load_meeting_bundle_ui(
         "summary_text": summary_text,
         "transcript_text": merged_transcript,
         "pocket_ai_summary": pocket_ai_summary,
+        "pocket_mind_map": pocket_mind_map,
         "format": "plain",
     })
     
     meeting_id = result.get("meeting_id")
+    
+    # Store Pocket action items in signals_json if provided
+    if meeting_id and pocket_action_items and pocket_action_items.strip():
+        try:
+            # Parse action items from the text format back to structured data
+            # Parse JSON from hidden field (contains array of action item objects)
+            pocket_items = json.loads(pocket_action_items.strip())
+            
+            # Add source marker to each item
+            for item in pocket_items:
+                item["source"] = "pocket"
+            
+            if pocket_items:
+                # Update the meeting's signals_json to include action items
+                with connect() as conn:
+                    row = conn.execute(
+                        "SELECT signals_json FROM meeting_summaries WHERE id = ?",
+                        (meeting_id,)
+                    ).fetchone()
+                    
+                    signals = json.loads(row["signals_json"]) if row and row["signals_json"] else {}
+                    
+                    # Merge Pocket action items (preserve existing)
+                    existing_items = signals.get("action_items", [])
+                    signals["action_items"] = existing_items + pocket_items
+                    
+                    conn.execute(
+                        "UPDATE meeting_summaries SET signals_json = ? WHERE id = ?",
+                        (json.dumps(signals), meeting_id)
+                    )
+                    
+                logger.info(f"Added {len(pocket_items)} Pocket action items to meeting {meeting_id}")
+        except Exception as e:
+            logger.warning(f"Failed to parse/store Pocket action items: {e}")
     
     # Handle screenshot uploads if meeting was created successfully
     if meeting_id:
@@ -3910,6 +3983,29 @@ async def load_meeting_bundle_ui(
                               screenshot.content_type or 'image/png', len(content)))
                 except Exception as e:
                     logger.warning(f"Failed to upload screenshot: {e}")
+        
+        # Auto-trigger synthesis if mindmap was provided
+        if pocket_mind_map and pocket_mind_map.strip():
+            def trigger_synthesis():
+                try:
+                    from .services.mindmap_synthesis import MindmapSynthesizer
+                    
+                    # Store the mindmap for this conversation
+                    MindmapSynthesizer.store_conversation_mindmap(
+                        conversation_id=f"meeting_{meeting_id}",
+                        title=meeting_name,
+                        mindmap_data=pocket_mind_map,
+                        hierarchy_level=mindmap_level
+                    )
+                    
+                    # Regenerate synthesis
+                    MindmapSynthesizer.generate_synthesis(force=True)
+                    logger.info(f"✅ Mindmap synthesis triggered for new meeting {meeting_id}")
+                except Exception as e:
+                    logger.error(f"Failed to trigger mindmap synthesis: {e}")
+            
+            background_tasks.add_task(trigger_synthesis)
+            logger.info(f"Scheduled mindmap synthesis for meeting {meeting_id} at level {mindmap_level}")
 
     return RedirectResponse(
         url="/meetings?success=meeting_loaded",

@@ -80,6 +80,7 @@ CREATE INDEX IF NOT EXISTS idx_conv_mindmaps_conversation_id ON conversation_min
 CREATE TABLE IF NOT EXISTS mindmap_syntheses (
   id INTEGER PRIMARY KEY,
   synthesis_text TEXT NOT NULL,
+  synthesis_type TEXT DEFAULT NULL,  -- executive, technical, timeline, action_focus, or NULL for default
   hierarchy_summary TEXT,
   source_mindmap_ids TEXT,
   source_conversation_ids TEXT,
@@ -90,6 +91,7 @@ CREATE TABLE IF NOT EXISTS mindmap_syntheses (
 );
 
 CREATE INDEX IF NOT EXISTS idx_mindmap_syntheses_updated ON mindmap_syntheses(updated_at);
+CREATE INDEX IF NOT EXISTS idx_mindmap_syntheses_type ON mindmap_syntheses(synthesis_type);
 
 -- Mindmap Synthesis History - Track evolution of syntheses
 CREATE TABLE IF NOT EXISTS mindmap_synthesis_history (
@@ -717,6 +719,12 @@ def init_db():
             )
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_mindmap_syntheses_updated ON mindmap_syntheses(updated_at)")
+        
+        # Migration (F2a): Add title column to conversation_mindmaps
+        try:
+            conn.execute("ALTER TABLE conversation_mindmaps ADD COLUMN title TEXT")
+        except:
+            pass  # Column may already exist
         
         # Migration (F2): Create mindmap_synthesis_history table
         conn.execute("""

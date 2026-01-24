@@ -1,0 +1,666 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .synthesis-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1.5rem;
+  }
+
+  .synthesis-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .synthesis-header h1 {
+    font-size: 1.75rem;
+    color: #1a1a1a;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .synthesis-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-right: 200px; /* Avoid mode badge overlap */
+  }
+
+  .synthesis-btn {
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .synthesis-btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+
+  .synthesis-btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  }
+
+  .synthesis-btn-secondary {
+    background: #f3f4f6;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+  }
+
+  .synthesis-btn-secondary:hover {
+    background: #e5e7eb;
+  }
+
+  .synthesis-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Stats Cards */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+  }
+
+  .stat-card.mindmaps .stat-value { color: #8b5cf6; }
+  .stat-card.topics .stat-value { color: #10b981; }
+  .stat-card.conversations .stat-value { color: #3b82f6; }
+
+  /* Main Synthesis Card */
+  .synthesis-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+
+  .synthesis-card-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  }
+
+  .synthesis-card-header h2 {
+    font-size: 1.1rem;
+    color: #1a1a1a;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .synthesis-card-body {
+    padding: 1.5rem;
+    max-height: 600px;
+    overflow-y: auto;
+  }
+
+  .synthesis-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    font-size: 0.8rem;
+    color: #6b7280;
+  }
+
+  .key-topics {
+    margin-bottom: 1.5rem;
+  }
+
+  .key-topics-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.5rem;
+  }
+
+  .key-topics-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .topic-tag {
+    background: #e0e7ff;
+    color: #4338ca;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.8rem;
+  }
+
+  .synthesis-text {
+    font-size: 0.95rem;
+    color: #374151;
+    line-height: 1.7;
+    white-space: pre-wrap;
+  }
+
+  .synthesis-empty {
+    text-align: center;
+    padding: 3rem;
+    color: #6b7280;
+  }
+
+  .synthesis-empty p {
+    margin-bottom: 1rem;
+  }
+
+  /* Panels Grid */
+  .panels-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 900px) {
+    .panels-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .panel {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .panel-header h3 {
+    font-size: 1rem;
+    color: #1a1a1a;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .panel-body {
+    padding: 1rem;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  /* Tag Cloud */
+  .tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .tag-item {
+    padding: 0.35rem 0.75rem;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tag-item:hover {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+  }
+
+  .tag-item .tag-count {
+    background: rgba(0,0,0,0.1);
+    padding: 0.1rem 0.4rem;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    margin-left: 0.3rem;
+  }
+
+  /* Recent Items List */
+  .recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .recent-item {
+    padding: 0.75rem;
+    background: #f9fafb;
+    border-radius: 8px;
+    border-left: 3px solid #e5e7eb;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .recent-item:hover {
+    background: #f0f0ff;
+    border-left-color: #667eea;
+  }
+
+  .recent-item.data { border-left-color: #3b82f6; }
+  .recent-item.information { border-left-color: #f59e0b; }
+  .recent-item.knowledge { border-left-color: #10b981; }
+  .recent-item.wisdom { border-left-color: #8b5cf6; }
+
+  .recent-item-level {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: #6b7280;
+    margin-bottom: 0.25rem;
+  }
+
+  .recent-item-content {
+    font-size: 0.85rem;
+    color: #374151;
+    line-height: 1.4;
+  }
+
+  /* Toast */
+  .synthesis-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #10b981;
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    animation: slideIn 0.3s ease;
+  }
+
+  .synthesis-toast.error { background: #ef4444; }
+  .synthesis-toast.info { background: #3b82f6; }
+
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* Spinner */
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+  }
+
+  .spinner.dark {
+    border-color: rgba(0,0,0,0.1);
+    border-top-color: #667eea;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Dark mode */
+  [data-theme="dark"] .synthesis-header h1,
+  [data-theme="dark"] .panel-header h3,
+  [data-theme="dark"] .synthesis-card-header h2,
+  [data-theme="dark"] .stat-label,
+  [data-theme="dark"] .stat-value {
+    color: #faf6f1 !important;
+  }
+
+  [data-theme="dark"] .panel,
+  [data-theme="dark"] .stat-card,
+  [data-theme="dark"] .synthesis-card {
+    background: #2d2d2d !important;
+    border-color: #4a4a4a !important;
+  }
+
+  [data-theme="dark"] .synthesis-text,
+  [data-theme="dark"] .key-topics-title {
+    color: #c9b99a !important;
+  }
+</style>
+
+<div class="synthesis-container">
+  <div class="synthesis-header">
+    <h1>✨ Knowledge Synthesis</h1>
+    <div class="synthesis-actions">
+      <span class="last-sync" id="lastSyncInfo" style="font-size: 0.8rem; color: #6b7280;">Never synced</span>
+      <button class="synthesis-btn synthesis-btn-primary" onclick="generateAllSyntheses()" id="regenerateSynthesisBtn">
+        🔄 Regenerate All
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card mindmaps">
+      <div class="stat-value" id="mindmapCount">0</div>
+      <div class="stat-label">Mindmaps</div>
+    </div>
+    <div class="stat-card topics">
+      <div class="stat-value" id="topicCount">0</div>
+      <div class="stat-label">Key Topics</div>
+    </div>
+    <div class="stat-card conversations">
+      <div class="stat-value" id="conversationCount">0</div>
+      <div class="stat-label">Conversations</div>
+    </div>
+  </div>
+
+  <!-- Synthesis Type Tabs -->
+  <div class="synthesis-tabs" style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+    <button class="synthesis-tab active" data-type="default" onclick="switchSynthesisType('default')">
+      📊 Overview
+    </button>
+    <button class="synthesis-tab" data-type="executive" onclick="switchSynthesisType('executive')">
+      💼 Executive
+    </button>
+    <button class="synthesis-tab" data-type="technical" onclick="switchSynthesisType('technical')">
+      🔧 Technical
+    </button>
+    <button class="synthesis-tab" data-type="timeline" onclick="switchSynthesisType('timeline')">
+      📅 Timeline
+    </button>
+    <button class="synthesis-tab" data-type="action_focus" onclick="switchSynthesisType('action_focus')">
+      ✅ Actions
+    </button>
+  </div>
+
+  <!-- Main Synthesis Card -->
+  <div class="synthesis-card">
+    <div class="synthesis-card-header">
+      <h2 id="synthesisTitle">🧠 AI-Generated Knowledge Structure</h2>
+      <span class="synthesis-type-badge" id="synthesisTypeBadge">Overview</span>
+    </div>
+    <div class="synthesis-card-body" id="synthesisContent">
+      <div class="synthesis-empty">
+        <p>Loading synthesis...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .synthesis-tabs {
+    background: var(--sf-card-bg, white);
+    padding: 0.75rem;
+    border-radius: 12px;
+    border: 1px solid var(--sf-border, #e5e7eb);
+  }
+  
+  .synthesis-tab {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 8px;
+    background: var(--sf-surface, #f9fafb);
+    color: var(--sf-text, #374151);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+  }
+  
+  .synthesis-tab:hover {
+    background: var(--sf-hover-bg, #f3f4f6);
+  }
+  
+  .synthesis-tab.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: transparent;
+  }
+  
+  .synthesis-type-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    background: #e0e7ff;
+    color: #4338ca;
+    font-weight: 500;
+  }
+</style>
+
+<script>
+// Initialize
+let currentSynthesisType = 'default';
+const synthesisCache = {};
+
+document.addEventListener('DOMContentLoaded', async () => {
+  loadMindmapSynthesis('default');
+  loadLastSyncInfo();
+});
+
+// Switch synthesis type
+async function switchSynthesisType(type) {
+  currentSynthesisType = type;
+  
+  // Update tab styling
+  document.querySelectorAll('.synthesis-tab').forEach(tab => {
+    tab.classList.remove('active');
+    if (tab.dataset.type === type) {
+      tab.classList.add('active');
+    }
+  });
+  
+  // Update title and badge
+  const titles = {
+    'default': '🧠 AI-Generated Knowledge Structure',
+    'executive': '💼 Executive Summary',
+    'technical': '🔧 Technical Deep-Dive',
+    'timeline': '📅 Chronological Timeline',
+    'action_focus': '✅ Action-Focused Analysis'
+  };
+  
+  const badges = {
+    'default': 'Overview',
+    'executive': 'Executive',
+    'technical': 'Technical',
+    'timeline': 'Timeline',
+    'action_focus': 'Actions'
+  };
+  
+  document.getElementById('synthesisTitle').textContent = titles[type] || titles.default;
+  document.getElementById('synthesisTypeBadge').textContent = badges[type] || badges.default;
+  
+  // Load synthesis for this type
+  if (synthesisCache[type]) {
+    renderSynthesis(synthesisCache[type]);
+  } else {
+    await loadMindmapSynthesis(type);
+  }
+}
+
+// Load mindmap synthesis
+async function loadMindmapSynthesis(type = 'default') {
+  const content = document.getElementById('synthesisContent');
+  content.innerHTML = '<div class="synthesis-empty"><p>Loading synthesis...</p></div>';
+  
+  try {
+    const url = type === 'default' 
+      ? '/api/mindmap/synthesis' 
+      : `/api/mindmap/synthesis?type=${type}`;
+    
+    const response = await fetch(url, { credentials: 'same-origin' });
+    
+    if (response.status === 401) {
+      content.innerHTML = '<div class="synthesis-empty"><p style="color: #ef4444;">Session expired - please refresh</p></div>';
+      return;
+    }
+    
+    if (response.status === 404) {
+      content.innerHTML = `
+        <div class="synthesis-empty">
+          <p>No ${type === 'default' ? '' : type + ' '}synthesis generated yet.</p>
+          <p style="font-size: 0.85rem;">Click "Regenerate All" to generate all synthesis views.</p>
+          <button class="synthesis-btn synthesis-btn-primary" onclick="generateAllSyntheses()" style="margin-top: 1rem;">
+            ✨ Generate Now
+          </button>
+        </div>
+      `;
+      return;
+    }
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && data.synthesis) {
+        synthesisCache[type] = data.synthesis;
+        renderSynthesis(data.synthesis);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load synthesis:', err);
+    content.innerHTML = '<div class="synthesis-empty"><p style="color: #ef4444;">Error loading synthesis</p></div>';
+  }
+}
+
+function renderSynthesis(synthesis) {
+  const content = document.getElementById('synthesisContent');
+  const keyTopics = synthesis.key_topics || [];
+  const synthesisText = synthesis.synthesis_text || 'No synthesis available.';
+  const createdAt = synthesis.created_at ? new Date(synthesis.created_at).toLocaleString() : '';
+  const sourceMindmaps = synthesis.source_mindmap_ids ? synthesis.source_mindmap_ids.length : 0;
+  const sourceConversations = synthesis.source_conversation_ids ? synthesis.source_conversation_ids.length : 0;
+  
+  // Update stats
+  document.getElementById('mindmapCount').textContent = sourceMindmaps;
+  document.getElementById('topicCount').textContent = keyTopics.length;
+  document.getElementById('conversationCount').textContent = sourceConversations;
+  
+  content.innerHTML = `
+    <div class="synthesis-meta">
+      <span>Generated: ${createdAt}</span>
+      <span>${sourceMindmaps} mindmaps from ${sourceConversations} conversations</span>
+    </div>
+    ${keyTopics.length > 0 ? `
+      <div class="key-topics">
+        <div class="key-topics-title">Key Topics:</div>
+        <div class="key-topics-list">
+          ${keyTopics.slice(0, 15).map(t => `<span class="topic-tag">${escapeHtml(t)}</span>`).join('')}
+        </div>
+      </div>
+    ` : ''}
+    <div class="synthesis-text">${escapeHtml(synthesisText)}</div>
+  `;
+}
+
+// Generate new synthesis
+async function generateAllSyntheses() {
+  const btn = document.getElementById('regenerateSynthesisBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Generating all views...';
+  }
+  
+  try {
+    const response = await fetch('/api/mindmap/synthesize-all?force=true', {
+      method: 'POST',
+      credentials: 'same-origin',
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      showToast(`Generated ${Object.keys(data.syntheses || {}).length} synthesis views!`);
+      // Clear cache and reload current type
+      Object.keys(synthesisCache).forEach(k => delete synthesisCache[k]);
+      await loadMindmapSynthesis(currentSynthesisType);
+    } else {
+      const err = await response.json();
+      showToast('Failed to generate synthesis: ' + (err.error || 'Unknown error'), true);
+    }
+  } catch (err) {
+    console.error('Failed to generate synthesis:', err);
+    showToast('Failed to generate synthesis', true);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '🔄 Regenerate All';
+    }
+  }
+}
+
+// Load last sync info
+async function loadLastSyncInfo() {
+  try {
+    const response = await fetch('/api/mindmap/status', { credentials: 'same-origin' });
+    if (response.ok) {
+      const status = await response.json();
+      const el = document.getElementById('lastSyncInfo');
+      if (status.last_generated) {
+        const date = new Date(status.last_generated);
+        el.textContent = `Last updated: ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load sync info:', err);
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text || '';
+  return div.innerHTML;
+}
+
+function showToast(message, isError = false) {
+  const toast = document.createElement('div');
+  toast.className = `synthesis-toast ${isError ? 'error' : ''}`;
+  toast.innerHTML = `${isError ? '❌' : '✅'} ${message}`;
+  document.body.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(20px)';
+    toast.style.transition = 'all 0.3s';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+</script>
+{% endblock %}

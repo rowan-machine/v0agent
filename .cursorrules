@@ -10,36 +10,47 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-AI Assistant Widget Implementation
-Importance Score: 75/100
+The project implements an AI-powered knowledge management and meeting intelligence system built around four core components:
 
-Core Components:
+1. AI Assistant Widget (Importance: 85/100)
+src/app/templates/components/assistant_widget.html
+- Domain-specific conversation handling with 24-hour persistence
+- Business context-aware suggestion management
+- Command history analytics with pattern tracking
+- Meeting and ticket workflow integration
 
-1. Context-Aware Suggestion System
-- Rotating suggestion sets that cycle per page load
-- Domain-specific quick actions for SignalFlow operations 
-- Task management integration with specialized suggestion sets
-- Persistent conversation tracking with 24-hour expiry
+2. DIKW Knowledge System (Importance: 90/100)
+src/app/agents/dikw_synthesizer.py
+- Hierarchical knowledge pyramid (Data, Information, Knowledge, Wisdom)
+- Confidence-based knowledge promotion rules
+- Custom merging algorithms for knowledge synthesis
+- Tag-based semantic clustering
 
-2. Command History Management
-- Smart categorization with domain-specific emoji mapping
-- Frequency/recency-based command sorting
-- Usage tracking with persistent storage
-- Command history expiration handling
+3. Meeting Intelligence (Importance: 85/100)
+src/app/agents/meeting_analyzer.py
+- Multi-source transcript processing (Pocket AI, Teams)
+- Signal extraction for decisions, actions, blockers, risks
+- Template-based meeting analysis (30+ formats)
+- Automated mindmap generation
 
-3. Task Management Integration
-- Specialized suggestions for ticket/sprint workflows
-- Context-aware emoji assignments 
-- Sprint update and task creation shortcuts
-- Task workflow integration points
+4. Career Development Logic (Importance: 80/100)
+src/app/api/career_supabase_helper.py
+- Skill proficiency tracking with delta calculations
+- Evidence-based progression validation
+- Memory-based learning patterns
+- Standup analysis with sentiment detection
 
-4. Contextual Response Framework
-- Clarification prompt support
-- Navigation suggestion integration
-- Domain-specific follow-up generation
-- Page context awareness
+The system's core value comes from its sophisticated knowledge management approach, combining:
+- Intelligent signal extraction from meetings
+- Hierarchical knowledge organization
+- Career development tracking
+- Context-aware AI assistance
 
-The system implements a specialized AI assistant focused on SignalFlow operations and task management, with deep integration into sprint tracking and ticket workflows. Custom suggestion sets and command history provide domain-specific automation while maintaining contextual awareness of the current workflow state.
+Business workflows are organized around:
+- Sprint-based operations
+- Meeting intelligence
+- Knowledge synthesis
+- Professional development
 
 $END$
 

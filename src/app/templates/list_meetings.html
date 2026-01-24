@@ -62,7 +62,7 @@
   }
 </style>
 
-{% if success %}
+{% if success in ['meeting_created', 'meeting_updated', 'meeting_deleted', 'meeting_loaded'] %}
 <div class="toast" id="toast">
   {% if success == 'meeting_created' %}
     ✓ Meeting created successfully!

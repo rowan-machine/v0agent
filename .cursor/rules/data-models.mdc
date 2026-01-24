@@ -1,49 +1,43 @@
 ---
-description: Documents the core data models and relationships for meetings and documents in a knowledge management system
+description: For understanding and documenting the core data model relationships between Meetings and Documents in the system
 ---
 
 
 # data-models
 
-Core Data Models:
+Two primary data models form the core business structure:
 
 1. Meeting Model
-Importance Score: 90
-- Properties:
-  - transcript: Multi-source meeting content (Teams, Pocket)
-  - signals: Array of extracted business signals
-  - template_type: Identifies one of 30+ meeting templates
-  - dikw_level: Current position in DIKW hierarchy
-  - signals_validated: Tracks signal validation state
+- UUID-based identification
+- Hierarchical structure with linked documents and signals
+- Status tracking: draft, active, archived
+- Custom fields for:
+  - Synthesis depth levels (0-2)
+  - Signal categorization (decisions, actions, blockers)
+  - Template type detection (30+ supported formats)
 
 2. Document Model
-Importance Score: 85
-- Properties:
-  - content: Document text with version tracking
-  - knowledge_refs: Links to related DIKW items
-  - tags: Auto-generated semantic tags
-  - related_meetings: Array of linked meeting references
-  - signal_confidence: Signal extraction confidence scores
+- Multi-source document handling
+- Integration with meeting bundles
+- Bidirectional relationships with:
+  - Meeting transcripts
+  - Screenshots
+  - Mind maps
+  - Generated summaries
+- DIKW level classification
 
-3. Relationships
-- Meeting-to-Document (Many-to-Many)
-  - reference_type: Type of relationship (source, related, referenced)
-  - confidence_score: Relationship strength (1-10)
-  - semantic_context: Stored embedding for relationship
+Key Relationships:
+- Meeting <-> Document: Many-to-many with relationship metadata
+- Meeting -> Signals: One-to-many with signal categorization
+- Document -> Knowledge Items: One-to-many with DIKW hierarchy
 
-- DIKW Hierarchy Mapping
-  - Maps both meetings and documents to DIKW levels
-  - Tracks promotion/demotion history
-  - Maintains source references across promotions
+Unique Aspects:
+1. Template-based meeting classification system
+2. Signal extraction and categorization framework
+3. DIKW hierarchy implementation for knowledge organization
+4. Multi-source document bundling with relationship tracking
 
-4. Signal Relationships
-Importance Score: 80
-- Links signals across meetings and documents
-- Properties:
-  - signal_type: (decision, action_item, blocker, risk, idea)
-  - source_refs: Array of origin references
-  - validation_state: Tracks approval workflow
-  - confidence: Extraction confidence score
+Importance Score: 90/100
 
 $END$
 

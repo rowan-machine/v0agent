@@ -1,0 +1,694 @@
+{% extends "base.html" %}
+{% block title %}Action Items{% endblock %}
+{% block content %}
+<style>
+  .action-items-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 1.5rem;
+  }
+
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .page-header h1 {
+    font-size: 1.75rem;
+    color: var(--sf-text, #1a1a1a);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* Stats Cards */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-card {
+    background: var(--sf-card-bg, white);
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .stat-card .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--sf-primary, #667eea);
+  }
+
+  .stat-card .stat-label {
+    font-size: 0.85rem;
+    color: var(--sf-text-muted, #6b7280);
+    margin-top: 0.25rem;
+  }
+
+  .stat-card.completed { border-left: 4px solid #10b981; }
+  .stat-card.pending { border-left: 4px solid #f59e0b; }
+  .stat-card.high-priority { border-left: 4px solid #ef4444; }
+  .stat-card.pocket { border-left: 4px solid #8b5cf6; }
+
+  /* Filters */
+  .filters-bar {
+    background: var(--sf-card-bg, white);
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .filter-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .filter-group label {
+    font-size: 0.85rem;
+    color: var(--sf-text-muted, #6b7280);
+    font-weight: 500;
+  }
+
+  .filter-group select {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: var(--sf-surface, white);
+    color: var(--sf-text, #374151);
+  }
+
+  /* Action Items List */
+  .action-items-list {
+    background: var(--sf-card-bg, white);
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .action-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--sf-border, #e5e7eb);
+    transition: background 0.15s;
+  }
+
+  .action-item:last-child {
+    border-bottom: none;
+  }
+
+  .action-item:hover {
+    background: var(--sf-hover-bg, #f9fafb);
+  }
+
+  .action-item.completed {
+    opacity: 0.6;
+    background: var(--sf-surface, #f9fafb);
+  }
+
+  .action-item.completed .item-text {
+    text-decoration: line-through;
+    color: var(--sf-text-muted, #9ca3af);
+  }
+
+  .action-item-checkbox {
+    width: 20px;
+    height: 20px;
+    margin-top: 0.2rem;
+    cursor: pointer;
+    accent-color: #10b981;
+  }
+
+  .action-item-content {
+    flex: 1;
+  }
+
+  .item-text {
+    font-size: 1rem;
+    color: var(--sf-text, #374151);
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+  }
+
+  .item-meta {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    font-size: 0.8rem;
+    color: var(--sf-text-muted, #6b7280);
+  }
+
+  .item-meta span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .item-meta a {
+    color: var(--sf-primary, #667eea);
+    text-decoration: none;
+  }
+
+  .item-meta a:hover {
+    text-decoration: underline;
+  }
+
+  /* Priority Badges */
+  .priority-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .priority-badge.high {
+    background: #fef2f2;
+    color: #dc2626;
+  }
+
+  .priority-badge.medium {
+    background: #fefce8;
+    color: #ca8a04;
+  }
+
+  .priority-badge.low {
+    background: #f0fdf4;
+    color: #16a34a;
+  }
+
+  /* Source Badge */
+  .source-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 500;
+  }
+
+  .source-badge.pocket {
+    background: #ede9fe;
+    color: #7c3aed;
+  }
+
+  .source-badge.extracted {
+    background: #ecfdf5;
+    color: #059669;
+  }
+
+  /* Empty State */
+  .empty-state {
+    padding: 3rem;
+    text-align: center;
+    color: var(--sf-text-muted, #9ca3af);
+  }
+
+  .empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+
+  /* Loading indicator */
+  .loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255,255,255,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    display: none;
+  }
+
+  .loading-overlay.active {
+    display: flex;
+  }
+
+  /* Add Action Item Form */
+  .add-item-card {
+    background: var(--sf-card-bg, white);
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .add-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+
+  .add-item-header h3 {
+    font-size: 1rem;
+    color: var(--sf-text, #374151);
+    margin: 0;
+  }
+
+  .add-item-form {
+    display: none;
+  }
+
+  .add-item-form.active {
+    display: block;
+  }
+
+  .add-item-row {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .add-item-input {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.6rem;
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 6px;
+    font-size: 0.9rem;
+  }
+
+  .add-item-select {
+    padding: 0.6rem;
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    min-width: 120px;
+  }
+
+  /* Meeting Group */
+  .meeting-group {
+    margin-bottom: 1.5rem;
+  }
+
+  .meeting-group-header {
+    background: var(--sf-header-bg, #f9fafb);
+    padding: 0.75rem 1rem;
+    border-radius: 8px 8px 0 0;
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-bottom: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .meeting-group-header h3 {
+    font-size: 1rem;
+    color: var(--sf-text, #374151);
+    margin: 0;
+  }
+
+  .meeting-group-count {
+    font-size: 0.8rem;
+    color: var(--sf-text-muted, #6b7280);
+    background: var(--sf-surface, #e5e7eb);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+  }
+
+  /* Ticket Suggestion Badge */
+  .ticket-suggestion {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: #7c3aed;
+    background: #ede9fe;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .ticket-suggestion:hover {
+    background: #ddd6fe;
+  }
+
+  @media (max-width: 768px) {
+    .page-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    
+    .filters-bar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .add-item-row {
+      flex-direction: column;
+    }
+  }
+</style>
+
+<div class="action-items-page">
+  <!-- Header -->
+  <div class="page-header">
+    <h1>✅ Action Items</h1>
+    <button class="btn btn-primary" onclick="toggleAddForm()" style="padding: 0.6rem 1.25rem; border-radius: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; cursor: pointer; font-weight: 500;">
+      ➕ Add Item
+    </button>
+  </div>
+
+  <!-- Add Action Item Card -->
+  <div class="add-item-card" id="addItemCard" style="display: none;">
+    <div class="add-item-header">
+      <h3>➕ Add Custom Action Item</h3>
+      <button onclick="toggleAddForm()" style="background: none; border: none; cursor: pointer; font-size: 1.2rem;">✕</button>
+    </div>
+    <form id="addItemForm" onsubmit="addActionItem(event)">
+      <div class="add-item-row">
+        <input type="text" class="add-item-input" name="text" placeholder="What needs to be done?" required>
+      </div>
+      <div class="add-item-row">
+        <select class="add-item-select" name="meeting_id">
+          <option value="">No Meeting (Personal)</option>
+          {% for meeting in all_meetings %}
+          <option value="{{ meeting.id }}">{{ meeting.meeting_name }}</option>
+          {% endfor %}
+        </select>
+        <select class="add-item-select" name="priority">
+          <option value="medium">Medium Priority</option>
+          <option value="high">High Priority</option>
+          <option value="low">Low Priority</option>
+        </select>
+        <input type="text" class="add-item-input" name="assignee" placeholder="Assignee (optional)" style="min-width: 150px;">
+        <input type="date" class="add-item-input" name="due_date" style="min-width: 140px;">
+      </div>
+      <div class="add-item-row">
+        <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer;">
+          Add Action Item
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value">{{ stats.total }}</div>
+      <div class="stat-label">Total Items</div>
+    </div>
+    <div class="stat-card pending">
+      <div class="stat-value">{{ stats.pending }}</div>
+      <div class="stat-label">Pending</div>
+    </div>
+    <div class="stat-card completed">
+      <div class="stat-value">{{ stats.completed }}</div>
+      <div class="stat-label">Completed</div>
+    </div>
+    <div class="stat-card high-priority">
+      <div class="stat-value">{{ stats.high_priority }}</div>
+      <div class="stat-label">High Priority</div>
+    </div>
+    <div class="stat-card pocket">
+      <div class="stat-value">{{ stats.from_pocket }}</div>
+      <div class="stat-label">From Pocket</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <form class="filters-bar" method="get">
+    <div class="filter-group">
+      <label>Status:</label>
+      <select name="filter_status" onchange="this.form.submit()">
+        <option value="all" {% if filter_status == 'all' %}selected{% endif %}>All</option>
+        <option value="pending" {% if filter_status == 'pending' %}selected{% endif %}>Pending</option>
+        <option value="completed" {% if filter_status == 'completed' %}selected{% endif %}>Completed</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Priority:</label>
+      <select name="filter_priority" onchange="this.form.submit()">
+        <option value="all" {% if filter_priority == 'all' %}selected{% endif %}>All</option>
+        <option value="high" {% if filter_priority == 'high' %}selected{% endif %}>High</option>
+        <option value="medium" {% if filter_priority == 'medium' %}selected{% endif %}>Medium</option>
+        <option value="low" {% if filter_priority == 'low' %}selected{% endif %}>Low</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Sort by:</label>
+      <select name="sort_by" onchange="this.form.submit()">
+        <option value="date_desc" {% if sort_by == 'date_desc' %}selected{% endif %}>Newest First</option>
+        <option value="date_asc" {% if sort_by == 'date_asc' %}selected{% endif %}>Oldest First</option>
+        <option value="priority" {% if sort_by == 'priority' %}selected{% endif %}>Priority</option>
+        <option value="meeting" {% if sort_by == 'meeting' %}selected{% endif %}>Meeting Name</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Group by:</label>
+      <select name="group_by" onchange="this.form.submit()">
+        <option value="none" {% if group_by == 'none' %}selected{% endif %}>None</option>
+        <option value="meeting" {% if group_by == 'meeting' %}selected{% endif %}>Meeting</option>
+        <option value="priority" {% if group_by == 'priority' %}selected{% endif %}>Priority</option>
+      </select>
+    </div>
+  </form>
+
+  <!-- Action Items List -->
+  {% if group_by == 'meeting' and grouped_items %}
+    {% for meeting_name, items in grouped_items.items() %}
+    <div class="meeting-group">
+      <div class="meeting-group-header">
+        <h3>📅 {{ meeting_name }}</h3>
+        <span class="meeting-group-count">{{ items|length }} items</span>
+      </div>
+      <div class="action-items-list" style="border-radius: 0 0 12px 12px;">
+        {% for item in items %}
+        <div class="action-item {% if item.completed %}completed{% endif %}" data-meeting-id="{{ item.meeting_id }}" data-item-index="{{ item.item_index }}">
+          <input type="checkbox" 
+                 class="action-item-checkbox" 
+                 {% if item.completed %}checked{% endif %}
+                 onchange="toggleItem({{ item.meeting_id }}, {{ item.item_index }}, this)">
+          <div class="action-item-content">
+            <div class="item-text">
+              {{ item.text }}
+              {% if item.suggest_ticket %}
+              <span class="ticket-suggestion" data-meeting="{{ item.meeting_id }}" data-index="{{ item.item_index }}" data-text="{{ item.text|e }}" onclick="createTicketFromData(this)" title="Create as ticket">
+                🎫 Create Ticket
+              </span>
+              {% endif %}
+            </div>
+            <div class="item-meta">
+              {% if item.meeting_date %}
+              <span>🗓️ {{ item.meeting_date }}</span>
+              {% endif %}
+              {% if item.assignee %}
+              <span>👤 {{ item.assignee }}</span>
+              {% endif %}
+              {% if item.due_date %}
+              <span>⏰ Due: {{ item.due_date }}</span>
+              {% endif %}
+              <span class="priority-badge {{ item.priority|lower }}">{{ item.priority }}</span>
+              <span class="source-badge {{ item.source }}">{{ item.source|capitalize }}</span>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  {% elif action_items %}
+  <div class="action-items-list">
+    {% for item in action_items %}
+    <div class="action-item {% if item.completed %}completed{% endif %}" data-meeting-id="{{ item.meeting_id }}" data-item-index="{{ item.item_index }}">
+      <input type="checkbox" 
+             class="action-item-checkbox" 
+             {% if item.completed %}checked{% endif %}
+             onchange="toggleItem({{ item.meeting_id }}, {{ item.item_index }}, this)">
+      <div class="action-item-content">
+        <div class="item-text">
+          {{ item.text }}
+          {% if item.suggest_ticket %}
+          <span class="ticket-suggestion" data-meeting="{{ item.meeting_id }}" data-index="{{ item.item_index }}" data-text="{{ item.text|e }}" onclick="createTicketFromData(this)" title="Create as ticket">
+            🎫 Create Ticket
+          </span>
+          {% endif %}
+        </div>
+        <div class="item-meta">
+          <span>📅 <a href="/meetings/{{ item.meeting_id }}">{{ item.meeting_name }}</a></span>
+          {% if item.meeting_date %}
+          <span>🗓️ {{ item.meeting_date }}</span>
+          {% endif %}
+          {% if item.assignee %}
+          <span>👤 {{ item.assignee }}</span>
+          {% endif %}
+          {% if item.due_date %}
+          <span>⏰ Due: {{ item.due_date }}</span>
+          {% endif %}
+          <span class="priority-badge {{ item.priority|lower }}">{{ item.priority }}</span>
+          <span class="source-badge {{ item.source }}">{{ item.source|capitalize }}</span>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="action-items-list">
+    <div class="empty-state">
+      <div class="empty-state-icon">📋</div>
+      <p>No action items found.</p>
+      <p style="font-size: 0.9rem;">Action items are extracted from meeting notes and Pocket recordings.</p>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="loading-overlay" id="loading-overlay">
+  <div style="text-align: center;">
+    <div style="font-size: 2rem; margin-bottom: 0.5rem;">⏳</div>
+    <div>Updating...</div>
+  </div>
+</div>
+
+<script>
+function toggleAddForm() {
+  const card = document.getElementById('addItemCard');
+  card.style.display = card.style.display === 'none' ? 'block' : 'none';
+}
+
+async function addActionItem(event) {
+  event.preventDefault();
+  const form = event.target;
+  const formData = new FormData(form);
+  
+  const loading = document.getElementById('loading-overlay');
+  loading.classList.add('active');
+  
+  try {
+    const response = await fetch('/api/action-items/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        text: formData.get('text'),
+        meeting_id: formData.get('meeting_id') || null,
+        priority: formData.get('priority'),
+        assignee: formData.get('assignee') || null,
+        due_date: formData.get('due_date') || null
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      window.location.reload();
+    } else {
+      alert('Failed to add action item: ' + (data.error || 'Unknown error'));
+    }
+  } catch (err) {
+    console.error('Add failed:', err);
+    alert('Failed to add action item');
+  } finally {
+    loading.classList.remove('active');
+  }
+}
+
+async function toggleItem(meetingId, itemIndex, checkbox) {
+  const loading = document.getElementById('loading-overlay');
+  loading.classList.add('active');
+  
+  try {
+    const response = await fetch(`/api/action-items/${meetingId}/${itemIndex}/toggle`, {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      // Update UI
+      const item = checkbox.closest('.action-item');
+      if (data.completed) {
+        item.classList.add('completed');
+      } else {
+        item.classList.remove('completed');
+      }
+    } else {
+      // Revert checkbox
+      checkbox.checked = !checkbox.checked;
+      alert('Failed to update: ' + (data.error || 'Unknown error'));
+    }
+  } catch (err) {
+    console.error('Toggle failed:', err);
+    checkbox.checked = !checkbox.checked;
+    alert('Failed to update action item');
+  } finally {
+    loading.classList.remove('active');
+  }
+}
+
+// Helper for data-attribute based call (avoids Jinja escaping issues)
+function createTicketFromData(el) {
+  const meetingId = parseInt(el.dataset.meeting);
+  const itemIndex = parseInt(el.dataset.index);
+  const text = el.dataset.text;
+  createTicketFromItem(meetingId, itemIndex, text);
+}
+
+async function createTicketFromItem(meetingId, itemIndex, text) {
+  if (!confirm(`Create a ticket from this action item?\n\n"${text}"`)) {
+    return;
+  }
+  
+  const loading = document.getElementById('loading-overlay');
+  loading.classList.add('active');
+  
+  try {
+    const response = await fetch('/api/action-items/create-ticket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        meeting_id: meetingId,
+        item_index: itemIndex,
+        text: text
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      alert(`Ticket created! ID: ${data.ticket_id}`);
+      window.location.reload();
+    } else {
+      alert('Failed to create ticket: ' + (data.error || 'Unknown error'));
+    }
+  } catch (err) {
+    console.error('Create ticket failed:', err);
+    alert('Failed to create ticket');
+  } finally {
+    loading.classList.remove('active');
+  }
+}
+</script>
+{% endblock %}

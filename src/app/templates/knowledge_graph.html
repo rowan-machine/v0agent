@@ -516,6 +516,17 @@
     </div>
   </div>
 
+  <!-- Mindmap Synthesis Section -->
+  <div class="mindmap-container" id="mindmapSynthesisSection" style="display: none; margin-top: 2rem;">
+    <div class="mindmap-header">
+      <h2>✨ Knowledge Synthesis</h2>
+      <button class="graph-btn graph-btn-secondary" onclick="toggleSynthesisDetail()" style="font-size:0.8rem;">Show/Hide</button>
+    </div>
+    <div id="mindmapSynthesisContent" style="padding: 1.5rem; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e5e7eb; border-radius: 0.5rem; max-height: 400px; overflow-y: auto;">
+      <p style="color: #9ca3af; text-align: center; padding: 2rem;">Loading synthesis...</p>
+    </div>
+  </div>
+
   <!-- Panels -->
   <div class="panels-grid">
     <!-- Tag Cloud Panel -->
@@ -571,6 +582,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadTagCloud();
   loadRecentItems();
   loadLastSyncInfo();
+  loadMindmapSynthesis();  // Load AI synthesis
   
   // Load mindmap data
   const data = await loadMindmapData();
@@ -1236,6 +1248,114 @@ function showToast(message, isError = false, type = null) {
     toast.style.transition = 'all 0.3s';
     setTimeout(() => toast.remove(), 300);
   }, 3000);
+}
+
+// Load mindmap synthesis (AI-generated knowledge summary)
+async function loadMindmapSynthesis() {
+  const section = document.getElementById('mindmapSynthesisSection');
+  const content = document.getElementById('mindmapSynthesisContent');
+  
+  if (!section || !content) return;
+  
+  try {
+    const response = await fetch('/api/mindmap/synthesis', { credentials: 'same-origin' });
+    
+    if (response.status === 401) {
+      content.innerHTML = '<p style="color: #ef4444; text-align: center; padding: 1rem;">Session expired - please refresh</p>';
+      return;
+    }
+    
+    if (response.status === 404) {
+      // No synthesis yet - show generation button
+      section.style.display = 'block';
+      content.innerHTML = `
+        <div style="text-align: center; padding: 2rem;">
+          <p style="color: #6b7280; margin-bottom: 1rem;">No synthesis generated yet.</p>
+          <button class="graph-btn graph-btn-primary" onclick="generateSynthesis()" id="generateSynthesisBtn">
+            ✨ Generate Knowledge Synthesis
+          </button>
+          <p style="font-size: 0.75rem; color: #9ca3af; margin-top: 0.75rem;">Uses AI to synthesize all mindmaps into a unified knowledge structure.</p>
+        </div>
+      `;
+      return;
+    }
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && data.synthesis) {
+        section.style.display = 'block';
+        const synthesis = data.synthesis;
+        const keyTopics = synthesis.key_topics || [];
+        const synthesisText = synthesis.synthesis_text || 'No synthesis available.';
+        const createdAt = synthesis.created_at ? new Date(synthesis.created_at).toLocaleString() : '';
+        
+        content.innerHTML = `
+          <div style="margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+              <span style="font-size: 0.75rem; color: #6b7280;">Generated: ${createdAt}</span>
+              <button class="graph-btn graph-btn-secondary" onclick="generateSynthesis()" id="regenerateSynthesisBtn" style="font-size: 0.75rem; padding: 0.3rem 0.6rem;">
+                🔄 Regenerate
+              </button>
+            </div>
+            ${keyTopics.length > 0 ? `
+              <div style="margin-bottom: 1rem;">
+                <strong style="font-size: 0.85rem; color: #374151;">Key Topics:</strong>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem;">
+                  ${keyTopics.slice(0, 10).map(t => `<span style="background: #e0e7ff; color: #4338ca; padding: 0.25rem 0.5rem; border-radius: 1rem; font-size: 0.75rem;">${escapeHtml(t)}</span>`).join('')}
+                </div>
+              </div>
+            ` : ''}
+            <div style="font-size: 0.9rem; color: #374151; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(synthesisText)}</div>
+          </div>
+        `;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load synthesis:', err);
+    content.innerHTML = '<p style="color: #ef4444; text-align: center; padding: 1rem;">Error loading synthesis</p>';
+  }
+}
+
+// Generate new synthesis
+async function generateSynthesis() {
+  const btn = document.getElementById('generateSynthesisBtn') || document.getElementById('regenerateSynthesisBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Generating...';
+  }
+  
+  try {
+    const response = await fetch('/api/mindmap/synthesize?force=true', {
+      method: 'POST',
+      credentials: 'same-origin',
+    });
+    
+    if (response.ok) {
+      showToast('Synthesis generated successfully!');
+      await loadMindmapSynthesis();  // Reload
+    } else {
+      const err = await response.json();
+      showToast('Failed to generate synthesis: ' + (err.error || 'Unknown error'), true);
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '✨ Generate Knowledge Synthesis';
+      }
+    }
+  } catch (err) {
+    console.error('Failed to generate synthesis:', err);
+    showToast('Failed to generate synthesis', true);
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '✨ Generate Knowledge Synthesis';
+    }
+  }
+}
+
+function toggleSynthesisDetail() {
+  const content = document.getElementById('mindmapSynthesisContent');
+  if (content) {
+    content.style.display = content.style.display === 'none' ? 'block' : 'none';
+  }
 }
 </script>
 {% endblock %}

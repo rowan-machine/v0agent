@@ -67,39 +67,80 @@ class MindmapSynthesizer:
     
     @staticmethod
     def store_conversation_mindmap(
-        conversation_id: int,
-        mindmap_data: Dict[str, Any]
+        conversation_id: str,
+        mindmap_data: Any,
+        title: str = None,
+        hierarchy_level: int = 0
     ) -> Optional[int]:
         """Store mindmap data from a conversation.
         
         Args:
-            conversation_id: ID of the conversation
-            mindmap_data: Raw mindmap structure with nodes and edges
+            conversation_id: ID of the conversation (can be string like 'meeting_123')
+            mindmap_data: Raw mindmap structure - can be dict or string
+            title: Optional title for the mindmap
+            hierarchy_level: Max depth level to include (0=root, 1=branches, 2=full)
             
         Returns:
             ID of the stored mindmap or None on error
         """
         try:
+            # Parse mindmap_data if it's a string
+            if isinstance(mindmap_data, str):
+                try:
+                    mindmap_data = json.loads(mindmap_data)
+                except json.JSONDecodeError:
+                    # Try to parse as hierarchical text format
+                    mindmap_data = MindmapSynthesizer._parse_text_mindmap(mindmap_data)
+            
             hierarchy = MindmapSynthesizer.extract_hierarchy_from_mindmap(mindmap_data)
             root_node_id = hierarchy.get('root_node', {}).get('id')
             
             with connect() as conn:
                 conn.execute("""
                     INSERT INTO conversation_mindmaps 
-                    (conversation_id, mindmap_json, hierarchy_levels, root_node_id, node_count)
-                    VALUES (?, ?, ?, ?, ?)
+                    (conversation_id, mindmap_json, hierarchy_levels, root_node_id, node_count, title)
+                    VALUES (?, ?, ?, ?, ?, ?)
                 """, (
-                    conversation_id,
+                    str(conversation_id),
                     json.dumps(mindmap_data),
-                    hierarchy.get('levels', 0),
+                    min(hierarchy.get('levels', 0), hierarchy_level + 1) if hierarchy_level >= 0 else hierarchy.get('levels', 0),
                     root_node_id,
-                    hierarchy.get('node_count', 0)
+                    hierarchy.get('node_count', 0),
+                    title or str(conversation_id)
                 ))
                 conn.commit()
                 return conn.execute("SELECT last_insert_rowid() as id").fetchone()['id']
         except Exception as e:
             logger.error(f"Error storing conversation mindmap: {e}")
             return None
+    
+    @staticmethod
+    def _parse_text_mindmap(text: str) -> Dict[str, Any]:
+        """Parse a text-based mindmap format into structured data.
+        
+        Handles hierarchical text like:
+        - Topic
+          - Subtopic
+            - Detail
+        """
+        nodes = []
+        lines = text.strip().split('\n')
+        
+        for i, line in enumerate(lines):
+            # Count leading spaces/dashes to determine level
+            stripped = line.lstrip(' -•')
+            indent = len(line) - len(line.lstrip())
+            level = indent // 2
+            
+            if stripped:
+                nodes.append({
+                    'node_id': i,
+                    'title': stripped.strip(),
+                    'parent_node_id': None,  # Would need more sophisticated parsing
+                    'color': None
+                })
+        
+        return {'nodes': nodes, 'type': 'text'}
     
     @staticmethod
     def get_all_mindmaps() -> List[Dict[str, Any]]:
@@ -175,7 +216,7 @@ class MindmapSynthesizer:
         }
     
     @staticmethod
-    async def generate_synthesis(force: bool = False) -> Optional[int]:
+    def generate_synthesis(force: bool = False) -> Optional[int]:
         """Generate AI-powered synthesis of all mindmaps.
         
         This function:
@@ -256,8 +297,8 @@ class MindmapSynthesizer:
             Format as structured JSON with fields: overview, themes, key_relationships, intersections, gaps
             """
             
-            # Generate synthesis using AI
-            response = await ask_llm(synthesis_prompt, model="gpt-4o-mini")
+            # Generate synthesis using AI (sync call, not async)
+            response = ask_llm(synthesis_prompt, model="gpt-4o-mini")
             
             if not response or "error" in response.lower():
                 logger.error(f"AI synthesis failed: {response}")
@@ -389,3 +430,225 @@ class MindmapSynthesizer:
             'levels_distribution': levels_dist,
             'conversation_count': len(conversation_ids)
         }
+
+    @staticmethod
+    def get_mindmap_hash(mindmap_ids: List[int]) -> str:
+        """Generate a hash of current mindmaps to detect changes."""
+        import hashlib
+        data = json.dumps(sorted(mindmap_ids), sort_keys=True)
+        return hashlib.md5(data.encode()).hexdigest()[:16]
+
+    @staticmethod
+    def needs_synthesis() -> bool:
+        """Check if synthesis is needed (new mindmaps since last synthesis)."""
+        with connect() as conn:
+            # Get current mindmap IDs
+            mindmaps = conn.execute("SELECT id FROM conversation_mindmaps ORDER BY id").fetchall()
+            current_ids = [m['id'] for m in mindmaps]
+            
+            if not current_ids:
+                return False
+            
+            # Get last synthesis
+            last_synthesis = conn.execute("""
+                SELECT source_mindmap_ids FROM mindmap_syntheses
+                ORDER BY updated_at DESC LIMIT 1
+            """).fetchone()
+            
+            if not last_synthesis:
+                return True
+            
+            try:
+                synth_ids = json.loads(last_synthesis['source_mindmap_ids'])
+                return set(current_ids) != set(synth_ids)
+            except:
+                return True
+
+    @staticmethod
+    def generate_multiple_syntheses(force: bool = False) -> Dict[str, Optional[int]]:
+        """Generate multiple types of synthesis views.
+        
+        Types:
+        - executive: High-level summary for executives
+        - technical: Detailed technical relationships
+        - timeline: Chronological progression of decisions
+        - action_focus: Focus on action items and next steps
+        
+        Returns:
+            Dictionary of synthesis type -> synthesis ID
+        """
+        from ..llm import ask as ask_llm
+        
+        # Check if needed
+        if not force and not MindmapSynthesizer.needs_synthesis():
+            logger.info("No new mindmaps since last synthesis, skipping")
+            with connect() as conn:
+                existing = conn.execute("""
+                    SELECT id, synthesis_type FROM mindmap_syntheses
+                    ORDER BY updated_at DESC LIMIT 4
+                """).fetchall()
+                return {row['synthesis_type'] or 'default': row['id'] for row in existing}
+        
+        mindmaps = MindmapSynthesizer.get_all_mindmaps()
+        if not mindmaps:
+            return {}
+        
+        # Extract common data
+        all_topics = []
+        all_relationships = []
+        all_hierarchies = []
+        source_mindmap_ids = []
+        source_conversation_ids = []
+        
+        for mindmap in mindmaps:
+            try:
+                mindmap_json = json.loads(mindmap['mindmap_json'])
+                hierarchy = MindmapSynthesizer.extract_hierarchy_from_mindmap(mindmap_json)
+                extracted = MindmapSynthesizer.extract_key_topics_and_relationships(mindmap_json)
+                
+                all_topics.extend(extracted.get('key_topics', []))
+                all_relationships.extend(extracted.get('relationships', []))
+                all_hierarchies.append({
+                    'title': mindmap.get('title', ''),
+                    'levels': hierarchy.get('levels'),
+                    'topics': extracted.get('key_topics', [])
+                })
+                source_mindmap_ids.append(mindmap['id'])
+                source_conversation_ids.append(mindmap['conversation_id'])
+            except Exception as e:
+                logger.warning(f"Error processing mindmap {mindmap['id']}: {e}")
+        
+        synthesis_types = {
+            'default': """Create a COMPREHENSIVE OVERVIEW synthesis:
+                - Provide a holistic summary of all knowledge
+                - Cover major themes, decisions, and relationships
+                - Include key topics and their connections
+                - Summarize action items and next steps""",
+            
+            'executive': """Create an EXECUTIVE SUMMARY synthesis:
+                - Focus on high-level strategic themes and decisions
+                - Keep it concise (2-3 bullet points per section)
+                - Highlight key business impacts and outcomes
+                - Emphasize cross-team dependencies""",
+            
+            'technical': """Create a TECHNICAL DEEP-DIVE synthesis:
+                - Focus on technical architecture and design decisions
+                - Include system dependencies and integration points
+                - Highlight technical risks and technical debt
+                - Map relationships between components""",
+            
+            'timeline': """Create a CHRONOLOGICAL TIMELINE synthesis:
+                - Order events and decisions by when they occurred
+                - Show how discussions evolved over time
+                - Highlight pivots and direction changes
+                - Track decision momentum""",
+            
+            'action_focus': """Create an ACTION-FOCUSED synthesis:
+                - Extract and prioritize all action items
+                - Identify owners and deadlines
+                - Highlight blocked items needing attention
+                - Suggest next steps and follow-ups"""
+        }
+        
+        results = {}
+        unique_topics = list(set(all_topics[:30]))[:20]
+        
+        for synth_type, type_prompt in synthesis_types.items():
+            try:
+                prompt = f"""
+                {type_prompt}
+                
+                Analyzing {len(mindmaps)} conversation mindmaps.
+                
+                Key Topics:
+                {json.dumps(unique_topics, indent=2)}
+                
+                Relationships:
+                {json.dumps(all_relationships[:15], indent=2)}
+                
+                Conversation Summaries:
+                {json.dumps([h for h in all_hierarchies[:10]], indent=2)}
+                
+                Provide a structured JSON response with fields:
+                - overview (2-3 paragraph synthesis)
+                - themes (list of major themes)
+                - key_insights (list of key insights)
+                - recommendations (list of recommendations)
+                """
+                
+                response = ask_llm(prompt, model="gpt-4o-mini")
+                
+                # Store this synthesis type
+                with connect() as conn:
+                    conn.execute("""
+                        INSERT INTO mindmap_syntheses
+                        (synthesis_text, synthesis_type, hierarchy_summary, source_mindmap_ids, 
+                         source_conversation_ids, key_topics, relationships)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        response,
+                        synth_type,
+                        json.dumps(all_hierarchies),
+                        json.dumps(source_mindmap_ids),
+                        json.dumps(source_conversation_ids),
+                        json.dumps(unique_topics),
+                        json.dumps(all_relationships[:50])
+                    ))
+                    conn.commit()
+                    synth_id = conn.execute("SELECT last_insert_rowid() as id").fetchone()['id']
+                    results[synth_type] = synth_id
+                    logger.info(f"Generated {synth_type} synthesis with ID {synth_id}")
+                    
+            except Exception as e:
+                logger.error(f"Error generating {synth_type} synthesis: {e}")
+                results[synth_type] = None
+        
+        return results
+
+    @staticmethod
+    def get_synthesis_by_type(synthesis_type: str = 'default') -> Optional[Dict[str, Any]]:
+        """Get the most recent synthesis of a specific type."""
+        with connect() as conn:
+            if synthesis_type == 'default':
+                synthesis = conn.execute("""
+                    SELECT id, synthesis_text, synthesis_type, hierarchy_summary, key_topics,
+                           relationships, source_mindmap_ids, source_conversation_ids,
+                           created_at, updated_at
+                    FROM mindmap_syntheses
+                    WHERE synthesis_type IS NULL OR synthesis_type = '' OR synthesis_type = 'default'
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                """).fetchone()
+            else:
+                synthesis = conn.execute("""
+                    SELECT id, synthesis_text, synthesis_type, hierarchy_summary, key_topics,
+                           relationships, source_mindmap_ids, source_conversation_ids,
+                           created_at, updated_at
+                    FROM mindmap_syntheses
+                    WHERE synthesis_type = ?
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                """, (synthesis_type,)).fetchone()
+            
+            if synthesis:
+                result = dict(synthesis)
+                # Parse JSON fields
+                for field in ['key_topics', 'source_mindmap_ids', 'source_conversation_ids', 'relationships', 'hierarchy_summary']:
+                    if result.get(field) and isinstance(result[field], str):
+                        try:
+                            result[field] = json.loads(result[field])
+                        except:
+                            pass
+                return result
+            return None
+
+    @staticmethod
+    def get_all_synthesis_types() -> List[str]:
+        """Get list of available synthesis types."""
+        with connect() as conn:
+            rows = conn.execute("""
+                SELECT DISTINCT COALESCE(synthesis_type, 'default') as stype
+                FROM mindmap_syntheses
+                ORDER BY stype
+            """).fetchall()
+            return [row['stype'] for row in rows]

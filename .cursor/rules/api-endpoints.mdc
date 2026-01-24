@@ -1,62 +1,46 @@
 ---
-description: Specification for FastAPI routes implementing CRUD operations for meetings and documents management system
+description: Documents FastAPI endpoints implementing core meeting and document CRUD operations with domain-specific business logic.
 ---
 
 
 # api-endpoints
 
-Primary API routes implementing business logic for meetings and document management:
+API Endpoints Implementing Meeting Intelligence Features
+Importance Score: 85/100
 
-## Meeting Intelligence Endpoints
-Location: src/app/api/v1/meetings.py
-Importance Score: 85
+1. Meeting Bundle Processing
+Path: src/app/api/v1/imports.py
+- Multi-source transcript integration (Teams + Pocket) with unified storage
+- Mind map generation with hierarchical level system (0-2)
+- Auto-detection of 30+ meeting template types
+- Intelligent action item extraction with assignee detection
 
-1. Signal Extraction Pipeline
-- Custom extraction of structured signals from meeting content:
-  - Decisions 
-  - Action items
-  - Blockers
-  - Risks
-  - Ideas
-- Automatic categorization and tagging
-- Integration with DIKW hierarchy for knowledge promotion
+2. Signal Extraction 
+Path: src/app/api/v1/signals.py
+- Real-time signal categorization into decisions, actions, blockers, risks, ideas 
+- Signal merging logic for combining related items across meetings
+- Automated sentiment analysis and theme detection
+- Status workflow (approved/rejected/waiting/archived)
 
-2. Meeting Intelligence Processing
-- Multi-source transcript handling (Teams, Pocket)
-- Template-aware AI summary generation
-- Context preservation across meeting series
-- Automated signal correlation between meetings
+3. Knowledge Graph Management
+Path: src/app/api/knowledge_graph.py
+- Entity linking between meetings, documents and DIKW items
+- Relationship types: semantic_similar, derived_from, blocks, depends_on
+- Intelligent link suggestion using semantic similarity scoring
 
-## Document Management Endpoints  
-Location: src/app/api/v1/documents.py
-Importance Score: 80
+4. Career Development Tracking
+Path: src/app/api/career_supabase_helper.py
+- Skill proficiency delta calculations
+- Evidence-based skill validation
+- Memory-based learning system
+- Standup analysis with sentiment detection
 
-1. Intelligent Document Processing
-- Semantic relationship mapping between documents
-- Auto-classification into DIKW hierarchy levels
-- Cross-reference detection and linking
-- Source material preservation for knowledge evolution
-
-2. Document Signal Integration
-- Signal extraction from document content
-- Knowledge synthesis across multiple documents
-- Contextual linking with related meetings
-- Automated promotion through knowledge hierarchy
-
-## Knowledge Synthesis API
-Importance Score: 90
-
-1. DIKW Promotion Rules
-- Structured validation for hierarchy level changes
-- Confidence scoring system for promotions
-- Multi-source verification requirements
-- Historical tracking of promotion paths
-
-2. Knowledge Graph Integration
-- Semantic relationship typing between entities
-- Cross-entity linking (meetings, docs, tickets)
-- Confidence scoring for relationships
-- Hybrid similarity detection system
+Key Features:
+- Domain-specific signal categorization
+- Template-based meeting analysis
+- Knowledge relationship mapping
+- Career progression tracking
+- Context-aware suggestion systems
 
 $END$
 

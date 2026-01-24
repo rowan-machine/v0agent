@@ -3,7 +3,9 @@ agent.db-shm
 agent.db-wal
 .env
 __pycache__/
-.venv
+.venv/
+venv/
+*.pyc
 
 # Node.js
 node_modules/

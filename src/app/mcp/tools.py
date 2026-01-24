@@ -167,6 +167,7 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
     summary_text = args["summary_text"]
     transcript_text = args.get("transcript_text")
     pocket_ai_summary = args.get("pocket_ai_summary")
+    pocket_mind_map = args.get("pocket_mind_map")
 
     # -----------------------------
     # 0. Idempotency check - skip duplicates
@@ -228,8 +229,8 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
         cur = conn.execute(
             """
             INSERT INTO meeting_summaries
-                (meeting_name, synthesized_notes, meeting_date, signals_json, raw_text, pocket_ai_summary, pocket_template_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+                (meeting_name, synthesized_notes, meeting_date, signals_json, raw_text, pocket_ai_summary, pocket_template_type, pocket_mind_map)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 meeting_name,
@@ -239,6 +240,7 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
                 transcript_text or "",
                 pocket_ai_summary.strip() if pocket_ai_summary else "",
                 pocket_template,
+                pocket_mind_map.strip() if pocket_mind_map else "",
             ),
         )
 

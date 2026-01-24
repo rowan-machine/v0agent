@@ -1,170 +1,582 @@
 {% extends "base.html" %}
+{% block title %}{{ meeting.meeting_name }} - Meeting{% endblock %}
 {% block content %}
 <style>
-  .meeting-content {
-    background: white;
-    border: 1px solid #e8e8e8;
-    border-radius: 8px;
-    padding: 20px;
-    margin-top: 15px;
-    white-space: pre-wrap;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    line-height: 1.6;
-    color: #333;
+  .meeting-view {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 1.5rem;
   }
+
+  .meeting-header {
+    margin-bottom: 1.5rem;
+  }
+
+  .meeting-header h1 {
+    font-size: 1.75rem;
+    color: var(--sf-text, #1a1a1a);
+    margin-bottom: 0.5rem;
+  }
+
   .meeting-meta {
-    color: #666;
-    margin-bottom: 15px;
-  }
-  .meeting-actions {
-    margin-top: 20px;
     display: flex;
-    gap: 10px;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    color: var(--sf-text-muted, #6b7280);
+    font-size: 0.9rem;
   }
-  .meeting-actions a {
-    padding: 8px 16px;
-    background: var(--sf-primary, #667eea);
-    color: #fff;
-    text-decoration: none;
-    border-radius: 6px;
+
+  .meeting-meta span {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .meeting-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    padding: 0.6rem 1.2rem;
     border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
     transition: all 0.2s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
   }
-  .meeting-actions a:hover {
-    background: var(--sf-primary-dark, #5568d3);
+
+  .btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+
+  .btn-primary:hover {
     transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
   }
-  /* Markdown styles */
-  .meeting-content strong { font-weight: bold; color: #1a1a1a; }
-  .meeting-content em { font-style: italic; color: #555; }
-  .meeting-content code {
-    background: #f5f5f5;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-family: 'Monaco', 'Menlo', monospace;
-    font-size: 0.9em;
-    color: #d63384;
+
+  .btn-secondary {
+    background: var(--sf-card-bg, #f3f4f6);
+    color: var(--sf-text, #374151);
+    border: 1px solid var(--sf-border, #e5e7eb);
   }
-  .meeting-content .md-h1 { font-size: 1.5em; font-weight: bold; color: #1a1a1a; margin: 15px 0 10px 0; display: block; }
-  .meeting-content .md-h2 { font-size: 1.3em; font-weight: bold; color: #333; margin: 12px 0 8px 0; display: block; }
-  .meeting-content .md-h3 { font-size: 1.1em; font-weight: bold; color: #555; margin: 10px 0 6px 0; display: block; }
-  
-  /* Screenshot styles */
-  .screenshots-section {
-    margin-top: 2rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid #e8e8e8;
+
+  .btn-secondary:hover {
+    background: var(--sf-hover-bg, #e5e7eb);
   }
-  .screenshots-section h3 {
-    color: #1a1a1a;
-    margin-bottom: 1rem;
+
+  /* Content Sections */
+  .section-card {
+    background: var(--sf-card-bg, white);
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+  }
+
+  .section-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--sf-border, #e5e7eb);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--sf-header-bg, #f9fafb);
+  }
+
+  .section-header h2 {
+    font-size: 1.1rem;
+    color: var(--sf-text, #1a1a1a);
+    margin: 0;
     display: flex;
     align-items: center;
     gap: 0.5rem;
   }
-  .screenshot-card {
-    background: white;
-    border: 1px solid #e8e8e8;
+
+  .section-body {
+    padding: 1.25rem;
+  }
+
+  .section-body.prose {
+    line-height: 1.7;
+    color: var(--sf-text, #374151);
+    white-space: pre-wrap;
+  }
+
+  /* Markdown styles */
+  .prose strong { font-weight: 600; color: var(--sf-text, #1a1a1a); }
+  .prose em { font-style: italic; }
+  .prose code {
+    background: var(--sf-code-bg, #f5f5f5);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.85em;
+    color: #d63384;
+  }
+  .prose .md-h1 { font-size: 1.4em; font-weight: 700; color: var(--sf-text, #1a1a1a); margin: 1.25rem 0 0.75rem 0; display: block; }
+  .prose .md-h2 { font-size: 1.2em; font-weight: 600; color: var(--sf-text, #333); margin: 1rem 0 0.5rem 0; display: block; }
+  .prose .md-h3 { font-size: 1.05em; font-weight: 600; color: var(--sf-text, #555); margin: 0.75rem 0 0.5rem 0; display: block; }
+
+  /* Action Items */
+  .action-items-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .action-item {
+    padding: 0.75rem 1rem;
+    background: var(--sf-item-bg, #f9fafb);
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .action-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .action-item-checkbox {
+    width: 20px;
+    height: 20px;
+    margin-top: 2px;
+    accent-color: #10b981;
+    cursor: pointer;
+  }
+
+  .action-item-content {
+    flex: 1;
+  }
+
+  .action-item-text {
+    color: var(--sf-text, #374151);
+    line-height: 1.5;
+  }
+
+  .action-item-meta {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.35rem;
+    font-size: 0.8rem;
+    color: var(--sf-text-muted, #6b7280);
+  }
+
+  .action-item.completed .action-item-text {
+    text-decoration: line-through;
+    opacity: 0.7;
+  }
+
+  .priority-high { border-left: 3px solid #ef4444; }
+  .priority-medium { border-left: 3px solid #f59e0b; }
+  .priority-low { border-left: 3px solid #10b981; }
+
+  /* Signals Grid */
+  .signals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+  }
+
+  .signal-category {
+    background: var(--sf-item-bg, #f9fafb);
+    border: 1px solid var(--sf-border, #e5e7eb);
     border-radius: 8px;
     padding: 1rem;
-    margin-bottom: 1rem;
   }
-  .screenshot-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.5rem;
-    border-top: 1px solid #f0f0f0;
-  }
-  .screenshot-filename {
+
+  .signal-category h4 {
     font-size: 0.85rem;
-    color: #666;
+    font-weight: 600;
+    margin: 0 0 0.75rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
   }
-  .screenshot-summary {
-    color: #444;
+
+  .signal-category.decisions h4 { color: #10b981; }
+  .signal-category.blockers h4 { color: #ef4444; }
+  .signal-category.risks h4 { color: #f59e0b; }
+  .signal-category.ideas h4 { color: #8b5cf6; }
+
+  .signal-category ul.signal-list {
+    margin: 0;
+    padding: 0 0 0 1.25rem;
+    font-size: 0.9rem;
+    color: var(--sf-text, #374151);
+  }
+
+  .signal-category li.signal-item {
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+  }
+
+  .signal-category li.signal-item strong {
+    font-weight: 600;
+  }
+
+  .signal-category li.signal-item code {
+    background: rgba(0,0,0,0.06);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.85em;
+  }
+
+  /* Attached Documents */
+  .documents-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .document-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--sf-item-bg, #f9fafb);
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 8px;
+    color: var(--sf-text, #374151);
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .document-link:hover {
+    background: var(--sf-hover-bg, #f0f0ff);
+    border-color: #667eea;
+  }
+
+  .document-link .icon {
+    font-size: 1.25rem;
+  }
+
+  .document-link .doc-info {
+    flex: 1;
+  }
+
+  .document-link .doc-title {
+    font-weight: 500;
+    color: var(--sf-text, #1a1a1a);
+  }
+
+  .document-link .doc-meta {
+    font-size: 0.8rem;
+    color: var(--sf-text-muted, #6b7280);
+  }
+
+  /* Mind Map */
+  .mindmap-container {
+    background: var(--sf-code-bg, #f8f9fa);
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 8px;
+    padding: 1rem;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 0.85rem;
     line-height: 1.6;
     white-space: pre-wrap;
+    color: var(--sf-text, #374151);
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .mindmap-node {
+    margin: 0.25rem 0;
+  }
+
+  .mindmap-node.level-0 {
+    font-weight: 700;
+    color: #7c3aed;
+    font-size: 1rem;
+    margin-top: 0.75rem;
+  }
+
+  .mindmap-node.level-1 {
+    font-weight: 500;
+    color: #3b82f6;
+    padding-left: 1.5rem;
+  }
+
+  .mindmap-node.level-2 {
+    color: var(--sf-text-muted, #6b7280);
+    padding-left: 3rem;
+    font-size: 0.8rem;
+  }
+
+  /* Screenshots */
+  .screenshots-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+
+  .screenshot-card {
+    background: var(--sf-item-bg, #f9fafb);
+    border: 1px solid var(--sf-border, #e5e7eb);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .screenshot-card img {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+  }
+
+  .screenshot-card .caption {
+    padding: 0.75rem;
+    font-size: 0.8rem;
+    color: var(--sf-text, #374151);
+    line-height: 1.4;
+  }
+
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--sf-text-muted, #9ca3af);
+    font-size: 0.9rem;
+  }
+
+  /* Pocket AI Summary badge */
+  .template-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.6rem;
+    background: #f3e8ff;
+    color: #7c3aed;
+    border-radius: 1rem;
+    font-size: 0.75rem;
+    font-weight: 500;
   }
 </style>
 
-<h2>{{ meeting.meeting_name }}</h2>
-
-<div class="meeting-meta">
-  {% if meeting.meeting_date %}
-  <strong>Date:</strong> {{ meeting.meeting_date }}
-  {% endif %}
-</div>
-
-<div class="meeting-content" id="meeting-content">{{ meeting.synthesized_notes }}</div>
-
-{% if screenshots %}
-<div class="screenshots-section">
-  <h3>📸 Meeting Screenshots</h3>
-  {% for screenshot in screenshots %}
-  <div class="screenshot-card">
-    <div class="screenshot-header">
-      <span class="screenshot-filename">{{ screenshot.filename }}</span>
+<div class="meeting-view">
+  <!-- Header -->
+  <div class="meeting-header">
+    <h1>{{ meeting.meeting_name }}</h1>
+    <div class="meeting-meta">
+      {% if meeting.meeting_date %}
+      <span>📅 {{ meeting.meeting_date }}</span>
+      {% endif %}
+      {% if meeting.pocket_template_type %}
+      <span class="template-badge">🤖 {{ meeting.pocket_template_type }}</span>
+      {% endif %}
+      {% if meeting.import_source %}
+      <span>📥 {{ meeting.import_source }}</span>
+      {% endif %}
     </div>
-    <div class="screenshot-summary">{{ screenshot.image_summary }}</div>
+    <div class="meeting-actions">
+      <a href="/meetings/{{ meeting.id }}/edit" class="btn btn-primary">✏️ Edit Meeting</a>
+      <a href="/meetings" class="btn btn-secondary">← Back to Meetings</a>
+      {% if linked_transcript %}
+      <button onclick="extractSignalsFromTranscript({{ linked_transcript.id }}, {{ meeting.id }})" class="btn btn-secondary" id="extractBtn">
+        🔍 Extract Signals
+      </button>
+      {% endif %}
+    </div>
   </div>
-  {% endfor %}
-</div>
-{% endif %}
 
-<div class="meeting-actions">
-  <a href="/meetings/{{ meeting.id }}/edit">Edit Meeting</a>
-  <a href="/meetings">← Back to Meetings</a>
+  <!-- Action Items Section (if any) -->
+  {% if action_items and action_items|length > 0 %}
+  <div class="section-card">
+    <div class="section-header">
+      <h2>✅ Action Items ({{ action_items|length }})</h2>
+    </div>
+    <div class="section-body">
+      <ul class="action-items-list">
+        {% for item in action_items %}
+        <li class="action-item {% if item.completed %}completed{% endif %} priority-{{ item.priority|default('medium')|lower }}" data-item-index="{{ loop.index0 }}">
+          <input type="checkbox" class="action-item-checkbox" 
+                 {% if item.completed %}checked{% endif %}
+                 onchange="toggleActionItem(this, {{ loop.index0 }})" 
+                 title="Mark as complete">
+          <div class="action-item-content">
+            <div class="action-item-text">{{ item.description|default(item.text|default(item)) }}</div>
+            <div class="action-item-meta">
+              {% if item.assignee %}<span>👤 {{ item.assignee }}</span>{% endif %}
+              {% if item.dueDate %}<span>📅 {{ item.dueDate }}</span>{% endif %}
+              {% if item.priority %}<span>🔥 {{ item.priority }}</span>{% endif %}
+            </div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Extracted Signals Section -->
+  {% if signals and (signals.decisions or signals.blockers or signals.risks or signals.ideas) %}
+  <div class="section-card">
+    <div class="section-header">
+      <h2>🎯 Extracted Signals</h2>
+    </div>
+    <div class="section-body">
+      <div class="signals-grid">
+        {% if signals.decisions %}
+        <div class="signal-category decisions">
+          <h4>🎯 Decisions ({{ signals.decisions|length }})</h4>
+          <ul class="signal-list">{% for d in signals.decisions %}<li class="signal-item">{{ d }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+        {% if signals.blockers %}
+        <div class="signal-category blockers">
+          <h4>🚧 Blockers ({{ signals.blockers|length }})</h4>
+          <ul class="signal-list">{% for b in signals.blockers %}<li class="signal-item">{{ b }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+        {% if signals.risks %}
+        <div class="signal-category risks">
+          <h4>⚠️ Risks ({{ signals.risks|length }})</h4>
+          <ul class="signal-list">{% for r in signals.risks %}<li class="signal-item">{{ r }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+        {% if signals.ideas %}
+        <div class="signal-category ideas">
+          <h4>💡 Ideas ({{ signals.ideas|length }})</h4>
+          <ul class="signal-list">{% for i in signals.ideas %}<li class="signal-item">{{ i }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Main Notes Section -->
+  <div class="section-card">
+    <div class="section-header">
+      <h2>📝 Meeting Notes</h2>
+    </div>
+    <div class="section-body prose" id="meeting-notes">{{ meeting.synthesized_notes }}</div>
+  </div>
+
+  <!-- Pocket AI Summary (if different from notes) -->
+  {% if meeting.pocket_ai_summary and meeting.pocket_ai_summary != meeting.synthesized_notes %}
+  <div class="section-card">
+    <div class="section-header">
+      <h2>🤖 Pocket AI Summary</h2>
+      {% if meeting.pocket_template_type %}
+      <span class="template-badge">{{ meeting.pocket_template_type }}</span>
+      {% endif %}
+    </div>
+    <div class="section-body prose" id="pocket-summary">{{ meeting.pocket_ai_summary }}</div>
+  </div>
+  {% endif %}
+
+  <!-- Mind Map Section -->
+  {% if meeting.pocket_mind_map %}
+  <div class="section-card">
+    <div class="section-header">
+      <h2>🧠 Mind Map</h2>
+    </div>
+    <div class="section-body">
+      <div class="mindmap-container" id="mindmap-display">{{ meeting.pocket_mind_map }}</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Attached Documents Section -->
+  {% if documents and documents|length > 0 %}
+  <div class="section-card">
+    <div class="section-header">
+      <h2>📎 Attached Documents ({{ documents|length }})</h2>
+    </div>
+    <div class="section-body">
+      <div class="documents-list">
+        {% for doc in documents %}
+        <a href="/documents/{{ doc.id }}" class="document-link">
+          <span class="icon">
+            {% if 'transcript' in doc.source|lower %}📜{% elif 'summary' in doc.source|lower %}📋{% else %}📄{% endif %}
+          </span>
+          <div class="doc-info">
+            <div class="doc-title">{{ doc.source }}</div>
+            <div class="doc-meta">
+              {% if doc.document_date %}{{ doc.document_date }} • {% endif %}
+              {{ doc.content|length|default(0) }} characters
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% else %}
   {% if linked_transcript %}
-  <button onclick="extractSignalsFromTranscript({{ linked_transcript.id }}, {{ meeting.id }})" class="extract-signals-btn" id="extractBtn">
-    🔍 Extract Missing Signals from Transcript
-  </button>
+  <div class="section-card">
+    <div class="section-header">
+      <h2>📎 Attached Documents (1)</h2>
+    </div>
+    <div class="section-body">
+      <div class="documents-list">
+        <a href="/documents/{{ linked_transcript.id }}" class="document-link">
+          <span class="icon">📜</span>
+          <div class="doc-info">
+            <div class="doc-title">{{ linked_transcript.source }}</div>
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+
+  <!-- Screenshots Section -->
+  {% if screenshots and screenshots|length > 0 %}
+  <div class="section-card">
+    <div class="section-header">
+      <h2>📸 Screenshots ({{ screenshots|length }})</h2>
+    </div>
+    <div class="section-body">
+      <div class="screenshots-grid">
+        {% for screenshot in screenshots %}
+        <div class="screenshot-card">
+          {% if screenshot.file_path %}
+          <img src="/{{ screenshot.file_path }}" alt="{{ screenshot.filename }}">
+          {% endif %}
+          <div class="caption">
+            <strong>{{ screenshot.filename }}</strong>
+            {% if screenshot.image_summary %}
+            <p style="margin:0.5rem 0 0 0;">{{ screenshot.image_summary }}</p>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
   {% endif %}
 </div>
 
-<!-- Signal extraction result modal -->
+<!-- Signal extraction modal -->
 <div id="signalModal" class="signal-modal" style="display: none;">
   <div class="signal-modal-content">
     <div class="signal-modal-header">
       <h3>📊 Extracted Signals</h3>
       <button onclick="closeSignalModal()" class="close-btn">&times;</button>
     </div>
-    <div class="signal-modal-body" id="signalModalBody">
-      <!-- Results will be populated here -->
-    </div>
+    <div class="signal-modal-body" id="signalModalBody"></div>
     <div class="signal-modal-footer">
-      <button onclick="closeSignalModal()">Close</button>
+      <button onclick="closeSignalModal()" class="btn btn-primary">Close</button>
     </div>
   </div>
 </div>
 
 <style>
-  .extract-signals-btn {
-    padding: 8px 16px;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    text-decoration: none;
-  }
-  .extract-signals-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-  }
-  .extract-signals-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-  }
-  
   .signal-modal {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.5);
     display: flex;
     align-items: center;
@@ -187,10 +599,7 @@
     justify-content: space-between;
     align-items: center;
   }
-  .signal-modal-header h3 {
-    margin: 0;
-    color: var(--sf-text, #1a1a1a);
-  }
+  .signal-modal-header h3 { margin: 0; color: var(--sf-text, #1a1a1a); }
   .signal-modal-body {
     padding: 1.5rem;
     overflow-y: auto;
@@ -202,14 +611,6 @@
     border-top: 1px solid var(--sf-border, #e5e7eb);
     text-align: right;
   }
-  .signal-modal-footer button {
-    padding: 0.5rem 1.5rem;
-    background: var(--sf-primary, #667eea);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-  }
   .close-btn {
     background: none;
     border: none;
@@ -217,57 +618,90 @@
     cursor: pointer;
     color: var(--sf-text-muted, #666);
   }
-  
-  .signal-category {
-    margin-bottom: 1rem;
-  }
-  .signal-category h4 {
-    font-size: 0.9rem;
-    color: var(--sf-text-muted, #666);
-    margin: 0 0 0.5rem 0;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  .signal-category ul {
-    margin: 0;
-    padding-left: 1.25rem;
-  }
-  .signal-category li {
-    margin-bottom: 0.35rem;
-    line-height: 1.5;
-  }
-  .no-signals {
-    color: var(--sf-text-muted, #999);
-    font-style: italic;
-  }
 </style>
 
 <script>
 function parseMarkdown(text) {
   if (!text) return '';
-  
-  // Headers (must come before other processing)
   text = text.replace(/^### (.+)$/gm, '<span class="md-h3">$1</span>');
   text = text.replace(/^## (.+)$/gm, '<span class="md-h2">$1</span>');
   text = text.replace(/^# (.+)$/gm, '<span class="md-h1">$1</span>');
-  
-  // Inline code
   text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
-  
-  // Bold
   text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  
-  // Italic
   text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-  
   return text;
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  const content = document.getElementById('meeting-content');
-  if (content) {
-    content.innerHTML = parseMarkdown(content.textContent);
+function formatMindmap(text) {
+  if (!text) return '';
+  const lines = text.split('\n');
+  return lines.map(line => {
+    const trimmed = line.trim();
+    if (!trimmed) return '';
+    
+    // Determine level by indentation or bullet patterns
+    const indent = line.length - line.trimStart().length;
+    let level = 0;
+    if (indent >= 4 || trimmed.startsWith('    ') || trimmed.match(/^-{2,}/)) {
+      level = 2;
+    } else if (indent >= 2 || trimmed.startsWith('  ') || trimmed.startsWith('-')) {
+      level = 1;
+    }
+    
+    // Check for section headers (=== something ===)
+    if (trimmed.startsWith('===') && trimmed.endsWith('===')) {
+      return `<div class="mindmap-node level-0">${trimmed.replace(/=/g, '').trim()}</div>`;
+    }
+    
+    const cleanText = trimmed.replace(/^[•\-\*]\s*/, '');
+    return `<div class="mindmap-node level-${level}">${cleanText}</div>`;
+  }).join('');
+}
+
+function formatPocketSummary(text) {
+  if (!text) return '';
+  // Check if text already has markdown formatting
+  const hasMarkdown = /[#*\-]/.test(text) || text.includes('\n\n');
+  
+  if (hasMarkdown) {
+    return parseMarkdown(text);
   }
+  
+  // Auto-format plain text with sections
+  const lines = text.split('\n').filter(l => l.trim());
+  let formatted = '';
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Detect potential headers (short lines ending with : or all caps)
+    if ((trimmed.length < 50 && trimmed.endsWith(':')) || trimmed === trimmed.toUpperCase()) {
+      formatted += `<h4 style="margin: 1rem 0 0.5rem; font-weight: 600; color: var(--sf-text)">${trimmed}</h4>`;
+    } else if (trimmed.startsWith('-') || trimmed.startsWith('•')) {
+      formatted += `<li style="margin-left: 1.5rem; line-height: 1.6;">${parseMarkdown(trimmed.slice(1).trim())}</li>`;
+    } else {
+      formatted += `<p style="margin: 0.5rem 0; line-height: 1.6;">${parseMarkdown(trimmed)}</p>`;
+    }
+  }
+  return formatted;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Parse meeting notes
+  const notes = document.getElementById('meeting-notes');
+  if (notes) notes.innerHTML = parseMarkdown(notes.textContent);
+  
+  // Parse pocket summary with enhanced formatting
+  const pocketSummary = document.getElementById('pocket-summary');
+  if (pocketSummary) pocketSummary.innerHTML = formatPocketSummary(pocketSummary.textContent);
+  
+  // Parse signal items with markdown
+  document.querySelectorAll('.signal-item').forEach(item => {
+    item.innerHTML = parseMarkdown(item.textContent);
+  });
+  
+  // Format mindmap
+  const mindmap = document.getElementById('mindmap-display');
+  if (mindmap) mindmap.innerHTML = formatMindmap(mindmap.textContent);
 });
 
 async function extractSignalsFromTranscript(docId, meetingId) {
@@ -275,35 +709,29 @@ async function extractSignalsFromTranscript(docId, meetingId) {
   if (!btn) return;
   
   btn.disabled = true;
-  btn.innerHTML = '⏳ Extracting signals...';
+  btn.innerHTML = '⏳ Extracting...';
   
   try {
     const response = await fetch('/api/signals/extract-from-document', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ 
-        document_id: docId,
-        meeting_id: meetingId  // This will merge signals into the meeting
-      })
+      body: JSON.stringify({ document_id: docId, meeting_id: meetingId })
     });
     
     const data = await response.json();
-    
     if (!response.ok) {
       alert('Error: ' + (data.error || 'Failed to extract signals'));
       return;
     }
     
-    // Show results in modal
     showSignalResults(data.signals, data.new_signals || data.total_signals, data.action === 'merged');
-    
   } catch (err) {
     console.error('Failed to extract signals:', err);
-    alert('Failed to extract signals. Please try again.');
+    alert('Failed to extract signals.');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = '🔍 Extract Missing Signals from Transcript';
+    btn.innerHTML = '🔍 Extract Signals';
   }
 }
 
@@ -311,15 +739,13 @@ function showSignalResults(signals, total, wasMerged) {
   const body = document.getElementById('signalModalBody');
   
   if (total === 0) {
-    body.innerHTML = '<p class="no-signals">No additional signals found in this transcript.</p>';
+    body.innerHTML = '<p style="color:#9ca3af;font-style:italic;">No additional signals found.</p>';
   } else {
-    let html = `<p style="margin-bottom: 1rem;"><strong>${total}</strong> signals extracted`;
-    if (wasMerged) {
-      html += ` and <span style="color: #10b981;">merged into this meeting</span>`;
-    }
+    let html = `<p><strong>${total}</strong> signals extracted`;
+    if (wasMerged) html += ` and <span style="color:#10b981;">merged into this meeting</span>`;
     html += `:</p>`;
     
-    const categories = [
+    const cats = [
       { key: 'decisions', label: '🎯 Decisions', color: '#10b981' },
       { key: 'action_items', label: '✅ Action Items', color: '#3b82f6' },
       { key: 'blockers', label: '🚧 Blockers', color: '#ef4444' },
@@ -327,22 +753,17 @@ function showSignalResults(signals, total, wasMerged) {
       { key: 'ideas', label: '💡 Ideas', color: '#8b5cf6' }
     ];
     
-    for (const cat of categories) {
+    for (const cat of cats) {
       const items = signals[cat.key] || [];
       if (items.length > 0) {
-        html += `<div class="signal-category">
-          <h4 style="color: ${cat.color};">${cat.label} (${items.length})</h4>
-          <ul>
-            ${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
-          </ul>
-        </div>`;
+        html += `<div style="margin-bottom:1rem;"><h4 style="color:${cat.color};font-size:0.9rem;margin:0 0 0.5rem 0;">${cat.label} (${items.length})</h4><ul style="margin:0;padding-left:1.25rem;">`;
+        items.forEach(item => { html += `<li>${escapeHtml(item)}</li>`; });
+        html += `</ul></div>`;
       }
     }
     
     if (wasMerged) {
-      html += `<p style="margin-top: 1rem; color: #6b7280; font-size: 0.9rem;">
-        ✓ These signals have been added to the meeting. Refresh the signals page to see them.
-      </p>`;
+      html += `<p style="margin-top:1rem;color:#6b7280;font-size:0.9rem;">✓ Refresh to see updated signals.</p>`;
     }
     
     body.innerHTML = html;
@@ -359,6 +780,35 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text || '';
   return div.innerHTML;
+}
+
+async function toggleActionItem(checkbox, itemIndex) {
+  const meetingId = {{ meeting.id }};
+  const item = checkbox.closest('.action-item');
+  
+  try {
+    const response = await fetch(`/api/action-items/${meetingId}/${itemIndex}/toggle`, {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      if (data.completed) {
+        item.classList.add('completed');
+      } else {
+        item.classList.remove('completed');
+      }
+    } else {
+      checkbox.checked = !checkbox.checked;
+      alert('Failed to update: ' + (data.error || 'Unknown error'));
+    }
+  } catch (err) {
+    console.error('Toggle failed:', err);
+    checkbox.checked = !checkbox.checked;
+    alert('Failed to update action item');
+  }
 }
 </script>
 {% endblock %}
