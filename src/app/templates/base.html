@@ -1885,6 +1885,12 @@
           </svg>
           Search
         </a>
+        <a href="/career" class="nav-link">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+          Career
+        </a>
       </div>
 
       <!-- Quick Add Buttons -->
@@ -2051,9 +2057,11 @@
       <div class="mode-badge">
         <div class="mode-badge-main" onclick="toggleModeSelector()">
           <div class="mode-badge-dot"></div>
-          <span class="mode-badge-text" id="currentModeName">
-            <script>document.write(window.__earlyModeNames[window.__savedMode] || 'A: Context');</script>
-          </span>
+          <span class="mode-badge-text" id="currentModeName"></span>
+          <script>
+            // Immediately set mode name to prevent flash of empty content
+            document.getElementById('currentModeName').textContent = window.__earlyModeNames[window.__savedMode] || 'A: Context';
+          </script>
           <span class="mode-sprint-time" id="currentModeSprintTime" title="Time spent this sprint">—</span>
         </div>
         <button class="mode-pin-btn" id="modePinBtn" onclick="toggleModePin(event)" title="Pin mode to prevent auto-switching">
@@ -2264,8 +2272,14 @@
     function setMode(mode, persist = true) {
       document.documentElement.setAttribute('data-mode', mode);
       localStorage.setItem('signalflow-mode', mode);
+      
+      // Update mode name display - use innerHTML to force refresh
       const modeNameEl = document.getElementById('currentModeName');
-      if (modeNameEl) modeNameEl.textContent = modeNames[mode] || mode;
+      if (modeNameEl) {
+        const newName = modeNames[mode] || mode;
+        modeNameEl.innerHTML = '';
+        modeNameEl.textContent = newName;
+      }
       
       // Update active state
       document.querySelectorAll('.mode-option').forEach(btn => {

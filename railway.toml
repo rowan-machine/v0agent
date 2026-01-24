@@ -13,3 +13,42 @@ healthcheckTimeout = 300
 # Restart policy
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+# Number of replicas
+numReplicas = 1
+
+# =============================================================================
+# ENVIRONMENT VARIABLES
+# These are loaded from Railway's service variables (set via dashboard)
+# Or can be set here directly for non-sensitive values
+# =============================================================================
+[env]
+# App Settings (non-sensitive, can be in repo)
+APP_ENV = "production"
+SIGNALFLOW_API_PORT = "8001"
+SIGNALFLOW_LOG_LEVEL = "INFO"
+SIGNALFLOW_MOBILE_ALLOWED = "true"
+SIGNALFLOW_MDNS_ENABLED = "false"
+
+# LangGraph Configuration
+LANGGRAPH_ENABLED = "false"
+LANGGRAPH_CHECKPOINT_PROVIDER = "sqlite"
+LANGGRAPH_CHECKPOINT_PATH = "./langgraph_checkpoints.db"
+
+# Database path (Railway persistent volume)
+AGENT_DB_PATH = "/app/data/agent.db"
+
+# SENSITIVE VARIABLES - Set these in Railway Dashboard > Variables:
+# - OPENAI_API_KEY
+# - ANTHROPIC_API_KEY
+# - SECRET_KEY
+# - AUTH_PASSWORD
+# - BYPASS_TOKEN
+# - DB_ENCRYPTION_KEY
+# - SUPABASE_URL
+# - SUPABASE_KEY
+# - SUPABASE_SECRET_KEY
+# - SUPABASE_DB_PASSWORD
+# - SUPABASE_PROJECT_ID
+# - LANGCHAIN_API_KEY
+# - POCKET_API_KEY
+# - USER_NAME
