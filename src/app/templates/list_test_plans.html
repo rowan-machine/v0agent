@@ -4,23 +4,21 @@
 {% block content %}
 <div class="max-w-6xl mx-auto">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-8">
+    <div class="flex items-center justify-between mb-8" style="padding-right: 80px;">
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Test Plans</h1>
             <p class="text-gray-500 mt-1">
                 Manage QA test plans and acceptance criteria
             </p>
         </div>
-        <div class="flex items-center gap-3">
-            <a href="/test-plans/new"
-               class="px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg
-                      hover:bg-cyan-700 transition-colors flex items-center gap-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                </svg>
-                Add Test Plan
-            </a>
-        </div>
+        <a href="/test-plans/new"
+           class="px-4 py-2 text-sm font-medium text-white bg-cyan-600 rounded-lg
+                  hover:bg-cyan-700 transition-colors flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            New
+        </a>
     </div>
 
     {% if request.query_params.get('success') %}

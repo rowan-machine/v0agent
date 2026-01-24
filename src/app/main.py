@@ -114,6 +114,13 @@ app = FastAPI(
     ]
 )
 
+# Health check endpoint (required for Railway)
+@app.get("/health")
+@app.get("/healthz")
+async def health_check():
+    """Health check endpoint for Railway and other platforms."""
+    return {"status": "healthy", "version": API_VERSION}
+
 # Add authentication middleware
 app.add_middleware(AuthMiddleware)
 
