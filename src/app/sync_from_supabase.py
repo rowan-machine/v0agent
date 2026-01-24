@@ -156,6 +156,57 @@ def sync_meetings_from_supabase() -> int:
     return synced
 
 
+def sync_documents_from_supabase() -> int:
+    """
+    Pull documents from Supabase and insert into local SQLite.
+    
+    Returns:
+        Number of documents synced
+    """
+    documents = _fetch_from_supabase("documents", "created_at", 100)
+    
+    if not documents:
+        logger.info("No documents found in Supabase or failed to fetch")
+        return 0
+    
+    synced = 0
+    with connect() as conn:
+        for doc in documents:
+            # Convert UUID to integer for SQLite PRIMARY KEY
+            doc_id = _uuid_to_int(doc["id"])
+            
+            # Check if already exists
+            existing = conn.execute(
+                "SELECT id FROM docs WHERE id = ?",
+                (doc_id,)
+            ).fetchone()
+            
+            if existing:
+                continue
+            
+            # Map Supabase document to SQLite schema
+            try:
+                conn.execute("""
+                    INSERT INTO docs 
+                    (id, source, content, document_date, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    doc_id,
+                    doc.get("source", "Untitled Document"),
+                    doc.get("content", ""),
+                    doc.get("document_date"),
+                    doc.get("created_at"),
+                ))
+                synced += 1
+            except Exception as e:
+                logger.warning(f"Failed to sync document {doc.get('id')}: {e}")
+        
+        conn.commit()
+    
+    logger.info(f"✅ Synced {synced} documents from Supabase to SQLite")
+    return synced
+
+
 def sync_tickets_from_supabase() -> int:
     """
     Pull tickets from Supabase and insert into local SQLite.
@@ -519,6 +570,7 @@ def sync_all_from_supabase() -> Dict[str, int]:
     logger.info("🔄 Starting Supabase → SQLite sync...")
     
     results["meetings"] = sync_meetings_from_supabase()
+    results["documents"] = sync_documents_from_supabase()
     results["tickets"] = sync_tickets_from_supabase()
     results["dikw_items"] = sync_dikw_from_supabase()
     results["signal_status"] = sync_signal_status_from_supabase()
