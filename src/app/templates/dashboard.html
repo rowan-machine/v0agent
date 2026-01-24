@@ -2302,6 +2302,47 @@
           </div>
         </div>
       </div>
+      
+      <!-- Mode H: Testing Mode - Test Plans Dashboard -->
+      <div class="workflow-mode-content" data-mode="mode-h" style="display: none;">
+        <!-- Test Summary Stats -->
+        <div class="test-summary-stats" id="modeHTestSummary" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
+          <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #bbf7d0; border-radius: 8px; padding: 0.75rem; text-align: center;">
+            <div id="testPassed" style="font-size: 1.5rem; font-weight: 700; color: #166534;">—</div>
+            <div style="font-size: 0.75rem; color: #15803d;">Passed</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%); border: 1px solid #fca5a5; border-radius: 8px; padding: 0.75rem; text-align: center;">
+            <div id="testFailed" style="font-size: 1.5rem; font-weight: 700; color: #b91c1c;">—</div>
+            <div style="font-size: 0.75rem; color: #dc2626;">Failed</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #93c5fd; border-radius: 8px; padding: 0.75rem; text-align: center;">
+            <div id="testActive" style="font-size: 1.5rem; font-weight: 700; color: #1d4ed8;">—</div>
+            <div style="font-size: 0.75rem; color: #2563eb;">Active</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #f5f5f5 0%, #e5e5e5 100%); border: 1px solid #d4d4d4; border-radius: 8px; padding: 0.75rem; text-align: center;">
+            <div id="testDraft" style="font-size: 1.5rem; font-weight: 700; color: #525252;">—</div>
+            <div style="font-size: 0.75rem; color: #737373;">Draft</div>
+          </div>
+        </div>
+        
+        <!-- Quick Actions -->
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+          <a href="/test-plans/new" style="flex: 1; padding: 0.5rem; background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); color: white; text-align: center; border-radius: 8px; font-size: 0.85rem; font-weight: 500; text-decoration: none;">
+            + New Test Plan
+          </a>
+          <a href="/test-plans" style="flex: 1; padding: 0.5rem; background: #f5f5f5; color: #525252; text-align: center; border-radius: 8px; font-size: 0.85rem; font-weight: 500; text-decoration: none; border: 1px solid #e5e5e5;">
+            View All
+          </a>
+        </div>
+        
+        <!-- Sprint Test Plans List -->
+        <div id="modeHTestPlansList" style="max-height: 400px; overflow-y: auto;">
+          <div style="padding: 1rem; text-align: center; color: #6b7280;">
+            <div class="spinner" style="margin: 0 auto 0.5rem;"></div>
+            Loading test plans...
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -3999,6 +4040,135 @@ function formatStatus(status) {
   return map[status] || status;
 }
 
+// Load Mode H test plans
+async function loadModeHTestPlans() {
+  const container = document.getElementById('modeHTestPlansList');
+  if (!container) return;
+  
+  try {
+    const res = await fetch('/api/test-plans/sprint');
+    const data = await res.json();
+    
+    // Update test summary stats
+    const stats = { passed: 0, failed: 0, active: 0, draft: 0 };
+    if (data.test_plans) {
+      for (const tp of data.test_plans) {
+        if (tp.status === 'passed') stats.passed++;
+        else if (tp.status === 'failed') stats.failed++;
+        else if (tp.status === 'active') stats.active++;
+        else if (tp.status === 'draft') stats.draft++;
+      }
+    }
+    document.getElementById('testPassed').textContent = stats.passed;
+    document.getElementById('testFailed').textContent = stats.failed;
+    document.getElementById('testActive').textContent = stats.active;
+    document.getElementById('testDraft').textContent = stats.draft;
+    
+    if (!data.test_plans || data.test_plans.length === 0) {
+      container.innerHTML = `
+        <div style="padding: 1rem; text-align: center; color: #6b7280; background: #f9fafb; border-radius: 8px;">
+          <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🧪</div>
+          <div>No test plans in current sprint.</div>
+          <a href="/test-plans/new" style="color: #06b6d4; font-size: 0.85rem;">Create a test plan →</a>
+        </div>
+      `;
+      return;
+    }
+    
+    let html = '';
+    for (const tp of data.test_plans) {
+      const tasks = tp.tasks || [];
+      const totalTasks = tasks.length;
+      const passedTasks = tasks.filter(t => t.status === 'passed').length;
+      const failedTasks = tasks.filter(t => t.status === 'failed').length;
+      const progressPct = totalTasks > 0 ? Math.round(((passedTasks + failedTasks) / totalTasks) * 100) : 0;
+      
+      const statusColors = {
+        'draft': { bg: '#f5f5f5', border: '#d4d4d4', text: '#525252' },
+        'active': { bg: '#eff6ff', border: '#93c5fd', text: '#1d4ed8' },
+        'passed': { bg: '#f0fdf4', border: '#bbf7d0', text: '#166534' },
+        'failed': { bg: '#fef2f2', border: '#fca5a5', text: '#b91c1c' },
+        'blocked': { bg: '#fefce8', border: '#fde047', text: '#a16207' }
+      };
+      const statusStyle = statusColors[tp.status] || statusColors.draft;
+      
+      html += `
+        <div class="mode-h-test-card" data-test-plan-id="${tp.id}" style="margin-bottom: 0.75rem; border: 1px solid ${statusStyle.border}; border-radius: 8px; background: ${statusStyle.bg}; overflow: hidden;">
+          <div class="mode-h-test-header" style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; cursor: pointer;" onclick="toggleModeHTestPlan(this.parentElement)">
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0;">
+              <svg style="width: 16px; height: 16px; color: ${statusStyle.text}; transition: transform 0.2s;" class="mode-h-test-toggle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+              <span style="font-size: 0.75rem; font-weight: 600; color: ${statusStyle.text}; font-family: monospace;">${escapeHtml(tp.test_plan_id)}</span>
+              <span style="font-size: 0.85rem; color: #374151; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(tp.title)}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 0.7rem; padding: 0.2rem 0.5rem; border-radius: 4px; background: ${statusStyle.text}; color: white;">${tp.status}</span>
+              ${totalTasks > 0 ? `
+                <div style="display: flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; color: #6b7280;">
+                  <span style="color: #16a34a;">✓${passedTasks}</span>
+                  ${failedTasks > 0 ? `<span style="color: #dc2626;">✗${failedTasks}</span>` : ''}
+                  <span>/${totalTasks}</span>
+                </div>
+              ` : ''}
+              <a href="/test-plans/${tp.id}/edit" onclick="event.stopPropagation()" style="color: #6b7280; font-size: 0.8rem;">✏️</a>
+            </div>
+          </div>
+          <div class="mode-h-test-body" style="display: none; padding: 0 0.75rem 0.75rem; border-top: 1px solid ${statusStyle.border};">
+            ${totalTasks > 0 ? `
+              <div style="margin-top: 0.5rem; padding: 0.5rem; background: white; border-radius: 6px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                  <span style="font-size: 0.75rem; color: #6b7280;">Test Progress</span>
+                  <span style="font-size: 0.75rem; font-weight: 600; color: ${statusStyle.text};">${progressPct}%</span>
+                </div>
+                <div style="width: 100%; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
+                  <div style="width: ${progressPct}%; height: 100%; background: ${statusStyle.text}; transition: width 0.3s;"></div>
+                </div>
+              </div>
+              <ul style="list-style: none; padding: 0; margin: 0.5rem 0 0; display: flex; flex-direction: column; gap: 0.25rem; max-height: 200px; overflow-y: auto;">
+                ${tasks.slice(0, 10).map((task, idx) => `
+                  <li style="display: flex; align-items: start; gap: 0.5rem; padding: 0.25rem 0.5rem; background: ${task.status === 'passed' ? '#f0fdf4' : task.status === 'failed' ? '#fef2f2' : '#f9fafb'}; border-radius: 4px; font-size: 0.8rem;">
+                    <span style="flex-shrink: 0;">${task.status === 'passed' ? '✅' : task.status === 'failed' ? '❌' : task.status === 'skipped' ? '⊘' : '⏳'}</span>
+                    <span style="color: ${task.status === 'passed' ? '#166534' : task.status === 'failed' ? '#b91c1c' : '#4b5563'}; word-break: break-word;">${escapeHtml(task.text)}</span>
+                  </li>
+                `).join('')}
+                ${tasks.length > 10 ? `<li style="text-align: center; color: #6b7280; font-size: 0.75rem; padding-top: 0.25rem;">+${tasks.length - 10} more tasks</li>` : ''}
+              </ul>
+            ` : `
+              <div style="padding: 0.75rem; background: white; border-radius: 6px; color: #6b7280; font-size: 0.85rem; text-align: center; margin-top: 0.5rem;">
+                No test tasks yet. 
+                <a href="/test-plans/${tp.id}/edit" style="color: #06b6d4;">Generate test tasks →</a>
+              </div>
+            `}
+          </div>
+        </div>
+      `;
+    }
+    
+    container.innerHTML = html;
+    
+  } catch (err) {
+    console.error('Failed to load test plans:', err);
+    container.innerHTML = `
+      <div style="padding: 1rem; text-align: center; color: #ef4444;">
+        Failed to load test plans. <button onclick="loadModeHTestPlans()" style="color: #06b6d4; background: none; border: none; cursor: pointer; text-decoration: underline;">Retry</button>
+      </div>
+    `;
+  }
+}
+
+function toggleModeHTestPlan(card) {
+  const body = card.querySelector('.mode-h-test-body');
+  const toggle = card.querySelector('.mode-h-test-toggle');
+  if (body.style.display === 'none') {
+    body.style.display = 'block';
+    toggle.style.transform = 'rotate(180deg)';
+  } else {
+    body.style.display = 'none';
+    toggle.style.transform = 'rotate(0deg)';
+  }
+}
+
 function escapeHtml(str) {
   if (!str) return '';
   return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
@@ -4336,6 +4506,11 @@ document.addEventListener('modeChanged', (e) => {
   if (mode === 'mode-g') {
     loadModeGSprintTickets();
   }
+  
+  // Load Mode H test plans when switching to mode-h
+  if (mode === 'mode-h') {
+    loadModeHTestPlans();
+  }
 });
 
 // Initialize on page load
@@ -4366,6 +4541,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const currentMode = localStorage.getItem('signalflow-mode') || 'mode-a';
   if (currentMode === 'mode-g') {
     loadModeGSprintTickets();
+  }
+  
+  // Initialize Mode H progress - load test plans if in mode-h
+  if (currentMode === 'mode-h') {
+    loadModeHTestPlans();
   }
   
   // Load career suggestions

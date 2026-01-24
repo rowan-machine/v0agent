@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if test_plan else 'New' }} Test Plan{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center gap-2 text-sm text-gray-500 mb-2">
+            <a href="/test-plans" class="hover:text-cyan-600">Test Plans</a>
+            <span>/</span>
+            <span>{{ test_plan.test_plan_id if test_plan else 'New Test Plan' }}</span>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-900">
+            {{ 'Edit Test Plan' if test_plan else 'Create New Test Plan' }}
+        </h1>
+    </div>
+
+    <form method="POST" class="space-y-8">
+        <!-- Basic Info -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
+            <h2 class="text-lg font-semibold text-gray-900">Test Plan Details</h2>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Test Plan ID
+                    </label>
+                    <input type="text" name="test_plan_id"
+                           value="{{ test_plan.test_plan_id if test_plan else '' }}"
+                           placeholder="e.g., TP-001 (auto-generated if empty)"
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base font-mono
+                                  focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                           style="min-height: 48px;">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <select name="status"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base cursor-pointer
+                                   focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                            style="min-height: 48px;">
+                        <option value="draft" {{ 'selected' if (not test_plan) or (test_plan and test_plan.status == 'draft') else '' }}>Draft</option>
+                        <option value="active" {{ 'selected' if test_plan and test_plan.status == 'active' else '' }}>Active</option>
+                        <option value="passed" {{ 'selected' if test_plan and test_plan.status == 'passed' else '' }}>Passed</option>
+                        <option value="failed" {{ 'selected' if test_plan and test_plan.status == 'failed' else '' }}>Failed</option>
+                        <option value="blocked" {{ 'selected' if test_plan and test_plan.status == 'blocked' else '' }}>Blocked</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Title <span class="text-red-500">*</span>
+                </label>
+                <input type="text" name="title" required
+                       value="{{ test_plan.title if test_plan else '' }}"
+                       placeholder="Test plan title"
+                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm
+                              focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea name="description" rows="4"
+                          placeholder="What is being tested and why..."
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm
+                                 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">{{ test_plan.description if test_plan else '' }}</textarea>
+            </div>
+
+            <div class="grid grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                    <select name="priority"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base cursor-pointer
+                                   focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                            style="min-height: 48px;">
+                        <option value="low" {{ 'selected' if test_plan and test_plan.priority == 'low' else '' }}>Low</option>
+                        <option value="medium" {{ 'selected' if (not test_plan) or (test_plan and test_plan.priority == 'medium') else '' }}>Medium</option>
+                        <option value="high" {{ 'selected' if test_plan and test_plan.priority == 'high' else '' }}>High</option>
+                        <option value="critical" {{ 'selected' if test_plan and test_plan.priority == 'critical' else '' }}>Critical</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Sprint Assignment</label>
+                    <select name="in_sprint"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base cursor-pointer
+                                   focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                            style="min-height: 48px;">
+                        <option value="1" {{ 'selected' if not test_plan or (test_plan and test_plan.in_sprint != 0) else '' }}>In Current Sprint</option>
+                        <option value="0" {{ 'selected' if test_plan and test_plan.in_sprint == 0 else '' }}>Not in Sprint</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Linked Ticket</label>
+                    <select name="linked_ticket_id"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base cursor-pointer
+                                   focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                            style="min-height: 48px;">
+                        <option value="">None</option>
+                        {% for ticket in tickets %}
+                        <option value="{{ ticket.id }}" {{ 'selected' if test_plan and test_plan.linked_ticket_id == ticket.id else '' }}>
+                            {{ ticket.ticket_id }} - {{ ticket.title[:40] }}{% if ticket.title|length > 40 %}...{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+                <input type="text" name="tags"
+                       value="{{ test_plan.tags if test_plan else '' }}"
+                       placeholder="e.g., regression, smoke, e2e"
+                       class="w-full px-4 py-3 border border-gray-300 rounded-lg text-base
+                              focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
+                       style="min-height: 48px;">
+                <p class="text-xs text-gray-500 mt-1">Comma-separated tags</p>
+            </div>
+        </div>
+
+        <!-- Acceptance Criteria Section -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Acceptance Criteria / Test Cases
+                </h2>
+                {% if test_plan %}
+                <button type="button" id="generate-tasks-btn"
+                        class="px-4 py-2 text-sm font-medium bg-cyan-50 text-cyan-700 rounded-lg
+                               hover:bg-cyan-100 transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                    Generate Test Tasks
+                </button>
+                {% endif %}
+            </div>
+            <p class="text-sm text-gray-500 mb-3">
+                Define the test cases and acceptance criteria. These will be used to generate test tasks.
+            </p>
+            <textarea name="acceptance_criteria" id="acceptance-criteria" rows="10"
+                      placeholder="Enter acceptance criteria and test cases:
+
+Example:
+✓ User can log in with valid credentials
+✓ Invalid password shows error message
+✓ Account locks after 5 failed attempts
+✓ Password reset email sent within 2 minutes
+✓ Session expires after 30 minutes of inactivity"
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm
+                             focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">{{ test_plan.acceptance_criteria if test_plan else '' }}</textarea>
+        </div>
+
+        {% if test_plan %}
+        <!-- Test Task Decomposition Section -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Test Tasks</h2>
+            </div>
+            
+            <!-- Tasks Container -->
+            <div id="tasks-container" class="space-y-3 mb-4">
+                <p class="text-gray-500 text-sm py-4 text-center" id="no-tasks-msg">
+                    Click "Generate Test Tasks" to create test tasks from acceptance criteria.
+                </p>
+            </div>
+            
+            <!-- Hidden input for tasks JSON -->
+            <input type="hidden" name="task_decomposition" id="task-decomposition-input" 
+                   value="{{ test_plan.task_decomposition if test_plan else '' }}">
+            
+            <!-- Add Task Manually -->
+            <div class="flex gap-2 pt-3 border-t border-gray-100">
+                <input type="text" id="new-task-input" placeholder="Add a test task manually..."
+                       class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm
+                              focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">
+                <button type="button" onclick="addTask()"
+                        class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm">
+                    + Add
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="flex items-center justify-between">
+            <a href="/test-plans" class="text-gray-500 hover:text-gray-700">Cancel</a>
+            <div class="flex items-center gap-3">
+                {% if test_plan %}
+                <button type="button" onclick="confirmDelete()"
+                        class="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                    Delete Test Plan
+                </button>
+                {% endif %}
+                <button type="submit"
+                        class="px-6 py-2.5 bg-cyan-600 text-white font-medium rounded-lg
+                               hover:bg-cyan-700 transition-colors">
+                    {{ 'Save Changes' if test_plan else 'Create Test Plan' }}
+                </button>
+            </div>
+        </div>
+    </form>
+
+    {% if test_plan %}
+    <!-- Hidden delete form -->
+    <form id="delete-form" method="POST" action="/test-plans/{{ test_plan.id }}/delete" class="hidden"></form>
+    {% endif %}
+</div>
+
+{% if test_plan %}
+<script>
+const testPlanId = {{ test_plan.id }};
+
+// Task Management
+let tasks = [];
+try {
+    const saved = document.getElementById('task-decomposition-input').value;
+    if (saved) tasks = JSON.parse(saved);
+} catch (e) {}
+
+function renderTasks() {
+    const container = document.getElementById('tasks-container');
+    
+    if (tasks.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-sm py-4 text-center" id="no-tasks-msg">Click "Generate Test Tasks" to create test tasks from acceptance criteria.</p>';
+        return;
+    }
+    
+    container.innerHTML = tasks.map((task, i) => `
+        <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg group" data-idx="${i}">
+            <select onchange="updateTaskStatus(${i}, this.value)" 
+                    class="mt-0.5 px-2 py-1 text-xs border rounded cursor-pointer
+                           ${task.status === 'passed' ? 'bg-green-50 border-green-300 text-green-700' : 
+                             task.status === 'failed' ? 'bg-red-50 border-red-300 text-red-700' : 
+                             task.status === 'skipped' ? 'bg-gray-100 border-gray-300 text-gray-500' : 
+                             'bg-white border-gray-300 text-gray-600'}">
+                <option value="pending" ${!task.status || task.status === 'pending' ? 'selected' : ''}>⏳ Pending</option>
+                <option value="passed" ${task.status === 'passed' ? 'selected' : ''}>✓ Passed</option>
+                <option value="failed" ${task.status === 'failed' ? 'selected' : ''}>✗ Failed</option>
+                <option value="skipped" ${task.status === 'skipped' ? 'selected' : ''}>⊘ Skipped</option>
+            </select>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm ${task.status === 'passed' ? 'text-green-700' : task.status === 'failed' ? 'text-red-700' : 'text-gray-700'}">${escapeHtml(task.text)}</p>
+                <div class="flex flex-wrap items-center gap-2 mt-1">
+                    ${task.type ? `<span class="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">${escapeHtml(task.type)}</span>` : ''}
+                    ${task.estimate ? `<span class="text-xs text-gray-400">⏱️ ${escapeHtml(task.estimate)}</span>` : ''}
+                    ${task.criteria ? `<span class="text-xs text-cyan-600 bg-cyan-50 px-1.5 py-0.5 rounded">${escapeHtml(task.criteria)}</span>` : ''}
+                </div>
+            </div>
+            <button type="button" onclick="removeTask(${i})"
+                    class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    `).join('');
+    
+    updateTasksInput();
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function updateTasksInput() {
+    document.getElementById('task-decomposition-input').value = JSON.stringify(tasks);
+}
+
+function updateTaskStatus(idx, status) {
+    tasks[idx].status = status;
+    renderTasks();
+}
+
+function removeTask(idx) {
+    tasks.splice(idx, 1);
+    renderTasks();
+}
+
+function addTask() {
+    const input = document.getElementById('new-task-input');
+    const text = input.value.trim();
+    if (!text) return;
+    
+    tasks.push({ text, status: 'pending', type: 'manual' });
+    input.value = '';
+    renderTasks();
+}
+
+document.getElementById('new-task-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        addTask();
+    }
+});
+
+// Generate Tasks from Acceptance Criteria
+document.getElementById('generate-tasks-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('generate-tasks-btn');
+    const criteria = document.getElementById('acceptance-criteria').value.trim();
+    
+    if (!criteria) {
+        alert('Please enter acceptance criteria first.');
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="animate-spin w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full"></span> Generating...';
+    
+    try {
+        const resp = await fetch(`/api/test-plans/${testPlanId}/generate-tasks`, { method: 'POST' });
+        const data = await resp.json();
+        
+        if (data.tasks && data.tasks.length > 0) {
+            tasks = data.tasks.map(t => ({
+                text: t.text || t,
+                type: t.type || 'manual',
+                estimate: t.estimate,
+                criteria: t.criteria,
+                status: 'pending'
+            }));
+            renderTasks();
+            document.getElementById('tasks-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            alert(data.error || 'Could not generate test tasks');
+        }
+    } catch (err) {
+        alert('Error generating tasks: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg> Generate Test Tasks';
+    }
+});
+
+// Initial render
+renderTasks();
+
+// Delete confirmation
+function confirmDelete() {
+    if (confirm('Are you sure you want to delete this test plan? This cannot be undone.')) {
+        document.getElementById('delete-form').submit();
+    }
+}
+</script>
+{% endif %}
+{% endblock %}

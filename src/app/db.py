@@ -150,6 +150,23 @@ CREATE TABLE IF NOT EXISTS tickets (
   updated_at TEXT DEFAULT (datetime('now'))
 );
 
+-- Test Plans for QA tracking
+CREATE TABLE IF NOT EXISTS test_plans (
+  id INTEGER PRIMARY KEY,
+  test_plan_id TEXT NOT NULL UNIQUE,  -- e.g. TP-001
+  title TEXT NOT NULL,
+  description TEXT,                   -- What is being tested
+  acceptance_criteria TEXT,           -- The test cases / acceptance criteria
+  task_decomposition TEXT,            -- JSON array of test tasks
+  status TEXT DEFAULT 'draft',        -- draft, active, passed, failed, blocked
+  priority TEXT DEFAULT 'medium',     -- low, medium, high, critical
+  in_sprint INTEGER DEFAULT 1,        -- 1 if in current sprint
+  linked_ticket_id INTEGER,           -- Optional link to a ticket
+  tags TEXT,                          -- comma-separated tags
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
 -- Attachments (screenshots, files) for meetings, docs, tickets
 CREATE TABLE IF NOT EXISTS attachments (
   id INTEGER PRIMARY KEY,

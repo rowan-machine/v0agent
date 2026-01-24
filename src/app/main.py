@@ -18,6 +18,7 @@ from .search import router as search_router
 from .query import router as query_router
 from .signals import router as signals_router
 from .tickets import router as tickets_router
+from .test_plans import router as test_plans_router
 from .chat.models import init_chat_tables
 from .api.chat import router as chat_router
 from .api.mcp import router as mcp_router
@@ -4234,6 +4235,7 @@ app.include_router(search_router)
 app.include_router(query_router)
 app.include_router(signals_router)
 app.include_router(tickets_router)
+app.include_router(test_plans_router)
 app.include_router(chat_router)
 app.include_router(mcp_router)
 app.include_router(accountability_router)
