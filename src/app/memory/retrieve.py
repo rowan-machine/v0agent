@@ -1,7 +1,6 @@
 # src/app/memory/retrieve.py
 
 from typing import List, Dict, Any
-import os
 import logging
 
 logger = logging.getLogger(__name__)
@@ -10,11 +9,8 @@ logger = logging.getLogger(__name__)
 def _get_supabase():
     """Get Supabase client if available."""
     try:
-        from supabase import create_client
-        url = os.getenv("SUPABASE_URL")
-        key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY")
-        if url and key:
-            return create_client(url, key)
+        from ..infrastructure.supabase_client import get_supabase_client
+        return get_supabase_client()
     except Exception as e:
         logger.debug(f"Supabase not available: {e}")
     return None

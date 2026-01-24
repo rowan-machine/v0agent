@@ -324,16 +324,11 @@ def get_recent_messages(conversation_id: int, limit: int = 6):
     Tries Supabase first (for Railway where SQLite is ephemeral),
     falls back to SQLite for local development.
     """
-    import os
-    
     # Try Supabase first
     try:
-        from supabase import create_client
-        url = os.getenv("SUPABASE_URL")
-        key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY")
-        if url and key:
-            sb = create_client(url, key)
-            
+        from ..infrastructure.supabase_client import get_supabase_client
+        sb = get_supabase_client()
+        if sb:
             # First, need to get the supabase_id for this conversation
             # Try to look it up from local DB first
             supabase_conv_id = None
