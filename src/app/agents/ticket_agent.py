@@ -3,7 +3,7 @@ Ticket Agent - SignalFlow Ticket Management Intelligence
 
 Handles AI-powered ticket operations:
 - Summary generation (context-aware, tag-guided)
-- Implementation planning (uses Claude Opus for premium quality)
+- Implementation planning (uses GPT-4o for premium quality)
 - Task decomposition (atomic subtasks with estimates)
 
 Follows PAGE-AGNOSTIC design pattern from Giga Memory:
@@ -228,11 +228,11 @@ Be concise and actionable. Use markdown formatting."""
         """
         Generate implementation plan for a ticket.
         
-        Uses Claude Opus 4 for premium quality planning.
+        Uses GPT-4o for premium quality planning.
         
         Args:
             ticket: Ticket data dict
-            use_premium_model: Whether to use Claude Opus (default True)
+            use_premium_model: Whether to use GPT-4o (default True)
         
         Returns:
             Dict with plan, success status
@@ -252,8 +252,8 @@ Be concise and actionable. Use markdown formatting."""
             prompt = self._build_plan_prompt(ticket)
         
         try:
-            # Use Claude Opus 4 for implementation planning (premium quality)
-            model = "claude-opus-4-20250514" if use_premium_model else None
+            # Use GPT-4o for implementation planning (good quality, available via OpenAI)
+            model = "gpt-4o" if use_premium_model else None
             plan = ask(prompt, model=model)
             
             return {
