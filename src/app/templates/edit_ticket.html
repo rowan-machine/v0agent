@@ -171,19 +171,58 @@
                              focus:ring-2 focus:ring-violet-500 focus:border-violet-500">{{ ticket.implementation_plan if ticket else '' }}</textarea>
         </div>
 
+        <!-- Test Plan Section -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-cyan-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Test Plan / Acceptance Criteria
+                </h2>
+                <button type="button" id="generate-tasks-from-testplan-btn"
+                        class="px-4 py-2 text-sm font-medium bg-cyan-50 text-cyan-700 rounded-lg
+                               hover:bg-cyan-100 transition-colors flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                    Generate Tasks from Test Plan
+                </button>
+            </div>
+            <p class="text-sm text-gray-500 mb-3">
+                Define the acceptance criteria and test cases. Use these to generate implementation tasks that ensure all criteria are met.
+            </p>
+            <textarea name="test_plan" id="test-plan" rows="8"
+                      placeholder="Enter acceptance criteria and test cases:
+
+Example:
+✓ User can submit form with valid email
+✓ Error shows for invalid email format  
+✓ Success message appears after submission
+✓ Form data is saved to database
+✓ Email confirmation is sent within 5 minutes"
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm
+                             focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500">{{ ticket.test_plan if ticket else '' }}</textarea>
+            <p class="text-xs text-gray-500 mt-1">💡 Tip: Well-defined acceptance criteria lead to better task generation</p>
+        </div>
+
         <!-- Task Decomposition Section -->
         <div class="bg-white border border-gray-200 rounded-xl p-6">
             <div class="flex items-center justify-between mb-4">
                 <h2 class="text-lg font-semibold text-gray-900">Task Breakdown</h2>
-                <button type="button" id="generate-decomposition-btn"
-                        class="px-4 py-2 text-sm font-medium bg-orange-50 text-orange-700 rounded-lg
-                               hover:bg-orange-100 transition-colors flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                              d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
-                    </svg>
-                    Auto-Generate Tasks
-                </button>
+                <div class="flex items-center gap-2">
+                    <button type="button" id="generate-decomposition-btn"
+                            class="px-4 py-2 text-sm font-medium bg-orange-50 text-orange-700 rounded-lg
+                                   hover:bg-orange-100 transition-colors flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/>
+                        </svg>
+                        Auto-Generate Tasks
+                    </button>
+                </div>
             </div>
             
             <!-- Tasks Container -->
@@ -525,7 +564,10 @@ function renderTasks() {
                    class="mt-1 h-5 w-5 rounded border-gray-300 text-violet-600 cursor-pointer">
             <div class="flex-1 min-w-0">
                 <p class="text-sm ${task.done ? 'line-through text-gray-400' : 'text-gray-700'}">${escapeHtml(task.text)}</p>
-                ${task.estimate ? `<span class="text-xs text-gray-400">${escapeHtml(task.estimate)}</span>` : ''}
+                <div class="flex flex-wrap items-center gap-2 mt-1">
+                    ${task.estimate ? `<span class="text-xs text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded">⏱️ ${escapeHtml(task.estimate)}</span>` : ''}
+                    ${task.test_case ? `<span class="text-xs text-cyan-600 bg-cyan-50 px-1.5 py-0.5 rounded">✓ ${escapeHtml(task.test_case)}</span>` : ''}
+                </div>
             </div>
             <button type="button" onclick="removeTask(${i})"
                     class="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -646,6 +688,44 @@ document.getElementById('generate-decomposition-btn').addEventListener('click', 
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg> Auto-Generate Tasks';
+    }
+});
+
+// Generate Tasks from Test Plan
+document.getElementById('generate-tasks-from-testplan-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('generate-tasks-from-testplan-btn');
+    const testPlan = document.getElementById('test-plan').value.trim();
+    
+    if (!testPlan) {
+        alert('Please enter a test plan or acceptance criteria first.');
+        return;
+    }
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="animate-spin w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full"></span> Generating...';
+    
+    try {
+        const resp = await fetch(`/api/tickets/${ticketId}/generate-tasks-from-testplan`, { method: 'POST' });
+        const data = await resp.json();
+        
+        if (data.tasks && data.tasks.length > 0) {
+            tasks = data.tasks.map(t => ({
+                text: t.text || t,
+                estimate: t.estimate,
+                test_case: t.test_case,
+                done: false
+            }));
+            renderTasks();
+            // Scroll to tasks section
+            document.getElementById('tasks-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            alert(data.error || 'Could not generate tasks from test plan');
+        }
+    } catch (err) {
+        alert('Error generating tasks: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg> Generate Tasks from Test Plan';
     }
 });
 

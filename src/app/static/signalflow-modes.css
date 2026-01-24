@@ -10,6 +10,7 @@
   --mode-e-color: #ef4444; /* Promotion/Delivery - Red - Action/Urgent */
   --mode-f-color: #06b6d4; /* Controlled Ingress - Cyan - Sync/Transfer */
   --mode-g-color: #6366f1; /* Execution Writing Code - Indigo - Focus */
+  --mode-h-color: #0891b2; /* Test Planning - Teal/Cyan - QA/Verification */
   
   /* Current mode tracking */
   --current-mode-color: var(--sf-primary);
@@ -593,6 +594,7 @@
 .mode-option-dot.mode-e { background: var(--mode-e-color); }
 .mode-option-dot.mode-f { background: var(--mode-f-color); }
 .mode-option-dot.mode-g { background: var(--mode-g-color); }
+.mode-option-dot.mode-h { background: var(--mode-h-color); }
 
 .mode-option-content {
   flex: 1;

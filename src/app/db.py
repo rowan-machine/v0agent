@@ -144,6 +144,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   ai_summary TEXT,                  -- AI-generated summary
   implementation_plan TEXT,         -- AI-generated or user-edited plan
   task_decomposition TEXT,          -- JSON array of subtasks
+  test_plan TEXT,                   -- Test plan/acceptance criteria for the ticket
   tags TEXT,                        -- comma-separated tags
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
@@ -577,6 +578,12 @@ def init_db():
         # Migration: Add in_sprint column to tickets if it doesn't exist
         try:
             conn.execute("ALTER TABLE tickets ADD COLUMN in_sprint INTEGER DEFAULT 1")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
+        # Migration: Add test_plan column to tickets if it doesn't exist
+        try:
+            conn.execute("ALTER TABLE tickets ADD COLUMN test_plan TEXT")
         except sqlite3.OperationalError:
             pass  # Column already exists
         

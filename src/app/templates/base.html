@@ -32,7 +32,8 @@
         'mode-d': 'D: Review',
         'mode-e': 'E: Promote',
         'mode-f': 'F: Sync',
-        'mode-g': 'G: Execute'
+        'mode-g': 'G: Execute',
+        'mode-h': 'H: Test Plan'
       };
       // Store for early badge text update
       window.__savedMode = savedMode;
@@ -2152,6 +2153,15 @@
         </div>
         <span class="mode-option-time" data-mode="mode-g">—</span>
       </button>
+      <button class="mode-option" data-mode="mode-h" onclick="setMode('mode-h')">
+        <div class="mode-option-dot mode-h"></div>
+        <div class="mode-option-content">
+          <div class="mode-option-title">H: Test Planning</div>
+          <div class="mode-option-desc">Define acceptance criteria, test cases, generate tasks from test plan</div>
+          <span class="mode-option-tag offline">Offline • QA Focus</span>
+        </div>
+        <span class="mode-option-time" data-mode="mode-h">—</span>
+      </button>
       </div>
     </div>
   </div>
@@ -2204,7 +2214,8 @@
       'mode-d': 'D: Review',
       'mode-e': 'E: Promote',
       'mode-f': 'F: Sync',
-      'mode-g': 'G: Execute'
+      'mode-g': 'G: Execute',
+      'mode-h': 'H: Test Plan'
     };
     
     // Check if mode is pinned

@@ -265,6 +265,7 @@ def update_ticket(
     ai_summary: str = Form(None),
     implementation_plan: str = Form(None),
     task_decomposition: str = Form(None),
+    test_plan: str = Form(None),
 ):
     """Update a ticket."""
     with connect() as conn:
@@ -272,10 +273,10 @@ def update_ticket(
             """UPDATE tickets SET
                ticket_id = ?, title = ?, description = ?, status = ?,
                priority = ?, sprint_points = ?, in_sprint = ?, tags = ?, ai_summary = ?, implementation_plan = ?,
-               task_decomposition = ?, updated_at = datetime('now')
+               task_decomposition = ?, test_plan = ?, updated_at = datetime('now')
                WHERE id = ?""",
             (ticket_id, title, description, status, priority, sprint_points, in_sprint, tags, 
-             ai_summary, implementation_plan, task_decomposition, ticket_pk),
+             ai_summary, implementation_plan, task_decomposition, test_plan, ticket_pk),
         )
     
     # Update embedding
@@ -408,6 +409,84 @@ async def generate_task_decomposition(ticket_pk: int):
         return JSONResponse({
             "tasks": result["tasks"],
             "ai_response": result.get("ai_response", ""),
+        })
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.post("/api/tickets/{ticket_pk}/generate-tasks-from-testplan")
+async def generate_tasks_from_test_plan(ticket_pk: int):
+    """
+    Generate tasks from the test plan using AI.
+    
+    Analyzes the test plan/acceptance criteria and generates
+    corresponding implementation tasks.
+    """
+    from .llm import ask
+    
+    try:
+        with connect() as conn:
+            ticket = conn.execute(
+                "SELECT ticket_id, title, description, test_plan FROM tickets WHERE id = ?",
+                (ticket_pk,)
+            ).fetchone()
+            
+            if not ticket:
+                return JSONResponse({"error": "Ticket not found"}, status_code=404)
+            
+            test_plan = ticket["test_plan"]
+            if not test_plan or not test_plan.strip():
+                return JSONResponse({"error": "No test plan found. Please add a test plan first."}, status_code=400)
+        
+        prompt = f"""Analyze this test plan/acceptance criteria and generate implementation tasks.
+
+Ticket: {ticket['ticket_id']} - {ticket['title']}
+
+Description:
+{ticket['description'] or 'No description'}
+
+Test Plan / Acceptance Criteria:
+{test_plan}
+
+Generate 4-8 specific, actionable implementation tasks that would satisfy all the test criteria.
+Each task should:
+1. Be directly tied to one or more acceptance criteria
+2. Be completable in 1-4 hours
+3. Include the specific test case it addresses
+
+Return as a JSON array of objects with:
+- "text": task description (include which test case it addresses)
+- "estimate": time estimate (e.g. "1h", "2h", "30m")
+- "test_case": the acceptance criteria this task satisfies
+
+Example format:
+[
+  {{"text": "Implement input validation for email field (AC: Email format validation)", "estimate": "1h", "test_case": "Email must be valid format"}},
+  {{"text": "Add error message display component (AC: Show validation errors)", "estimate": "30m", "test_case": "User sees clear error messages"}}
+]
+
+Return ONLY the JSON array, no other text."""
+
+        response = ask(prompt, model="gpt-4o")
+        
+        # Parse JSON from response
+        import re
+        json_match = re.search(r'\[[\s\S]*\]', response)
+        if json_match:
+            tasks = json.loads(json_match.group())
+        else:
+            return JSONResponse({"error": "Could not parse AI response"}, status_code=500)
+        
+        # Save tasks to ticket
+        with connect() as conn:
+            conn.execute(
+                "UPDATE tickets SET task_decomposition = ?, updated_at = datetime('now') WHERE id = ?",
+                (json.dumps(tasks), ticket_pk)
+            )
+        
+        return JSONResponse({
+            "tasks": tasks,
+            "source": "test_plan",
         })
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
