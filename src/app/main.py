@@ -1150,11 +1150,22 @@ async def reject_ai_response(request: Request):
 # Notification API Endpoints
 # ============================================
 
+def _get_supabase():
+    """Safely get Supabase client, return None if unavailable."""
+    try:
+        from .infrastructure.supabase import get_supabase_client
+        return get_supabase_client()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Supabase unavailable: {e}")
+        return None
+
+
 @app.get("/api/notifications")
 async def get_notifications(limit: int = 10):
     """Get user notifications with optional limit."""
     # Try Supabase first (primary data source in production)
-    supabase = get_supabase()
+    supabase = _get_supabase()
     
     if supabase:
         try:
@@ -1242,7 +1253,7 @@ async def get_notifications(limit: int = 10):
 async def get_notification_count():
     """Get count of unread notifications."""
     # Try Supabase first
-    supabase = get_supabase()
+    supabase = _get_supabase()
     
     if supabase:
         try:
@@ -1285,7 +1296,7 @@ async def get_notification_count():
 async def mark_notification_read(notification_id: str):
     """Mark a notification as read."""
     # Try Supabase first
-    supabase = get_supabase()
+    supabase = _get_supabase()
     
     if supabase:
         try:
@@ -1317,7 +1328,7 @@ async def mark_notification_read(notification_id: str):
 async def mark_all_notifications_read():
     """Mark all notifications as read."""
     # Try Supabase first
-    supabase = get_supabase()
+    supabase = _get_supabase()
     
     if supabase:
         try:
@@ -1346,7 +1357,7 @@ async def mark_all_notifications_read():
 async def delete_notification(notification_id: str):
     """Delete a notification."""
     # Try Supabase first
-    supabase = get_supabase()
+    supabase = _get_supabase()
     
     if supabase:
         try:
