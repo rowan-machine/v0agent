@@ -24,7 +24,7 @@ langchain-core>=0.3.0
 zeroconf==0.130.0
 
 # Supabase client (optional, for cloud sync)
-supabase==2.4.0
+supabase>=2.0.0,<3.0.0
 
 # SQLite extensions
 # pysqlite3-binary - not needed, using standard sqlite3
@@ -34,5 +34,5 @@ rq>=1.15.0
 
 # HTTP client
 requests>=2.31.0
-# Pin httpx to satisfy both openai (<1, >=0.23) and supabase (<0.26, >=0.24)
-httpx>=0.24.0,<0.26.0
+# httpx for async HTTP requests (compatible with supabase)
+httpx>=0.24.0

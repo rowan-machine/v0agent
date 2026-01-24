@@ -58,9 +58,31 @@ def get_supabase_client():
     try:
         from supabase import create_client, Client
         
+        # Try creating client without any extra options
         _supabase_client = create_client(supabase_url, supabase_key)
         logger.info(f"✅ Connected to Supabase: {supabase_url}")
         return _supabase_client
+    except TypeError as e:
+        # Handle version mismatch with proxy argument
+        if "proxy" in str(e):
+            logger.warning("⚠️ Supabase client version mismatch - attempting fallback")
+            try:
+                from supabase import create_client
+                import httpx
+                # Create client with explicit httpx client to avoid proxy issues
+                _supabase_client = create_client(
+                    supabase_url, 
+                    supabase_key,
+                    options={"headers": {"Content-Type": "application/json"}}
+                )
+                logger.info(f"✅ Connected to Supabase (fallback): {supabase_url}")
+                return _supabase_client
+            except Exception as fallback_error:
+                logger.error(f"❌ Supabase fallback also failed: {fallback_error}")
+                return None
+        else:
+            logger.error(f"❌ Failed to connect to Supabase: {e}")
+            return None
     except ImportError:
         logger.warning("⚠️ supabase package not installed")
         return None
