@@ -1,43 +1,51 @@
 ---
-description: For understanding and documenting the core data model relationships between Meetings and Documents in the system
+description: Documents the core data model structure for meetings and documents, including their relationships and business rules
 ---
 
 
 # data-models
 
-Two primary data models form the core business structure:
+Two primary data models form the core of the system:
 
-1. Meeting Model
-- UUID-based identification
-- Hierarchical structure with linked documents and signals
-- Status tracking: draft, active, archived
-- Custom fields for:
-  - Synthesis depth levels (0-2)
-  - Signal categorization (decisions, actions, blockers)
-  - Template type detection (30+ supported formats)
+## Meetings
+Importance Score: 90
 
-2. Document Model
-- Multi-source document handling
-- Integration with meeting bundles
-- Bidirectional relationships with:
-  - Meeting transcripts
-  - Screenshots
-  - Mind maps
-  - Generated summaries
-- DIKW level classification
+Key attributes and relationships:
+- Meeting content with multi-source transcript support (Teams + Pocket)
+- Hierarchical mindmap structure for knowledge organization
+- Signal extraction categories (decisions, actions, blockers, risks)
+- DIKW pyramid promotion tracking
+- Relations to documents and tickets
 
-Key Relationships:
-- Meeting <-> Document: Many-to-many with relationship metadata
-- Meeting -> Signals: One-to-many with signal categorization
-- Document -> Knowledge Items: One-to-many with DIKW hierarchy
+## Documents
+Importance Score: 85
 
-Unique Aspects:
-1. Template-based meeting classification system
-2. Signal extraction and categorization framework
-3. DIKW hierarchy implementation for knowledge organization
-4. Multi-source document bundling with relationship tracking
+Key attributes and relationships:
+- Document version control with change tracking
+- Knowledge graph integration for semantic relationships
+- Signal categorization matching meeting structure
+- Links to related meetings and tickets
+- Contextual relevance scoring
 
-Importance Score: 90/100
+## Relationship Structure
+
+1. Meeting-Document Relations
+- Bidirectional linking between related content
+- Semantic similarity-based auto-linking
+- Context preservation across relationships
+- Source attribution tracking
+
+2. Knowledge Integration
+- DIKW hierarchy implementation
+- Cross-referencing between meetings and documents
+- Signal evolution tracking
+- Merged signal deduplication
+
+3. Workflow Integration
+- Sprint alignment tracking
+- Test plan relationships
+- Implementation status linking
+- Deployment phase tracking
 
 $END$
 

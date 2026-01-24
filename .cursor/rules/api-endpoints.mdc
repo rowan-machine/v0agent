@@ -1,46 +1,46 @@
 ---
-description: Documents FastAPI endpoints implementing core meeting and document CRUD operations with domain-specific business logic.
+description: Specification for documenting FastAPI routes implementing CRUD operations for meetings and documents
 ---
 
 
 # api-endpoints
 
-API Endpoints Implementing Meeting Intelligence Features
-Importance Score: 85/100
+Core Meeting Management Endpoints:
+`/api/v1/meetings/`
 
 1. Meeting Bundle Processing
-Path: src/app/api/v1/imports.py
-- Multi-source transcript integration (Teams + Pocket) with unified storage
-- Mind map generation with hierarchical level system (0-2)
-- Auto-detection of 30+ meeting template types
-- Intelligent action item extraction with assignee detection
+- Multi-source transcript integration (Teams + Pocket)
+- Automated signal extraction with categorization
+- Mind map generation from meeting content
+- Importance Score: 85
 
-2. Signal Extraction 
-Path: src/app/api/v1/signals.py
-- Real-time signal categorization into decisions, actions, blockers, risks, ideas 
-- Signal merging logic for combining related items across meetings
-- Automated sentiment analysis and theme detection
-- Status workflow (approved/rejected/waiting/archived)
+2. Signal Processing Pipeline
+`/api/v1/signals/`
+- Domain-specific signal categorization (decisions, actions, blockers, risks)
+- Signal status lifecycle management  
+- Custom confidence scoring based on user feedback
+- DIKW hierarchy promotion tracking
+- Importance Score: 90
 
-3. Knowledge Graph Management
-Path: src/app/api/knowledge_graph.py
-- Entity linking between meetings, documents and DIKW items
-- Relationship types: semantic_similar, derived_from, blocks, depends_on
-- Intelligent link suggestion using semantic similarity scoring
+3. Knowledge Graph Integration
+`/api/v1/knowledge/`
+- Semantic relationship mapping between meetings and documents
+- Auto-generated context links based on content similarity
+- Cross-reference tracking with versioning
+- Importance Score: 80
 
-4. Career Development Tracking
-Path: src/app/api/career_supabase_helper.py
-- Skill proficiency delta calculations
-- Evidence-based skill validation
-- Memory-based learning system
-- Standup analysis with sentiment detection
+4. Document Management 
+`/api/v1/documents/`
+- Template-based document processing
+- Automated metadata extraction
+- Content relationship discovery
+- Integration with meeting context
+- Importance Score: 75
 
-Key Features:
-- Domain-specific signal categorization
-- Template-based meeting analysis
-- Knowledge relationship mapping
-- Career progression tracking
-- Context-aware suggestion systems
+Key Workflows:
+1. Meeting Capture → Signal Extraction → Knowledge Integration
+2. Document Upload → Relationship Mapping → Context Building
+3. Signal Collection → Status Tracking → DIKW Promotion
 
 $END$
 
