@@ -2219,39 +2219,39 @@
 
       <!-- Mode F: Controlled Ingress/Egress -->
       <div class="workflow-mode-content" data-mode="mode-f" style="display: none;">
-        <ul class="workflow-checklist">
-          <li class="workflow-checklist-item">
-            <div class="workflow-checkbox" onclick="toggleCheckbox(this)"></div>
-            <div class="workflow-checklist-content">
-              <div class="workflow-checklist-title">Push to personal GitHub (egress)</div>
-              <div class="workflow-checklist-desc">Push canonical repo snapshot</div>
-            </div>
-          </li>
-          <li class="workflow-checklist-item">
-            <div class="workflow-checkbox" onclick="toggleCheckbox(this)"></div>
-            <div class="workflow-checklist-content">
-              <div class="workflow-checklist-title">Pull from Trello code locker (ingress)</div>
-              <div class="workflow-checklist-desc">Pull finalized, reviewed code</div>
-            </div>
-          </li>
-          <li class="workflow-checklist-item">
-            <div class="workflow-checkbox" onclick="toggleCheckbox(this)"></div>
-            <div class="workflow-checklist-content">
-              <div class="workflow-checklist-title">Commit & create PR</div>
-              <div class="workflow-checklist-desc">Commit changes, open pull request</div>
-            </div>
-          </li>
-          <li class="workflow-checklist-item">
-            <div class="workflow-checkbox" onclick="toggleCheckbox(this)"></div>
-            <div class="workflow-checklist-content">
-              <div class="workflow-checklist-title">Merge & close</div>
-              <div class="workflow-checklist-desc">Complete the delivery cycle</div>
-            </div>
-          </li>
-        </ul>
-        <div class="workflow-progress">
-          <div class="workflow-progress-bar"><div class="workflow-progress-fill" style="width: 0%;"></div></div>
-          <span class="workflow-progress-text">0 of 4 complete</span>
+        <!-- Deployment Summary Stats -->
+        <div class="deployment-summary-stats" id="modeFDeploySummary" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
+          <div style="background: linear-gradient(135deg, #f5f5f5 0%, #e5e5e5 100%); border: 1px solid #d4d4d4; border-radius: 8px; padding: 0.75rem; text-align: center;">
+            <div id="deployTotal" style="font-size: 1.5rem; font-weight: 700; color: #525252;">—</div>
+            <div style="font-size: 0.75rem; color: #737373;">Total</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1px solid #93c5fd; border-radius: 8px; padding: 0.75rem; text-align: center;">
+            <div id="deployInProgress" style="font-size: 1.5rem; font-weight: 700; color: #1d4ed8;">—</div>
+            <div style="font-size: 0.75rem; color: #2563eb;">In Progress</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%); border: 1px solid #fde047; border-radius: 8px; padding: 0.75rem; text-align: center;">
+            <div id="deployPROpen" style="font-size: 1.5rem; font-weight: 700; color: #a16207;">—</div>
+            <div style="font-size: 0.75rem; color: #ca8a04;">PR Open</div>
+          </div>
+          <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #bbf7d0; border-radius: 8px; padding: 0.75rem; text-align: center;">
+            <div id="deployComplete" style="font-size: 1.5rem; font-weight: 700; color: #166534;">—</div>
+            <div style="font-size: 0.75rem; color: #15803d;">Deployed</div>
+          </div>
+        </div>
+        
+        <!-- Deployable Tickets List -->
+        <div id="modeFTicketsList" style="max-height: 400px; overflow-y: auto;">
+          <div style="padding: 1rem; text-align: center; color: #6b7280;">
+            <div class="spinner" style="margin: 0 auto 0.5rem;"></div>
+            Loading deployable tickets...
+          </div>
+        </div>
+        
+        <!-- Empty State (shown when no tickets) -->
+        <div id="modeFEmptyState" style="display: none; padding: 1.5rem; text-align: center; background: #f9fafb; border-radius: 8px;">
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">🚀</div>
+          <div style="color: #374151; font-weight: 500; margin-bottom: 0.25rem;">No deployable tickets</div>
+          <div style="color: #6b7280; font-size: 0.85rem;">Mark tickets with "Requires Deployment" to track them here</div>
         </div>
       </div>
 
@@ -4047,6 +4047,133 @@ function formatStatus(status) {
   return map[status] || status;
 }
 
+// Load Mode F deployable tickets
+async function loadModeFDeployableTickets() {
+  const container = document.getElementById('modeFTicketsList');
+  const emptyState = document.getElementById('modeFEmptyState');
+  if (!container) return;
+  
+  try {
+    const res = await fetch('/api/tickets/deployable');
+    const data = await res.json();
+    
+    // Calculate stats
+    let total = 0, inProgress = 0, prOpen = 0, deployed = 0;
+    if (data.tickets) {
+      total = data.tickets.length;
+      for (const t of data.tickets) {
+        const ds = t.deployment_status || {};
+        if (ds.deployed) deployed++;
+        else if (ds.pr_created && !ds.merged) prOpen++;
+        else if (ds.pushed) inProgress++;
+      }
+    }
+    
+    document.getElementById('deployTotal').textContent = total;
+    document.getElementById('deployInProgress').textContent = inProgress;
+    document.getElementById('deployPROpen').textContent = prOpen;
+    document.getElementById('deployComplete').textContent = deployed;
+    
+    if (!data.tickets || data.tickets.length === 0) {
+      container.style.display = 'none';
+      if (emptyState) emptyState.style.display = 'block';
+      return;
+    }
+    
+    container.style.display = 'block';
+    if (emptyState) emptyState.style.display = 'none';
+    
+    let html = '';
+    for (const ticket of data.tickets) {
+      const ds = ticket.deployment_status || {};
+      const steps = [
+        { key: 'pushed', label: 'Code Pushed', icon: '📤', done: ds.pushed },
+        { key: 'pr_created', label: 'PR Created', icon: '📝', done: ds.pr_created },
+        { key: 'pr_reviewed', label: 'PR Reviewed', icon: '👀', done: ds.pr_reviewed },
+        { key: 'merged', label: 'Merged', icon: '🔀', done: ds.merged },
+        { key: 'deployed', label: 'Deployed', icon: '🚀', done: ds.deployed }
+      ];
+      
+      const completedSteps = steps.filter(s => s.done).length;
+      const progressPct = Math.round((completedSteps / steps.length) * 100);
+      
+      html += `
+        <div class="mode-f-ticket-card" data-ticket-id="${ticket.id}" style="margin-bottom: 0.75rem; border: 1px solid #e5e7eb; border-radius: 8px; background: white; overflow: hidden;">
+          <div class="mode-f-ticket-header" style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; cursor: pointer; background: ${progressPct === 100 ? '#f0fdf4' : '#f9fafb'};" onclick="toggleModeFTicket(this.parentElement)">
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1; min-width: 0;">
+              <svg style="width: 16px; height: 16px; color: #6b7280; transition: transform 0.2s;" class="mode-f-ticket-toggle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+              <span style="font-size: 0.75rem; font-weight: 600; color: #6366f1; font-family: monospace;">${escapeHtml(ticket.ticket_id)}</span>
+              <span style="font-size: 0.85rem; color: #374151; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(ticket.title)}</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <div style="width: 60px; height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
+                <div style="width: ${progressPct}%; height: 100%; background: ${progressPct === 100 ? '#22c55e' : '#06b6d4'}; transition: width 0.3s;"></div>
+              </div>
+              <span style="font-size: 0.7rem; color: #6b7280;">${completedSteps}/5</span>
+              <a href="/tickets/${ticket.id}/edit" onclick="event.stopPropagation()" style="color: #6b7280; font-size: 0.8rem;">✏️</a>
+            </div>
+          </div>
+          <div class="mode-f-ticket-body" style="display: none; padding: 0.75rem; border-top: 1px solid #e5e7eb;">
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+              ${steps.map(step => `
+                <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; border-radius: 6px; cursor: pointer; background: ${step.done ? '#f0fdf4' : '#f9fafb'}; border: 1px solid ${step.done ? '#bbf7d0' : '#e5e7eb'}; flex: 1; min-width: 140px;">
+                  <input type="checkbox" ${step.done ? 'checked' : ''} 
+                         onchange="updateDeploymentStep(${ticket.id}, '${step.key}', this.checked)"
+                         style="width: 16px; height: 16px; cursor: pointer;">
+                  <span style="font-size: 0.85rem; color: ${step.done ? '#166534' : '#374151'};">
+                    ${step.icon} ${step.label}
+                  </span>
+                </label>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    container.innerHTML = html;
+    
+  } catch (err) {
+    console.error('Failed to load deployable tickets:', err);
+    container.innerHTML = `
+      <div style="padding: 1rem; text-align: center; color: #ef4444;">
+        Failed to load deployable tickets. <button onclick="loadModeFDeployableTickets()" style="color: #06b6d4; background: none; border: none; cursor: pointer; text-decoration: underline;">Retry</button>
+      </div>
+    `;
+  }
+}
+
+function toggleModeFTicket(card) {
+  const body = card.querySelector('.mode-f-ticket-body');
+  const toggle = card.querySelector('.mode-f-ticket-toggle');
+  if (body.style.display === 'none') {
+    body.style.display = 'block';
+    toggle.style.transform = 'rotate(180deg)';
+  } else {
+    body.style.display = 'none';
+    toggle.style.transform = 'rotate(0deg)';
+  }
+}
+
+async function updateDeploymentStep(ticketId, step, status) {
+  try {
+    const res = await fetch(`/api/tickets/${ticketId}/deployment-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ step, status })
+    });
+    
+    if (res.ok) {
+      // Refresh the list to update progress
+      loadModeFDeployableTickets();
+    }
+  } catch (err) {
+    console.error('Failed to update deployment status:', err);
+  }
+}
+
 // Load Mode H test plans
 async function loadModeHTestPlans() {
   const container = document.getElementById('modeHTestPlansList');
@@ -4536,6 +4663,11 @@ document.addEventListener('modeChanged', (e) => {
   updateWorkflowPanel(mode);
   loadWorkflowProgress(mode);
   
+  // Load Mode F deployable tickets when switching to mode-f
+  if (mode === 'mode-f') {
+    loadModeFDeployableTickets();
+  }
+  
   // Load Mode G sprint tickets when switching to mode-g
   if (mode === 'mode-g') {
     loadModeGSprintTickets();
@@ -4571,13 +4703,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize attention section
   initAttentionSection();
   
-  // Initialize Mode G progress - load sprint tickets if in mode-g
+  // Initialize Mode F/G/H progress based on current mode
   const currentMode = localStorage.getItem('signalflow-mode') || 'mode-a';
+  if (currentMode === 'mode-f') {
+    loadModeFDeployableTickets();
+  }
   if (currentMode === 'mode-g') {
     loadModeGSprintTickets();
   }
-  
-  // Initialize Mode H progress - load test plans if in mode-h
   if (currentMode === 'mode-h') {
     loadModeHTestPlans();
   }

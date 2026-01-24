@@ -141,6 +141,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   priority TEXT,
   sprint_points INTEGER DEFAULT 0,  -- story points for sprint tracking
   in_sprint INTEGER DEFAULT 1,      -- 1 if assigned to current sprint
+  requires_deployment INTEGER DEFAULT 0,  -- 1 if ticket involves code changes needing deployment
   ai_summary TEXT,                  -- AI-generated summary
   implementation_plan TEXT,         -- AI-generated or user-edited plan
   task_decomposition TEXT,          -- JSON array of subtasks

@@ -162,6 +162,7 @@ def create_ticket(
     priority: str = Form(None),
     sprint_points: int = Form(0),
     in_sprint: int = Form(1),
+    requires_deployment: int = Form(0),
     tags: str = Form(None),
     pending_code_files: str = Form(None),
 ):
@@ -170,9 +171,9 @@ def create_ticket(
     
     with connect() as conn:
         cursor = conn.execute(
-            """INSERT INTO tickets (ticket_id, title, description, status, priority, sprint_points, in_sprint, tags)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (ticket_id.strip(), title, description, status, priority, sprint_points, in_sprint, tags),
+            """INSERT INTO tickets (ticket_id, title, description, status, priority, sprint_points, in_sprint, requires_deployment, tags)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (ticket_id.strip(), title, description, status, priority, sprint_points, in_sprint, requires_deployment, tags),
         )
         new_id = cursor.lastrowid
         
@@ -261,6 +262,7 @@ def update_ticket(
     priority: str = Form(None),
     sprint_points: int = Form(0),
     in_sprint: int = Form(1),
+    requires_deployment: int = Form(0),
     tags: str = Form(None),
     ai_summary: str = Form(None),
     implementation_plan: str = Form(None),
@@ -272,10 +274,10 @@ def update_ticket(
         conn.execute(
             """UPDATE tickets SET
                ticket_id = ?, title = ?, description = ?, status = ?,
-               priority = ?, sprint_points = ?, in_sprint = ?, tags = ?, ai_summary = ?, implementation_plan = ?,
+               priority = ?, sprint_points = ?, in_sprint = ?, requires_deployment = ?, tags = ?, ai_summary = ?, implementation_plan = ?,
                task_decomposition = ?, test_plan = ?, updated_at = datetime('now')
                WHERE id = ?""",
-            (ticket_id, title, description, status, priority, sprint_points, in_sprint, tags, 
+            (ticket_id, title, description, status, priority, sprint_points, in_sprint, requires_deployment, tags, 
              ai_summary, implementation_plan, task_decomposition, test_plan, ticket_pk),
         )
     
@@ -533,6 +535,115 @@ async def update_task_status(ticket_pk: int, request: Request):
             )
         
         return JSONResponse({"status": "ok", "task_index": task_index, "new_status": status})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.get("/api/tickets/deployable")
+async def get_deployable_tickets():
+    """Get all tickets in the current sprint that require deployment (for Mode F)."""
+    try:
+        with connect() as conn:
+            tickets = conn.execute("""
+                SELECT id, ticket_id, title, status, priority, sprint_points,
+                       task_decomposition
+                FROM tickets
+                WHERE in_sprint = 1 AND requires_deployment = 1
+                ORDER BY 
+                    CASE status
+                        WHEN 'in_progress' THEN 1
+                        WHEN 'in_review' THEN 2
+                        WHEN 'todo' THEN 3
+                        WHEN 'blocked' THEN 4
+                        WHEN 'done' THEN 5
+                        WHEN 'complete' THEN 6
+                        ELSE 7
+                    END,
+                    updated_at DESC
+            """).fetchall()
+        
+        result = []
+        for t in tickets:
+            # Parse deployment checklist from task_decomposition or create default
+            deployment_status = {
+                "pushed": False,
+                "pr_created": False,
+                "pr_reviewed": False,
+                "merged": False,
+                "deployed": False
+            }
+            
+            # Check if there's a deployment_status stored in task_decomposition
+            if t['task_decomposition']:
+                try:
+                    decomp = json.loads(t['task_decomposition'])
+                    if isinstance(decomp, dict) and 'deployment_status' in decomp:
+                        deployment_status = decomp['deployment_status']
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            
+            result.append({
+                "id": t['id'],
+                "ticket_id": t['ticket_id'],
+                "title": t['title'],
+                "status": t['status'],
+                "priority": t['priority'],
+                "sprint_points": t['sprint_points'],
+                "deployment_status": deployment_status
+            })
+        
+        return JSONResponse({"tickets": result})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.post("/api/tickets/{ticket_pk}/deployment-status")
+async def update_deployment_status(ticket_pk: int, request: Request):
+    """Update deployment checklist status for a ticket."""
+    try:
+        data = await request.json()
+        step = data.get("step")  # pushed, pr_created, pr_reviewed, merged, deployed
+        status = data.get("status", False)
+        
+        with connect() as conn:
+            # Get current task_decomposition
+            row = conn.execute(
+                "SELECT task_decomposition FROM tickets WHERE id = ?", (ticket_pk,)
+            ).fetchone()
+            
+            if not row:
+                return JSONResponse({"error": "Ticket not found"}, status_code=404)
+            
+            # Parse or create deployment status structure
+            decomp = {}
+            if row['task_decomposition']:
+                try:
+                    decomp = json.loads(row['task_decomposition'])
+                    if not isinstance(decomp, dict):
+                        decomp = {"tasks": decomp}  # Preserve existing tasks array
+                except (json.JSONDecodeError, TypeError):
+                    decomp = {}
+            
+            # Ensure deployment_status exists
+            if 'deployment_status' not in decomp:
+                decomp['deployment_status'] = {
+                    "pushed": False,
+                    "pr_created": False,
+                    "pr_reviewed": False,
+                    "merged": False,
+                    "deployed": False
+                }
+            
+            # Update the specific step
+            decomp['deployment_status'][step] = status
+            
+            # Save back
+            conn.execute(
+                "UPDATE tickets SET task_decomposition = ?, updated_at = datetime('now') WHERE id = ?",
+                (json.dumps(decomp), ticket_pk)
+            )
+        
+        return JSONResponse({"status": "ok", "step": step, "new_status": status})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
