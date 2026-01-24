@@ -1,6 +1,8 @@
 # src/app/chat/turn.py
 
 from typing import Tuple, List, Dict
+import os
+import logging
 
 from .planner import plan
 from .fallback import fallback_plan
@@ -14,11 +16,44 @@ from ..db import connect
 
 from ..llm import answer as llm_answer
 
+logger = logging.getLogger(__name__)
+
 MAX_CONTEXT = 6
 
 
+def _get_supabase():
+    """Get Supabase client if available."""
+    try:
+        from supabase import create_client
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY")
+        if url and key:
+            return create_client(url, key)
+    except Exception as e:
+        logger.debug(f"Supabase not available: {e}")
+    return None
+
+
 def get_meeting_content_with_screenshots(meeting_id: int, base_content: str) -> str:
-    """Append screenshot summaries to meeting content if available."""
+    """Append screenshot summaries to meeting content if available.
+    
+    Tries Supabase first (for Railway), falls back to SQLite.
+    """
+    # Try Supabase first
+    sb = _get_supabase()
+    if sb:
+        try:
+            result = sb.table("meeting_screenshots").select("image_summary").eq("meeting_id", meeting_id).not_.is_("image_summary", "null").execute()
+            if result.data:
+                screenshot_text = "\n\n[Meeting Screenshots]:\n" + "\n".join(
+                    [f"- {s['image_summary']}" for s in result.data]
+                )
+                return base_content + screenshot_text
+            return base_content
+        except Exception as e:
+            logger.debug(f"Supabase screenshots fetch failed: {e}")
+    
+    # SQLite fallback
     try:
         with connect() as conn:
             screenshots = conn.execute(

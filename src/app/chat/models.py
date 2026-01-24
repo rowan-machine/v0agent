@@ -319,6 +319,48 @@ def add_message(conversation_id: int, role: str, content: str, run_id: str = Non
 
 
 def get_recent_messages(conversation_id: int, limit: int = 6):
+    """Get recent messages from a conversation.
+    
+    Tries Supabase first (for Railway where SQLite is ephemeral),
+    falls back to SQLite for local development.
+    """
+    import os
+    
+    # Try Supabase first
+    try:
+        from supabase import create_client
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY")
+        if url and key:
+            sb = create_client(url, key)
+            
+            # First, need to get the supabase_id for this conversation
+            # Try to look it up from local DB first
+            supabase_conv_id = None
+            try:
+                with connect() as conn:
+                    row = conn.execute(
+                        "SELECT supabase_id FROM conversations WHERE id = ?",
+                        (conversation_id,)
+                    ).fetchone()
+                    if row and row["supabase_id"]:
+                        supabase_conv_id = row["supabase_id"]
+            except:
+                pass
+            
+            # If we have a supabase_id, fetch messages from Supabase
+            if supabase_conv_id:
+                result = sb.table("messages").select("role, content").eq(
+                    "conversation_id", supabase_conv_id
+                ).order("created_at", desc=True).limit(limit).execute()
+                
+                if result.data:
+                    logger.debug(f"Got {len(result.data)} messages from Supabase")
+                    return [{"role": m["role"], "content": m["content"]} for m in reversed(result.data)]
+    except Exception as e:
+        logger.debug(f"Supabase messages fetch failed: {e}")
+    
+    # SQLite fallback
     with connect() as conn:
         rows = conn.execute(
             """
@@ -332,6 +374,7 @@ def get_recent_messages(conversation_id: int, limit: int = 6):
         ).fetchall()
 
     # Convert Row objects to dicts for JSON serialization in templates
+    return [{"role": row["role"], "content": row["content"]} for row in reversed(rows)]
     return [{"role": row["role"], "content": row["content"]} for row in reversed(rows)]
 
 
