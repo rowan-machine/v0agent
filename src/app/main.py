@@ -2262,13 +2262,13 @@ async def get_weekly_intelligence():
             meetings_data.append(meeting_info)
         
         # =====================================================================
-        # DIKW PYRAMID ACTIVITY
+        # DIKW PYRAMID ACTIVITY (using dikw_items table)
         # =====================================================================
         dikw_items = conn.execute(
             """
             SELECT level, COUNT(*) as count,
                    SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) as new_this_week
-            FROM dikw_pyramid
+            FROM dikw_items
             WHERE status = 'active'
             GROUP BY level
             ORDER BY 
@@ -2291,7 +2291,7 @@ async def get_weekly_intelligence():
         high_value_dikw = conn.execute(
             """
             SELECT id, level, content, summary, tags
-            FROM dikw_pyramid
+            FROM dikw_items
             WHERE level IN ('wisdom', 'knowledge') AND status = 'active'
             ORDER BY created_at DESC
             LIMIT 5
@@ -2330,7 +2330,7 @@ async def get_weekly_intelligence():
         # Blocked tickets need attention
         blocked_tickets = conn.execute(
             """
-            SELECT id, ticket_id, title, blocker_reason
+            SELECT id, ticket_id, title
             FROM tickets
             WHERE status = 'blocked' AND in_sprint = 1
             LIMIT 5
@@ -2338,27 +2338,25 @@ async def get_weekly_intelligence():
         ).fetchall()
         
         # =====================================================================
-        # ACTION ITEMS DUE SOON
+        # ACTION ITEMS DUE SOON (from accountability_items table)
         # =====================================================================
-        # Get action items from signals that might be due (recent ones)
         recent_actions = conn.execute(
             """
-            SELECT id, content, meeting_id, status, created_at
-            FROM signals
-            WHERE signal_type = 'action_item' 
-            AND status = 'pending'
+            SELECT id, description as content, source_ref_id as meeting_id, status, created_at
+            FROM accountability_items
+            WHERE status != 'complete'
             ORDER BY created_at DESC
             LIMIT 10
             """
         ).fetchall()
         
         # =====================================================================
-        # CAREER STANDUPS
+        # CAREER STANDUPS (from standup_updates table)
         # =====================================================================
         standups = conn.execute(
             """
-            SELECT id, standup_date, yesterday_summary, today_summary, blockers
-            FROM career_standups
+            SELECT id, standup_date, content, feedback, sentiment, key_themes, created_at
+            FROM standup_updates
             WHERE standup_date >= ?
             ORDER BY standup_date DESC
             LIMIT 7
@@ -2370,9 +2368,10 @@ async def get_weekly_intelligence():
             {
                 "id": s["id"],
                 "date": s["standup_date"],
-                "yesterday": s["yesterday_summary"][:100] + "..." if s["yesterday_summary"] and len(s["yesterday_summary"]) > 100 else s["yesterday_summary"],
-                "today": s["today_summary"][:100] + "..." if s["today_summary"] and len(s["today_summary"]) > 100 else s["today_summary"],
-                "has_blockers": bool(s["blockers"])
+                "content": s["content"][:100] + "..." if s["content"] and len(s["content"]) > 100 else s["content"],
+                "sentiment": s["sentiment"],
+                "key_themes": s["key_themes"],
+                "has_feedback": bool(s["feedback"])
             }
             for s in standups
         ]
@@ -2444,8 +2443,7 @@ async def get_weekly_intelligence():
                     {
                         "id": t["id"],
                         "ticket_id": t["ticket_id"],
-                        "title": t["title"],
-                        "reason": t["blocker_reason"]
+                        "title": t["title"]
                     }
                     for t in blocked_tickets
                 ]

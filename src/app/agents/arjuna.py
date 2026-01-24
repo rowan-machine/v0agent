@@ -23,6 +23,7 @@ import logging
 
 from jinja2 import Environment, FileSystemLoader
 from ..agents.base import BaseAgent, AgentConfig
+from ..agents.context import get_sprint_context, format_sprint_context_for_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -1210,7 +1211,7 @@ Analyze the user's intent and respond with JSON as specified."""
         }
     
     def _get_system_context(self) -> Dict[str, Any]:
-        """Get current system state for context."""
+        """Get current system state for context including sprint work items."""
         conn = self._get_db_connection()
         if not conn:
             return {}
@@ -1236,13 +1237,114 @@ Analyze the user's intent and respond with JSON as specified."""
                 """
             ).fetchall()
             
-            # Get recent tickets
+            # Get recent tickets with checklist progress
             tickets = conn.execute(
                 """
-                SELECT ticket_id, title, status, priority 
+                SELECT ticket_id, title, status, priority, task_decomposition, in_sprint
                 FROM tickets 
-                ORDER BY created_at DESC 
+                WHERE in_sprint = 1
+                ORDER BY 
+                    CASE status
+                        WHEN 'blocked' THEN 1
+                        WHEN 'in_progress' THEN 2
+                        WHEN 'in_review' THEN 3
+                        WHEN 'todo' THEN 4
+                        ELSE 5
+                    END,
+                    priority DESC
+                LIMIT 15
+                """
+            ).fetchall()
+            
+            # Process ticket checklists
+            tickets_with_progress = []
+            for t in tickets:
+                ticket_data = {
+                    "ticket_id": t["ticket_id"],
+                    "title": t["title"],
+                    "status": t["status"],
+                    "priority": t["priority"],
+                }
+                if t["task_decomposition"]:
+                    try:
+                        tasks = json.loads(t["task_decomposition"])
+                        if isinstance(tasks, list):
+                            total = len(tasks)
+                            done = sum(1 for task in tasks if task.get("done", False))
+                            ticket_data["checklist_progress"] = f"{done}/{total}"
+                            ticket_data["checklist_items"] = [
+                                {"text": task.get("text", task.get("title", str(task))), "done": task.get("done", False)}
+                                for task in tasks[:5]  # Limit to first 5 items
+                            ]
+                    except:
+                        pass
+                tickets_with_progress.append(ticket_data)
+            
+            # Get pending action items from signals
+            action_items = conn.execute(
+                """
+                SELECT id, content, meeting_id, status, created_at
+                FROM signals
+                WHERE signal_type = 'action_item' AND status = 'pending'
+                ORDER BY created_at DESC
                 LIMIT 10
+                """
+            ).fetchall()
+            
+            # Get active test plans with task progress
+            test_plans = conn.execute(
+                """
+                SELECT id, test_plan_id, title, status, priority, task_decomposition, linked_ticket_id
+                FROM test_plans
+                WHERE status IN ('planned', 'in_progress') AND in_sprint = 1
+                ORDER BY priority DESC
+                LIMIT 10
+                """
+            ).fetchall()
+            
+            test_plans_with_progress = []
+            for tp in test_plans:
+                plan_data = {
+                    "test_plan_id": tp["test_plan_id"],
+                    "title": tp["title"],
+                    "status": tp["status"],
+                    "priority": tp["priority"],
+                    "linked_ticket_id": tp["linked_ticket_id"],
+                }
+                if tp["task_decomposition"]:
+                    try:
+                        tasks = json.loads(tp["task_decomposition"])
+                        if isinstance(tasks, list):
+                            total = len(tasks)
+                            done = sum(1 for task in tasks if task.get("done", False))
+                            plan_data["task_progress"] = f"{done}/{total}"
+                            plan_data["tasks"] = [
+                                {"text": task.get("text", task.get("title", str(task))), "done": task.get("done", False)}
+                                for task in tasks[:5]
+                            ]
+                    except:
+                        pass
+                test_plans_with_progress.append(plan_data)
+            
+            # Get blockers
+            blockers = conn.execute(
+                """
+                SELECT id, content, meeting_id, created_at
+                FROM signals
+                WHERE signal_type = 'blocker' AND status = 'pending'
+                ORDER BY created_at DESC
+                LIMIT 5
+                """
+            ).fetchall()
+            
+            # Get accountability items (waiting-for)
+            waiting_for = conn.execute(
+                """
+                SELECT id, description, responsible_party, due_date, status
+                FROM accountability_items
+                WHERE status = 'waiting'
+                ORDER BY due_date ASC NULLS LAST
+                LIMIT 5
                 """
             ).fetchall()
             
@@ -1251,7 +1353,20 @@ Analyze the user's intent and respond with JSON as specified."""
                 "current_ai_model": current_model,
                 "available_models": AVAILABLE_MODELS,
                 "ticket_stats": {row["status"]: row["count"] for row in ticket_stats},
-                "recent_tickets": [dict(t) for t in tickets],
+                "sprint_tickets": tickets_with_progress,
+                "action_items_pending": [
+                    {"id": a["id"], "content": a["content"][:150], "created": a["created_at"][:10]}
+                    for a in action_items
+                ],
+                "test_plans": test_plans_with_progress,
+                "active_blockers": [
+                    {"id": b["id"], "content": b["content"][:150], "from_meeting": b["meeting_id"]}
+                    for b in blockers
+                ],
+                "waiting_for": [
+                    {"description": w["description"][:100], "who": w["responsible_party"], "due": w["due_date"]}
+                    for w in waiting_for
+                ],
                 "available_pages": SYSTEM_PAGES,
             }
         except Exception as e:
@@ -1603,6 +1718,24 @@ Analyze the user's intent and respond with JSON as specified."""
         
         return "\n\n".join(context_parts)
     
+    def get_sprint_context_for_prompt(self) -> str:
+        """
+        Get comprehensive sprint context formatted for LLM prompts.
+        
+        Includes: tickets, action items, test plans, blockers, waiting-for items.
+        Use this to give the agent full awareness of current work state.
+        """
+        conn = self._get_db_connection()
+        if not conn:
+            return ""
+        
+        try:
+            context = get_sprint_context(conn)
+            return format_sprint_context_for_prompt(context)
+        except Exception as e:
+            logger.error(f"Failed to get sprint context for prompt: {e}")
+            return ""
+    
     async def quick_ask(
         self,
         topic: Optional[str] = None,
@@ -1633,6 +1766,8 @@ Analyze the user's intent and respond with JSON as specified."""
             "rowan_mentions": f"What mentions of {user_name} or items assigned to {user_name} are there in recent meetings?",
             "reach_outs": "Who needs to be contacted or reached out to based on recent meetings? What follow-ups are needed?",
             "announcements": "What team-wide announcements or important updates were shared in recent meetings?",
+            "sprint_status": "What is the current sprint status? What work is in progress, blocked, or pending?",
+            "my_plate": "What's currently on my plate? Include tickets, action items, test plans, and blockers.",
         }
         
         # Build the question
@@ -1648,9 +1783,16 @@ Analyze the user's intent and respond with JSON as specified."""
             # Standard context from recent meetings
             context = await self._get_recent_meetings_context()
         
+        # Include sprint context for work-related topics
+        sprint_context = ""
+        if topic in ["sprint_status", "my_plate", "blockers", "action_items", "this_week"] or not topic:
+            sprint_context = self.get_sprint_context_for_prompt()
+        
         prompt = f"""Based on this context from recent meetings and documents:
 
 {context}
+
+{f"Current Sprint Status:{chr(10)}{sprint_context}" if sprint_context else ""}
 
 Question: {question}
 

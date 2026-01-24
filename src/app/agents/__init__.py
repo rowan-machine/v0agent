@@ -108,6 +108,12 @@ from .ticket_agent import (
     generate_plan_sync,
     decompose_ticket_sync,
 )
+# Shared context utilities
+from .context import (
+    get_sprint_context,
+    format_sprint_context_for_prompt,
+    get_sprint_context_summary,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -238,4 +244,8 @@ __all__ = [
     "summarize_ticket_sync",
     "generate_plan_sync",
     "decompose_ticket_sync",
+    # Shared Sprint Context
+    "get_sprint_context",
+    "format_sprint_context_for_prompt",
+    "get_sprint_context_summary",
 ]
