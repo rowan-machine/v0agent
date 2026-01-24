@@ -2115,22 +2115,41 @@ Keep it concise but informative. Use first person ("I"). Be specific about ticke
         if topic in ["sprint_status", "my_plate", "blockers", "action_items", "this_week"] or not topic:
             sprint_context = self.get_sprint_context_for_prompt()
         
-        prompt = f"""Based on this context from recent meetings and documents:
+        # Check if we have enough context
+        has_context = bool(context and context.strip())
+        has_sprint = bool(sprint_context and sprint_context.strip())
+        
+        if has_context or has_sprint:
+            prompt = f"""Based on this context from recent meetings and documents:
 
-{context}
+{context if context else "(No recent meeting notes available)"}
 
 {f"Current Sprint Status:{chr(10)}{sprint_context}" if sprint_context else ""}
 
 Question: {question}
 
-Provide a concise, helpful answer. Focus on the most relevant information. Use bullet points where appropriate."""
+Provide a concise, helpful answer. Focus on the most relevant information. Use bullet points where appropriate.
+If the context doesn't directly answer the question, provide general guidance or ask clarifying questions."""
+        else:
+            # Minimal context - still try to be helpful
+            prompt = f"""Question: {question}
+
+I don't have recent meeting notes or sprint data available at the moment. 
+Please provide a helpful response based on general best practices, or ask the user for more context.
+
+For a 1:1 prep, suggest:
+- What topics to discuss with your manager
+- Questions about project status, blockers, career development
+- Feedback opportunities
+
+Be conversational and helpful even without specific data."""
 
         try:
             response = await self.ask_llm(
                 prompt=prompt,
                 task_type="synthesis",  # Use synthesis model for summarization
             )
-            return {"response": response, "success": True}
+            return {"response": response, "success": True, "run_id": self.last_run_id}
         except Exception as e:
             logger.error(f"Quick ask failed: {e}")
             return {"response": f"AI Error: {str(e)}", "success": False}

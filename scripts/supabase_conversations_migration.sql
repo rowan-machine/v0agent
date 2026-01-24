@@ -6,12 +6,12 @@
 -- =====================
 create table if not exists public.conversations (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade,
+  user_id uuid,  -- Optional: link to auth.users if using Supabase Auth
   title text,
   summary text,
   archived boolean default false,
-  meeting_id uuid references public.meetings(id) on delete set null,
-  document_id uuid references public.documents(id) on delete set null,
+  meeting_id uuid,  -- Reference to meetings table (if exists)
+  document_id uuid,  -- Reference to documents table (if exists)
   -- Sync metadata
   device_id text,
   synced_at timestamptz default now(),
