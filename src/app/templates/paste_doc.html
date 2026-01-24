@@ -16,8 +16,8 @@
   <label>
     Document Date
     <div style="display: flex; gap: 0.5rem; align-items: center;">
-      <input type="date" name="document_date" id="document_date" required />
       <button type="button" onclick="document.getElementById('document_date').value = new Date().toISOString().split('T')[0]" style="padding: 0.75rem 1rem; white-space: nowrap;">Today</button>
+      <input type="date" name="document_date" id="document_date" required />
     </div>
   </label>
 

@@ -260,7 +260,10 @@
         </div>
         <div class="form-group">
           <label>Meeting Date</label>
-          <input type="date" name="meeting_date">
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button type="button" onclick="document.querySelector('input[name=meeting_date]').value = new Date().toISOString().split('T')[0]" style="padding: 0.5rem 0.75rem; white-space: nowrap; border-radius: 6px; border: 1px solid var(--sf-border, #ddd); background: var(--sf-surface, #f9fafb); cursor: pointer;">Today</button>
+            <input type="date" name="meeting_date" style="flex: 1;">
+          </div>
         </div>
       </div>
     </div>
