@@ -1153,7 +1153,7 @@ async def reject_ai_response(request: Request):
 def _get_supabase():
     """Safely get Supabase client, return None if unavailable."""
     try:
-        from .infrastructure.supabase import get_supabase_client
+        from .infrastructure.supabase_client import get_supabase_client
         return get_supabase_client()
     except Exception as e:
         import logging

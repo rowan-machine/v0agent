@@ -30,7 +30,7 @@ def _get_meetings_from_supabase(skip: int = 0, limit: int = 50) -> tuple[List[Di
     Returns (meetings_list, total_count) or raises exception.
     """
     try:
-        from ...infrastructure.supabase import get_supabase_client
+        from ...infrastructure.supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         # Get total count
@@ -133,7 +133,7 @@ async def get_meeting(meeting_id: str):
     """
     # Try Supabase first
     try:
-        from ...infrastructure.supabase import get_supabase_client
+        from ...infrastructure.supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         result = supabase.table("meetings").select("*").eq("id", meeting_id).execute()
@@ -183,7 +183,7 @@ async def create_meeting(meeting: MeetingCreate):
     """
     # Try Supabase first
     try:
-        from ...infrastructure.supabase import get_supabase_client
+        from ...infrastructure.supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         result = supabase.table("meetings").insert({
@@ -222,7 +222,7 @@ async def update_meeting(meeting_id: str, meeting: MeetingUpdate):
     """
     # Try Supabase first
     try:
-        from ...infrastructure.supabase import get_supabase_client
+        from ...infrastructure.supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         # Check if meeting exists
@@ -286,7 +286,7 @@ async def delete_meeting(meeting_id: str):
     """
     # Try Supabase first
     try:
-        from ...infrastructure.supabase import get_supabase_client
+        from ...infrastructure.supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         # Check if meeting exists

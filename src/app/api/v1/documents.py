@@ -29,7 +29,7 @@ def _get_documents_from_supabase(skip: int = 0, limit: int = 50) -> tuple[List[D
     Returns (documents_list, total_count) or raises exception.
     """
     try:
-        from ...infrastructure.supabase import get_supabase_client
+        from ...infrastructure.supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         # Get total count
@@ -127,7 +127,7 @@ async def get_document(document_id: str):
     """
     # Try Supabase first
     try:
-        from ...infrastructure.supabase import get_supabase_client
+        from ...infrastructure.supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         result = supabase.table("documents").select("*").eq("id", document_id).execute()
@@ -175,7 +175,7 @@ async def create_document(document: DocumentCreate):
     """
     # Try Supabase first
     try:
-        from ...infrastructure.supabase import get_supabase_client
+        from ...infrastructure.supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         result = supabase.table("documents").insert({
@@ -214,7 +214,7 @@ async def update_document(document_id: str, document: DocumentUpdate):
     """
     # Try Supabase first
     try:
-        from ...infrastructure.supabase import get_supabase_client
+        from ...infrastructure.supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         # Check if document exists
@@ -273,7 +273,7 @@ async def delete_document(document_id: str):
     """
     # Try Supabase first
     try:
-        from ...infrastructure.supabase import get_supabase_client
+        from ...infrastructure.supabase_client import get_supabase_client
         supabase = get_supabase_client()
         
         # Check if document exists
