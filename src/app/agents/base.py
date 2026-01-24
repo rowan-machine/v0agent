@@ -110,6 +110,12 @@ class BaseAgent(ABC):
         # Tracing state
         self._thread_id = thread_id
         self._tracing_context: Optional[Any] = None
+        self._last_run_id: Optional[str] = None  # LangSmith run ID from last ask_llm call
+    
+    @property
+    def last_run_id(self) -> Optional[str]:
+        """Return the LangSmith run ID from the most recent ask_llm call."""
+        return self._last_run_id
     
     @abstractmethod
     def get_system_prompt(self) -> str:
@@ -228,6 +234,7 @@ class BaseAgent(ABC):
         langsmith_client = None
         if TRACING_AVAILABLE and self.config.enable_tracing and is_tracing_enabled():
             langsmith_client = get_langsmith_client()
+            print(f"🔍 LangSmith: tracing enabled, client={langsmith_client is not None}, agent={self.config.name}")
             if langsmith_client:
                 run_id = str(uuid.uuid4())
                 trace_metadata = TraceMetadata(
@@ -252,9 +259,21 @@ class BaseAgent(ABC):
                         project_name=get_project_name(),
                         id=run_id,
                     )
+                    print(f"✅ LangSmith: created run {run_id[:8]}... for {self.config.name}/{task_type or 'default'}")
+                    self._last_run_id = run_id  # Store for later retrieval
                 except Exception as e:
+                    print(f"❌ LangSmith: failed to create run: {e}")
                     logger.debug(f"Failed to create LangSmith run: {e}")
                     run_id = None
+                    self._last_run_id = None
+        else:
+            self._last_run_id = None  # No tracing, no run_id
+            if not TRACING_AVAILABLE:
+                print("⚠️ LangSmith: tracing module not available")
+            elif not self.config.enable_tracing:
+                print(f"⚠️ LangSmith: tracing disabled for {self.config.name}")
+            elif not is_tracing_enabled():
+                print("⚠️ LangSmith: tracing not enabled (env vars)")
         
         try:
             response = await self._call_model(

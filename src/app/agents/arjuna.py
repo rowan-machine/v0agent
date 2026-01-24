@@ -2270,15 +2270,25 @@ def get_system_context() -> Dict[str, Any]:
     return agent._get_system_context()
 
 
-def parse_assistant_intent(message: str, context: dict, history: list) -> dict:
+def parse_assistant_intent(message: str, context: dict, history: list, thread_id: str = None) -> dict:
     """
     Adapter: Parse assistant intent (delegates to ArjunaAgent).
+    
+    Args:
+        message: User's message
+        context: System context
+        history: Conversation history
+        thread_id: Optional thread ID for LangSmith tracing
     
     Note: This is a synchronous adapter. For async code, use ArjunaAgent directly.
     """
     import asyncio
     
     agent = get_arjuna_agent()
+    
+    # Set thread_id on agent for LangSmith tracing
+    if thread_id:
+        agent._thread_id = thread_id
     
     # Check for focus queries (synchronous path)
     if agent._is_focus_query(message):
@@ -2377,10 +2387,13 @@ async def quick_ask(topic: Optional[str] = None, query: Optional[str] = None) ->
         query: Custom query string
     
     Returns:
-        Dict with response and success status
+        Dict with response, success status, and run_id for feedback
     """
     agent = get_arjuna_agent()
-    return await agent.quick_ask(topic=topic, query=query)
+    result = await agent.quick_ask(topic=topic, query=query)
+    # Include run_id for user feedback
+    result["run_id"] = agent.last_run_id
+    return result
 
 
 def quick_ask_sync(topic: Optional[str] = None, query: Optional[str] = None) -> Dict[str, Any]:

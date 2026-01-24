@@ -38,14 +38,88 @@ def get_current_model() -> str:
         pass
     return "gpt-4o-mini"  # Default fallback
 
-def ask(prompt: str, model: str = None) -> str:
-    """Simple single-turn prompt to LLM without context."""
+def ask(prompt: str, model: str = None, trace_name: str = "llm.ask", thread_id: str = None) -> str:
+    """Simple single-turn prompt to LLM without context.
+    
+    Args:
+        prompt: The prompt to send to the LLM
+        model: Model to use (defaults to current_model setting)
+        trace_name: Name for LangSmith tracing (optional)
+        thread_id: Thread ID for LangSmith thread grouping (optional)
+    
+    Returns:
+        LLM response text
+    """
+    import uuid
+    from datetime import datetime
+    
     model = model or get_current_model()
-    resp = _client_once().chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return resp.choices[0].message.content.strip()
+    
+    # LangSmith tracing
+    run_id = None
+    langsmith_client = None
+    try:
+        from .tracing import is_tracing_enabled, get_langsmith_client, get_project_name, TraceMetadata
+        if is_tracing_enabled():
+            langsmith_client = get_langsmith_client()
+            if langsmith_client:
+                run_id = str(uuid.uuid4())
+                
+                # Build metadata with thread_id for Threads feature
+                metadata = {"source": "llm.ask"}
+                tags = [f"model:{model}", "source:llm.ask"]
+                
+                if thread_id:
+                    # LangSmith looks for session_id, thread_id, or conversation_id
+                    metadata["session_id"] = thread_id
+                    metadata["thread_id"] = thread_id
+                    metadata["conversation_id"] = thread_id
+                    tags.append(f"thread:{thread_id[:8]}")
+                
+                langsmith_client.create_run(
+                    name=trace_name,
+                    run_type="llm",
+                    inputs={"prompt": prompt[:2000], "model": model},
+                    tags=tags,
+                    extra={"metadata": metadata},
+                    project_name=get_project_name(),
+                    id=run_id,
+                )
+                print(f"✅ LangSmith: created run {run_id[:8]}... for {trace_name}")
+    except Exception as e:
+        print(f"⚠️ LangSmith: tracing init error: {e}")
+    
+    try:
+        resp = _client_once().chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        response_text = resp.choices[0].message.content.strip()
+        
+        # Update trace with success
+        if langsmith_client and run_id:
+            try:
+                langsmith_client.update_run(
+                    run_id=run_id,
+                    outputs={"response": response_text[:2000]},
+                    end_time=datetime.now(),
+                )
+            except Exception:
+                pass
+        
+        return response_text
+    except Exception as e:
+        # Update trace with error
+        if langsmith_client and run_id:
+            try:
+                langsmith_client.update_run(
+                    run_id=run_id,
+                    error=str(e),
+                    end_time=datetime.now(),
+                )
+            except Exception:
+                pass
+        raise
 
 
 # Alias for backward compatibility with LangSmith evaluations
@@ -102,7 +176,20 @@ def get_user_status_context() -> str:
         return ""
 
 
-def answer(question: str, context_blocks: list[str]) -> str:
+def answer(question: str, context_blocks: list[str], trace_name: str = "llm.answer") -> str:
+    """Answer a question using provided context.
+    
+    Args:
+        question: The question to answer
+        context_blocks: List of context blocks to use
+        trace_name: Name for LangSmith tracing (optional)
+    
+    Returns:
+        LLM response text
+    """
+    import uuid
+    from datetime import datetime
+    
     if not context_blocks:
         return "I don't have enough information in the provided sources."
 
@@ -114,15 +201,66 @@ def answer(question: str, context_blocks: list[str]) -> str:
         ctx = status_ctx + "\n\n" + ctx
     
     model = get_current_model()
-
-    resp = _client_once().chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": f"Context:\n{ctx}\n\nQuestion:\n{question}",
-            },
-        ],
-    )
-    return resp.choices[0].message.content.strip()
+    
+    # LangSmith tracing
+    run_id = None
+    langsmith_client = None
+    try:
+        from .tracing import is_tracing_enabled, get_langsmith_client, get_project_name
+        if is_tracing_enabled():
+            langsmith_client = get_langsmith_client()
+            if langsmith_client:
+                run_id = str(uuid.uuid4())
+                langsmith_client.create_run(
+                    name=trace_name,
+                    run_type="llm",
+                    inputs={
+                        "question": question[:500],
+                        "context_blocks_count": len(context_blocks),
+                        "model": model
+                    },
+                    tags=[f"model:{model}", "source:llm.answer"],
+                    project_name=get_project_name(),
+                    id=run_id,
+                )
+                print(f"✅ LangSmith: created run {run_id[:8]}... for {trace_name}")
+    except Exception as e:
+        print(f"⚠️ LangSmith: tracing init error: {e}")
+    
+    try:
+        resp = _client_once().chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": f"Context:\n{ctx}\n\nQuestion:\n{question}",
+                },
+            ],
+        )
+        response_text = resp.choices[0].message.content.strip()
+        
+        # Update trace with success
+        if langsmith_client and run_id:
+            try:
+                langsmith_client.update_run(
+                    run_id=run_id,
+                    outputs={"response": response_text[:2000]},
+                    end_time=datetime.now(),
+                )
+            except Exception:
+                pass
+        
+        return response_text
+    except Exception as e:
+        # Update trace with error
+        if langsmith_client and run_id:
+            try:
+                langsmith_client.update_run(
+                    run_id=run_id,
+                    error=str(e),
+                    end_time=datetime.now(),
+                )
+            except Exception:
+                pass
+        raise

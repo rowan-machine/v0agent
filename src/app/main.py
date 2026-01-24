@@ -647,6 +647,7 @@ async def dashboard_quick_ask(request: Request):
     Handle quick AI questions from dashboard.
     
     Delegates to ArjunaAgent.quick_ask() for centralized AI handling.
+    Returns run_id for user feedback.
     """
     from .agents.arjuna import quick_ask
     
@@ -656,8 +657,12 @@ async def dashboard_quick_ask(request: Request):
     
     try:
         result = await quick_ask(topic=topic, query=query)
+        
         if result.get("success"):
-            return JSONResponse({"response": result.get("response", "")})
+            return JSONResponse({
+                "response": result.get("response", ""),
+                "run_id": result.get("run_id")  # From agent.last_run_id
+            })
         else:
             return JSONResponse({"error": result.get("response", "AI Error")}, status_code=500)
     except Exception as e:
@@ -1632,6 +1637,46 @@ async def list_background_jobs():
     })
 
 
+@app.get("/api/v1/tracing/status")
+async def get_tracing_status():
+    """Debug endpoint to check LangSmith tracing status."""
+    import os
+    
+    tracing_status = {
+        "langchain_tracing_v2": os.environ.get("LANGCHAIN_TRACING_V2", "not set"),
+        "langsmith_tracing": os.environ.get("LANGSMITH_TRACING", "not set"),
+        "langsmith_api_key_set": bool(os.environ.get("LANGSMITH_API_KEY") or os.environ.get("LANGCHAIN_API_KEY")),
+        "langsmith_project": os.environ.get("LANGSMITH_PROJECT") or os.environ.get("LANGCHAIN_PROJECT", "signalflow"),
+        "langsmith_endpoint": os.environ.get("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com"),
+    }
+    
+    # Check if tracing module is available and enabled
+    try:
+        from src.app.tracing import is_tracing_enabled, get_langsmith_client, get_project_name
+        tracing_status["tracing_module_available"] = True
+        tracing_status["tracing_enabled"] = is_tracing_enabled()
+        tracing_status["project_name"] = get_project_name()
+        
+        # Try to get client
+        client = get_langsmith_client()
+        tracing_status["langsmith_client_initialized"] = client is not None
+        
+        if client:
+            # Try a simple health check
+            try:
+                # List a few runs to verify connectivity
+                runs = list(client.list_runs(project_name=get_project_name(), limit=1))
+                tracing_status["langsmith_connectivity"] = "ok"
+                tracing_status["recent_runs_count"] = len(runs)
+            except Exception as e:
+                tracing_status["langsmith_connectivity"] = f"error: {str(e)}"
+    except ImportError as e:
+        tracing_status["tracing_module_available"] = False
+        tracing_status["import_error"] = str(e)
+    
+    return JSONResponse(tracing_status)
+
+
 @app.post("/api/settings/mode")
 async def set_workflow_mode(request: Request):
     """Save the current workflow mode to the database."""
@@ -1958,7 +2003,7 @@ async def submit_thumbs_feedback(request: Request):
     
     return JSONResponse({
         "status": "ok" if feedback_id else "disabled",
-        "feedback_id": feedback_id,
+        "feedback_id": str(feedback_id) if feedback_id else None,
     })
 
 
@@ -2062,6 +2107,126 @@ async def get_evaluation_summary(agent_name: Optional[str] = None, days: int = 7
     
     summary = get_feedback_summary(agent_name=agent_name, days=days)
     return JSONResponse(summary)
+
+
+@app.get("/api/evaluations/dashboard")
+async def get_evaluation_dashboard():
+    """
+    Get a comprehensive evaluation dashboard with actionable insights.
+    
+    Returns:
+        - Overall quality scores
+        - Improvement suggestions based on low scores
+        - Recent traces with issues
+        - Recommended actions
+    """
+    from src.app.services.evaluations import get_feedback_summary, is_evaluation_enabled
+    
+    if not is_evaluation_enabled():
+        return JSONResponse({
+            "enabled": False,
+            "message": "LangSmith evaluation not configured. Set LANGSMITH_API_KEY to enable."
+        })
+    
+    try:
+        from langsmith import Client
+        from datetime import timedelta
+        
+        client = Client()
+        project_name = os.environ.get("LANGSMITH_PROJECT", "signalflow")
+        
+        # Get recent runs with low scores
+        start_time = datetime.now() - timedelta(days=7)
+        
+        runs = list(client.list_runs(
+            project_name=project_name,
+            start_time=start_time,
+            limit=100,
+        ))
+        
+        # Analyze runs
+        total_runs = len(runs)
+        runs_with_feedback = 0
+        low_score_runs = []
+        score_breakdown = {}
+        
+        for run in runs:
+            if run.feedback_stats:
+                runs_with_feedback += 1
+                for key, stats in run.feedback_stats.items():
+                    if key not in score_breakdown:
+                        score_breakdown[key] = {"scores": [], "count": 0}
+                    score_breakdown[key]["count"] += stats.get('n', 0)
+                    if stats.get('avg') is not None:
+                        score_breakdown[key]["scores"].append(stats['avg'])
+                        # Track low-scoring runs
+                        if stats['avg'] < 0.6:
+                            low_score_runs.append({
+                                "run_id": str(run.id),
+                                "name": run.name,
+                                "metric": key,
+                                "score": stats['avg'],
+                                "created_at": run.start_time.isoformat() if run.start_time else None,
+                            })
+        
+        # Calculate averages and generate insights
+        insights = []
+        for key, data in score_breakdown.items():
+            avg = sum(data["scores"]) / len(data["scores"]) if data["scores"] else None
+            score_breakdown[key]["average"] = round(avg, 3) if avg else None
+            
+            if avg and avg < 0.6:
+                if key == "helpfulness":
+                    insights.append({
+                        "metric": key,
+                        "score": round(avg, 3),
+                        "severity": "high" if avg < 0.4 else "medium",
+                        "recommendation": "Responses may not be addressing user needs. Review prompts to ensure they focus on actionable, relevant answers.",
+                        "action": "Review system prompts for clarity and user focus",
+                    })
+                elif key == "relevance":
+                    insights.append({
+                        "metric": key,
+                        "score": round(avg, 3),
+                        "severity": "high" if avg < 0.4 else "medium",
+                        "recommendation": "Responses may be off-topic. Ensure context is properly passed to agents.",
+                        "action": "Check context retrieval and prompt engineering",
+                    })
+                elif key == "accuracy":
+                    insights.append({
+                        "metric": key,
+                        "score": round(avg, 3),
+                        "severity": "high" if avg < 0.4 else "medium",
+                        "recommendation": "Factual accuracy issues detected. Consider adding RAG or fact-checking.",
+                        "action": "Add source verification or ground truth checks",
+                    })
+        
+        return JSONResponse({
+            "enabled": True,
+            "project": project_name,
+            "period_days": 7,
+            "stats": {
+                "total_runs": total_runs,
+                "runs_with_feedback": runs_with_feedback,
+                "evaluation_coverage": f"{(runs_with_feedback/total_runs*100):.1f}%" if total_runs else "0%",
+            },
+            "scores": {k: {"average": v["average"], "count": v["count"]} for k, v in score_breakdown.items()},
+            "insights": insights,
+            "low_score_runs": low_score_runs[:10],  # Top 10 issues
+            "recommended_actions": [
+                "Add thumbs up/down buttons to UI for user feedback",
+                "Review low-scoring traces in LangSmith",
+                "Update prompts based on feedback patterns",
+            ] if insights else [
+                "Quality looks good! Consider adding more evaluation dimensions.",
+            ],
+        })
+        
+    except Exception as e:
+        return JSONResponse({
+            "enabled": True,
+            "error": str(e),
+        })
 
 
 # ============================================

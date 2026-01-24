@@ -2460,8 +2460,11 @@
         <button class="ai-response-close" onclick="closeAIResponse()">✕</button>
       </div>
       <div class="ai-response-content" id="aiResponseContent"></div>
+      <div class="ai-feedback" id="aiResponseFeedback" style="display: none;"></div>
     </div>
   </div>
+
+  {% include 'components/feedback_buttons.html' %}
 
 
   <!-- Stats Grid -->
@@ -3474,12 +3477,19 @@ async function convertAIToAction() {
   }
 }
 
+// Track current AI run_id for feedback
+let currentAIRunId = null;
+
 function askAI(topic) {
   chips.forEach(c => c.classList.remove('active'));
   event.target.closest('.chip').classList.add('active');
   
   currentAIQuery = topic;
   currentAIResponse = '';
+  currentAIRunId = null;
+  
+  // Hide feedback during loading
+  document.getElementById('aiResponseFeedback').style.display = 'none';
   
   aiResponse.classList.add('visible');
   aiResponseContent.innerHTML = '<div class="ai-response-loading"><div class="spinner"></div>Thinking...</div>';
@@ -3504,7 +3514,14 @@ function askAI(topic) {
       aiResponseContent.innerHTML = '<span style="color: #e74c3c;">Error: ' + data.error + '</span>';
     } else {
       currentAIResponse = data.response || '';
+      currentAIRunId = data.run_id || null;
       renderAIResponseItems(currentAIResponse || 'No results found.');
+      
+      // Show feedback buttons if we have a run_id
+      if (currentAIRunId) {
+        renderFeedbackButtons('aiResponseFeedback', currentAIRunId, `Dashboard AI: ${topic}`);
+        document.getElementById('aiResponseFeedback').style.display = 'flex';
+      }
     }
   })
   .catch(err => {
@@ -3522,6 +3539,10 @@ function askCustom() {
   
   currentAIQuery = query;
   currentAIResponse = '';
+  currentAIRunId = null;
+  
+  // Hide feedback during loading
+  document.getElementById('aiResponseFeedback').style.display = 'none';
   
   aiResponse.classList.add('visible');
   aiResponseContent.innerHTML = '<div class="ai-response-loading"><div class="spinner"></div>Thinking...</div>';
@@ -3546,7 +3567,14 @@ function askCustom() {
       aiResponseContent.innerHTML = '<span style="color: #e74c3c;">Error: ' + data.error + '</span>';
     } else {
       currentAIResponse = data.response || '';
+      currentAIRunId = data.run_id || null;
       renderAIResponseItems(currentAIResponse || 'No results found.');
+      
+      // Show feedback buttons if we have a run_id
+      if (currentAIRunId) {
+        renderFeedbackButtons('aiResponseFeedback', currentAIRunId, `Dashboard AI: Custom Query`);
+        document.getElementById('aiResponseFeedback').style.display = 'flex';
+      }
     }
   })
   .catch(err => {
@@ -3561,6 +3589,7 @@ function closeAIResponse() {
   chips.forEach(c => c.classList.remove('active'));
   currentAIQuery = '';
   currentAIResponse = '';
+  currentAIRunId = null;
 }
 
 // ============================================

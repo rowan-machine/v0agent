@@ -6,7 +6,25 @@ from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta
 import json
 import os
+from urllib.parse import urlencode
 from ..db import connect
+
+
+def preserve_auth_redirect(url: str, request: Request, extra_params: dict = None) -> str:
+    """Build redirect URL preserving auth token if present."""
+    params = {}
+    # Preserve token from query params
+    token = request.query_params.get("token")
+    if token:
+        params["token"] = token
+    # Add any extra params
+    if extra_params:
+        params.update(extra_params)
+    # Build URL with params
+    if params:
+        separator = "&" if "?" in url else "?"
+        return f"{url}{separator}{urlencode(params)}"
+    return url
 from ..chat.models import (
     create_conversation,
     get_recent_messages,
@@ -190,10 +208,9 @@ def chat_history(request: Request):
 def new_chat(request: Request, prompt: str = None):
     """Create a new conversation and redirect to it."""
     cid = create_conversation()
-    if prompt:
-        # If prompt provided, redirect with it as a query param to pre-fill
-        return RedirectResponse(url=f"/chat/{cid}?prompt={prompt}", status_code=303)
-    return RedirectResponse(url=f"/chat/{cid}", status_code=303)
+    base_url = f"/chat/{cid}"
+    extra_params = {"prompt": prompt} if prompt else None
+    return RedirectResponse(url=preserve_auth_redirect(base_url, request, extra_params), status_code=303)
 
 
 @router.get("/chat/{conversation_id}")
@@ -203,7 +220,7 @@ def view_chat(request: Request, conversation_id: int, prompt: str = None):
     conversation = get_conversation(conversation_id)
     
     if not conversation:
-        return RedirectResponse(url="/chat", status_code=303)
+        return RedirectResponse(url=preserve_auth_redirect("/chat", request), status_code=303)
     
     # Get meeting/document context if set
     meeting_id = conversation.get("meeting_id") if hasattr(conversation, "get") else (conversation["meeting_id"] if "meeting_id" in conversation.keys() else None)
@@ -363,10 +380,10 @@ def unarchive_chat(conversation_id: int):
 
 
 @router.post("/chat/{conversation_id}/title")
-def update_chat_title(conversation_id: int, title: str = Form(...)):
+def update_chat_title(request: Request, conversation_id: int, title: str = Form(...)):
     """Update conversation title."""
     update_conversation_title(conversation_id, title)
-    return RedirectResponse(url=f"/chat/{conversation_id}", status_code=303)
+    return RedirectResponse(url=preserve_auth_redirect(f"/chat/{conversation_id}", request), status_code=303)
 
 
 @router.post("/api/chat/{conversation_id}/context")

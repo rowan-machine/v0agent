@@ -153,6 +153,7 @@ PUBLIC_ROUTES = [
     "/api/career",  # Allow all career APIs
     "/api/admin/health",  # Health check for monitoring
     "/api/admin/infrastructure",  # Infrastructure status
+    "/api/notifications",  # Allow notifications (single user app)
 ]
 
 

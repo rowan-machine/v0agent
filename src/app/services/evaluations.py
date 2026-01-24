@@ -96,15 +96,45 @@ def submit_feedback(
         
         client = Client()
         
-        feedback = client.create_feedback(
-            run_id=run_id,
-            key=key,
-            score=score,
-            value=value,
-            comment=comment,
-            correction={"value": correction} if correction else None,
-            source_info=source_info or {"type": "app"},
-        )
+        # LangSmith requires feedback to match evaluator type
+        # For continuous evaluators, use score
+        # For categorical evaluators, use value
+        # We'll try score first, then fall back to categorical value
+        feedback_params = {
+            "run_id": run_id,
+            "key": key,
+            "comment": comment,
+            "source_info": source_info or {"type": "app"},
+        }
+        
+        if correction:
+            feedback_params["correction"] = {"value": correction}
+        
+        # Determine feedback type based on key
+        # Built-in LangSmith evaluators use categorical values
+        categorical_keys = {"hallucination", "answer_relevance", "conciseness"}
+        
+        if key in categorical_keys:
+            # Use categorical value - convert score to category
+            if score is not None:
+                if key == "hallucination":
+                    # Hallucination: 0 = no hallucination (good), 1 = hallucination (bad)
+                    feedback_params["value"] = "no" if score < 0.5 else "yes"
+                elif key == "answer_relevance":
+                    feedback_params["value"] = "relevant" if score >= 0.5 else "irrelevant"
+                elif key == "conciseness":
+                    # Map 0-1 to 1-5 scale
+                    feedback_params["value"] = str(max(1, min(5, int(score * 5) + 1)))
+            elif value:
+                feedback_params["value"] = value
+        else:
+            # Custom feedback keys - use score
+            if score is not None:
+                feedback_params["score"] = score
+            if value:
+                feedback_params["value"] = value
+        
+        feedback = client.create_feedback(**feedback_params)
         
         logger.info(f"Submitted feedback for run {run_id}: {key}={score or value}")
         return feedback.id

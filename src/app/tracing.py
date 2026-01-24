@@ -98,6 +98,9 @@ class TraceMetadata:
         }
         
         if self.thread_id:
+            # LangSmith Threads feature looks for session_id, conversation_id, or thread_id
+            # We include all three for maximum compatibility
+            metadata["session_id"] = self.thread_id  # Primary key for Threads
             metadata["thread_id"] = self.thread_id
             metadata["conversation_id"] = self.thread_id  # Alias for UI
         
@@ -110,7 +113,8 @@ class TraceMetadata:
         if self.user_id:
             metadata["user_id"] = self.user_id
             
-        if self.session_id:
+        if self.session_id and self.session_id != self.thread_id:
+            # If explicitly set separately from thread_id
             metadata["session_id"] = self.session_id
         
         metadata.update(self.extra)

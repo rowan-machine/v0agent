@@ -1,0 +1,191 @@
+<!-- 
+  Reusable AI Feedback Buttons Component
+  
+  Usage: Include this file and call renderFeedbackButtons(containerId, runId, context)
+  
+  Parameters:
+    - containerId: DOM element ID where buttons should be rendered
+    - runId: LangSmith run ID for the AI response
+    - context: String describing what was rated (for user feedback)
+-->
+
+<style>
+  /* Feedback Buttons */
+  .ai-feedback {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--sf-border, #e0e0e0);
+  }
+
+  [data-theme="dark"] .ai-feedback {
+    border-top-color: #333;
+  }
+
+  .ai-feedback-label {
+    font-size: 0.75rem;
+    color: var(--sf-text-muted, #888);
+    margin-right: 0.25rem;
+  }
+
+  .ai-feedback-btn {
+    background: none;
+    border: 1px solid var(--sf-border, #ddd);
+    border-radius: 6px;
+    padding: 0.35rem 0.6rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .ai-feedback-btn:hover {
+    background: var(--sf-hover-bg, #f5f5f5);
+    transform: scale(1.05);
+  }
+
+  [data-theme="dark"] .ai-feedback-btn:hover {
+    background: #2a3548;
+  }
+
+  .ai-feedback-btn.positive:hover {
+    border-color: #22c55e;
+    color: #22c55e;
+  }
+
+  .ai-feedback-btn.negative:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+  }
+
+  .ai-feedback-btn.selected {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .ai-feedback-btn.selected.positive {
+    background: #dcfce7;
+    border-color: #22c55e;
+    color: #22c55e;
+  }
+
+  .ai-feedback-btn.selected.negative {
+    background: #fee2e2;
+    border-color: #ef4444;
+    color: #ef4444;
+  }
+
+  [data-theme="dark"] .ai-feedback-btn.selected.positive {
+    background: #14532d;
+  }
+
+  [data-theme="dark"] .ai-feedback-btn.selected.negative {
+    background: #7f1d1d;
+  }
+
+  .ai-feedback-thanks {
+    font-size: 0.75rem;
+    color: #22c55e;
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+
+<script>
+/**
+ * Submit feedback to the LangSmith API
+ * @param {string} runId - LangSmith run ID
+ * @param {boolean} isPositive - true for thumbs up, false for thumbs down
+ * @param {string} context - Description of what was rated
+ * @param {HTMLElement} container - Container element for UI updates
+ */
+async function submitAIFeedback(runId, isPositive, context, container) {
+  if (!runId) {
+    console.warn('No run_id available for feedback');
+    return;
+  }
+
+  try {
+    const response = await fetch('/api/evaluations/thumbs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        run_id: runId,
+        is_positive: isPositive,
+        comment: `User feedback on: ${context}`
+      })
+    });
+
+    if (response.ok) {
+      // Update UI to show selected state
+      if (container) {
+        const buttons = container.querySelectorAll('.ai-feedback-btn');
+        buttons.forEach(btn => {
+          btn.classList.add('selected');
+          btn.disabled = true;
+        });
+        
+        // Add thanks message
+        const thanks = document.createElement('span');
+        thanks.className = 'ai-feedback-thanks';
+        thanks.textContent = 'Thanks for your feedback!';
+        container.appendChild(thanks);
+      }
+    } else {
+      console.error('Feedback submission failed:', await response.text());
+    }
+  } catch (err) {
+    console.error('Feedback error:', err);
+  }
+}
+
+/**
+ * Render feedback buttons in a container
+ * @param {string} containerId - DOM element ID
+ * @param {string} runId - LangSmith run ID
+ * @param {string} context - Description of what's being rated
+ */
+function renderFeedbackButtons(containerId, runId, context) {
+  const container = document.getElementById(containerId);
+  if (!container || !runId) return;
+
+  container.innerHTML = `
+    <span class="ai-feedback-label">Was this helpful?</span>
+    <button class="ai-feedback-btn positive" onclick="submitAIFeedback('${runId}', true, '${context.replace(/'/g, "\\'")}', this.parentElement)" title="Yes, helpful">
+      👍
+    </button>
+    <button class="ai-feedback-btn negative" onclick="submitAIFeedback('${runId}', false, '${context.replace(/'/g, "\\'")}', this.parentElement)" title="Not helpful">
+      👎
+    </button>
+  `;
+}
+
+/**
+ * Create feedback HTML string (for inline use)
+ * @param {string} runId - LangSmith run ID
+ * @param {string} context - Description of what's being rated
+ * @param {string} uniqueId - Unique ID for this feedback instance
+ * @returns {string} HTML string
+ */
+function getFeedbackButtonsHTML(runId, context, uniqueId) {
+  if (!runId) return '';
+  
+  const escapedContext = context.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  return `
+    <div class="ai-feedback" id="feedback-${uniqueId}">
+      <span class="ai-feedback-label">Helpful?</span>
+      <button class="ai-feedback-btn positive" onclick="submitAIFeedback('${runId}', true, '${escapedContext}', document.getElementById('feedback-${uniqueId}'))" title="Yes">👍</button>
+      <button class="ai-feedback-btn negative" onclick="submitAIFeedback('${runId}', false, '${escapedContext}', document.getElementById('feedback-${uniqueId}'))" title="No">👎</button>
+    </div>
+  `;
+}
+</script>

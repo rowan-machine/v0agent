@@ -2825,6 +2825,9 @@ async function loadCareerMemory() {
   }
 }
 
+// Track current career insights run_id for feedback
+let careerInsightsRunId = null;
+
 // Generate AI Career Insights based on skills, projects, and profile
 async function generateCareerInsights() {
   const content = document.getElementById('careerMemoryContent');
@@ -2832,6 +2835,7 @@ async function generateCareerInsights() {
   if (!content) return;
   
   content.innerHTML = '<div class="memory-empty">✨ Generating insights...</div>';
+  careerInsightsRunId = null;
   
   try {
     const response = await fetch('/api/career/generate-insights', {
@@ -2842,10 +2846,17 @@ async function generateCareerInsights() {
     if (!response.ok) throw new Error('Failed to generate');
     
     const data = await response.json();
+    careerInsightsRunId = data.run_id || null;
     
     if (data.insights) {
       // Parse insights and add save buttons to each
-      const insightsHtml = parseInsightsWithSaveButtons(data.insights);
+      let insightsHtml = parseInsightsWithSaveButtons(data.insights);
+      
+      // Add feedback buttons if we have a run_id
+      if (careerInsightsRunId) {
+        insightsHtml += getFeedbackButtonsHTML(careerInsightsRunId, 'Career Insights', 'career-insights');
+      }
+      
       content.innerHTML = insightsHtml;
       if (timestamp) {
         timestamp.textContent = `Generated: ${new Date().toLocaleString()}`;
@@ -3039,9 +3050,11 @@ async function sendCareerMessage() {
   userMsg.innerHTML = marked ? marked.parse(message) : escapeHtml(message);
   body.appendChild(userMsg);
 
-  // Add pending assistant message
+  // Add pending assistant message with unique ID for feedback
+  const msgId = 'chat-msg-' + Date.now();
   const assistantMsg = document.createElement('div');
   assistantMsg.className = 'career-chat-message assistant';
+  assistantMsg.id = msgId;
   assistantMsg.textContent = 'Thinking...';
   body.appendChild(assistantMsg);
   body.scrollTop = body.scrollHeight;
@@ -3061,7 +3074,14 @@ async function sendCareerMessage() {
     if (!response.ok) throw new Error('Failed to send');
     
     const data = await response.json();
-    assistantMsg.innerHTML = marked ? marked.parse(data.response || '') : escapeHtml(data.response || '');
+    let responseHtml = marked ? marked.parse(data.response || '') : escapeHtml(data.response || '');
+    
+    // Add feedback buttons if we have a run_id
+    if (data.run_id) {
+      responseHtml += getFeedbackButtonsHTML(data.run_id, 'Career Chat', msgId);
+    }
+    
+    assistantMsg.innerHTML = responseHtml;
     body.scrollTop = body.scrollHeight;
     
     // Refresh memory after sending
@@ -3849,4 +3869,6 @@ async function addAIMemory(title, description, skills) {
   }
 }
 </script>
+
+{% include 'components/feedback_buttons.html' %}
 {% endblock %}

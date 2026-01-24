@@ -90,8 +90,11 @@ def get_code_locker_code_for_sprint_tickets(conn, tickets, max_lines=40, max_cha
     """Return a dict: {ticket_id: {filename: code}} for latest code locker entries for each file in current sprint tickets."""
     code_by_ticket = {}
     for t in tickets:
-        tid = t['id'] if 'id' in t else t.get('id')
-        ticket_code = t['ticket_id'] if 'ticket_id' in t else t.get('ticket_id')
+        # Handle both dict and sqlite3.Row objects
+        tid = t['id'] if 'id' in t.keys() else None
+        ticket_code = t['ticket_id'] if 'ticket_id' in t.keys() else None
+        if not tid or not ticket_code:
+            continue
         # Get all filenames for this ticket from ticket_files
         files = conn.execute("SELECT filename FROM ticket_files WHERE ticket_id = ?", (tid,)).fetchall()
         code_by_ticket[ticket_code] = {}
@@ -544,11 +547,19 @@ Generate actionable insights in this format:
 
 Keep it brief, actionable, and encouraging. Use markdown formatting."""
 
-        # Lazy import for backward compatibility
-        from ..llm import ask as ask_llm
-        insights = ask_llm(prompt, model="gpt-4o-mini")
+        # Use CareerCoach agent for proper tracing
+        from ..agents.career_coach import get_career_coach_agent
+        agent = get_career_coach_agent(db_connection=conn)
+        insights = await agent.ask_llm(
+            prompt=prompt,
+            task_type="career_insights",
+        )
         
-        return JSONResponse({"status": "ok", "insights": insights})
+        return JSONResponse({
+            "status": "ok", 
+            "insights": insights, 
+            "run_id": agent.last_run_id
+        })
 
 
 # ----------------------

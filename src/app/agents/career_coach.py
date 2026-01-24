@@ -183,19 +183,18 @@ Keep responses conversational - think "wise friend" not "corporate HR presentati
         messages.append({"role": "user", "content": message})
         
         try:
-            # Get model from router
-            model = "gpt-4o-mini"
-            if self.model_router:
-                selection = self.model_router.select("coaching", agent_name="career_coach")
-                model = selection.model
+            # Build combined prompt with system and conversation
+            combined_prompt = f"{system_prompt}\n\n"
+            for msg in conversation_history[-6:]:
+                role = "User" if msg.get("role") == "user" else "Assistant"
+                combined_prompt += f"{role}: {msg.get('content', '')}\n\n"
+            combined_prompt += f"User: {message}\n\nAssistant:"
             
-            # Call LLM
-            if self.llm_client:
-                response = await self._call_llm(messages, model=model)
-            else:
-                # Fallback to direct call
-                from ..llm import ask as ask_llm
-                response = ask_llm(message, model=model)
+            # Use base agent's ask_llm for proper LangSmith tracing
+            response = await self.ask_llm(
+                prompt=combined_prompt,
+                task_type="coaching",
+            )
             
             # Generate summary for storage
             summary = await self._generate_summary(message, response)
@@ -661,7 +660,13 @@ def get_career_coach_agent(
     """
     global _career_coach_instance
     
+    # Check if we need to recreate (missing llm_client)
+    if _career_coach_instance is not None and _career_coach_instance.llm_client is None:
+        _career_coach_instance = None  # Reset to recreate
+    
     if _career_coach_instance is None:
+        from .arjuna import SimpleLLMClient
+        
         config = AgentConfig(
             name="career_coach",
             description="Career development coaching and growth suggestions",
@@ -670,7 +675,7 @@ def get_career_coach_agent(
         _career_coach_instance = CareerCoachAgent(
             config=config,
             db_connection=db_connection,
-            llm_client=llm_client,
+            llm_client=llm_client or SimpleLLMClient(),
             model_router=model_router,
             guardrails=guardrails,
         )
@@ -705,7 +710,7 @@ async def career_chat_adapter(
         db_connection: Database connection
     
     Returns:
-        Dict with status, response, and summary
+        Dict with status, response, summary, and run_id for feedback
     """
     agent = get_career_coach_agent(db_connection=db_connection)
     
@@ -720,6 +725,7 @@ async def career_chat_adapter(
         "status": "ok" if result.get("success") else "error",
         "response": result.get("response", ""),
         "summary": result.get("summary", ""),
+        "run_id": agent.last_run_id,  # From base agent property
     }
 
 

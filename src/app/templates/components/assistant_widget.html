@@ -400,6 +400,91 @@
     color: #fcd34d;
   }
 
+  /* Feedback buttons for assistant messages */
+  .assistant-feedback {
+    display: flex;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(0,0,0,0.08);
+  }
+
+  .feedback-btn {
+    padding: 0.3rem 0.5rem;
+    background: transparent;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.15s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: #6b7280;
+  }
+
+  .feedback-btn:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+  }
+
+  .feedback-btn.positive:hover {
+    background: #dcfce7;
+    border-color: #22c55e;
+    color: #166534;
+  }
+
+  .feedback-btn.negative:hover {
+    background: #fee2e2;
+    border-color: #ef4444;
+    color: #991b1b;
+  }
+
+  .feedback-btn.selected {
+    background: #667eea;
+    border-color: #667eea;
+    color: white;
+  }
+
+  .feedback-btn.selected.positive {
+    background: #22c55e;
+    border-color: #22c55e;
+  }
+
+  .feedback-btn.selected.negative {
+    background: #ef4444;
+    border-color: #ef4444;
+  }
+
+  .feedback-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .feedback-thanks {
+    font-size: 0.75rem;
+    color: #059669;
+    margin-left: 0.5rem;
+    display: none;
+  }
+
+  .feedback-thanks.show {
+    display: inline;
+  }
+
+  [data-theme="dark"] .feedback-btn {
+    border-color: #4a4a4a;
+    color: #9ca3af;
+  }
+
+  [data-theme="dark"] .feedback-btn:hover {
+    background: #3a3a3a;
+  }
+
+  [data-theme="dark"] .assistant-feedback {
+    border-top-color: rgba(255,255,255,0.08);
+  }
+
   /* Navigation links in assistant */
   [data-theme="dark"] .assistant-message a {
     background: #3730a3 !important;
@@ -454,6 +539,22 @@
 
 <script>
   let assistantHistory = [];
+  let currentThreadId = null;  // Track conversation thread for LangSmith
+  let lastRunId = null;  // Track last LLM run ID for feedback
+  
+  // Generate a unique thread ID for this conversation session
+  function getOrCreateThreadId() {
+    if (!currentThreadId) {
+      const stored = sessionStorage.getItem('arjuna-thread-id');
+      if (stored) {
+        currentThreadId = stored;
+      } else {
+        currentThreadId = 'thread-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+        sessionStorage.setItem('arjuna-thread-id', currentThreadId);
+      }
+    }
+    return currentThreadId;
+  }
   
   // All available suggestion sets - will cycle through these
   const suggestionSets = [
@@ -716,11 +817,35 @@
   // Initialize on page load - restore conversation
   document.addEventListener('DOMContentLoaded', restoreConversation);
 
-  function addAssistantMessage(content, role = 'assistant', followUps = null) {
+  function addAssistantMessage(content, role = 'assistant', followUps = null, runId = null) {
     const container = document.getElementById('assistantMessages');
     const msg = document.createElement('div');
     msg.className = `assistant-message ${role}`;
+    
+    // Store run_id for feedback
+    if (runId) {
+      msg.dataset.runId = runId;
+      lastRunId = runId;
+    }
+    
     msg.innerHTML = content;
+    
+    // Add feedback buttons for assistant messages
+    if (role === 'assistant' && runId) {
+      const feedbackDiv = document.createElement('div');
+      feedbackDiv.className = 'assistant-feedback';
+      feedbackDiv.innerHTML = `
+        <button class="feedback-btn positive" onclick="submitFeedback('${runId}', true, this)" title="This was helpful">
+          👍
+        </button>
+        <button class="feedback-btn negative" onclick="submitFeedback('${runId}', false, this)" title="This wasn't helpful">
+          👎
+        </button>
+        <span class="feedback-thanks">Thanks for the feedback!</span>
+      `;
+      msg.appendChild(feedbackDiv);
+    }
+    
     container.appendChild(msg);
     
     // Remove any existing suggestion chips first
@@ -735,6 +860,42 @@
     }
     
     container.scrollTop = container.scrollHeight;
+  }
+
+  // Submit feedback to LangSmith
+  async function submitFeedback(runId, isPositive, buttonEl) {
+    if (!runId) return;
+    
+    // Disable buttons and show selected state
+    const feedbackDiv = buttonEl.parentElement;
+    const buttons = feedbackDiv.querySelectorAll('.feedback-btn');
+    buttons.forEach(btn => {
+      btn.disabled = true;
+      btn.classList.remove('selected');
+    });
+    buttonEl.classList.add('selected');
+    
+    try {
+      const response = await fetch('/api/evaluations/thumbs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          run_id: runId,
+          is_positive: isPositive,
+          comment: isPositive ? null : 'User marked as not helpful'
+        })
+      });
+      
+      if (response.ok) {
+        const thanks = feedbackDiv.querySelector('.feedback-thanks');
+        if (thanks) thanks.classList.add('show');
+      }
+    } catch (err) {
+      console.error('Feedback submission error:', err);
+      // Re-enable buttons on error
+      buttons.forEach(btn => btn.disabled = false);
+    }
   }
 
   function showThinking() {
@@ -781,7 +942,8 @@
         credentials: 'same-origin',
         body: JSON.stringify({
           message: message,
-          history: assistantHistory
+          history: assistantHistory,
+          thread_id: getOrCreateThreadId()  // Send thread ID for LangSmith tracing
         })
       });
       
@@ -811,7 +973,8 @@
         
         // Use API-provided follow-ups if available, otherwise use rotating set
         const followUps = data.follow_ups || null;
-        addAssistantMessage(responseHtml, 'assistant', followUps);
+        // Pass run_id for feedback buttons
+        addAssistantMessage(responseHtml, 'assistant', followUps, data.run_id);
         assistantHistory.push({ role: 'assistant', content: data.response });
         saveConversation(); // Persist after assistant response
       }

@@ -505,8 +505,45 @@ def get_system_context() -> dict:
     }
 
 
-def parse_assistant_intent(message: str, context: dict, history: list) -> dict:
-    """Use LLM to understand user intent and extract structured data."""
+async def parse_assistant_intent(message: str, context: dict, history: list, thread_id: str = None) -> dict:
+    """
+    Use LLM to understand user intent and extract structured data.
+    
+    Args:
+        message: User's message
+        context: System context  
+        history: Conversation history
+        thread_id: Optional thread ID for LangSmith tracing
+    
+    Returns:
+        Dict with intent, entities, response_text, and run_id for feedback
+    """
+    
+    # SPECIAL HANDLING: 1-on-1 prep and work status queries → use ArjunaAgent
+    oneone_keywords = ['1-on-1', '1:1', 'one-on-one', 'one on one', '1 on 1', 
+                       'working on', 'top 3', 'need help', 'blockers', 'blocked',
+                       'observations', 'feedback', 'discuss', 'prepare for']
+    if any(kw in message.lower() for kw in oneone_keywords):
+        from ..agents.arjuna import get_arjuna_agent
+        
+        agent = get_arjuna_agent()
+        try:
+            result = await agent.quick_ask(query=message)
+            
+            if result.get("success"):
+                return {
+                    "intent": "ask_question",
+                    "confidence": 1.0,
+                    "entities": {},
+                    "clarifications": [],
+                    "response_text": result.get("response", ""),
+                    "suggested_page": None,
+                    "run_id": agent.last_run_id,
+                }
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f"ArjunaAgent quick_ask failed: {e}")
+            # Fall through to normal handling
     
     # SPECIAL HANDLING: Focus queries get smart recommendations
     focus_keywords = ['focus', 'should i do', 'what next', 'prioritize', 'work on today', 'start with']
@@ -607,7 +644,7 @@ IMPORTANT GUIDELINES:
 
     # Lazy import for backward compatibility
     from ..llm import ask as ask_llm
-    response = ask_llm(system_prompt, model="gpt-4o-mini")
+    response = ask_llm(system_prompt, model="gpt-4o-mini", thread_id=thread_id)
     
     try:
         # Try to parse JSON from response
@@ -855,23 +892,48 @@ def execute_intent(intent_data: dict) -> dict:
 @router.post("/api/assistant/chat")
 async def assistant_chat(request: Request):
     """Handle assistant chat messages."""
+    import uuid
+    from ..services.evaluations import (
+        is_evaluation_enabled,
+        evaluate_helpfulness,
+        submit_feedback,
+    )
+    
     try:
         data = await request.json()
         message = data.get("message", "")
         conversation_history = data.get("history", [])
+        thread_id = data.get("thread_id")  # For LangSmith thread grouping
         
         # Get current system context
         context = get_system_context()
         
-        # Parse user intent with conversation history
-        intent_data = parse_assistant_intent(message, context, conversation_history)
+        # Parse user intent with conversation history (pass thread_id for tracing)
+        intent_data = await parse_assistant_intent(message, context, conversation_history, thread_id=thread_id)
+        
+        # Get run_id from intent_data (if ArjunaAgent was used) or fallback to list_runs
+        run_id = intent_data.get("run_id")
+        if not run_id:
+            try:
+                from ..tracing import get_langsmith_client, get_project_name
+                client = get_langsmith_client()
+                if client:
+                    runs = list(client.list_runs(
+                        project_name=get_project_name(),
+                        limit=1,
+                    ))
+                    if runs:
+                        run_id = str(runs[0].id)
+            except Exception:
+                pass
         
         # If needs clarification, return questions
         if intent_data.get("clarifications") and intent_data.get("intent") == "needs_clarification":
             return JSONResponse({
                 "response": intent_data.get("response_text", "I need more information."),
                 "clarifications": intent_data.get("clarifications"),
-                "needs_input": True
+                "needs_input": True,
+                "run_id": run_id
             })
         
         # Execute the intent
@@ -880,7 +942,8 @@ async def assistant_chat(request: Request):
         if not execution_result.get("success"):
             return JSONResponse({
                 "response": f"Sorry, I encountered an error: {execution_result.get('error')}",
-                "success": False
+                "success": False,
+                "run_id": run_id
             })
         
         # Build response
@@ -928,13 +991,50 @@ async def assistant_chat(request: Request):
         # Generate contextual follow-up suggestions based on action
         follow_ups = get_follow_up_suggestions(action, intent_data.get("intent"), execution_result)
         
+        # === AUTOMATIC EVALUATION (async, non-blocking) ===
+        # Run helpfulness evaluation in background and submit to LangSmith
+        if is_evaluation_enabled() and response_text and message:
+            try:
+                import asyncio
+                async def run_eval():
+                    try:
+                        result = evaluate_helpfulness(response_text, message)
+                        if result.score is not None:
+                            # Get the run_id from the most recent trace if available
+                            from ..tracing import get_langsmith_client, get_project_name
+                            client = get_langsmith_client()
+                            if client:
+                                # Find the most recent run for this agent
+                                runs = list(client.list_runs(
+                                    project_name=get_project_name(),
+                                    limit=1,
+                                ))
+                                if runs:
+                                    # Use custom key for numeric scores (not a built-in LangSmith evaluator)
+                                    submit_feedback(
+                                        run_id=str(runs[0].id),
+                                        key="auto_helpfulness",  # Custom key accepts numeric scores
+                                        score=result.score,
+                                        comment=result.reasoning,
+                                        source_info={"type": "auto_evaluator", "evaluator": "helpfulness"},
+                                    )
+                    except Exception as e:
+                        import logging
+                        logging.getLogger(__name__).debug(f"Auto-eval failed: {e}")
+                
+                # Fire and forget - don't wait for evaluation
+                asyncio.create_task(run_eval())
+            except Exception:
+                pass  # Evaluation is optional
+        
         return JSONResponse({
             "response": response_text,
             "success": True,
             "action": action,
             "result": execution_result,
             "suggested_page": suggested or navigate_to,
-            "follow_ups": follow_ups
+            "follow_ups": follow_ups,
+            "run_id": run_id  # For user feedback
         })
     
     except Exception as e:
