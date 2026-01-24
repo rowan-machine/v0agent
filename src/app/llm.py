@@ -176,22 +176,24 @@ def get_user_status_context() -> str:
         return ""
 
 
-def answer(question: str, context_blocks: list[str], trace_name: str = "llm.answer") -> str:
+def answer(question: str, context_blocks: list[str], trace_name: str = "llm.answer", return_run_id: bool = False) -> str | tuple:
     """Answer a question using provided context.
     
     Args:
         question: The question to answer
         context_blocks: List of context blocks to use
         trace_name: Name for LangSmith tracing (optional)
+        return_run_id: If True, return (answer, run_id) tuple for feedback
     
     Returns:
-        LLM response text
+        LLM response text, or (response, run_id) tuple if return_run_id=True
     """
     import uuid
     from datetime import datetime
     
     if not context_blocks:
-        return "I don't have enough information in the provided sources."
+        result = "I don't have enough information in the provided sources."
+        return (result, None) if return_run_id else result
 
     ctx = "\n\n".join(context_blocks)
     
@@ -251,7 +253,7 @@ def answer(question: str, context_blocks: list[str], trace_name: str = "llm.answ
             except Exception:
                 pass
         
-        return response_text
+        return (response_text, run_id) if return_run_id else response_text
     except Exception as e:
         # Update trace with error
         if langsmith_client and run_id:

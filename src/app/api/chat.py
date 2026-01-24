@@ -116,8 +116,13 @@ def get_recent_signals_for_context(days: int = 14, limit: int = 8):
                 if isinstance(items, list):
                     for item in items[:2]:
                         if item and len(signals) < limit:
+                            # Handle both string items and dict items with 'text' key
+                            if isinstance(item, dict):
+                                text = item.get("text") or item.get("description") or str(item)
+                            else:
+                                text = str(item)
                             signals.append({
-                                "text": item,
+                                "text": text,
                                 "type": type_classes.get(stype, ""),
                                 "type_label": type_labels.get(stype, stype),
                                 "source": m["meeting_name"]
@@ -299,10 +304,11 @@ def chat_turn(
         document_id = conversation.get("document_id") if hasattr(conversation, "get") else (conversation["document_id"] if "document_id" in conversation.keys() else None)
     
     # Run the chat turn with context if available
+    run_id = None
     if meeting_id or document_id:
-        answer = run_chat_turn_with_context(conversation_id, message, meeting_id, document_id)
+        answer, run_id = run_chat_turn_with_context(conversation_id, message, meeting_id, document_id)
     else:
-        answer = run_chat_turn(conversation_id, message)
+        answer, run_id = run_chat_turn(conversation_id, message)
     
     # Generate title if this is the first message
     if conversation and not conversation["title"]:
@@ -348,6 +354,7 @@ def chat_turn(
             "conversation_id": conversation_id,
             "messages": messages,
             "answer": answer,
+            "last_run_id": run_id,
             "recent_signals": recent_signals,
             "sprint_stats": sprint_stats,
             "meetings_list": meetings_list,

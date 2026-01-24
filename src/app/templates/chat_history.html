@@ -1738,6 +1738,63 @@
   [data-theme="dark"] .fab-btn {
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
   }
+
+  /* Feedback Buttons for Chat */
+  .feedback-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+  }
+
+  .feedback-btn {
+    background: transparent;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    opacity: 0.7;
+  }
+
+  .feedback-btn:hover {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  .feedback-btn.thumbs-up:hover {
+    background: #e8f5e9;
+    border-color: #4caf50;
+  }
+
+  .feedback-btn.thumbs-down:hover {
+    background: #ffebee;
+    border-color: #f44336;
+  }
+
+  .feedback-btn.selected {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+
+  .feedback-btn.selected.thumbs-up {
+    background: #4caf50;
+    border-color: #4caf50;
+    color: white;
+  }
+
+  .feedback-btn.selected.thumbs-down {
+    background: #f44336;
+    border-color: #f44336;
+    color: white;
+  }
+
+  .feedback-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 </style>
 
 <div class="chat-container">
@@ -1883,6 +1940,13 @@
                 <div class="choice-chips" id="choice-chips">
                   <!-- Choice chips will be dynamically inserted here -->
                 </div>
+                {% if last_run_id %}
+                <div class="feedback-buttons" id="chat-feedback-{{ loop.index }}">
+                  <span style="font-size: 0.75rem; color: #888; margin-right: 0.5rem;">Was this helpful?</span>
+                  <button class="feedback-btn thumbs-up" onclick="submitChatFeedback('{{ last_run_id }}', 1, this)" title="Helpful">👍</button>
+                  <button class="feedback-btn thumbs-down" onclick="submitChatFeedback('{{ last_run_id }}', 0, this)" title="Not helpful">👎</button>
+                </div>
+                {% endif %}
               {% endif %}
             </div>
           {% endfor %}
@@ -2544,6 +2608,41 @@
       if (form) {
         handleChatSubmit(new Event('submit'));
       }
+    }
+  }
+
+  // Submit chat feedback to LangSmith
+  async function submitChatFeedback(runId, score, buttonEl) {
+    if (!runId) return;
+    
+    // Disable both buttons
+    const container = buttonEl.parentElement;
+    const buttons = container.querySelectorAll('.feedback-btn');
+    buttons.forEach(btn => btn.disabled = true);
+    
+    // Mark selected button
+    buttonEl.classList.add('selected');
+    
+    try {
+      const response = await fetch('/api/evaluations/thumbs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          run_id: runId,
+          score: score,
+          key: 'helpfulness',
+          comment: score === 1 ? 'User marked as helpful' : 'User marked as not helpful'
+        })
+      });
+      
+      if (response.ok) {
+        showToast(score === 1 ? 'Thanks for the feedback! 👍' : 'Thanks for the feedback. We\'ll improve! 📝', 'success');
+      }
+    } catch (err) {
+      console.error('Failed to submit feedback:', err);
+      buttons.forEach(btn => btn.disabled = false);
+      buttonEl.classList.remove('selected');
     }
   }
 

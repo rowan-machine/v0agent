@@ -244,10 +244,10 @@ def run_chat_turn(
     conversation = get_recent_messages(conversation_id)
     context = build_context(conversation, memory_blocks)
 
-    answer = llm_answer(question, context)
+    answer, run_id = llm_answer(question, context, return_run_id=True)
 
     add_message(conversation_id, "assistant", answer)
-    return answer
+    return answer, run_id
 
 
 # ============================================================
@@ -328,7 +328,7 @@ If the question cannot be answered from this specific context, say so clearly.""
     conversation = get_recent_messages(conversation_id)
     context = build_context(conversation, memory_blocks)
 
-    answer = llm_answer(question, context)
+    answer, run_id = llm_answer(question, context, return_run_id=True)
 
     add_message(conversation_id, "assistant", answer)
-    return answer
+    return answer, run_id
