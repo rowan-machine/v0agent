@@ -244,9 +244,8 @@ def run_chat_turn(
     # If no memory blocks found, try ArjunaAgent as fallback
     if not memory_blocks:
         try:
-            from ..agents.arjuna import get_arjuna_agent
-            agent = get_arjuna_agent()
-            result = agent.quick_ask(question)
+            from ..agents.arjuna import quick_ask_sync
+            result = quick_ask_sync(query=question)
             if result.get("success") and result.get("response"):
                 answer = result["response"]
                 run_id = result.get("run_id")
@@ -254,6 +253,8 @@ def run_chat_turn(
                 return answer, run_id
         except Exception as e:
             print(f"ArjunaAgent fallback failed: {e}")
+            import traceback
+            traceback.print_exc()
             pass
 
     conversation = get_recent_messages(conversation_id)
@@ -343,9 +344,8 @@ If the question cannot be answered from this specific context, say so clearly.""
     # If no context items found (only focus instruction), use ArjunaAgent fallback
     if len(memory_blocks) <= 1 and not items:
         try:
-            from ..agents.arjuna import get_arjuna_agent
-            agent = get_arjuna_agent()
-            result = agent.quick_ask(question)
+            from ..agents.arjuna import quick_ask_sync
+            result = quick_ask_sync(query=question)
             if result.get("success") and result.get("response"):
                 answer = result["response"]
                 run_id = result.get("run_id")
@@ -353,6 +353,8 @@ If the question cannot be answered from this specific context, say so clearly.""
                 return answer, run_id
         except Exception as e:
             print(f"ArjunaAgent fallback failed: {e}")
+            import traceback
+            traceback.print_exc()
             pass
 
     conversation = get_recent_messages(conversation_id)
