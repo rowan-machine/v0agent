@@ -176,7 +176,7 @@ Respond with just the score and a one-sentence explanation.
 Format: SCORE: 0.X REASON: <explanation>"""
 
     try:
-        result = ask_llm(prompt, model="gpt-4o-mini", max_tokens=100)
+        result = ask_llm(prompt, model="gpt-4o-mini")
         
         # Parse score from response
         import re
@@ -236,7 +236,7 @@ Consider meaning, not exact wording.
 Format: SCORE: 0.X REASON: <explanation>"""
 
     try:
-        result = ask_llm(prompt, model="gpt-4o-mini", max_tokens=100)
+        result = ask_llm(prompt, model="gpt-4o-mini")
         
         import re
         match = re.search(r'SCORE:\s*([\d.]+)', result)
@@ -281,7 +281,7 @@ Score from 0.0 (not helpful) to 1.0 (very helpful).
 Format: SCORE: 0.X REASON: <explanation>"""
 
     try:
-        result = ask_llm(prompt, model="gpt-4o-mini", max_tokens=150)
+        result = ask_llm(prompt, model="gpt-4o-mini")
         
         import re
         match = re.search(r'SCORE:\s*([\d.]+)', result)
@@ -330,7 +330,7 @@ Score from 0.0 (poor quality) to 1.0 (high quality signal).
 Format: SCORE: 0.X REASON: <explanation>"""
 
     try:
-        result = ask_llm(prompt, model="gpt-4o-mini", max_tokens=200)
+        result = ask_llm(prompt, model="gpt-4o-mini")
         
         import re
         match = re.search(r'SCORE:\s*([\d.]+)', result)
@@ -388,7 +388,7 @@ Score from 0.0 (inappropriate promotion) to 1.0 (excellent promotion).
 Format: SCORE: 0.X REASON: <explanation>"""
 
     try:
-        result = ask_llm(prompt, model="gpt-4o-mini", max_tokens=200)
+        result = ask_llm(prompt, model="gpt-4o-mini")
         
         import re
         match = re.search(r'SCORE:\s*([\d.]+)', result)
