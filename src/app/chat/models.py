@@ -1,6 +1,87 @@
 # src/app/chat/models.py
 
+import asyncio
+import logging
+from datetime import datetime
+
 from ..db import connect
+
+logger = logging.getLogger(__name__)
+
+
+def _sync_conversation_to_supabase(conversation_id: int):
+    """Background sync conversation to Supabase."""
+    try:
+        from ..infrastructure.supabase_client import get_supabase_sync
+        
+        with connect() as conn:
+            conv = conn.execute(
+                "SELECT * FROM conversations WHERE id = ?",
+                (conversation_id,)
+            ).fetchone()
+            
+            if conv:
+                sync = get_supabase_sync()
+                if sync.is_available:
+                    # Run sync in background
+                    async def do_sync():
+                        supabase_id = await sync.sync_conversation(dict(conv))
+                        if supabase_id and not conv["supabase_id"]:
+                            # Update local with supabase_id
+                            with connect() as c:
+                                c.execute(
+                                    "UPDATE conversations SET supabase_id = ? WHERE id = ?",
+                                    (supabase_id, conversation_id)
+                                )
+                    
+                    try:
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            asyncio.create_task(do_sync())
+                        else:
+                            loop.run_until_complete(do_sync())
+                    except RuntimeError:
+                        # No event loop, run synchronously
+                        asyncio.run(do_sync())
+    except Exception as e:
+        logger.warning(f"Failed to sync conversation to Supabase: {e}")
+
+
+def _sync_message_to_supabase(conversation_id: int, role: str, content: str, run_id: str = None):
+    """Background sync message to Supabase."""
+    try:
+        from ..infrastructure.supabase_client import get_supabase_sync
+        
+        with connect() as conn:
+            # Get conversation's supabase_id
+            conv = conn.execute(
+                "SELECT supabase_id FROM conversations WHERE id = ?",
+                (conversation_id,)
+            ).fetchone()
+            
+            if conv and conv["supabase_id"]:
+                sync = get_supabase_sync()
+                if sync.is_available:
+                    message = {
+                        "role": role,
+                        "content": content,
+                        "run_id": run_id,
+                        "created_at": datetime.now().isoformat()
+                    }
+                    
+                    async def do_sync():
+                        await sync.sync_message(message, conv["supabase_id"])
+                    
+                    try:
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            asyncio.create_task(do_sync())
+                        else:
+                            loop.run_until_complete(do_sync())
+                    except RuntimeError:
+                        asyncio.run(do_sync())
+    except Exception as e:
+        logger.warning(f"Failed to sync message to Supabase: {e}")
 
 def store_conversation_mindmap(conversation_id: int, mindmap_data: dict):
     """Store mindmap data for a conversation.
@@ -37,7 +118,8 @@ def init_chat_tables():
             title TEXT,
             summary TEXT,
             created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT DEFAULT (datetime('now'))
+            updated_at TEXT DEFAULT (datetime('now')),
+            supabase_id TEXT UNIQUE
         );
 
         CREATE TABLE IF NOT EXISTS messages (
@@ -45,7 +127,9 @@ def init_chat_tables():
             conversation_id INTEGER NOT NULL,
             role TEXT NOT NULL,   -- 'user' | 'assistant'
             content TEXT NOT NULL,
-            created_at TEXT DEFAULT (datetime('now'))
+            created_at TEXT DEFAULT (datetime('now')),
+            run_id TEXT,
+            supabase_id TEXT UNIQUE
         );
         """)
         
@@ -74,6 +158,18 @@ def init_chat_tables():
             conn.execute("ALTER TABLE conversations ADD COLUMN document_id INTEGER")
         except:
             pass
+        try:
+            conn.execute("ALTER TABLE conversations ADD COLUMN supabase_id TEXT UNIQUE")
+        except:
+            pass
+        try:
+            conn.execute("ALTER TABLE messages ADD COLUMN run_id TEXT")
+        except:
+            pass
+        try:
+            conn.execute("ALTER TABLE messages ADD COLUMN supabase_id TEXT UNIQUE")
+        except:
+            pass
 
 
 def create_conversation(title: str = None, meeting_id: int = None, document_id: int = None) -> int:
@@ -82,7 +178,12 @@ def create_conversation(title: str = None, meeting_id: int = None, document_id: 
             "INSERT INTO conversations (title, meeting_id, document_id) VALUES (?, ?, ?)",
             (title, meeting_id, document_id)
         )
-        return cur.lastrowid
+        conversation_id = cur.lastrowid
+    
+    # Sync to Supabase in background
+    _sync_conversation_to_supabase(conversation_id)
+    
+    return conversation_id
 
 
 def update_conversation_title(conversation_id: int, title: str):
@@ -196,14 +297,14 @@ def get_conversation(conversation_id: int):
     return row
 
 
-def add_message(conversation_id: int, role: str, content: str):
+def add_message(conversation_id: int, role: str, content: str, run_id: str = None):
     with connect() as conn:
         conn.execute(
             """
-            INSERT INTO messages (conversation_id, role, content)
-            VALUES (?, ?, ?)
+            INSERT INTO messages (conversation_id, role, content, run_id)
+            VALUES (?, ?, ?, ?)
             """,
-            (conversation_id, role, content),
+            (conversation_id, role, content, run_id),
         )
         # Update conversation updated_at if column exists
         cols = [row["name"] for row in conn.execute("PRAGMA table_info(conversations)").fetchall()]
@@ -212,6 +313,9 @@ def add_message(conversation_id: int, role: str, content: str):
                 "UPDATE conversations SET updated_at = datetime('now') WHERE id = ?",
                 (conversation_id,)
             )
+    
+    # Sync to Supabase in background
+    _sync_message_to_supabase(conversation_id, role, content, run_id)
 
 
 def get_recent_messages(conversation_id: int, limit: int = 6):

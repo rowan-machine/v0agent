@@ -905,6 +905,7 @@
   .message-content {
     line-height: 1.6;
     word-wrap: break-word;
+    white-space: pre-wrap;
   }
 
   /* Markdown rendering in assistant messages */
@@ -2820,10 +2821,10 @@
         const assistantDiv = document.createElement('div');
         assistantDiv.className = 'message-wrapper assistant';
         
-        // Format response (basic markdown-like formatting)
+        // Format response - escape HTML but preserve structure
+        // white-space: pre-wrap in CSS will handle newlines
         let formattedResponse = escapeHtml(data.response)
-          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-          .replace(/\n/g, '<br>');
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         
         assistantDiv.innerHTML = `
           <div class="message assistant">

@@ -323,6 +323,76 @@ class SupabaseSync:
             logger.error(f"Failed to sync embedding: {e}")
             return None
     
+    async def sync_conversation(self, conversation: Dict[str, Any]) -> Optional[str]:
+        """
+        Sync a conversation to Supabase.
+        
+        Args:
+            conversation: Conversation dict from SQLite
+            
+        Returns:
+            Supabase UUID or None on failure
+        """
+        if not self._client:
+            return None
+        
+        try:
+            supabase_id = conversation.get("supabase_id")
+            
+            data = {
+                "title": conversation.get("title"),
+                "summary": conversation.get("summary"),
+                "archived": conversation.get("archived", False),
+                "created_at": conversation.get("created_at"),
+                "updated_at": conversation.get("updated_at"),
+            }
+            
+            if supabase_id:
+                # Update existing
+                result = self._client.table("conversations").update(data).eq("id", supabase_id).execute()
+            else:
+                # Insert new
+                result = self._client.table("conversations").insert(data).execute()
+            
+            if result.data:
+                return result.data[0]["id"]
+            return None
+        except Exception as e:
+            logger.error(f"Failed to sync conversation: {e}")
+            return None
+    
+    async def sync_message(self, message: Dict[str, Any], conversation_supabase_id: str) -> Optional[str]:
+        """
+        Sync a message to Supabase.
+        
+        Args:
+            message: Message dict from SQLite
+            conversation_supabase_id: Supabase UUID of the conversation
+            
+        Returns:
+            Supabase UUID or None on failure
+        """
+        if not self._client:
+            return None
+        
+        try:
+            data = {
+                "conversation_id": conversation_supabase_id,
+                "role": message.get("role"),
+                "content": message.get("content"),
+                "run_id": message.get("run_id"),
+                "created_at": message.get("created_at"),
+            }
+            
+            result = self._client.table("messages").insert(data).execute()
+            
+            if result.data:
+                return result.data[0]["id"]
+            return None
+        except Exception as e:
+            logger.error(f"Failed to sync message: {e}")
+            return None
+    
     async def semantic_search(
         self,
         query_embedding: List[float],

@@ -328,6 +328,177 @@ def sync_signal_status_from_supabase() -> int:
     return synced
 
 
+def sync_conversations_from_supabase() -> int:
+    """
+    Sync conversations and messages from Supabase to SQLite.
+    
+    Returns:
+        Number of conversations synced
+    """
+    # Fetch conversations
+    conversations = _fetch_from_supabase("conversations", order_by="updated_at", limit=200)
+    
+    if not conversations:
+        logger.info("No conversations found in Supabase to sync")
+        return 0
+    
+    synced = 0
+    
+    with connect() as conn:
+        # Ensure tables exist
+        conn.executescript("""
+        CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY,
+            title TEXT,
+            summary TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now')),
+            archived INTEGER DEFAULT 0,
+            meeting_id INTEGER,
+            document_id INTEGER,
+            supabase_id TEXT UNIQUE
+        );
+        
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY,
+            conversation_id INTEGER NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT DEFAULT (datetime('now')),
+            run_id TEXT,
+            supabase_id TEXT UNIQUE
+        );
+        """)
+        
+        # Add supabase_id column if missing
+        try:
+            conn.execute("ALTER TABLE conversations ADD COLUMN supabase_id TEXT UNIQUE")
+        except:
+            pass
+        try:
+            conn.execute("ALTER TABLE messages ADD COLUMN supabase_id TEXT UNIQUE")
+        except:
+            pass
+        try:
+            conn.execute("ALTER TABLE messages ADD COLUMN run_id TEXT")
+        except:
+            pass
+        
+        for conv in conversations:
+            try:
+                supabase_id = conv.get("id")
+                
+                # Check if conversation already exists
+                existing = conn.execute(
+                    "SELECT id FROM conversations WHERE supabase_id = ?",
+                    (supabase_id,)
+                ).fetchone()
+                
+                if existing:
+                    # Update existing
+                    conn.execute("""
+                        UPDATE conversations SET
+                            title = ?,
+                            summary = ?,
+                            updated_at = ?,
+                            archived = ?
+                        WHERE supabase_id = ?
+                    """, (
+                        conv.get("title"),
+                        conv.get("summary"),
+                        conv.get("updated_at"),
+                        1 if conv.get("archived") else 0,
+                        supabase_id
+                    ))
+                    conversation_id = existing[0]
+                else:
+                    # Insert new
+                    cur = conn.execute("""
+                        INSERT INTO conversations (title, summary, created_at, updated_at, archived, supabase_id)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (
+                        conv.get("title"),
+                        conv.get("summary"),
+                        conv.get("created_at"),
+                        conv.get("updated_at"),
+                        1 if conv.get("archived") else 0,
+                        supabase_id
+                    ))
+                    conversation_id = cur.lastrowid
+                
+                synced += 1
+            except Exception as e:
+                logger.warning(f"Failed to sync conversation {conv.get('id')}: {e}")
+        
+        conn.commit()
+    
+    # Now sync messages for these conversations
+    messages_synced = _sync_messages_from_supabase()
+    
+    logger.info(f"✅ Synced {synced} conversations and {messages_synced} messages from Supabase to SQLite")
+    return synced
+
+
+def _sync_messages_from_supabase() -> int:
+    """
+    Sync messages for all conversations from Supabase.
+    
+    Returns:
+        Number of messages synced
+    """
+    # Fetch recent messages (limit 1000 for recent conversations)
+    messages = _fetch_from_supabase("messages", order_by="created_at", limit=1000)
+    
+    if not messages:
+        return 0
+    
+    synced = 0
+    
+    with connect() as conn:
+        # Build mapping of supabase_id to local conversation_id
+        conv_mapping = {}
+        rows = conn.execute("SELECT id, supabase_id FROM conversations WHERE supabase_id IS NOT NULL").fetchall()
+        for row in rows:
+            conv_mapping[row[1]] = row[0]
+        
+        for msg in messages:
+            try:
+                supabase_conv_id = msg.get("conversation_id")
+                local_conv_id = conv_mapping.get(supabase_conv_id)
+                
+                if not local_conv_id:
+                    # Skip messages for conversations we don't have
+                    continue
+                
+                supabase_id = msg.get("id")
+                
+                # Check if message already exists
+                existing = conn.execute(
+                    "SELECT id FROM messages WHERE supabase_id = ?",
+                    (supabase_id,)
+                ).fetchone()
+                
+                if not existing:
+                    conn.execute("""
+                        INSERT INTO messages (conversation_id, role, content, created_at, run_id, supabase_id)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (
+                        local_conv_id,
+                        msg.get("role"),
+                        msg.get("content"),
+                        msg.get("created_at"),
+                        msg.get("run_id"),
+                        supabase_id
+                    ))
+                    synced += 1
+            except Exception as e:
+                logger.warning(f"Failed to sync message {msg.get('id')}: {e}")
+        
+        conn.commit()
+    
+    return synced
+
+
 def sync_all_from_supabase() -> Dict[str, int]:
     """
     Sync all data from Supabase to SQLite.
@@ -351,6 +522,7 @@ def sync_all_from_supabase() -> Dict[str, int]:
     results["tickets"] = sync_tickets_from_supabase()
     results["dikw_items"] = sync_dikw_from_supabase()
     results["signal_status"] = sync_signal_status_from_supabase()
+    results["conversations"] = sync_conversations_from_supabase()
     
     total = sum(results.values())
     logger.info(f"✅ Sync complete: {total} items synced from Supabase")

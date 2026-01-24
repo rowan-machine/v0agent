@@ -249,7 +249,7 @@ def run_chat_turn(
             if result.get("success") and result.get("response"):
                 answer = result["response"]
                 run_id = result.get("run_id")
-                add_message(conversation_id, "assistant", answer)
+                add_message(conversation_id, "assistant", answer, run_id=run_id)
                 return answer, run_id
         except Exception as e:
             print(f"ArjunaAgent fallback failed: {e}")
@@ -262,7 +262,7 @@ def run_chat_turn(
 
     answer, run_id = llm_answer(question, context, return_run_id=True, thread_id=str(conversation_id))
 
-    add_message(conversation_id, "assistant", answer)
+    add_message(conversation_id, "assistant", answer, run_id=run_id)
     return answer, run_id
 
 
@@ -349,7 +349,7 @@ If the question cannot be answered from this specific context, say so clearly.""
             if result.get("success") and result.get("response"):
                 answer = result["response"]
                 run_id = result.get("run_id")
-                add_message(conversation_id, "assistant", answer)
+                add_message(conversation_id, "assistant", answer, run_id=run_id)
                 return answer, run_id
         except Exception as e:
             print(f"ArjunaAgent fallback failed: {e}")
@@ -362,5 +362,5 @@ If the question cannot be answered from this specific context, say so clearly.""
 
     answer, run_id = llm_answer(question, context, return_run_id=True, thread_id=str(conversation_id))
 
-    add_message(conversation_id, "assistant", answer)
+    add_message(conversation_id, "assistant", answer, run_id=run_id)
     return answer, run_id
