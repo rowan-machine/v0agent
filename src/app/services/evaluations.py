@@ -159,7 +159,7 @@ def evaluate_relevance(
     
     Uses GPT to score relevance on a 0-1 scale.
     """
-    from .llm import ask as ask_llm
+    from ..llm import ask as ask_llm
     
     prompt = f"""Score the relevance of the following response to the given context.
 
@@ -221,7 +221,7 @@ def evaluate_accuracy(
         )
     
     # Semantic similarity check
-    from .llm import ask as ask_llm
+    from ..llm import ask as ask_llm
     
     prompt = f"""Compare these two outputs and score their semantic similarity.
 
@@ -262,7 +262,7 @@ def evaluate_helpfulness(
     """
     Evaluate if the output is helpful for the user's request.
     """
-    from .llm import ask as ask_llm
+    from ..llm import ask as ask_llm
     
     prompt = f"""Evaluate how helpful this response is for the user's request.
 
@@ -310,7 +310,7 @@ def evaluate_signal_quality(
     
     Specific to SignalFlow's signal extraction use case.
     """
-    from .llm import ask as ask_llm
+    from ..llm import ask as ask_llm
     
     prompt = f"""Evaluate the quality of this extracted signal.
 
@@ -361,7 +361,7 @@ def evaluate_dikw_promotion(
     
     Specific to SignalFlow's knowledge synthesis.
     """
-    from .llm import ask as ask_llm
+    from ..llm import ask as ask_llm
     
     level_descriptions = {
         "data": "raw facts and observations",
