@@ -164,6 +164,15 @@ def startup():
                 print(f"✅ Synced {total} items from Supabase to SQLite")
     except Exception as e:
         print(f"⚠️ Supabase sync failed (non-fatal): {e}")
+    
+    # Initialize background job scheduler (production only)
+    try:
+        from .services.scheduler import init_scheduler
+        scheduler = init_scheduler()
+        if scheduler:
+            print("✅ Background job scheduler initialized")
+    except Exception as e:
+        print(f"⚠️ Scheduler init failed (non-fatal): {e}")
 
 
 # -------------------------
@@ -1594,12 +1603,32 @@ async def list_background_jobs():
             "enabled": config.enabled,
         })
     
-    return JSONResponse({
-        "jobs": jobs,
-        "scheduling": {
+    # Get scheduler status if available
+    try:
+        from src.app.services.scheduler import get_scheduler, get_next_job_runs
+        scheduler = get_scheduler()
+        if scheduler:
+            scheduling_info = {
+                "method": "apscheduler",
+                "description": "Jobs are scheduled via in-app APScheduler",
+                "status": "running" if scheduler.running else "stopped",
+                "next_runs": get_next_job_runs(),
+            }
+        else:
+            scheduling_info = {
+                "method": "manual",
+                "description": "Scheduler not running (development mode or not initialized)",
+                "status": "disabled",
+            }
+    except Exception:
+        scheduling_info = {
             "method": "supabase_pg_cron",
             "description": "Jobs are scheduled via Supabase pg_cron and triggered via pg_net HTTP requests",
         }
+    
+    return JSONResponse({
+        "jobs": jobs,
+        "scheduling": scheduling_info,
     })
 
 
@@ -1856,6 +1885,183 @@ async def get_mode_timer_stats(days: int = 7):
         }
     
     return JSONResponse(result)
+
+
+# ============================================
+# LangSmith Evaluation API Endpoints
+# Track agent quality and improvement feedback
+# ============================================
+
+@app.post("/api/evaluations/feedback")
+async def submit_evaluation_feedback(request: Request):
+    """
+    Submit feedback for a LangSmith trace.
+    
+    Used to provide human feedback on agent outputs for improvement.
+    
+    Body:
+        run_id: The LangSmith run ID
+        key: Feedback dimension (helpfulness, accuracy, relevance)
+        score: 0.0 to 1.0 (optional)
+        value: Categorical value (optional)
+        comment: Freeform comment
+        correction: What the correct output should have been
+    """
+    from src.app.services.evaluations import submit_feedback
+    
+    data = await request.json()
+    run_id = data.get("run_id")
+    
+    if not run_id:
+        return JSONResponse({"error": "run_id is required"}, status_code=400)
+    
+    feedback_id = submit_feedback(
+        run_id=run_id,
+        key=data.get("key", "user_feedback"),
+        score=data.get("score"),
+        value=data.get("value"),
+        comment=data.get("comment"),
+        correction=data.get("correction"),
+        source_info={"type": "api", "user_id": data.get("user_id")},
+    )
+    
+    return JSONResponse({
+        "status": "ok" if feedback_id else "disabled",
+        "feedback_id": feedback_id,
+    })
+
+
+@app.post("/api/evaluations/thumbs")
+async def submit_thumbs_feedback(request: Request):
+    """
+    Submit simple thumbs up/down feedback.
+    
+    Body:
+        run_id: The LangSmith run ID
+        is_positive: true for thumbs up, false for thumbs down
+        comment: Optional explanation
+    """
+    from src.app.services.evaluations import submit_thumbs_feedback as submit_thumbs
+    
+    data = await request.json()
+    run_id = data.get("run_id")
+    
+    if not run_id:
+        return JSONResponse({"error": "run_id is required"}, status_code=400)
+    
+    feedback_id = submit_thumbs(
+        run_id=run_id,
+        is_positive=data.get("is_positive", True),
+        comment=data.get("comment"),
+        user_id=data.get("user_id"),
+    )
+    
+    return JSONResponse({
+        "status": "ok" if feedback_id else "disabled",
+        "feedback_id": feedback_id,
+    })
+
+
+@app.post("/api/evaluations/evaluate-signal")
+async def evaluate_signal_endpoint(request: Request):
+    """
+    Evaluate the quality of an extracted signal.
+    
+    Body:
+        signal_text: The signal text to evaluate
+        signal_type: Type (action_item, decision, blocker, risk, idea)
+        source_context: The meeting transcript context
+        run_id: Optional LangSmith run ID to attach feedback
+    """
+    from src.app.services.evaluations import evaluate_signal_quality, submit_feedback
+    
+    data = await request.json()
+    
+    if not data.get("signal_text") or not data.get("signal_type"):
+        return JSONResponse({"error": "signal_text and signal_type required"}, status_code=400)
+    
+    result = evaluate_signal_quality(
+        signal_text=data["signal_text"],
+        signal_type=data["signal_type"],
+        source_context=data.get("source_context", ""),
+    )
+    
+    # Submit to LangSmith if run_id provided
+    if data.get("run_id") and result.score is not None:
+        submit_feedback(
+            run_id=data["run_id"],
+            key="signal_quality",
+            score=result.score,
+            comment=result.reasoning,
+            source_info={"type": "auto_evaluator", "signal_type": data["signal_type"]},
+        )
+    
+    return JSONResponse({
+        "key": result.key,
+        "score": result.score,
+        "reasoning": result.reasoning,
+        "metadata": result.metadata,
+    })
+
+
+@app.post("/api/evaluations/evaluate-dikw")
+async def evaluate_dikw_promotion_endpoint(request: Request):
+    """
+    Evaluate the quality of a DIKW promotion.
+    
+    Body:
+        original_item: The original DIKW item text
+        original_level: data/information/knowledge/wisdom
+        promoted_item: The promoted item text  
+        promoted_level: The new level
+        run_id: Optional LangSmith run ID
+    """
+    from src.app.services.evaluations import evaluate_dikw_promotion, submit_feedback
+    
+    data = await request.json()
+    
+    required = ["original_item", "original_level", "promoted_item", "promoted_level"]
+    if not all(data.get(k) for k in required):
+        return JSONResponse({"error": f"Required fields: {required}"}, status_code=400)
+    
+    result = evaluate_dikw_promotion(
+        original_item=data["original_item"],
+        original_level=data["original_level"],
+        promoted_item=data["promoted_item"],
+        promoted_level=data["promoted_level"],
+    )
+    
+    # Submit to LangSmith if run_id provided
+    if data.get("run_id") and result.score is not None:
+        submit_feedback(
+            run_id=data["run_id"],
+            key="dikw_promotion_quality",
+            score=result.score,
+            comment=result.reasoning,
+            source_info={"type": "auto_evaluator"},
+        )
+    
+    return JSONResponse({
+        "key": result.key,
+        "score": result.score,
+        "reasoning": result.reasoning,
+        "metadata": result.metadata,
+    })
+
+
+@app.get("/api/evaluations/summary")
+async def get_evaluation_summary(agent_name: Optional[str] = None, days: int = 7):
+    """
+    Get aggregated feedback summary from LangSmith.
+    
+    Query params:
+        agent_name: Filter by agent (optional)
+        days: Number of days to look back (default 7)
+    """
+    from src.app.services.evaluations import get_feedback_summary
+    
+    summary = get_feedback_summary(agent_name=agent_name, days=days)
+    return JSONResponse(summary)
 
 
 # ============================================

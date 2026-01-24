@@ -36,3 +36,6 @@ rq>=1.15.0
 requests>=2.31.0
 # httpx for async HTTP requests - pin version compatible with supabase 2.4.0
 httpx==0.25.2
+
+# Background job scheduler
+APScheduler>=3.10.0

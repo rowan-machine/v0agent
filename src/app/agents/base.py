@@ -478,3 +478,93 @@ class BaseAgent(ABC):
     def clear_thread(self) -> None:
         """Clear the current thread ID (calls will not be grouped)."""
         self._thread_id = None
+    
+    # =========================================================================
+    # Evaluation Feedback for LangSmith
+    # =========================================================================
+    
+    def submit_feedback(
+        self,
+        run_id: str,
+        key: str = "quality",
+        score: Optional[float] = None,
+        comment: Optional[str] = None,
+        correction: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Submit evaluation feedback for a LangSmith trace run.
+        
+        Use this to provide feedback on agent outputs that can be used
+        to track quality and improve prompts over time.
+        
+        Args:
+            run_id: The LangSmith run ID (from ask_llm call)
+            key: Feedback dimension (quality, helpfulness, accuracy)
+            score: 0.0 to 1.0 score
+            comment: Freeform feedback comment
+            correction: What the correct output should have been
+        
+        Returns:
+            Feedback ID if successful, None otherwise
+        """
+        try:
+            from ..services.evaluations import submit_feedback
+            return submit_feedback(
+                run_id=run_id,
+                key=key,
+                score=score,
+                comment=comment,
+                correction=correction,
+                source_info={"type": "agent", "agent_name": self.config.name},
+            )
+        except ImportError:
+            logger.debug("Evaluations module not available")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to submit feedback: {e}")
+            return None
+    
+    async def evaluate_output(
+        self,
+        output: str,
+        evaluators: List[str],
+        context: Optional[str] = None,
+        expected: Optional[str] = None,
+        user_request: Optional[str] = None,
+        run_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Run evaluators on an agent output.
+        
+        Available evaluators: relevance, accuracy, helpfulness
+        
+        Args:
+            output: The output to evaluate
+            evaluators: List of evaluator names to run
+            context: Context for relevance evaluation
+            expected: Expected output for accuracy evaluation
+            user_request: User request for helpfulness evaluation
+            run_id: Optional LangSmith run ID to attach feedback
+        
+        Returns:
+            Dict mapping evaluator names to scores and reasoning
+        """
+        try:
+            from ..services.evaluations import evaluate_output
+            results = evaluate_output(
+                output=output,
+                evaluator_names=evaluators,
+                context=context,
+                expected=expected,
+                user_request=user_request,
+                run_id=run_id,
+                submit_to_langsmith=run_id is not None,
+            )
+            return {k: {"score": v.score, "reasoning": v.reasoning} for k, v in results.items()}
+        except ImportError:
+            logger.debug("Evaluations module not available")
+            return {}
+        except Exception as e:
+            logger.error(f"Evaluation failed: {e}")
+            return {"error": str(e)}
+
