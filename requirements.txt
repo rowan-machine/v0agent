@@ -29,3 +29,6 @@ supabase==2.4.0
 # Redis for caching and task queue
 redis>=5.0.0
 rq>=1.15.0
+
+# HTTP client
+requests>=2.31.0

@@ -320,6 +320,176 @@ async def hybrid_search(
         )
 
 
+@router.post("/mindmap")
+async def search_mindmaps(request: SemanticSearchRequest):
+    """Search mindmap nodes using both hierarchy and synthesis data.
+    
+    Returns mindmap nodes that match the query, including:
+    - Nodes with matching titles or content
+    - Nodes related to synthesis results
+    - Parent/child relationships for context
+    
+    Returns:
+        SearchResponse with mindmap node results
+    """
+    try:
+        from ..services.mindmap_synthesis import MindmapSynthesizer
+        from ..db import connect
+        
+        query = request.query.lower()
+        limit = request.match_count
+        results: List[SearchResultItem] = []
+        
+        # Search all mindmaps for nodes matching the query
+        all_mindmaps = MindmapSynthesizer.get_all_mindmaps()
+        
+        matches = []
+        for mindmap in all_mindmaps:
+            try:
+                import json
+                mindmap_data = json.loads(mindmap['mindmap_json'])
+                hierarchy = MindmapSynthesizer.extract_hierarchy_from_mindmap(mindmap_data)
+                
+                # Search nodes by title and content
+                for node in mindmap_data.get('nodes', []):
+                    node_title = (node.get('title', '') or '').lower()
+                    node_content = (node.get('content', '') or '').lower()
+                    
+                    # Calculate match score
+                    score = 0
+                    if query in node_title:
+                        score += 100  # Title match is highest priority
+                    if query in node_content:
+                        score += 50   # Content match is secondary
+                    
+                    if score > 0:
+                        level = node.get('level', 0)
+                        parent_id = node.get('parent_id')
+                        
+                        # Find parent and children
+                        parent_title = None
+                        children = []
+                        
+                        for other_node in mindmap_data.get('nodes', []):
+                            if other_node.get('id') == parent_id:
+                                parent_title = other_node.get('title')
+                            if other_node.get('parent_id') == node.get('id'):
+                                children.append({
+                                    'id': other_node.get('id'),
+                                    'title': other_node.get('title')
+                                })
+                        
+                        matches.append({
+                            'score': score,
+                            'node_id': node.get('id'),
+                            'title': node.get('title', 'Untitled'),
+                            'content': node_content[:200],
+                            'level': level,
+                            'parent_id': parent_id,
+                            'parent_title': parent_title,
+                            'children': children,
+                            'conversation_id': mindmap['conversation_id'],
+                            'mindmap_id': mindmap['id']
+                        })
+            except Exception as e:
+                logger.warning(f"Error searching mindmap {mindmap['id']}: {e}")
+        
+        # Sort by score (highest first) and limit results
+        matches.sort(key=lambda x: x['score'], reverse=True)
+        
+        for match in matches[:limit]:
+            results.append(SearchResultItem(
+                id=f"mindmap_node_{match['node_id']}",
+                type="mindmap",
+                title=match['title'],
+                snippet=match['content'],
+                score=match['score'] / 100.0,  # Normalize to 0-1
+            ))
+        
+        # Also search synthesis for high-level topics
+        synthesis = MindmapSynthesizer.get_current_synthesis()
+        if synthesis:
+            synthesis_text = (synthesis.get('synthesis_text', '') or '').lower()
+            if query in synthesis_text:
+                results.append(SearchResultItem(
+                    id="mindmap_synthesis",
+                    type="mindmap_synthesis",
+                    title="Knowledge Synthesis",
+                    snippet=synthesis_text[:300],
+                    score=0.8,
+                ))
+        
+        return SearchResponse(
+            results=results,
+            query=request.query,
+            total_results=len(results),
+            search_type="mindmap"
+        )
+        
+    except Exception as e:
+        logger.error(f"Mindmap search error: {e}")
+        return SearchResponse(
+            results=[],
+            query=request.query,
+            total_results=0,
+            search_type="mindmap"
+        )
+
+
+@router.post("/hybrid-with-mindmap")
+async def hybrid_search_with_mindmap(request: SemanticSearchRequest):
+    """Hybrid search that includes mindmap data alongside documents and meetings.
+    
+    Combines keyword + semantic search with mindmap node search
+    using Reciprocal Rank Fusion.
+    
+    Returns:
+        SearchResponse with mixed results (documents, meetings, mindmap nodes)
+    """
+    try:
+        # Get results from both searches
+        hybrid_results = await hybrid_search(request)
+        mindmap_results = await search_mindmaps(request)
+        
+        # Combine and re-rank using RRF
+        all_results = hybrid_results.results + mindmap_results.results
+        
+        # Simple re-ranking: take top results from each type
+        combined = []
+        
+        # Add hybrid results (weighted)
+        for i, result in enumerate(hybrid_results.results[:5]):
+            result.score = result.score * 0.9  # Slight boost for traditional search
+            combined.append(result)
+        
+        # Add mindmap results (interleaved)
+        for i, result in enumerate(mindmap_results.results[:5]):
+            combined.append(result)
+        
+        # Remove duplicates (keeping highest score)
+        seen = set()
+        deduplicated = []
+        for result in combined:
+            if result.id not in seen:
+                seen.add(result.id)
+                deduplicated.append(result)
+        
+        # Re-sort by score
+        deduplicated.sort(key=lambda x: x.score, reverse=True)
+        
+        return SearchResponse(
+            results=deduplicated[:request.match_count],
+            query=request.query,
+            total_results=len(deduplicated),
+            search_type="hybrid_with_mindmap"
+        )
+        
+    except Exception as e:
+        logger.error(f"Hybrid search with mindmap error: {e}")
+        # Fall back to regular hybrid search
+        return await hybrid_search(request)
+
+
 @router.get("/health")
 async def search_health():
     """Check search service health."""
@@ -347,6 +517,7 @@ async def search_health():
         status_info["embedding_service"] = bool(os.getenv("OPENAI_API_KEY"))
     except:
         status_info["embedding_service"] = False
+    
     
     return JSONResponse(
         content={

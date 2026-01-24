@@ -2,6 +2,33 @@
 
 from ..db import connect
 
+def store_conversation_mindmap(conversation_id: int, mindmap_data: dict):
+    """Store mindmap data for a conversation.
+    
+    Called when a conversation's mindmap is generated or updated.
+    Triggers synthesis update if configured.
+    
+    Args:
+        conversation_id: ID of the conversation
+        mindmap_data: Dict with 'nodes' and 'edges' keys
+    """
+    try:
+        from ..services.mindmap_synthesis import MindmapSynthesizer
+        # Store the mindmap with hierarchy information
+        mindmap_id = MindmapSynthesizer.store_conversation_mindmap(
+            conversation_id, 
+            mindmap_data
+        )
+        if mindmap_id:
+            # Could trigger synthesis update here later
+            # await MindmapSynthesizer.generate_synthesis(force=False)
+            pass
+    except Exception as e:
+        # Don't fail conversation on mindmap storage error
+        import logging
+        logging.error(f"Error storing conversation mindmap: {e}")
+
+
 def init_chat_tables():
     with connect() as conn:
         conn.executescript("""

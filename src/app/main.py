@@ -36,6 +36,8 @@ from .auth import (
     AuthMiddleware, get_login_page, create_session, 
     destroy_session, get_auth_password, hash_password
 )
+from .integrations.pocket import PocketClient, extract_latest_summary, extract_transcript_text, extract_mind_map, extract_action_items, get_all_summary_versions, get_all_mind_map_versions
+from typing import Optional
 
 # =============================================================================
 # DIKW SYNTHESIZER AGENT IMPORTS (Checkpoint 2.5)
@@ -2933,14 +2935,24 @@ _mindmap_cache = {
 
 @app.get("/api/mindmap/data")
 async def get_mindmap_data():
-    """Get mindmap data for visualization."""
+    """Get mindmap data for visualization.
+    
+    Returns both DIKW pyramid structure and hierarchical mindmaps from conversations.
+    """
     with connect() as conn:
         items = conn.execute(
             """SELECT * FROM dikw_items WHERE status = 'active' 
                ORDER BY level, created_at DESC"""
         ).fetchall()
+        
+        # Get hierarchical mindmaps from conversations
+        mindmaps = conn.execute(
+            """SELECT id, conversation_id, mindmap_json, hierarchy_levels, 
+                      node_count, root_node_id FROM conversation_mindmaps
+               ORDER BY updated_at DESC LIMIT 5"""
+        ).fetchall()
     
-    # Build tree structure for mindmap
+    # Build DIKW tree structure for mindmap
     tree = {
         "name": "Knowledge",
         "type": "root",
@@ -2991,6 +3003,23 @@ async def get_mindmap_data():
             })
             links.append({"source": level_id, "target": item_id})
     
+    # Add hierarchical mindmap nodes
+    hierarchical_mindmaps = []
+    for mindmap in mindmaps:
+        try:
+            mindmap_json = json.loads(mindmap['mindmap_json'])
+            hierarchical_mindmaps.append({
+                "id": mindmap['id'],
+                "conversation_id": mindmap['conversation_id'],
+                "hierarchy_levels": mindmap['hierarchy_levels'],
+                "node_count": mindmap['node_count'],
+                "root_node_id": mindmap['root_node_id'],
+                "nodes": mindmap_json.get('nodes', []),
+                "edges": mindmap_json.get('edges', [])
+            })
+        except Exception as e:
+            logger.warning(f"Error processing mindmap {mindmap['id']}: {e}")
+    
     # Build tag clusters (normalize to lowercase for consistency)
     tag_clusters = {}
     for item in items:
@@ -3013,7 +3042,9 @@ async def get_mindmap_data():
         "knowledge": len(levels['knowledge']),
         "wisdom": len(levels['wisdom']),
         "tags": len(tag_clusters),
-        "connections": len(links)
+        "connections": len(links),
+        "hierarchical_mindmaps": len(hierarchical_mindmaps),
+        "total_mindmap_nodes": sum(m.get('node_count', 0) for m in hierarchical_mindmaps)
     }
     
     return JSONResponse({
@@ -3021,8 +3052,233 @@ async def get_mindmap_data():
         "nodes": nodes,
         "links": links,
         "tagClusters": tag_clusters,
+        "hierarchicalMindmaps": hierarchical_mindmaps,
         "counts": counts
     })
+
+
+@app.get("/api/mindmap/data-hierarchical")
+async def get_mindmap_data_hierarchical():
+    """Get all hierarchical mindmaps with full hierarchy information.
+    
+    Returns:
+        - All conversation mindmaps with preserved parent-child relationships
+        - Hierarchy depth levels for each node
+        - Node metadata and conversation context
+    """
+    from .services.mindmap_synthesis import MindmapSynthesizer
+    
+    with connect() as conn:
+        mindmaps = conn.execute(
+            """SELECT id, conversation_id, mindmap_json, hierarchy_levels,
+                      node_count, root_node_id, created_at, updated_at
+               FROM conversation_mindmaps
+               ORDER BY updated_at DESC"""
+        ).fetchall()
+    
+    hierarchical_data = []
+    for mindmap in mindmaps:
+        try:
+            mindmap_json = json.loads(mindmap['mindmap_json'])
+            hierarchy = MindmapSynthesizer.extract_hierarchy_from_mindmap(mindmap_json)
+            
+            # Add metadata to each node
+            enhanced_nodes = []
+            for node in mindmap_json.get('nodes', []):
+                enhanced_node = dict(node)
+                enhanced_node['conversation_id'] = mindmap['conversation_id']
+                enhanced_node['mindmap_id'] = mindmap['id']
+                enhanced_node['level'] = node.get('level', 0)
+                enhanced_node['depth'] = hierarchy['nodes_by_level'].get(node.get('level', 0), []).index(node) if node in hierarchy['nodes_by_level'].get(node.get('level', 0), []) else 0
+                enhanced_nodes.append(enhanced_node)
+            
+            hierarchical_data.append({
+                "id": mindmap['id'],
+                "conversation_id": mindmap['conversation_id'],
+                "nodes": enhanced_nodes,
+                "edges": mindmap_json.get('edges', []),
+                "hierarchy": {
+                    "levels": hierarchy.get('levels'),
+                    "max_depth": hierarchy.get('max_depth'),
+                    "root_node_id": mindmap['root_node_id'],
+                    "node_count": mindmap['node_count'],
+                    "nodes_by_level": {
+                        str(level): [n.get('id') for n in nodes]
+                        for level, nodes in hierarchy.get('nodes_by_level', {}).items()
+                    }
+                },
+                "created_at": mindmap['created_at'],
+                "updated_at": mindmap['updated_at']
+            })
+        except Exception as e:
+            logger.error(f"Error processing hierarchical mindmap {mindmap['id']}: {e}")
+    
+    return JSONResponse({
+        "mindmaps": hierarchical_data,
+        "total": len(hierarchical_data),
+        "summary": {
+            "total_mindmaps": len(hierarchical_data),
+            "total_nodes": sum(len(m.get('nodes', [])) for m in hierarchical_data),
+            "total_edges": sum(len(m.get('edges', [])) for m in hierarchical_data)
+        }
+    })
+
+
+@app.get("/api/mindmap/nodes-by-level/{level}")
+async def get_mindmap_nodes_by_level(level: int):
+    """Get all mindmap nodes at a specific hierarchy level.
+    
+    Args:
+        level: Hierarchy level (0 = root, 1 = first level, etc.)
+        
+    Returns:
+        All nodes at that level across all mindmaps with context
+    """
+    from .services.mindmap_synthesis import MindmapSynthesizer
+    
+    nodes_at_level = MindmapSynthesizer.get_mindmap_by_hierarchy_level(level)
+    
+    return JSONResponse({
+        "level": level,
+        "nodes": nodes_at_level,
+        "count": len(nodes_at_level)
+    })
+
+
+@app.get("/api/mindmap/conversations")
+async def get_aggregated_conversation_mindmaps():
+    """Get all mindmaps aggregated from conversations.
+    
+    Returns conversation mindmaps grouped by conversation with
+    aggregated statistics and hierarchy information.
+    """
+    from .services.mindmap_synthesis import MindmapSynthesizer
+    
+    with connect() as conn:
+        # Get conversations with their mindmaps
+        result = conn.execute("""
+            SELECT c.id as conversation_id, c.title, c.created_at,
+                   GROUP_CONCAT(cm.id) as mindmap_ids,
+                   COUNT(cm.id) as mindmap_count
+            FROM conversations c
+            LEFT JOIN conversation_mindmaps cm ON c.id = cm.conversation_id
+            GROUP BY c.id
+            ORDER BY c.created_at DESC
+        """).fetchall()
+    
+    conversation_data = []
+    for conv in result:
+        if conv['mindmap_ids']:
+            # Get hierarchy summary for each conversation
+            summary = MindmapSynthesizer.get_hierarchy_summary()
+            conversation_data.append({
+                "conversation_id": conv['conversation_id'],
+                "title": conv['title'],
+                "created_at": conv['created_at'],
+                "mindmap_count": conv['mindmap_count'],
+                "mindmap_ids": [int(m) for m in conv['mindmap_ids'].split(',')],
+                "statistics": {
+                    "total_nodes": summary.get('total_nodes', 0),
+                    "avg_depth": summary.get('avg_depth', 0),
+                    "levels_distribution": summary.get('levels_distribution', {})
+                }
+            })
+    
+    return JSONResponse({
+        "conversations": conversation_data,
+        "total_conversations": len(conversation_data),
+        "summary": MindmapSynthesizer.get_hierarchy_summary()
+    })
+
+
+@app.post("/api/mindmap/synthesize")
+async def synthesize_mindmaps(request: Request):
+    """Generate AI synthesis of all conversation mindmaps.
+    
+    Creates or updates the master synthesis that aggregates all mindmap data
+    across conversations into a unified knowledge structure.
+    
+    Query params:
+        - force: bool - Force regeneration even if recent synthesis exists
+        
+    Returns:
+        {
+            "synthesis_id": int,
+            "synthesis_text": str,
+            "source_mindmaps": int,
+            "source_conversations": int,
+            "key_topics": [...],
+            "hierarchies_analyzed": int,
+            "total_nodes_synthesized": int
+        }
+    """
+    from .services.mindmap_synthesis import MindmapSynthesizer
+    
+    try:
+        # Get optional force parameter
+        force = request.query_params.get("force", "false").lower() == "true"
+        
+        # Generate synthesis
+        synthesis_id = await MindmapSynthesizer.generate_synthesis(force=force)
+        
+        if not synthesis_id:
+            return JSONResponse({
+                "error": "Failed to generate synthesis - no mindmaps found or synthesis generation failed",
+                "synthesis_id": None
+            }, status_code=400)
+        
+        # Get the generated synthesis
+        synthesis = MindmapSynthesizer.get_current_synthesis()
+        
+        if synthesis:
+            source_mindmap_ids = json.loads(synthesis.get('source_mindmap_ids', '[]'))
+            source_conv_ids = json.loads(synthesis.get('source_conversation_ids', '[]'))
+            key_topics = json.loads(synthesis.get('key_topics', '[]'))
+            
+            return JSONResponse({
+                "success": True,
+                "synthesis_id": synthesis['id'],
+                "synthesis_text": synthesis['synthesis_text'][:500] + "..." if len(synthesis['synthesis_text']) > 500 else synthesis['synthesis_text'],
+                "source_mindmaps": len(source_mindmap_ids),
+                "source_conversations": len(set(source_conv_ids)),
+                "key_topics": key_topics[:20],
+                "created_at": synthesis['created_at'],
+                "updated_at": synthesis['updated_at']
+            })
+        else:
+            return JSONResponse({
+                "error": "Synthesis generated but could not be retrieved",
+                "synthesis_id": synthesis_id
+            }, status_code=500)
+            
+    except Exception as e:
+        logger.error(f"Error synthesizing mindmaps: {e}")
+        return JSONResponse({
+            "error": f"Error during synthesis: {str(e)}",
+            "synthesis_id": None
+        }, status_code=500)
+
+
+@app.get("/api/mindmap/synthesis")
+async def get_mindmap_synthesis():
+    """Get the current mindmap synthesis.
+    
+    Returns the most recent AI-generated synthesis of all conversation mindmaps.
+    """
+    from .services.mindmap_synthesis import MindmapSynthesizer
+    
+    synthesis = MindmapSynthesizer.get_current_synthesis()
+    
+    if synthesis:
+        return JSONResponse({
+            "success": True,
+            "synthesis": synthesis
+        })
+    else:
+        return JSONResponse({
+            "success": False,
+            "message": "No synthesis available - run /api/mindmap/synthesize to generate one"
+        }, status_code=404)
 
 
 @app.post("/api/mindmap/generate")
@@ -3659,6 +3915,218 @@ async def load_meeting_bundle_ui(
         url="/meetings?success=meeting_loaded",
         status_code=303,
     )
+
+
+# Pocket integration: list recent recordings
+@app.get("/api/integrations/pocket/recordings")
+async def pocket_list_recordings(
+    page: int = 1,
+    limit: int = 10,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+):
+    """List recent Pocket recordings for selection.
+
+    Returns paginated list with id, title, created_at for UI display.
+    """
+    try:
+        client = PocketClient()
+        resp = client.list_recordings(
+            page=page,
+            limit=limit,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        
+        # Extract recordings from response
+        data = resp.get("data") or {}
+        items = data if isinstance(data, list) else data.get("items") or []
+        pagination = resp.get("pagination") or {}
+        
+        # Build clean list for UI
+        recordings = []
+        for item in items:
+            rec_id = item.get("id") or item.get("recording_id")
+            title = item.get("title") or "(untitled)"
+            created = item.get("created_at") or item.get("recording_at") or "unknown"
+            if rec_id:
+                recordings.append({
+                    "id": rec_id,
+                    "title": title,
+                    "created_at": created,
+                })
+        
+        return JSONResponse({
+            "success": True,
+            "recordings": recordings,
+            "pagination": {
+                "page": pagination.get("page", 1),
+                "total_pages": pagination.get("total_pages", 1),
+                "has_more": pagination.get("has_more", False),
+            },
+        })
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=502)
+
+
+# Pocket integration: fetch summary/transcript by recording ID
+@app.post("/api/integrations/pocket/fetch")
+async def pocket_fetch(request: Request):
+    """Fetch Pocket summary, transcript, mind map, and action items for a given recording.
+
+    Accepts JSON or form with `recording_id` and optional version selectors:
+    - `summary_key`: specific summary version to fetch (e.g., 'v2_summary', 'v1_summary')
+    - `mind_map_key`: specific mind map version to fetch (e.g., 'v2_mind_map')
+    
+    Returns `summary_text`, `transcript_text`, `mind_map_text`, and `action_items` if available.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        form = await request.form()
+        body = dict(form)
+
+    recording_id = (body.get("recording_id") or "").strip()
+    if not recording_id:
+        return JSONResponse({"success": False, "error": "recording_id required"}, status_code=400)
+
+    summary_key = (body.get("summary_key") or "").strip() or None
+    mind_map_key = (body.get("mind_map_key") or "").strip() or None
+
+    try:
+        client = PocketClient()
+        details = client.get_recording(recording_id, include_transcript=True, include_summarizations=True)
+        
+        # If specific versions requested, fetch those; otherwise fetch latest
+        if summary_key or mind_map_key:
+            # Fetch specific versions
+            payload = details.get("data", {})
+            rec = payload if isinstance(payload, dict) else {}
+            summ_dict = rec.get("summarizations", {}) if isinstance(rec.get("summarizations"), dict) else {}
+            
+            # Get selected summary
+            summary_text = None
+            if summary_key and summary_key in summ_dict:
+                summ_obj = summ_dict[summary_key]
+                if isinstance(summ_obj, dict):
+                    summary_text = summ_obj.get("markdown") or summ_obj.get("text") or summ_obj.get("content")
+            
+            # Get selected mind map
+            mind_map_text = None
+            if mind_map_key and mind_map_key in summ_dict:
+                mm_obj = summ_dict[mind_map_key]
+                if isinstance(mm_obj, dict):
+                    # Format the mind map nodes
+                    nodes = mm_obj.get("nodes", [])
+                    if isinstance(nodes, list):
+                        lines = []
+                        for node in nodes:
+                            if isinstance(node, dict):
+                                title = (node.get("title") or "").strip()
+                                if title:
+                                    node_id = node.get("node_id", "")
+                                    parent_id = node.get("parent_node_id", "")
+                                    indent = "  " if node_id != parent_id else ""
+                                    lines.append(f"{indent}• {title}")
+                        if lines:
+                            mind_map_text = "\n".join(lines)
+                    elif "markdown" in mm_obj:
+                        mind_map_text = mm_obj.get("markdown")
+        else:
+            # Fetch latest versions (original behavior)
+            summary_text, _summary_obj = extract_latest_summary(details)
+            mind_map_text = extract_mind_map(details)
+        
+        transcript_text = extract_transcript_text(details)
+        action_items = extract_action_items(details)
+
+        return JSONResponse({
+            "success": True,
+            "recording_id": recording_id,
+            "summary_text": summary_text,
+            "transcript_text": transcript_text,
+            "mind_map_text": mind_map_text,
+            "action_items": action_items,
+        })
+    except Exception as e:
+        # Surface any API or parsing error
+        return JSONResponse({"success": False, "error": str(e)}, status_code=502)
+
+
+# Pocket integration: fetch all available versions (summaries, mind maps)
+@app.post("/api/integrations/pocket/fetch-versions")
+async def pocket_fetch_versions(request: Request):
+    """Fetch all available summary and mind map versions for a recording.
+    
+    Returns lists of available versions so user can choose which to use.
+    Accepts JSON or form with `recording_id`.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        form = await request.form()
+        body = dict(form)
+
+    recording_id = (body.get("recording_id") or "").strip()
+    if not recording_id:
+        return JSONResponse({"success": False, "error": "recording_id required"}, status_code=400)
+
+    try:
+        client = PocketClient()
+        details = client.get_recording(recording_id, include_transcript=True, include_summarizations=True)
+        
+        # Extract all available versions
+        summary_versions = get_all_summary_versions(details)
+        mind_map_versions = get_all_mind_map_versions(details)
+        
+        # Also get transcript and action items
+        transcript_text = extract_transcript_text(details)
+        action_items = extract_action_items(details)
+
+        return JSONResponse({
+            "success": True,
+            "recording_id": recording_id,
+            "summary_versions": summary_versions,
+            "mind_map_versions": mind_map_versions,
+            "transcript_text": transcript_text,
+            "action_items": action_items,
+        })
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=502)
+
+
+# Pocket webhook endpoint (payload URL)
+@app.post("/api/integrations/pocket/webhook")
+async def pocket_webhook(request: Request):
+    """Webhook endpoint for Pocket to notify of new/updated recordings.
+
+    Body should include a `recording_id`. We fetch details immediately and return 200.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        form = await request.form()
+        body = dict(form)
+
+    recording_id = (body.get("recording_id") or "").strip()
+    if not recording_id:
+        return JSONResponse({"success": False, "error": "recording_id required"}, status_code=400)
+
+    try:
+        client = PocketClient()
+        details = client.get_recording(recording_id, include_transcript=True, include_summarizations=True)
+        summary_text, _summary_obj = extract_latest_summary(details)
+        transcript_text = extract_transcript_text(details)
+
+        # TODO: persist to DB and link to meeting if mapping exists
+        return JSONResponse({
+            "success": True,
+            "recording_id": recording_id,
+            "summary_text": summary_text,
+            "transcript_text": transcript_text,
+        })
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=502)
 
 # -------------------------
 # Routers

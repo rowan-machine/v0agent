@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS meeting_summaries (
   source_document_id INTEGER,
   raw_text TEXT,
   pocket_ai_summary TEXT,
+  pocket_mind_map TEXT,
   pocket_template_type TEXT,
   import_source TEXT,              -- 'manual', 'markdown_upload', 'pocket', 'api'
   source_url TEXT,                 -- Original source URL (e.g., Pocket link)
@@ -59,6 +60,47 @@ Create INDEX IF NOT EXISTS idx_docs_content ON docs(LOWER(content));
 CREATE INDEX IF NOT EXISTS idx_meetings_notes ON meeting_summaries(LOWER(synthesized_notes));
 Create INDEX IF NOT EXISTS idx_docs_source ON docs(LOWER(source));
 CREATE INDEX IF NOT EXISTS idx_meetings_name ON meeting_summaries(LOWER(meeting_name));
+
+-- Conversation Mindmaps - Store mindmap data from conversations with hierarchy
+CREATE TABLE IF NOT EXISTS conversation_mindmaps (
+  id INTEGER PRIMARY KEY,
+  conversation_id INTEGER NOT NULL,
+  mindmap_json TEXT NOT NULL,
+  hierarchy_levels INTEGER,
+  root_node_id TEXT,
+  node_count INTEGER,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_conv_mindmaps_conversation_id ON conversation_mindmaps(conversation_id);
+
+-- Mindmap Syntheses - AI-generated synthesis of all mindmaps
+CREATE TABLE IF NOT EXISTS mindmap_syntheses (
+  id INTEGER PRIMARY KEY,
+  synthesis_text TEXT NOT NULL,
+  hierarchy_summary TEXT,
+  source_mindmap_ids TEXT,
+  source_conversation_ids TEXT,
+  key_topics TEXT,
+  relationships TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_mindmap_syntheses_updated ON mindmap_syntheses(updated_at);
+
+-- Mindmap Synthesis History - Track evolution of syntheses
+CREATE TABLE IF NOT EXISTS mindmap_synthesis_history (
+  id INTEGER PRIMARY KEY,
+  synthesis_id INTEGER NOT NULL,
+  previous_text TEXT,
+  changes_summary TEXT,
+  triggered_by TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (synthesis_id) REFERENCES mindmap_syntheses(id) ON DELETE CASCADE
+);
 
 -- Workflow modes configuration
 CREATE TABLE IF NOT EXISTS workflow_modes (
@@ -560,6 +602,12 @@ def init_db():
         except sqlite3.OperationalError:
             pass  # Column already exists
         
+        # Migration: Add pocket_mind_map column to meeting_summaries if it doesn't exist
+        try:
+            conn.execute("ALTER TABLE meeting_summaries ADD COLUMN pocket_mind_map TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        
         # Migration: Add projects_count column to skill_tracker if it doesn't exist
         try:
             conn.execute("ALTER TABLE skill_tracker ADD COLUMN projects_count INTEGER DEFAULT 0")
@@ -637,6 +685,52 @@ def init_db():
         """)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_meeting_documents_meeting ON meeting_documents(meeting_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_meeting_documents_type ON meeting_documents(doc_type, source)")
+        
+        # Migration (F2): Create conversation_mindmaps table with hierarchy support
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS conversation_mindmaps (
+                id INTEGER PRIMARY KEY,
+                conversation_id INTEGER NOT NULL,
+                mindmap_json TEXT NOT NULL,
+                hierarchy_levels INTEGER,
+                root_node_id TEXT,
+                node_count INTEGER,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_conv_mindmaps_conversation_id ON conversation_mindmaps(conversation_id)")
+        
+        # Migration (F2): Create mindmap_syntheses table
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS mindmap_syntheses (
+                id INTEGER PRIMARY KEY,
+                synthesis_text TEXT NOT NULL,
+                hierarchy_summary TEXT,
+                source_mindmap_ids TEXT,
+                source_conversation_ids TEXT,
+                key_topics TEXT,
+                relationships TEXT,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now'))
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_mindmap_syntheses_updated ON mindmap_syntheses(updated_at)")
+        
+        # Migration (F2): Create mindmap_synthesis_history table
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS mindmap_synthesis_history (
+                id INTEGER PRIMARY KEY,
+                synthesis_id INTEGER NOT NULL,
+                previous_text TEXT,
+                changes_summary TEXT,
+                triggered_by TEXT,
+                created_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (synthesis_id) REFERENCES mindmap_syntheses(id) ON DELETE CASCADE
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_synthesis_history_synthesis_id ON mindmap_synthesis_history(synthesis_id)")
         
         # Initialize default career profile
         conn.execute("""

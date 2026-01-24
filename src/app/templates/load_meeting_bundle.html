@@ -233,20 +233,34 @@
 
     <div class="form-section">
       <h3>🤖 Pocket AI Summary (Optional)</h3>
-      <p class="hint" style="margin-bottom: 1rem;">Paste the AI-generated summary from Pocket. Supports 30+ template formats with dynamic heading extraction.</p>
+      <p class="hint" style="margin-bottom: 1rem;">Select your meeting from Pocket to auto-fill summary and transcript.</p>
+      
+      <div class="form-group">
+        <label>Select from Recent Pocket Recordings</label>
+        <select id="pocket-recording-select" style="width:100%;padding:0.5rem;border:1px solid #ddd;border-radius:0.25rem;font-size:1rem;">
+          <option value="">-- Loading recordings... --</option>
+        </select>
+        <p class="hint" style="margin-top:0.5rem;">This will auto-populate the summary and transcript below.</p>
+      </div>
+      
+      <div id="fetch-status" class="hint" style="display:none;margin-bottom:0.75rem;"></div>
+      
       <div class="form-group">
         <label>Pocket AI Summary</label>
-        <textarea name="pocket_ai_summary" rows="10" placeholder="Paste Pocket AI summary here...
-
-Supports templates like:
-• All-Hands Meeting
-• Sprint Retrospective
-• Project Kickoff
-• 1:1 Meeting
-• Sales Call
-• Interview
-• And 25+ more templates..."></textarea>
-        <p class="hint">This will be processed separately to extract signals using Pocket's template structure.</p>
+        <textarea name="pocket_ai_summary" rows="10" placeholder="Auto-filled from Pocket if available. Some recordings may not have AI summaries generated yet."></textarea>
+        <p class="hint">AI-generated summary from Pocket (if available). If empty, the recording may not have a summary yet.</p>
+      </div>
+      
+      <div class="form-group">
+        <label>Pocket Mind Map</label>
+        <textarea name="pocket_mind_map" rows="8" placeholder="Auto-filled from Pocket if available."></textarea>
+        <p class="hint">Structured mind map of key topics and relationships from the meeting.</p>
+      </div>
+      
+      <div class="form-group">
+        <label>Pocket Action Items</label>
+        <textarea name="pocket_action_items" readonly rows="8" placeholder="Auto-filled from Pocket if available."></textarea>
+        <p class="hint">Extracted action items with assignees and priorities. (Read-only - extracted from Pocket)</p>
       </div>
     </div>
     
@@ -307,6 +321,122 @@ dropZone.addEventListener('drop', (e) => {
     handleFiles(e.dataTransfer.files);
 });
 fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+// Load Pocket recordings on page load and populate dropdown
+async function loadPocketRecordingsDropdown() {
+  const selectEl = document.getElementById('pocket-recording-select');
+  try {
+    const resp = await fetch('/api/integrations/pocket/recordings?page=1&limit=50');
+    if (!resp.ok) {
+      selectEl.innerHTML = '<option value="">Failed to load recordings</option>';
+      return;
+    }
+    const data = await resp.json();
+    if (!data.success || !data.recordings) {
+      selectEl.innerHTML = '<option value="">No recordings found</option>';
+      return;
+    }
+    
+    const recordings = data.recordings;
+    let html = '<option value="">-- Select a recording --</option>';
+    for (const rec of recordings) {
+      const title = rec.title || '(untitled)';
+      const created = new Date(rec.created_at).toLocaleDateString() || rec.created_at;
+      html += `<option value="${rec.id}" data-title="${title}">${title} (${rec.id.substring(0,8)}... • ${created})</option>`;
+    }
+    selectEl.innerHTML = html;
+  } catch (err) {
+    selectEl.innerHTML = '<option value="">Error loading recordings</option>';
+    console.error(err);
+  }
+}
+
+// Fetch and populate summary/transcript when recording is selected
+document.getElementById('pocket-recording-select').addEventListener('change', async (e) => {
+  const recordingId = e.target.value;
+  const statusEl = document.getElementById('fetch-status');
+  const summaryEl = document.querySelector('textarea[name="pocket_ai_summary"]');
+  const mindMapEl = document.querySelector('textarea[name="pocket_mind_map"]');
+  const actionItemsEl = document.querySelector('textarea[name="pocket_action_items"]');
+  
+  if (!recordingId) {
+    summaryEl.value = '';
+    mindMapEl.value = '';
+    actionItemsEl.value = '';
+    statusEl.style.display = 'none';
+    return;
+  }
+  
+  statusEl.style.display = 'block';
+  statusEl.textContent = 'Fetching from Pocket…';
+  
+  try {
+    const resp = await fetch('/api/integrations/pocket/fetch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recording_id: recordingId })
+    });
+    
+    if (!resp.ok) {
+      const errText = await resp.text();
+      statusEl.textContent = 'Failed to fetch: ' + errText;
+      return;
+    }
+    
+    const data = await resp.json();
+    if (!data.success) {
+      statusEl.textContent = 'Error: ' + (data.error || 'Unknown error');
+      return;
+    }
+    
+    const summary = data.summary_text || '';
+    const mindMap = data.mind_map_text || '';
+    const actionItems = data.action_items || [];
+    
+    if (summaryEl) summaryEl.value = summary;
+    if (mindMapEl) mindMapEl.value = mindMap;
+    
+    // Format action items as readable text
+    let actionItemsText = '';
+    if (Array.isArray(actionItems) && actionItems.length > 0) {
+      actionItemsText = actionItems.map((item, i) => {
+        const desc = item.description || '(no description)';
+        const assignee = item.assignee || 'Unassigned';
+        const priority = item.priority || '';
+        const dueDate = item.dueDate || '';
+        let line = `${i + 1}. ${desc}`;
+        if (assignee) line += ` [Assignee: ${assignee}]`;
+        if (priority) line += ` [Priority: ${priority}]`;
+        if (dueDate) line += ` [Due: ${dueDate}]`;
+        return line;
+      }).join('\n\n');
+    }
+    if (actionItemsEl) actionItemsEl.value = actionItemsText;
+    
+    let msg = 'Fetched';
+    const hasSummary = !!summary;
+    const hasMindMap = !!mindMap;
+    const hasItems = actionItems && actionItems.length > 0;
+    
+    const parts = [];
+    if (hasSummary) parts.push('summary');
+    if (hasMindMap) parts.push('mind map');
+    if (hasItems) parts.push(`${actionItems.length} action items`);
+    
+    if (parts.length > 0) {
+      msg += ': ' + parts.join(', ');
+    } else {
+      msg += ' (no data available for this recording)';
+    }
+    statusEl.textContent = msg;
+  } catch (err) {
+    statusEl.textContent = 'Error fetching: ' + (err?.message || String(err));
+    console.error(err);
+  }
+});
+
+// Load recordings when page loads
+window.addEventListener('load', loadPocketRecordingsDropdown);
 
 function handleFiles(files) {
     for (const file of files) {
