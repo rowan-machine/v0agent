@@ -141,7 +141,12 @@ class SupabaseMeetingRepository(MeetingRepository):
         try:
             # Convert signals_json to signals object if present
             if "signals_json" in data and data["signals_json"]:
-                data["signals"] = json.loads(data["signals_json"])
+                signals_value = data["signals_json"]
+                # Handle both string and dict formats
+                if isinstance(signals_value, str):
+                    data["signals"] = json.loads(signals_value)
+                else:
+                    data["signals"] = signals_value
                 del data["signals_json"]
             
             result = self.client.table("meetings").insert(data).execute()
@@ -158,7 +163,12 @@ class SupabaseMeetingRepository(MeetingRepository):
         try:
             # Convert signals_json to signals object if present
             if "signals_json" in data and data["signals_json"]:
-                data["signals"] = json.loads(data["signals_json"])
+                signals_value = data["signals_json"]
+                # Handle both string and dict formats
+                if isinstance(signals_value, str):
+                    data["signals"] = json.loads(signals_value)
+                else:
+                    data["signals"] = signals_value
                 del data["signals_json"]
             
             data["updated_at"] = datetime.utcnow().isoformat()
