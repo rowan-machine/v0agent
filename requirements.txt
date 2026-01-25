@@ -24,7 +24,10 @@ langchain-core>=0.3.0
 zeroconf==0.130.0
 
 # Supabase client (optional, for cloud sync)
-supabase==2.4.0
+# Pin specific versions to avoid proxy argument incompatibility
+supabase==2.3.0
+gotrue==2.4.0
+postgrest==0.16.1
 
 # SQLite extensions
 # pysqlite3-binary - not needed, using standard sqlite3
@@ -34,7 +37,7 @@ rq>=1.15.0
 
 # HTTP client
 requests>=2.31.0
-# httpx for async HTTP requests - pin version compatible with supabase 2.4.0
+# httpx for async HTTP requests - pin version compatible with supabase
 httpx==0.25.2
 
 # Background job scheduler
