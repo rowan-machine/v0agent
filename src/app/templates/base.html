@@ -2762,55 +2762,74 @@
     setMode = window.setMode;
     
     // Use event delegation on modeSelector for reliable click handling
-    document.getElementById('modeSelector').addEventListener('click', function(e) {
-      // Find the closest mode-option button
-      const btn = e.target.closest('.mode-option[data-mode]');
-      if (!btn) return;
-      
-      const mode = btn.dataset.mode;
-      console.log('[Mode Delegation] Clicked mode:', mode);
-      
-      // Mode name mapping
-      const modeNameMap = {
-        'mode-a': 'A: Context',
-        'mode-b': 'B: Planning',
-        'mode-c': 'C: Drafting',
-        'mode-d': 'D: Review',
-        'mode-e': 'E: Promote',
-        'mode-f': 'F: Sync',
-        'mode-g': 'G: Execute',
-        'mode-h': 'H: Test Plan'
-      };
-      
-      // 1. Update the display text
-      const nameEl = document.getElementById('currentModeName');
-      if (nameEl) {
-        nameEl.textContent = modeNameMap[mode] || mode;
-        console.log('[Mode Delegation] Updated text to:', nameEl.textContent);
+    // Wrap in DOMContentLoaded to ensure element exists
+    function setupModeSelector() {
+      const selector = document.getElementById('modeSelector');
+      if (!selector) {
+        console.error('[Mode] modeSelector not found!');
+        return;
       }
       
-      // 2. Save to localStorage
-      localStorage.setItem('signalflow-mode', mode);
-      
-      // 3. Update data attribute
-      document.documentElement.setAttribute('data-mode', mode);
-      
-      // 4. Update active states on buttons
-      document.querySelectorAll('.mode-option[data-mode]').forEach(b => {
-        b.classList.toggle('active', b.dataset.mode === mode);
+      selector.addEventListener('click', function(e) {
+        // Find the closest mode-option button
+        const btn = e.target.closest('.mode-option[data-mode]');
+        if (!btn) return;
+        
+        const mode = btn.dataset.mode;
+        console.log('[Mode Delegation] Clicked mode:', mode);
+        
+        // Mode name mapping
+        const modeNameMap = {
+          'mode-a': 'A: Context',
+          'mode-b': 'B: Planning',
+          'mode-c': 'C: Drafting',
+          'mode-d': 'D: Review',
+          'mode-e': 'E: Promote',
+          'mode-f': 'F: Sync',
+          'mode-g': 'G: Execute',
+          'mode-h': 'H: Test Plan'
+        };
+        
+        // 1. Update the display text
+        const nameEl = document.getElementById('currentModeName');
+        if (nameEl) {
+          nameEl.textContent = modeNameMap[mode] || mode;
+          console.log('[Mode Delegation] Updated text to:', nameEl.textContent);
+        }
+        
+        // 2. Save to localStorage
+        localStorage.setItem('signalflow-mode', mode);
+        
+        // 3. Update data attribute
+        document.documentElement.setAttribute('data-mode', mode);
+        
+        // 4. Update active states on buttons
+        document.querySelectorAll('.mode-option[data-mode]').forEach(b => {
+          b.classList.toggle('active', b.dataset.mode === mode);
+        });
+        
+        // 5. Close the dropdown
+        selector.classList.remove('open');
+        
+        // 6. Stop propagation
+        e.stopPropagation();
       });
       
-      // 5. Close the dropdown
-      this.classList.remove('open');
-      
-      // 6. Stop propagation
-      e.stopPropagation();
-    });
+      console.log('[Mode] Event delegation setup complete');
+    }
+    
+    // Setup when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupModeSelector);
+    } else {
+      setupModeSelector();
+    }
     
     // Close menus on outside click
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.mode-badge-wrapper')) {
-        document.getElementById('modeSelector').classList.remove('open');
+        const sel = document.getElementById('modeSelector');
+        if (sel) sel.classList.remove('open');
       }
     });
 
