@@ -215,7 +215,7 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
     )
 
     # -----------------------------
-    # 5. Persist to database
+    # 5. Persist to database (SQLite + Supabase dual-write)
     # -----------------------------
     
     # Detect Pocket template type if pocket summary provided
@@ -223,6 +223,44 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
     if pocket_ai_summary and pocket_ai_summary.strip():
         pocket_template = _detect_pocket_template(pocket_ai_summary)
     
+    # ----- 5a. Insert into Supabase (primary) -----
+    from ..services import meetings_supabase, documents_supabase
+    
+    supabase_meeting_data = {
+        "meeting_name": meeting_name,
+        "synthesized_notes": synthesized_notes,
+        "meeting_date": meeting_date,
+        "signals": signals,
+        "raw_text": transcript_text or "",
+    }
+    
+    supabase_meeting = meetings_supabase.create_meeting(supabase_meeting_data)
+    supabase_meeting_id = supabase_meeting.get("id") if supabase_meeting else None
+    
+    # Insert transcript document into Supabase
+    supabase_transcript_id = None
+    if supabase_meeting_id and transcript_text:
+        transcript_doc = documents_supabase.create_document({
+            "meeting_id": supabase_meeting_id,
+            "source": f"Transcript: {meeting_name}",
+            "content": transcript_text,
+            "document_date": meeting_date,
+        })
+        supabase_transcript_id = transcript_doc.get("id") if transcript_doc else None
+    
+    # Insert Pocket AI summary document into Supabase
+    supabase_pocket_id = None
+    if supabase_meeting_id and pocket_ai_summary and pocket_ai_summary.strip():
+        pocket_source = f"Pocket Summary ({pocket_template}): {meeting_name}"
+        pocket_doc = documents_supabase.create_document({
+            "meeting_id": supabase_meeting_id,
+            "source": pocket_source,
+            "content": pocket_ai_summary.strip(),
+            "document_date": meeting_date,
+        })
+        supabase_pocket_id = pocket_doc.get("id") if pocket_doc else None
+    
+    # ----- 5b. Insert into SQLite (legacy, for backward compat) -----
     with connect() as conn:
 
         # ---- Insert meeting synthesis + signals (include raw_text and pocket_ai_summary)
@@ -312,11 +350,12 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
     # -----------------------------
     # 7. Return structured response
     # -----------------------------
+    # Prefer Supabase IDs if available (primary), fall back to SQLite IDs
     return {
         "status": "ok",
-        "meeting_id": meeting_id,
-        "transcript_id": transcript_id,
-        "pocket_summary_id": pocket_summary_id,
+        "meeting_id": supabase_meeting_id or meeting_id,
+        "transcript_id": supabase_transcript_id or transcript_id,
+        "pocket_summary_id": supabase_pocket_id or pocket_summary_id,
         "embedded": True,
         "signals_extracted": {
             "decisions": len(signals.get("decisions", [])),
@@ -325,6 +364,9 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
             "risks": len(signals.get("risks", [])),
             "ideas": len(signals.get("ideas", [])),
         },
+        # Include both IDs for debugging
+        "_sqlite_meeting_id": meeting_id,
+        "_supabase_meeting_id": supabase_meeting_id,
     }
 
 

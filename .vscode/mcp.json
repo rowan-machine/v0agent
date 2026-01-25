@@ -16,6 +16,10 @@
 			"url": "https://mcp.miro.com/",
 			"gallery": "https://api.mcp.github.com",
 			"version": "1.0.1"
+		},
+		"com.notion/mcp": {
+			"url": "https://mcp.notion.com/mcp",
+			"type": "http"
 		}
 	},
 	"inputs": [

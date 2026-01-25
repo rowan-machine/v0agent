@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from datetime import datetime, timedelta
 import json
+import logging
 import os
 import re
 
@@ -4572,9 +4573,9 @@ async def load_meeting_bundle_ui(
                     # Update in Supabase
                     meetings_supabase.update_meeting(meeting_id, {"signals": signals})
                     
-                logger.info(f"Added {len(pocket_items)} Pocket action items to meeting {meeting_id}")
+                logging.getLogger(__name__).info(f"Added {len(pocket_items)} Pocket action items to meeting {meeting_id}")
         except Exception as e:
-            logger.warning(f"Failed to parse/store Pocket action items: {e}")
+            logging.getLogger(__name__).warning(f"Failed to parse/store Pocket action items: {e}")
     
     # Handle screenshot uploads if meeting was created successfully
     if meeting_id:
