@@ -57,12 +57,31 @@ def get_supabase_client():
     
     try:
         from supabase import create_client, Client
+        from supabase.lib.client_options import ClientOptions
         
-        _supabase_client = create_client(supabase_url, supabase_key)
+        # Create client with explicit options to avoid proxy issues
+        options = ClientOptions(
+            postgrest_client_timeout=30,
+            storage_client_timeout=30,
+        )
+        _supabase_client = create_client(supabase_url, supabase_key, options=options)
         logger.info(f"✅ Connected to Supabase: {supabase_url}")
         return _supabase_client
     except ImportError:
         logger.warning("⚠️ supabase package not installed")
+        return None
+    except TypeError as e:
+        # Handle version incompatibility - try without options
+        if "proxy" in str(e) or "unexpected keyword argument" in str(e):
+            try:
+                from supabase import create_client
+                _supabase_client = create_client(supabase_url, supabase_key)
+                logger.info(f"✅ Connected to Supabase (fallback): {supabase_url}")
+                return _supabase_client
+            except Exception as e2:
+                logger.error(f"❌ Failed to connect to Supabase (fallback): {e2}")
+                return None
+        logger.error(f"❌ Failed to connect to Supabase: {e}")
         return None
     except Exception as e:
         logger.error(f"❌ Failed to connect to Supabase: {e}")
