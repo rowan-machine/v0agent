@@ -639,6 +639,66 @@ user_workflow = {
 
 ## 📋 Backlog
 
+### 🚨 Supabase Environment Separation (URGENT)
+**Status**: ⚠️ NOT CONFIGURED - Staging and Production share the same Supabase project!  
+**Current State**:
+- Staging `SUPABASE_URL`: `https://wluchuiyhggiigcuiaya.supabase.co`
+- Production `SUPABASE_URL`: `https://wluchuiyhggiigcuiaya.supabase.co`
+- **Both environments use the same database!**
+
+**Required Actions**:
+1. Create a new Supabase project for staging (via Supabase Dashboard)
+2. Export schema from production: `supabase db dump --schema public`
+3. Apply schema to staging project
+4. Update Railway staging environment variables with new Supabase credentials
+5. Optionally seed staging with sample data (not production data)
+
+**Steps to Create Staging Supabase**:
+```bash
+# Option 1: Supabase CLI (recommended)
+supabase projects create signalflow-staging --org-id <your-org-id>
+
+# Option 2: Dashboard
+# Go to https://supabase.com/dashboard → New Project
+# Name: signalflow-staging
+# Region: Same as production for consistency
+```
+
+**After Creation**:
+- Get new `SUPABASE_URL` and `SUPABASE_KEY` from project settings
+- Run schema migration: `supabase db push --project-ref <staging-ref>`
+- Update Railway staging variables via `railway variables set`
+
+### 🔍 Search Auto-Suggest Not Working (NEEDS FIX)
+**Status**: ⚠️ Known Issue - Search bar returns no results  
+**Symptoms**:
+- Type in header search bar → "No results found"
+- API calls to `/api/search/unified` return empty results
+- Console shows search being triggered correctly
+
+**Root Cause Analysis Required**:
+1. [ ] Check if Supabase embeddings table has data
+2. [ ] Check if `semantic_search` RPC function exists in Supabase
+3. [ ] Check if keyword search works independently
+4. [ ] Check SQLite vs Supabase data sync status
+5. [ ] Check CORS/auth issues on API calls
+
+**Investigation Plan**:
+```bash
+# 1. Check embeddings exist
+curl "https://wluchuiyhggiigcuiaya.supabase.co/rest/v1/embeddings?select=count" \
+  -H "apikey: $SUPABASE_KEY"
+
+# 2. Check meetings exist
+curl "https://wluchuiyhggiigcuiaya.supabase.co/rest/v1/meetings?select=count" \
+  -H "apikey: $SUPABASE_KEY"
+
+# 3. Test semantic_search RPC
+# (requires creating test embedding first)
+```
+
+**Fix Priority**: High (affects daily usability)
+
 ### v0agent-local MCP Server
 **Status**: Deferred - Local server not yet stable  
 **Config** (when ready):
