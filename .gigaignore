@@ -141,9 +141,26 @@ scripts/migrate_*.py
 # Sandbox experiments
 sandbox/langchain_evaluation/
 
-# Old migration manifests
+# Old migration manifests & completion docs
 MIGRATION_MANIFEST.md
 MINDMAP_RAG_*.md
 PHASE_*.md
 ORGANIZATION_*.md
 REFACTORING_*.md
+*_COMPLETE.md
+*_SUMMARY.md
+CUTOVER_CHECKLIST.md
+
+# ==========================================
+# Optimized for AI Context
+# ==========================================
+# These are valuable for context (NOT ignored):
+# - GIGA_PLAN.md (roadmap & backlog)
+# - docs/architecture/*.md (core specs)
+# - docs/adr/*.md (decision records)
+# - src/app/**/*.py (application code)
+# - tests/*.py (test patterns)
+# - .github/copilot-instructions.md (AI context)
+# - config/*.yaml (configuration)
+
+# Keep context window focused on active development

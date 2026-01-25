@@ -1,6 +1,6 @@
 # GIGA PLAN - Upcoming Features & Phased Roadmap
 
-> **Last Updated**: January 25, 2026  
+> **Last Saved**: January 25, 2026 (Session: MCP Documentation Update)  
 > **Status**: ACTIVE PLANNING DOCUMENT  
 > **Owner**: Rowan (Single-user system)
 
@@ -267,6 +267,29 @@ class AgentType(Enum):
 - [x] Mode selection dropdown labels removed
 - [x] `.gigaignore` file created for context optimization
 - [x] GitHub integration simplified to single-user token approach
+- [x] TICKET_MCP_MODULE_SPEC.md expanded with test plan tools
+- [x] External MCP tools integration spec (ringlinq-mcp: dmp-dev-tools, airflow-mcp, quote2contract-mcp)
+
+---
+
+## 📋 Backlog
+
+### v0agent-local MCP Server
+**Status**: Deferred - Local server not yet stable  
+**Config** (when ready):
+```json
+"v0agent-local": {
+  "type": "http",
+  "url": "http://localhost:8001/mcp/call",
+  "description": "Local v0agent MCP server for ticket context and meeting signals"
+}
+```
+**Depends on**: Server startup issues resolved (SQLite disk I/O errors)
+
+### External MCP Tool Integration (ringlinq-mcp)
+**Status**: Spec complete, implementation pending  
+**Tools**: dmp-dev-tools, airflow-mcp, quote2contract-mcp  
+**Reference**: [TICKET_MCP_MODULE_SPEC.md](docs/architecture/TICKET_MCP_MODULE_SPEC.md#component-25-external-mcp-tool-integration)
 
 ---
 

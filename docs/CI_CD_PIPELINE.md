@@ -18,12 +18,31 @@ This project uses GitHub Actions for continuous integration and Railway for depl
 Add these secrets in GitHub Repository Settings → Secrets and variables → Actions:
 
 ```
-RAILWAY_TOKEN        # Railway API token for deployments
+# Railway Deployment Tokens
+# Generate at: https://railway.com/account/tokens
+# Each environment can have its own token for isolation
+RAILWAY_TOKEN              # Fallback token (if environment-specific not set)
+RAILWAY_TOKEN_STAGING      # Token for staging deployments (recommended)
+RAILWAY_TOKEN_PRODUCTION   # Token for production deployments (recommended)
+
+# Database
 SUPABASE_URL         # Supabase project URL
 SUPABASE_KEY         # Supabase anon key
+
+# AI Services (for tests)
 OPENAI_API_KEY       # OpenAI API key (for tests)
 ANTHROPIC_API_KEY    # Anthropic API key (for tests)
 ```
+
+#### Railway Token Setup
+
+1. Go to https://railway.com/account/tokens
+2. Create tokens for each environment:
+   - Name: `v0agent-staging-deploy` → Add as `RAILWAY_TOKEN_STAGING`
+   - Name: `v0agent-production-deploy` → Add as `RAILWAY_TOKEN_PRODUCTION`
+3. The workflows use fallback logic: `RAILWAY_TOKEN_STAGING || RAILWAY_TOKEN`
+
+> **Note**: Using separate tokens per environment provides better security isolation and audit trails.
 
 ## Workflows
 
