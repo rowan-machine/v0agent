@@ -324,6 +324,49 @@ const attachmentsList = document.getElementById('attachments-list');
 const attachmentsContainer = document.getElementById('attachments-container');
 
 // ============================================
+// Transcript Button Enable/Disable Logic
+// ============================================
+function setupTranscriptButtonListeners() {
+    const pocketTextarea = document.querySelector('textarea[name="pocket_transcript"]');
+    const teamsTextarea = document.querySelector('textarea[name="teams_transcript"]');
+    const pocketBtn = document.getElementById('generatePocketDocBtn');
+    const teamsBtn = document.getElementById('generateTeamsDocBtn');
+    
+    if (pocketTextarea && pocketBtn) {
+        // Check initial state and enable if there's content
+        if (pocketTextarea.value.trim()) {
+            pocketBtn.disabled = false;
+        }
+        // Add input listener to enable/disable button based on content
+        pocketTextarea.addEventListener('input', function() {
+            const hasContent = this.value.trim().length > 0;
+            // Only enable if not already marked as "Document Created"
+            if (!pocketBtn.textContent.includes('✅')) {
+                pocketBtn.disabled = !hasContent;
+            }
+        });
+    }
+    
+    if (teamsTextarea && teamsBtn) {
+        // Check initial state and enable if there's content
+        if (teamsTextarea.value.trim()) {
+            teamsBtn.disabled = false;
+        }
+        // Add input listener to enable/disable button based on content
+        teamsTextarea.addEventListener('input', function() {
+            const hasContent = this.value.trim().length > 0;
+            // Only enable if not already marked as "Document Created"
+            if (!teamsBtn.textContent.includes('✅')) {
+                teamsBtn.disabled = !hasContent;
+            }
+        });
+    }
+}
+
+// Initialize transcript button listeners on page load
+document.addEventListener('DOMContentLoaded', setupTranscriptButtonListeners);
+
+// ============================================
 // Mindmap Line Editor Logic
 // ============================================
 let mindmapLines = []; // Array of {text: string, level: 0|1|2}
