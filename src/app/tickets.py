@@ -41,9 +41,15 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def get_sprint_settings():
     """Get current sprint settings."""
-    with connect() as conn:
-        row = conn.execute("SELECT * FROM sprint_settings WHERE id = 1").fetchone()
-    return dict(row) if row else None
+    try:
+        with connect() as conn:
+            row = conn.execute("SELECT * FROM sprint_settings WHERE id = 1").fetchone()
+        return dict(row) if row else None
+    except Exception as e:
+        # SQLite may not be available or corrupted - return None
+        import logging
+        logging.getLogger(__name__).warning(f"Could not get sprint settings: {e}")
+        return None
 
 
 def get_sprint_day():
@@ -214,12 +220,16 @@ def view_ticket(request: Request, ticket_pk: str):
     if not ticket:
         return RedirectResponse(url="/tickets", status_code=303)
     
-    # Get attachments (still from SQLite)
-    with connect() as conn:
-        attachments = conn.execute(
-            "SELECT * FROM attachments WHERE ref_type = 'ticket' AND ref_id = ?",
-            (ticket_pk,)
-        ).fetchall()
+    # Get attachments (still from SQLite) - graceful fallback
+    attachments = []
+    try:
+        with connect() as conn:
+            attachments = conn.execute(
+                "SELECT * FROM attachments WHERE ref_type = 'ticket' AND ref_id = ?",
+                (ticket_pk,)
+            ).fetchall()
+    except Exception:
+        pass  # SQLite may not be available
     
     return templates.TemplateResponse(
         "view_ticket.html",
@@ -233,12 +243,16 @@ def edit_ticket_page(request: Request, ticket_pk: str):
     # Read from Supabase
     ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
     
-    # Get attachments (still from SQLite)
-    with connect() as conn:
-        attachments = conn.execute(
-            "SELECT * FROM attachments WHERE ref_type = 'ticket' AND ref_id = ?",
-            (ticket_pk,)
-        ).fetchall()
+    # Get attachments (still from SQLite) - graceful fallback
+    attachments = []
+    try:
+        with connect() as conn:
+            attachments = conn.execute(
+                "SELECT * FROM attachments WHERE ref_type = 'ticket' AND ref_id = ?",
+                (ticket_pk,)
+            ).fetchall()
+    except Exception:
+        pass  # SQLite may not be available
     
     return templates.TemplateResponse(
         "edit_ticket.html",
