@@ -1495,6 +1495,31 @@
       font-weight: 500;
     }
 
+    /* Beta/Alpha tag badges for navigation links */
+    .feature-tag {
+      font-size: 0.55rem;
+      padding: 0.1rem 0.3rem;
+      border-radius: 3px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-left: auto;
+    }
+
+    .feature-tag.beta {
+      background: #4a90d9;
+      color: #fff;
+    }
+
+    .feature-tag.alpha {
+      background: #f59e0b;
+      color: #fff;
+    }
+
+    .feature-tag.new {
+      background: #22c55e;
+      color: #fff;
+    }
+
     /* Dark mode nav link active state */
     [data-theme="dark"] .nav-link.active {
       background: rgba(52, 152, 219, 0.2) !important;
@@ -1938,6 +1963,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
           Signals
+          <span class="feature-tag beta">BETA</span>
         </a>
       </div>
 
@@ -1954,12 +1980,14 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
           </svg>
           DIKW Pyramid
+          <span class="feature-tag beta">BETA</span>
         </a>
         <a href="/knowledge-graph" class="nav-link">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           Knowledge Graph
+          <span class="feature-tag alpha">ALPHA</span>
         </a>
       </div>
 
@@ -2005,6 +2033,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
           </svg>
           Development
+          <span class="feature-tag beta">BETA</span>
         </a>
         <a href="/career/standups" class="nav-link">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
