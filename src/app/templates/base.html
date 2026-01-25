@@ -2730,8 +2730,8 @@
     }
     
     // Hook into mode changes to auto-start tracking
-    const originalSetMode = setMode;
-    setMode = function(mode, persist = true) {
+    const originalSetMode = window.setMode;
+    window.setMode = function(mode, persist = true) {
       // Call original
       originalSetMode(mode, persist);
       
@@ -2748,10 +2748,12 @@
       }
       updatePlayPauseButton();
     };
+    // Also update local reference
+    setMode = window.setMode;
     
     // Close menus on outside click
     document.addEventListener('click', (e) => {
-      if (!e.target.closest('.mode-indicator')) {
+      if (!e.target.closest('.mode-badge-wrapper')) {
         document.getElementById('modeSelector').classList.remove('open');
       }
     });

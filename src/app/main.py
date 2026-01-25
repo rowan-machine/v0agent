@@ -1169,24 +1169,29 @@ async def get_notifications(limit: int = 10):
     
     if supabase:
         try:
-            result = supabase.table("notifications").select("*").or_("actioned.eq.false,actioned.is.null").order("created_at", desc=True).limit(limit).execute()
+            # Supabase uses actioned_at (timestamp) instead of actioned (boolean)
+            # Filter for non-actioned notifications (actioned_at is null)
+            result = supabase.table("notifications").select("*").is_("actioned_at", "null").order("created_at", desc=True).limit(limit).execute()
             
             if result.data:
                 notifications = []
                 for row in result.data:
+                    # Map Supabase schema to API response format
+                    # Supabase: metadata, read_at, actioned_at
+                    # API: data, read (boolean), actioned (boolean)
                     n_dict = {
                         "id": row.get("id"),
                         "type": row.get("type") or row.get("notification_type"),
                         "title": row.get("title"),
                         "message": row.get("body") or row.get("message"),
-                        "data": row.get("data"),
-                        "read": row.get("read", False),
+                        "data": row.get("metadata"),  # metadata -> data
+                        "read": row.get("read_at") is not None,  # read_at -> read boolean
                         "created_at": row.get("created_at"),
-                        "actioned": row.get("actioned", False),
+                        "actioned": row.get("actioned_at") is not None,  # actioned_at -> actioned boolean
                         "action_taken": row.get("action_taken"),
                         "expires_at": row.get("expires_at"),
                     }
-                    # Parse action_url from data JSON if available
+                    # Parse action_url from metadata JSON if available
                     if n_dict.get('data'):
                         try:
                             data = n_dict['data'] if isinstance(n_dict['data'], dict) else json.loads(n_dict['data'])
@@ -1257,12 +1262,12 @@ async def get_notification_count():
     
     if supabase:
         try:
-            # Count unread
-            unread_result = supabase.table("notifications").select("id", count="exact").eq("read", False).execute()
+            # Count unread (read_at is null)
+            unread_result = supabase.table("notifications").select("id", count="exact").is_("read_at", "null").execute()
             unread = unread_result.count or 0
             
-            # Count total (non-actioned)
-            total_result = supabase.table("notifications").select("id", count="exact").or_("actioned.eq.false,actioned.is.null").execute()
+            # Count total non-actioned (actioned_at is null)
+            total_result = supabase.table("notifications").select("id", count="exact").is_("actioned_at", "null").execute()
             total = total_result.count or 0
             
             return JSONResponse({"unread": unread, "total": total})
@@ -1295,12 +1300,14 @@ async def get_notification_count():
 @app.post("/api/notifications/{notification_id}/read")
 async def mark_notification_read(notification_id: str):
     """Mark a notification as read."""
+    from datetime import datetime, timezone
     # Try Supabase first
     supabase = _get_supabase()
     
     if supabase:
         try:
-            supabase.table("notifications").update({"read": True}).eq("id", notification_id).execute()
+            # Supabase uses read_at timestamp instead of read boolean
+            supabase.table("notifications").update({"read_at": datetime.now(timezone.utc).isoformat()}).eq("id", notification_id).execute()
             return JSONResponse({"status": "ok"})
         except Exception as e:
             logger.warning(f"Supabase mark read failed: {e}")
@@ -1327,12 +1334,14 @@ async def mark_notification_read(notification_id: str):
 @app.post("/api/notifications/read-all")
 async def mark_all_notifications_read():
     """Mark all notifications as read."""
+    from datetime import datetime, timezone
     # Try Supabase first
     supabase = _get_supabase()
     
     if supabase:
         try:
-            supabase.table("notifications").update({"read": True}).eq("read", False).execute()
+            # Supabase uses read_at timestamp instead of read boolean
+            supabase.table("notifications").update({"read_at": datetime.now(timezone.utc).isoformat()}).is_("read_at", "null").execute()
             return JSONResponse({"status": "ok"})
         except Exception as e:
             logger.warning(f"Supabase mark all read failed: {e}")
