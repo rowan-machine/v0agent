@@ -42,6 +42,8 @@ COPY --from=builder --chown=appuser:appuser /root/.local /home/appuser/.local
 # Copy application code
 COPY --chown=appuser:appuser src/ ./src/
 COPY --chown=appuser:appuser config/ ./config/
+COPY --chown=appuser:appuser docs/ ./docs/
+COPY --chown=appuser:appuser prompts/ ./prompts/
 COPY --chown=appuser:appuser .env.example ./.env
 
 # Create data directories
@@ -86,6 +88,8 @@ RUN pip install --no-cache-dir \
 COPY src/ ./src/
 COPY config/ ./config/
 COPY tests/ ./tests/
+COPY docs/ ./docs/
+COPY prompts/ ./prompts/
 COPY .env.example ./.env
 
 # Create directories
