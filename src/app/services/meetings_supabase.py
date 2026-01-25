@@ -146,27 +146,6 @@ def delete_meeting(meeting_id: str) -> bool:
 def get_supabase_direct():
     """Get direct Supabase client for advanced operations."""
     return get_supabase_client()
-        
-        result = client.table("meetings").select(
-            "id, meeting_name, signals, meeting_date"
-        ).not_.is_("signals", "null").gte("meeting_date", cutoff).execute()
-        
-        meetings = []
-        for row in result.data:
-            signals = row.get("signals", {})
-            if signals:
-                meetings.append({
-                    "id": row.get("id"),
-                    "meeting_name": row.get("meeting_name"),
-                    "signals_json": json.dumps(signals),
-                    "signals": signals,
-                    "meeting_date": row.get("meeting_date"),
-                })
-        
-        return meetings
-    except Exception as e:
-        logger.error(f"Failed to get meetings in range: {e}")
-        return []
 
 
 def get_dashboard_stats() -> Dict[str, Any]:
