@@ -2096,7 +2096,7 @@
         <div class="mode-selector-header">
           <h4>📍 Personal Laptop (Offline)</h4>
         </div>
-        <button class="mode-option offline" data-mode="mode-a">
+        <button class="mode-option offline" data-mode="mode-a" onclick="handleModeClick('mode-a')">
           <div class="mode-option-dot mode-a"></div>
           <div class="mode-option-content">
             <div class="mode-option-title">A: Context Distillation</div>
@@ -2105,7 +2105,7 @@
           </div>
           <span class="mode-option-time" data-mode="mode-a">—</span>
         </button>
-        <button class="mode-option offline" data-mode="mode-b">
+        <button class="mode-option offline" data-mode="mode-b" onclick="handleModeClick('mode-b')">
           <div class="mode-option-dot mode-b"></div>
           <div class="mode-option-content">
             <div class="mode-option-title">B: Implementation Planning</div>
@@ -2114,7 +2114,7 @@
           </div>
           <span class="mode-option-time" data-mode="mode-b">—</span>
         </button>
-        <button class="mode-option offline" data-mode="mode-c">
+        <button class="mode-option offline" data-mode="mode-c" onclick="handleModeClick('mode-c')">
           <div class="mode-option-dot mode-c"></div>
           <div class="mode-option-content">
             <div class="mode-option-title">C: Assisted Draft Intake</div>
@@ -2123,7 +2123,7 @@
           </div>
           <span class="mode-option-time" data-mode="mode-c">—</span>
         </button>
-        <button class="mode-option offline" data-mode="mode-d">
+        <button class="mode-option offline" data-mode="mode-d" onclick="handleModeClick('mode-d')">
           <div class="mode-option-dot mode-d"></div>
           <div class="mode-option-content">
             <div class="mode-option-title">D: Deep Review & Validation</div>
@@ -2132,7 +2132,7 @@
         </div>
         <span class="mode-option-time" data-mode="mode-d">—</span>
       </button>
-      <button class="mode-option offline" data-mode="mode-e">
+      <button class="mode-option offline" data-mode="mode-e" onclick="handleModeClick('mode-e')">
         <div class="mode-option-dot mode-e"></div>
         <div class="mode-option-content">
           <div class="mode-option-title">E: Promotion Readiness</div>
@@ -2145,7 +2145,7 @@
       <div class="mode-divider"></div>
       <div class="mode-divider-label">📍 Work Machine (Online)</div>
       
-      <button class="mode-option" data-mode="mode-f">
+      <button class="mode-option" data-mode="mode-f" onclick="handleModeClick('mode-f')">
         <div class="mode-option-dot mode-f"></div>
         <div class="mode-option-content">
           <div class="mode-option-title">F: Controlled Ingress/Egress</div>
@@ -2154,7 +2154,7 @@
         </div>
         <span class="mode-option-time" data-mode="mode-f">—</span>
       </button>
-      <button class="mode-option" data-mode="mode-g">
+      <button class="mode-option" data-mode="mode-g" onclick="handleModeClick('mode-g')">
         <div class="mode-option-dot mode-g"></div>
         <div class="mode-option-content">
           <div class="mode-option-title">G: Execution (Writing Code)</div>
@@ -2163,7 +2163,7 @@
         </div>
         <span class="mode-option-time" data-mode="mode-g">—</span>
       </button>
-      <button class="mode-option" data-mode="mode-h">
+      <button class="mode-option" data-mode="mode-h" onclick="handleModeClick('mode-h')">
         <div class="mode-option-dot mode-h"></div>
         <div class="mode-option-content">
           <div class="mode-option-title">H: Test Planning</div>
@@ -2185,6 +2185,54 @@
   </main>
 
   <script>
+    // ===== GLOBAL MODE CLICK HANDLER =====
+    // Define this FIRST so onclick handlers can find it
+    window.handleModeClick = function(mode) {
+      console.log('[handleModeClick] Called with:', mode);
+      
+      const modeNameMap = {
+        'mode-a': 'A: Context',
+        'mode-b': 'B: Planning',
+        'mode-c': 'C: Drafting',
+        'mode-d': 'D: Review',
+        'mode-e': 'E: Promote',
+        'mode-f': 'F: Sync',
+        'mode-g': 'G: Execute',
+        'mode-h': 'H: Test Plan'
+      };
+      
+      // 1. Update display text
+      const nameEl = document.getElementById('currentModeName');
+      if (nameEl) {
+        nameEl.textContent = modeNameMap[mode] || mode;
+        console.log('[handleModeClick] Updated text to:', nameEl.textContent);
+      }
+      
+      // 2. Save to localStorage
+      localStorage.setItem('signalflow-mode', mode);
+      
+      // 3. Update data attribute on html element (for CSS)
+      document.documentElement.setAttribute('data-mode', mode);
+      
+      // 4. Update active states on dropdown buttons
+      document.querySelectorAll('.mode-option[data-mode]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === mode);
+      });
+      
+      // 5. Close the dropdown
+      const selector = document.getElementById('modeSelector');
+      if (selector) selector.classList.remove('open');
+      
+      // 6. Also call original setMode if it exists for other functionality
+      if (typeof window.originalSetModeBackup === 'function') {
+        try {
+          window.originalSetModeBackup(mode, true);
+        } catch(e) {
+          console.log('[handleModeClick] originalSetMode error:', e);
+        }
+      }
+    };
+    
     // ===== THEME SYSTEM (Light/Dark Toggle) =====
     function setTheme(theme) {
       localStorage.setItem('harekrishna-theme', theme);
