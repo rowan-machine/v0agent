@@ -1,0 +1,149 @@
+# .gigaignore - Optimize Giga AI context analysis
+# See: https://docs.gigamind.dev/giga-context/gigaignore
+
+# ==========================================
+# Build Outputs & Generated Files
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# ==========================================
+# Virtual Environments
+# ==========================================
+.venv/
+venv/
+ENV/
+env/
+
+# ==========================================
+# IDE & Editor Settings
+# ==========================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ==========================================
+# Test & Coverage
+# ==========================================
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# ==========================================
+# Database Files (Local Dev)
+# ==========================================
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+agent.db*
+data/*.db
+
+# ==========================================
+# Logs
+# ==========================================
+logs/
+*.log
+
+# ==========================================
+# Mobile Build Artifacts
+# ==========================================
+mobile/node_modules/
+mobile/.expo/
+mobile/android/app/build/
+mobile/android/.gradle/
+mobile/ios/Pods/
+mobile/ios/build/
+
+# ==========================================
+# Uploads & User Data
+# ==========================================
+uploads/
+data/exports/
+data/uploads/
+
+# ==========================================
+# Secrets & Environment
+# ==========================================
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ==========================================
+# Documentation (Heavy Files)
+# ==========================================
+# Keep ADRs and important docs, skip generated
+docs/generated/
+*.pdf
+
+# ==========================================
+# Git & CI/CD
+# ==========================================
+.git/
+.github/workflows/
+
+# ==========================================
+# Backup Files
+# ==========================================
+*.backup
+*.bak
+agent.db.backup
+
+# ==========================================
+# Notebook Checkpoints
+# ==========================================
+.ipynb_checkpoints/
+notebooks/*.ipynb
+
+# ==========================================
+# Third Party & Large Dependencies
+# ==========================================
+node_modules/
+bower_components/
+
+# ==========================================
+# Docker
+# ==========================================
+.docker/
+
+# ==========================================
+# Project-Specific Exclusions
+# ==========================================
+# Migration scripts (rarely need full context)
+scripts/migrate_*.py
+
+# Sandbox experiments
+sandbox/langchain_evaluation/
+
+# Old migration manifests
+MIGRATION_MANIFEST.md
+MINDMAP_RAG_*.md
+PHASE_*.md
+ORGANIZATION_*.md
+REFACTORING_*.md

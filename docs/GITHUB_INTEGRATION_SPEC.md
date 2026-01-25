@@ -2,19 +2,52 @@
 
 ## Overview
 
-Replace the current "Analyzing codebase for AI implementation memories" functionality with a GitHub OAuth integration that allows users to:
-1. Authenticate with GitHub
-2. Select repositories they've worked on
-3. Import repository data to update their skills development graph
+> **Simplified Single-User Architecture**: This system is designed for a single user (the developer/owner). Instead of OAuth authentication through the app, users configure their own GitHub Personal Access Token directly in the environment. This removes the need for OAuth flows, token storage, and multi-user complexity.
+
+The GitHub integration allows:
+1. **Configure GitHub API Key** in settings (stored as environment variable)
+2. Select repositories you've worked on
+3. Import repository data to update skills development graph
 4. Optionally populate completed projects bank or AI implementation memories
 5. Refresh repos for continuous skill tracking with progress reports
 
 ---
 
+## Authentication Model (Simplified)
+
+### Single-User GitHub Token
+
+Instead of OAuth authentication in the app:
+
+1. User generates a **GitHub Personal Access Token** at https://github.com/settings/tokens
+2. User adds token to their environment or app settings
+3. App uses token directly for GitHub API calls
+
+**Required Token Scopes:**
+- `repo` - Full control of private repositories
+- `read:user` - Read user profile data
+
+**Configuration Methods:**
+```bash
+# Option 1: Environment variable
+export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
+
+# Option 2: App settings (Settings → GitHub → API Key)
+# Stored encrypted in user_settings table
+```
+
+---
+
 ## Core User Stories
 
-### US-1: GitHub Authentication
-> As a user, I want to connect my GitHub account so the system can access my repositories.
+### US-1: GitHub Token Configuration (Replaces OAuth)
+> As a user, I want to add my GitHub Personal Access Token so the system can access my repositories.
+
+**Acceptance Criteria:**
+- Settings page has "GitHub API Key" field
+- Token is validated on save (API call to /user)
+- Token stored encrypted in database
+- Clear error message if token invalid or missing scopes
 
 ### US-2: Repository Selection
 > As a user, I want to browse and select specific repositories I've contributed to for analysis.
@@ -39,7 +72,7 @@ Replace the current "Analyzing codebase for AI implementation memories" function
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         Frontend (Mobile/Web)                        │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌──────────────┐  │
-│  │ GitHub Auth │ │ Repo Picker │ │Import Config│ │Refresh/Report│  │
+│  │Token Config │ │ Repo Picker │ │Import Config│ │Refresh/Report│  │
 │  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘ └──────┬───────┘  │
 └─────────┼───────────────┼───────────────┼───────────────┼──────────┘
           │               │               │               │
@@ -48,7 +81,7 @@ Replace the current "Analyzing codebase for AI implementation memories" function
 │                         API Layer (FastAPI)                          │
 │  ┌─────────────────────────────────────────────────────────────────┐│
 │  │                   /api/github/*                                 ││
-│  │  POST /auth/callback  GET /repos  POST /import  POST /refresh   ││
+│  │  POST /token      GET /repos     POST /import   POST /refresh   ││
 │  └─────────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────────┘
           │
@@ -56,7 +89,7 @@ Replace the current "Analyzing codebase for AI implementation memories" function
 ┌─────────────────────────────────────────────────────────────────────┐
 │                     GitHub Integration Service                       │
 │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌──────────────────┐ │
-│  │OAuth Client│ │Repo Fetcher│ │Code Analyzer│ │Commit Processor │ │
+│  │TokenManager│ │Repo Fetcher│ │Code Analyzer│ │Commit Processor │ │
 │  └────────────┘ └────────────┘ └────────────┘ └──────────────────┘ │
 └─────────────────────────────────────────────────────────────────────┘
           │
@@ -216,17 +249,18 @@ ALTER TABLE ai_memories ADD COLUMN github_subproject_id UUID REFERENCES github_s
 
 ## API Endpoints
 
-### Authentication
+### Token Configuration (Replaces OAuth)
 
 ```
-POST /api/github/auth/initiate
-→ Returns GitHub OAuth URL with state token
+POST /api/github/token
+Body: { "token": "ghp_xxxxxxxxxxxx" }
+→ Validates token, stores encrypted, returns connection status
 
-GET /api/github/auth/callback
-→ Handles OAuth callback, stores tokens, returns connection status
+GET /api/github/status
+→ Returns whether GitHub is connected and token validity
 
-DELETE /api/github/auth/disconnect
-→ Revokes tokens and removes connection
+DELETE /api/github/token
+→ Removes stored token
 ```
 
 ### Repository Management
@@ -471,10 +505,10 @@ class SkillProgressionTracker:
   
   "new_projects_detected": [
     {
-      "name": "OAuth Integration",
+      "name": "Auth Integration",
       "repo": "my-app",
       "type": "feature",
-      "technologies": ["OAuth2", "JWT", "Express"],
+      "technologies": ["JWT", "Express"],
       "suggested_for": ["completed_projects"],
       "commit_range": "abc123..def456"
     }
@@ -492,14 +526,13 @@ class SkillProgressionTracker:
 ## Security Considerations
 
 ### Token Storage
-- All GitHub tokens encrypted at rest using AES-256
-- Tokens stored in Supabase with RLS policies
-- Refresh tokens used to minimize long-lived access
+- GitHub Personal Access Token encrypted at rest using AES-256
+- Token stored in user_settings table (single user)
+- Token validated on each use
 
-### Scopes Required
+### Token Scopes Required
 ```
-repo (read) - Access private repos
-public_repo (read) - Access public repos
+repo - Access private and public repos
 read:user - Get user profile
 ```
 
@@ -519,9 +552,9 @@ read:user - Get user profile
 
 ### Phase 1: Foundation (Week 1)
 - [ ] Database migrations for new tables
-- [ ] GitHub OAuth flow implementation
+- [ ] GitHub token configuration endpoint
 - [ ] Basic repository listing API
-- [ ] Token management and encryption
+- [ ] Token validation and encrypted storage
 
 ### Phase 2: Analysis Pipeline (Week 2)
 - [ ] Skills extraction from languages
@@ -556,7 +589,7 @@ src/app/
 ├── services/
 │   └── github/
 │       ├── __init__.py
-│       ├── oauth.py              # OAuth flow handling
+│       ├── token_manager.py      # Token validation & storage
 │       ├── client.py             # GitHub API client
 │       ├── fetcher.py            # Repo content fetcher
 │       ├── skills_extractor.py   # Skills analysis
@@ -582,10 +615,10 @@ src/app/
 ## Environment Variables
 
 ```env
-# GitHub OAuth
-GITHUB_CLIENT_ID=your_client_id
-GITHUB_CLIENT_SECRET=your_client_secret
-GITHUB_REDIRECT_URI=https://your-app.com/api/github/auth/callback
+# GitHub API (Single User - Personal Access Token)
+# Generate at: https://github.com/settings/tokens
+# Required scopes: repo, read:user
+GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
 
 # Security
 GITHUB_TOKEN_ENCRYPTION_KEY=your_32_byte_key
@@ -600,15 +633,15 @@ GITHUB_RATE_LIMIT_BUFFER=100
 
 ## UI/UX Considerations
 
-### Mobile Flow
-1. **Connect** → Tap "Connect GitHub" → Browser OAuth → Return to app
+### Mobile/Web Flow (Simplified)
+1. **Configure** → Settings → Add GitHub Token → Validate
 2. **Select** → Browse repos in list → Multi-select → Confirm
 3. **Configure** → Choose import destinations → Start analysis
 4. **Review** → View progress → See results → Accept suggestions
 5. **Refresh** → Pull to refresh → View report → Track growth
 
 ### Key Screens
-- GitHub connection management
+- GitHub token configuration in Settings
 - Repository browser with filters
 - Import configuration modal
 - Analysis progress indicator
