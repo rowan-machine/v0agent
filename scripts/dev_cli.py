@@ -22,7 +22,6 @@ Commands:
 import argparse
 import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 # Add project root to path
@@ -33,7 +32,6 @@ sys.path.insert(0, str(project_root))
 try:
     from rich.console import Console
     from rich.table import Table
-    from rich.panel import Panel
     from rich import box
     console = Console()
     HAS_RICH = True
@@ -114,43 +112,133 @@ def cmd_status():
 
 
 def cmd_tickets():
-    """View ticket checklist."""
-    print_header("Ticket Checklist")
+    """View ticket checklist from the app database."""
+    print_header("Sprint Tickets")
     
-    # This would typically load from a file or database
-    checklist = [
-        ("Review PR", "pending"),
-        ("Write tests", "pending"),
-        ("Update documentation", "pending"),
-        ("Run integration tests", "pending"),
-        ("Deploy to staging", "pending"),
-        ("Verify staging", "pending"),
-        ("Merge to main", "pending"),
-    ]
-    
-    if HAS_RICH:
-        table = Table(title="Current Sprint Tasks", box=box.ROUNDED)
-        table.add_column("Task", style="cyan")
-        table.add_column("Status", style="green")
+    try:
+        from src.app.infrastructure.supabase_client import get_client
+        client = get_client()
         
-        for task, status in checklist:
-            icon = "✅" if status == "done" else "⏳"
-            table.add_row(task, f"{icon} {status}")
+        if not client:
+            print("  ⚠️ Supabase not configured")
+            return
         
-        console.print(table)
-    else:
-        for task, status in checklist:
-            icon = "✅" if status == "done" else "⏳"
-            print(f"  {icon} {task}: {status}")
+        result = client.table("tickets").select(
+            "ticket_id, title, status, sprint_points, task_decomposition"
+        ).eq("in_sprint", True).order("created_at", desc=True).execute()
+        
+        tickets = result.data
+        
+        if not tickets:
+            print("  No tickets in current sprint")
+            return
+        
+        if HAS_RICH:
+            for ticket in tickets:
+                status_icons = {
+                    'done': '✅', 'in_progress': '🔄', 'in_review': '👁️',
+                    'todo': '⬜', 'backlog': '📝', 'blocked': '🚫'
+                }
+                icon = status_icons.get(ticket['status'], '❓')
+                
+                console.print(f"\n{icon} [cyan][{ticket['ticket_id']}][/cyan] {ticket['title']}")
+                console.print(f"   Status: {ticket['status']} | Points: {ticket.get('sprint_points', 0)}")
+                
+                # Show checklist
+                tasks = ticket.get('task_decomposition')
+                if tasks:
+                    import json
+                    if isinstance(tasks, str):
+                        tasks = json.loads(tasks)
+                    
+                    console.print("   [bold]Checklist:[/bold]")
+                    if isinstance(tasks, list):
+                        for task in tasks:
+                            if isinstance(task, dict):
+                                done = task.get('done', task.get('completed', False))
+                                name = task.get('name', task.get('task', str(task)))
+                            else:
+                                done = False
+                                name = str(task)
+                            check = '✅' if done else '⬜'
+                            console.print(f"      {check} {name}")
+        else:
+            for ticket in tickets:
+                icon = "✅" if ticket['status'] == 'done' else "⏳"
+                print(f"\n  {icon} [{ticket['ticket_id']}] {ticket['title']}")
+                print(f"     Status: {ticket['status']}")
+                
+    except Exception as e:
+        print(f"  Error: {e}")
     
     print()
 
 
 def cmd_tests():
-    """View test plan status."""
-    print_header("Test Plan Status")
+    """View test cases from ticket task decompositions."""
+    print_header("Test Cases (from Tickets)")
     
-    # Run pytest --collect-only to get test count
+    try:
+        from src.app.infrastructure.supabase_client import get_client
+        client = get_client()
+        
+        if not client:
+            print("  ⚠️ Supabase not configured")
+            _show_pytest_tests()
+            return
+        
+        result = client.table("tickets").select(
+            "ticket_id, title, task_decomposition, tags"
+        ).eq("in_sprint", True).execute()
+        
+        import json
+        found_tests = False
+        
+        for ticket in result.data:
+            tasks = ticket.get('task_decomposition', [])
+            if isinstance(tasks, str):
+                try:
+                    tasks = json.loads(tasks)
+                except json.JSONDecodeError:
+                    tasks = []
+            
+            # Look for test-related tasks
+            test_tasks = []
+            if isinstance(tasks, list):
+                for task in tasks:
+                    task_name = task.get('name', str(task)) if isinstance(task, dict) else str(task)
+                    if any(kw in task_name.lower() for kw in ['test', 'verify', 'validate', 'check', 'acceptance', 'qa']):
+                        test_tasks.append(task)
+            
+            if test_tasks:
+                found_tests = True
+                print(f"\n  📋 [{ticket['ticket_id']}] {ticket['title']}")
+                
+                for task in test_tasks:
+                    if isinstance(task, dict):
+                        done = task.get('done', False)
+                        name = task.get('name', str(task))
+                    else:
+                        done = False
+                        name = str(task)
+                    check = '✅' if done else '⬜'
+                    print(f"     {check} {name}")
+        
+        if not found_tests:
+            print("  No test cases found in ticket checklists")
+            print("\n  💡 Add tasks with 'test', 'verify', or 'acceptance' in the name")
+        
+    except Exception as e:
+        print(f"  Error: {e}")
+        _show_pytest_tests()
+    
+    print()
+
+
+def _show_pytest_tests():
+    """Fall back to showing pytest test files."""
+    print("\n  Falling back to pytest file scan...\n")
+    
     import subprocess
     try:
         result = subprocess.run(
@@ -161,7 +249,6 @@ def cmd_tests():
             timeout=30
         )
         
-        # Parse output for test count
         lines = result.stdout.strip().split('\n')
         if lines:
             last_line = lines[-1]
@@ -170,25 +257,80 @@ def cmd_tests():
         print_item("Test Collection", f"Error: {e}", "failed")
     
     # Show test categories
+    import glob
     test_categories = [
         ("Unit Tests", "tests/test_*.py"),
         ("API Tests", "tests/test_api_*.py"),
-        ("Integration Tests", "tests/test_*_integration.py"),
     ]
     
-    import glob
     for name, pattern in test_categories:
         files = glob.glob(str(project_root / pattern))
         print_item(name, f"{len(files)} files", "info")
-    
-    print("\nRun tests: python -m pytest -v")
-    print()
 
 
 def cmd_release():
-    """View release checklist."""
+    """View release checklist from app workflow modes."""
     print_header("Release Checklist")
     
+    try:
+        from src.app.infrastructure.supabase_client import get_client
+        client = get_client()
+        
+        if not client:
+            print("  ⚠️ Supabase not configured")
+            # Fall back to defaults
+            _show_default_release_checklist()
+            return
+        
+        # Get workflow modes from database
+        result = client.table("workflow_modes").select(
+            "mode_key, name, icon, steps"
+        ).eq("is_active", True).order("sort_order").execute()
+        
+        modes = result.data
+        
+        # Look for release/deployment related modes
+        release_mode = None
+        for mode in modes:
+            if any(kw in (mode.get('mode_key') or '').lower() for kw in ['release', 'deploy', 'ship', 'production']):
+                release_mode = mode
+                break
+        
+        if release_mode:
+            import json
+            print(f"\n{release_mode.get('icon', '🚀')} {release_mode['name']}\n")
+            steps = release_mode.get('steps', [])
+            if isinstance(steps, str):
+                steps = json.loads(steps)
+            
+            done = 0
+            for step in steps:
+                if isinstance(step, dict):
+                    name = step.get('label', step.get('name', str(step)))
+                    completed = step.get('completed', step.get('done', False))
+                else:
+                    name = str(step)
+                    completed = False
+                
+                if completed:
+                    done += 1
+                check = '✅' if completed else '⬜'
+                print(f"  {check} {name}")
+            
+            print(f"\n  Progress: {done}/{len(steps)}")
+        else:
+            print("  ⚠️ No release workflow mode found in app")
+            _show_default_release_checklist()
+            
+    except Exception as e:
+        print(f"  Error: {e}")
+        _show_default_release_checklist()
+    
+    print()
+
+
+def _show_default_release_checklist():
+    """Show default release checklist when no mode is configured."""
     checklist = [
         ("All tests passing", "pending"),
         ("Version bumped", "pending"),
@@ -200,22 +342,10 @@ def cmd_release():
         ("Rollback plan ready", "pending"),
     ]
     
-    done = sum(1 for _, s in checklist if s == "done")
-    total = len(checklist)
-    
-    if HAS_RICH:
-        console.print(f"[bold]Progress: {done}/{total}[/bold]\n")
-        
-        for task, status in checklist:
-            icon = "✅" if status == "done" else "⬜"
-            console.print(f"  {icon} {task}")
-    else:
-        print(f"Progress: {done}/{total}\n")
-        for task, status in checklist:
-            icon = "✅" if status == "done" else "⬜"
-            print(f"  {icon} {task}")
-    
-    print()
+    print("\n  Default checklist (add 'release' workflow mode to customize):\n")
+    for task, status in checklist:
+        icon = "✅" if status == "done" else "⬜"
+        print(f"  {icon} {task}")
 
 
 def cmd_mode(mode_name: str = None):
@@ -416,6 +546,53 @@ def cmd_push():
     print()
 
 
+def cmd_career():
+    """View career progress and skills."""
+    print_header("Career Progress")
+    
+    try:
+        from src.app.infrastructure.supabase_client import get_client
+        client = get_client()
+        
+        if not client:
+            print("  ⚠️ Supabase not configured")
+            return
+        
+        # Get top skills
+        skills_result = client.table("skill_tracker").select(
+            "skill_name, proficiency_level, projects_count, tickets_count"
+        ).order("proficiency_level", desc=True).limit(10).execute()
+        
+        print("\n📊 Top Skills:")
+        for skill in skills_result.data:
+            level = skill['proficiency_level']
+            bar = "█" * (level // 10) + "░" * (10 - level // 10)
+            print(f"  {skill['skill_name']:20} [{bar}] {level}%")
+        
+        # Get recent career memories
+        memories_result = client.table("career_memories").select(
+            "memory_type, title, created_at"
+        ).order("created_at", desc=True).limit(5).execute()
+        
+        print("\n\n🏆 Recent Achievements:")
+        type_icons = {
+            'completed_project': '🎯',
+            'ai_implementation': '🤖',
+            'skill_milestone': '📈',
+            'achievement': '🏆',
+            'learning': '📚'
+        }
+        
+        for memory in memories_result.data:
+            icon = type_icons.get(memory['memory_type'], '📋')
+            print(f"  {icon} {memory['title']}")
+            
+    except Exception as e:
+        print(f"  Error: {e}")
+    
+    print()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="SignalFlow Developer CLI",
@@ -439,6 +616,7 @@ def main():
     
     subparsers.add_parser("meetings", help="List recent meetings")
     subparsers.add_parser("signals", help="View signal counts")
+    subparsers.add_parser("career", help="View career progress")
     subparsers.add_parser("errors", help="Check for errors")
     subparsers.add_parser("push", help="Push changes to staging")
     
@@ -458,6 +636,7 @@ def main():
         "timer": lambda: cmd_timer(args.action if hasattr(args, 'action') else None),
         "meetings": cmd_meetings,
         "signals": cmd_signals,
+        "career": cmd_career,
         "errors": cmd_errors,
         "push": cmd_push,
     }

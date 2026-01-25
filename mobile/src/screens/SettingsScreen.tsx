@@ -3,6 +3,19 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch } from 're
 import { useAuthStore } from '../stores/authStore';
 import { useSyncStore } from '../stores/syncStore';
 import syncService from '../services/sync';
+import BetaTag from '../components/BetaTag';
+import { FeatureStatus } from '../services/api';
+
+// Feature status configuration for UI sections
+// These map to feature_flags.py on the backend
+const FEATURE_STATUS: Record<string, FeatureStatus> = {
+  signals: 'beta',
+  dikw: 'beta',
+  career_coaching: 'beta',
+  unified_search: 'beta',
+  real_time_sync: 'alpha',
+  mind_map: 'alpha',
+};
 
 export default function SettingsScreen() {
   const { user, signOut } = useAuthStore();
@@ -84,6 +97,79 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      {/* Features Section - with beta tags */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Features</Text>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <View style={styles.rowLabel}>
+              <Text style={styles.label}>Signal Extraction</Text>
+              <BetaTag status={FEATURE_STATUS.signals} />
+            </View>
+            <Switch
+              value={true}
+              trackColor={{ false: '#333', true: '#4a90d9' }}
+              thumbColor="#fff"
+            />
+          </View>
+          <View style={styles.row}>
+            <View style={styles.rowLabel}>
+              <Text style={styles.label}>Knowledge Synthesis</Text>
+              <BetaTag status={FEATURE_STATUS.dikw} />
+            </View>
+            <Switch
+              value={true}
+              trackColor={{ false: '#333', true: '#4a90d9' }}
+              thumbColor="#fff"
+            />
+          </View>
+          <View style={styles.row}>
+            <View style={styles.rowLabel}>
+              <Text style={styles.label}>Career Coaching</Text>
+              <BetaTag status={FEATURE_STATUS.career_coaching} />
+            </View>
+            <Switch
+              value={true}
+              trackColor={{ false: '#333', true: '#4a90d9' }}
+              thumbColor="#fff"
+            />
+          </View>
+          <View style={styles.row}>
+            <View style={styles.rowLabel}>
+              <Text style={styles.label}>Unified Search</Text>
+              <BetaTag status={FEATURE_STATUS.unified_search} />
+            </View>
+            <Switch
+              value={true}
+              trackColor={{ false: '#333', true: '#4a90d9' }}
+              thumbColor="#fff"
+            />
+          </View>
+          <View style={styles.row}>
+            <View style={styles.rowLabel}>
+              <Text style={styles.label}>Real-time Sync</Text>
+              <BetaTag status={FEATURE_STATUS.real_time_sync} />
+            </View>
+            <Switch
+              value={false}
+              trackColor={{ false: '#333', true: '#4a90d9' }}
+              thumbColor="#fff"
+            />
+          </View>
+          <View style={styles.row}>
+            <View style={styles.rowLabel}>
+              <Text style={styles.label}>Mind Map RAG</Text>
+              <BetaTag status={FEATURE_STATUS.mind_map} />
+            </View>
+            <Switch
+              value={false}
+              trackColor={{ false: '#333', true: '#4a90d9' }}
+              thumbColor="#fff"
+            />
+          </View>
+        </View>
+      </View>
+
       {/* About Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>About</Text>
@@ -139,6 +225,10 @@ const styles = StyleSheet.create({
     padding: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a4e',
+  },
+  rowLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   label: {
     fontSize: 14,

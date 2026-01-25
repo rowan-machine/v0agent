@@ -145,6 +145,32 @@ export const api = {
       return data;
     },
   },
+
+  // Feature Flags
+  features: {
+    async getAll() {
+      const { data, error } = await supabase.functions.invoke('get-feature-flags');
+      if (error) throw error;
+      return data;
+    },
+    async getBeta() {
+      const { data, error } = await supabase.functions.invoke('get-feature-flags', {
+        body: { filter: 'beta' },
+      });
+      if (error) throw error;
+      return data;
+    },
+  },
 };
+
+// Feature status types for beta tags
+export type FeatureStatus = 'stable' | 'beta' | 'alpha' | 'deprecated' | 'disabled';
+
+export interface FeatureFlag {
+  status: FeatureStatus;
+  description: string;
+  enabled: boolean;
+  known_issues?: string[];
+}
 
 export default api;
