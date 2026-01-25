@@ -2761,6 +2761,16 @@
     // Also update local reference
     setMode = window.setMode;
     
+    // Add click listeners to mode options to ensure they work
+    document.querySelectorAll('.mode-option[data-mode]').forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        const mode = this.dataset.mode;
+        console.log('[Mode Click] Button clicked for mode:', mode);
+        window.setMode(mode, true);
+        e.stopPropagation(); // Prevent outside click handler from firing
+      });
+    });
+    
     // Close menus on outside click
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.mode-badge-wrapper')) {
