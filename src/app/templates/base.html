@@ -2766,8 +2766,41 @@
       btn.addEventListener('click', function(e) {
         const mode = this.dataset.mode;
         console.log('[Mode Click] Button clicked for mode:', mode);
-        window.setMode(mode, true);
-        e.stopPropagation(); // Prevent outside click handler from firing
+        
+        // Direct DOM update - bypass everything
+        const el = document.getElementById('currentModeName');
+        const name = {
+          'mode-a': 'A: Context',
+          'mode-b': 'B: Planning',
+          'mode-c': 'C: Drafting',
+          'mode-d': 'D: Review',
+          'mode-e': 'E: Promote',
+          'mode-f': 'F: Sync',
+          'mode-g': 'G: Execute',
+          'mode-h': 'H: Test Plan'
+        }[mode] || mode;
+        
+        console.log('[Mode Click] Element found:', !!el, 'Setting to:', name);
+        if (el) {
+          el.textContent = name;
+          console.log('[Mode Click] After update, textContent is:', el.textContent);
+        }
+        
+        // Also update localStorage and data attribute
+        localStorage.setItem('signalflow-mode', mode);
+        document.documentElement.setAttribute('data-mode', mode);
+        
+        // Update active states
+        document.querySelectorAll('.mode-option').forEach(b => {
+          b.classList.toggle('active', b.dataset.mode === mode);
+        });
+        
+        // Close the dropdown
+        const selector = document.getElementById('modeSelector');
+        if (selector) selector.classList.remove('open');
+        
+        e.stopPropagation();
+        e.preventDefault();
       });
     });
     
