@@ -316,7 +316,7 @@
 </div>
 
 <script>
-const meetingId = {{ meeting['id'] }};
+const meetingId = "{{ meeting['id'] }}";
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 const progressDiv = document.getElementById('upload-progress');
@@ -423,7 +423,7 @@ function toggleSection(sectionId) {
 // Generate Transcript Documents
 // ============================================
 
-const meetingId = "{{ meeting['id'] }}";
+// meetingId already defined above
 
 async function checkExistingDocuments() {
     try {
