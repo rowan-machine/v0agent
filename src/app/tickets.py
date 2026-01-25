@@ -206,7 +206,7 @@ def create_ticket(
 
 
 @router.get("/tickets/{ticket_pk}")
-def view_ticket(request: Request, ticket_pk: int):
+def view_ticket(request: Request, ticket_pk: str):
     """View a ticket."""
     # Read from Supabase
     ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
@@ -321,7 +321,7 @@ def delete_ticket(ticket_pk: str):
 # ----- AI Summary Generation -----
 
 @router.post("/api/tickets/{ticket_pk}/generate-summary")
-async def generate_ticket_summary(ticket_pk: int, request: Request):
+async def generate_ticket_summary(ticket_pk: str, request: Request):
     """
     Generate AI summary for a ticket.
     
@@ -355,7 +355,7 @@ async def generate_ticket_summary(ticket_pk: int, request: Request):
 
 
 @router.post("/api/tickets/{ticket_pk}/generate-plan")
-async def generate_implementation_plan(ticket_pk: int):
+async def generate_implementation_plan(ticket_pk: str):
     """
     Generate AI implementation plan for a ticket.
     
@@ -376,7 +376,7 @@ async def generate_implementation_plan(ticket_pk: int):
 
 
 @router.post("/api/tickets/{ticket_pk}/save-summary")
-async def save_ticket_summary(request: Request, ticket_pk: int):
+async def save_ticket_summary(request: Request, ticket_pk: str):
     """Save AI summary to ticket."""
     data = await request.json()
     summary = data.get("summary", "")
@@ -391,7 +391,7 @@ async def save_ticket_summary(request: Request, ticket_pk: int):
 
 
 @router.post("/api/tickets/{ticket_pk}/save-plan")
-async def save_implementation_plan(request: Request, ticket_pk: int):
+async def save_implementation_plan(request: Request, ticket_pk: str):
     """Save implementation plan to ticket."""
     data = await request.json()
     plan = data.get("plan", "")
@@ -406,7 +406,7 @@ async def save_implementation_plan(request: Request, ticket_pk: int):
 
 
 @router.post("/api/tickets/{ticket_pk}/generate-decomposition")
-async def generate_task_decomposition(ticket_pk: int):
+async def generate_task_decomposition(ticket_pk: str):
     """
     Generate AI task breakdown for a ticket.
     
@@ -430,7 +430,7 @@ async def generate_task_decomposition(ticket_pk: int):
 
 
 @router.post("/api/tickets/{ticket_pk}/generate-tasks-from-testplan")
-async def generate_tasks_from_test_plan(ticket_pk: int):
+async def generate_tasks_from_test_plan(ticket_pk: str):
     """
     Generate tasks from the test plan using AI.
     
@@ -505,7 +505,7 @@ Return ONLY the JSON array, no other text."""
 
 
 @router.post("/api/tickets/{ticket_pk}/task-status")
-async def update_task_status(ticket_pk: int, request: Request):
+async def update_task_status(ticket_pk: str, request: Request):
     """Update the status of a specific task in the ticket's task decomposition."""
     try:
         data = await request.json()
