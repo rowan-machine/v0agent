@@ -4637,13 +4637,12 @@ function advanceWorkflow() {
   const nextIndex = (currentIndex + 1) % modes.length;
   const nextMode = modes[nextIndex];
   
-  // Update mode in localStorage and UI
-  localStorage.setItem('signalflow-mode', nextMode);
-  document.body.setAttribute('data-mode', nextMode);
-  
-  // Update mode indicator in header
-  if (typeof updateModeDisplay === 'function') {
-    updateModeDisplay();
+  // Use handleModeClick to properly update mode button text and all state
+  if (typeof window.handleModeClick === 'function') {
+    window.handleModeClick(nextMode);
+  } else {
+    // Fallback: update localStorage and dispatch event
+    localStorage.setItem('signalflow-mode', nextMode);
   }
   
   // Dispatch custom event for mode change
@@ -4661,13 +4660,12 @@ function previousWorkflow() {
   const prevIndex = currentIndex <= 0 ? modes.length - 1 : currentIndex - 1;
   const prevMode = modes[prevIndex];
   
-  // Update mode in localStorage and UI
-  localStorage.setItem('signalflow-mode', prevMode);
-  document.body.setAttribute('data-mode', prevMode);
-  
-  // Update mode indicator in header
-  if (typeof updateModeDisplay === 'function') {
-    updateModeDisplay();
+  // Use handleModeClick to properly update mode button text and all state
+  if (typeof window.handleModeClick === 'function') {
+    window.handleModeClick(prevMode);
+  } else {
+    // Fallback: update localStorage and dispatch event
+    localStorage.setItem('signalflow-mode', prevMode);
   }
   
   // Dispatch custom event for mode change
