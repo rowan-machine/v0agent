@@ -18,6 +18,9 @@ from .signal_learning import (
     refresh_signal_learnings,
 )
 
+# Meetings service - reads directly from Supabase
+from . import meetings_supabase
+
 __all__ = [
     "EmbeddingService",
     "create_embedding_service",
@@ -27,4 +30,5 @@ __all__ = [
     "get_signal_learning_service",
     "get_learning_context_for_extraction",
     "refresh_signal_learnings",
+    "meetings_supabase",
 ]

@@ -39,6 +39,7 @@ from .auth import (
     destroy_session, get_auth_password, hash_password
 )
 from .integrations.pocket import PocketClient, extract_latest_summary, extract_transcript_text, extract_mind_map, extract_action_items, get_all_summary_versions, get_all_mind_map_versions
+from .services import meetings_supabase  # Supabase-first meeting reads
 from typing import Optional
 
 # =============================================================================
@@ -322,37 +323,17 @@ def dashboard(request: Request):
     else:
         greeting_context = "ready to dive in"
     
-    # Get stats
+    # Get stats - from Supabase first, SQLite for other tables
+    meeting_stats = meetings_supabase.get_dashboard_stats()
+    meetings_count = meeting_stats["meetings_count"]
+    meetings_with_signals = meeting_stats["meetings_with_signals"]
+    signals_count = meeting_stats["signals_count"]
+    
     with connect() as conn:
-        meetings_count = conn.execute("SELECT COUNT(*) FROM meeting_summaries").fetchone()[0]
         docs_count = conn.execute("SELECT COUNT(*) FROM docs").fetchone()[0]
         conversations_count = conn.execute("SELECT COUNT(*) FROM conversations").fetchone()[0] if table_exists(conn, 'conversations') else 0
         
-        # Count total signals
-        signals_count = 0
-        meetings_with_signals = conn.execute(
-            "SELECT signals_json FROM meeting_summaries WHERE signals_json IS NOT NULL"
-        ).fetchall()
-        for m in meetings_with_signals:
-            try:
-                signals = json.loads(m["signals_json"])
-                for key in ["decisions", "action_items", "blockers", "risks", "ideas"]:
-                    items = signals.get(key, [])
-                    if isinstance(items, list):
-                        signals_count += len(items)
-            except:
-                pass
-        
-        # Recent signals - get meetings that actually have signal content
-        recent_signals = []
-        recent_meetings = conn.execute(
-            """SELECT id, meeting_name, signals_json FROM meeting_summaries 
-               WHERE signals_json IS NOT NULL 
-               AND signals_json NOT LIKE '%"decisions": []%'
-               ORDER BY COALESCE(meeting_date, created_at) DESC LIMIT 10"""
-        ).fetchall()
-        
-        # Get feedback for signals
+        # Get feedback for signals (still from SQLite for now)
         feedback_map = {}
         try:
             feedback_rows = conn.execute("SELECT meeting_id, signal_type, signal_text, feedback FROM signal_feedback").fetchall()
@@ -362,10 +343,10 @@ def dashboard(request: Request):
         except:
             pass
 
-        # Get status for recent signals
+        # Get status for recent signals (still from SQLite)
         status_map = {}
         try:
-            meeting_ids = [m["id"] for m in recent_meetings]
+            meeting_ids = [m["id"] for m in meetings_with_signals[:10]]
             if meeting_ids:
                 placeholders = ",".join(["?"] * len(meeting_ids))
                 status_rows = conn.execute(
@@ -382,9 +363,11 @@ def dashboard(request: Request):
         except:
             pass
         
-        for m in recent_meetings:
+        # Build recent_signals from Supabase data
+        recent_signals = []
+        for m in meetings_with_signals[:10]:
             try:
-                signals = json.loads(m["signals_json"])
+                signals = m.get("signals", {})
                 for stype, icon_type in [("blockers", "blocker"), ("action_items", "action"), ("decisions", "decision"), ("ideas", "idea"), ("risks", "risk")]:
                     items = signals.get(stype, [])
                     if isinstance(items, list):
@@ -403,11 +386,11 @@ def dashboard(request: Request):
             except:
                 pass
         
-        # Build highlights section (blockers, proposals, Rowan mentions, announcements)
+        # Build highlights section from Supabase data
         highlights = []
-        for m in recent_meetings[:5]:
+        for m in meetings_with_signals[:5]:
             try:
-                signals = json.loads(m["signals_json"])
+                signals = m.get("signals", {})
                 # Add blockers to highlights (highest priority)
                 for blocker in signals.get("blockers", [])[:2]:
                     if blocker:
@@ -457,11 +440,9 @@ def dashboard(request: Request):
         others = [h for h in highlights if h["type"] not in ("blocker", "action")]
         highlights = (blockers_first + actions + others)[:6]
         
-        # Recent items (meetings + docs)
+        # Recent items (meetings from Supabase, docs from SQLite)
         recent_items = []
-        recent_mtgs = conn.execute(
-            "SELECT id, meeting_name, meeting_date FROM meeting_summaries ORDER BY COALESCE(meeting_date, created_at) DESC LIMIT 5"
-        ).fetchall()
+        recent_mtgs = meetings_supabase.get_recent_meetings(limit=5)
         for m in recent_mtgs:
             recent_items.append({
                 "type": "meeting",
@@ -789,17 +770,12 @@ async def get_highlights(request: Request):
         # 5. Check workflow mode progress
         # (suggest moving to next mode if current is complete)
         
-        # 6. Recent meeting with unprocessed signals
-        recent_meeting = conn.execute(
-            """SELECT id, meeting_name, signals_json, meeting_date
-               FROM meeting_summaries 
-               WHERE signals_json IS NOT NULL
-               ORDER BY COALESCE(meeting_date, created_at) DESC 
-               LIMIT 1"""
-        ).fetchone()
-        if recent_meeting:
+        # 6. Recent meeting with unprocessed signals (from Supabase)
+        recent_meetings_for_highlights = meetings_supabase.get_meetings_with_signals(limit=1)
+        if recent_meetings_for_highlights:
+            recent_meeting = recent_meetings_for_highlights[0]
             try:
-                signals = json.loads(recent_meeting['signals_json']) if recent_meeting['signals_json'] else {}
+                signals = recent_meeting.get('signals', {})
                 blockers = signals.get('blockers', [])
                 actions = signals.get('action_items', [])
                 
@@ -867,21 +843,18 @@ async def get_highlights(request: Request):
                 "link_text": "View DIKW"
             })
         
-        # 9. No recent meetings (encourage logging)
-        meeting_count = conn.execute(
-            """SELECT COUNT(*) as c FROM meeting_summaries 
-               WHERE date(created_at) > date('now', '-7 days')"""
-        ).fetchone()
-        if meeting_count and meeting_count['c'] == 0 and "log-meeting" not in dismissed_ids:
-            highlights.append({
-                "id": "log-meeting",
-                "type": "idea",
-                "label": "📅 Log a Meeting",
-                "text": "No meetings logged in the past week",
-                "action": "Capture decisions and actions from recent discussions",
-                "link": "/meetings/new",
-                "link_text": "Add Meeting"
-            })
+    # 9. No recent meetings (encourage logging) - check Supabase
+    recent_meetings_check = meetings_supabase.get_meetings_with_signals_in_range(days=7)
+    if len(recent_meetings_check) == 0 and "log-meeting" not in dismissed_ids:
+        highlights.append({
+            "id": "log-meeting",
+            "type": "idea",
+            "label": "📅 Log a Meeting",
+            "text": "No meetings logged in the past week",
+            "action": "Capture decisions and actions from recent discussions",
+            "link": "/meetings/new",
+            "link_text": "Add Meeting"
+        })
     
     # ===== ENHANCED RECOMMENDATIONS FROM ENGINE (Technical Debt) =====
     # Add embedding-based recommendations for DIKW, mentions, grooming, etc.
@@ -928,25 +901,18 @@ async def get_highlight_context(request: Request):
     text = data.get("text", "")
     meeting_id = data.get("meeting_id")
     
-    with connect() as conn:
-        # Find the meeting by id when available, fallback to name
-        meeting = None
-        if meeting_id:
-            meeting = conn.execute(
-                """SELECT id, meeting_name, synthesized_notes, raw_text, signals_json
-                   FROM meeting_summaries 
-                   WHERE id = ?
-                   LIMIT 1""",
-                (meeting_id,)
-            ).fetchone()
-        if not meeting:
-            meeting = conn.execute(
-                """SELECT id, meeting_name, synthesized_notes, raw_text, signals_json
-                   FROM meeting_summaries 
-                   WHERE meeting_name = ?
-                   LIMIT 1""",
-                (source,)
-            ).fetchone()
+    # Find the meeting from Supabase
+    meeting = None
+    if meeting_id:
+        meeting = meetings_supabase.get_meeting_by_id(meeting_id)
+    
+    # If not found by id, search by name (less common case)
+    if not meeting and source:
+        all_meetings = meetings_supabase.get_all_meetings(limit=50)
+        for m in all_meetings:
+            if m.get("meeting_name") == source:
+                meeting = m
+                break
     
     if not meeting:
         return JSONResponse({
@@ -1059,6 +1025,9 @@ async def convert_signal_to_ticket(request: Request):
     if not all([meeting_id, signal_type, signal_text]):
         return JSONResponse({"error": "Missing required fields"}, status_code=400)
     
+    # Get meeting name from Supabase for context
+    meeting_name = meetings_supabase.get_meeting_name(meeting_id) or "Unknown Meeting"
+    
     # Generate ticket ID
     with connect() as conn:
         count = conn.execute("SELECT COUNT(*) as c FROM tickets").fetchone()["c"]
@@ -1067,12 +1036,6 @@ async def convert_signal_to_ticket(request: Request):
         # Determine priority based on signal type
         priority_map = {"blocker": "high", "risk": "high", "action_item": "medium", "decision": "low", "idea": "low"}
         priority = priority_map.get(signal_type, "medium")
-        
-        # Get meeting name for context
-        meeting = conn.execute(
-            "SELECT meeting_name FROM meeting_summaries WHERE id = ?", (meeting_id,)
-        ).fetchone()
-        meeting_name = meeting["meeting_name"] if meeting else "Unknown Meeting"
         
         # Create ticket
         conn.execute(
@@ -2356,46 +2319,38 @@ async def get_signals_report(days: int = 14):
     """Get signal statistics for the reporting period."""
     cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
     
+    # Get meetings from Supabase
+    meetings = meetings_supabase.get_meetings_with_signals_in_range(days=days)
+    
+    decisions = actions = blockers = risks = ideas = 0
+    
+    for m in meetings:
+        try:
+            signals = m.get("signals", {})
+            decisions += len(signals.get("decisions", []))
+            actions += len(signals.get("action_items", []))
+            blockers += len(signals.get("blockers", []))
+            risks += len(signals.get("risks", []))
+            ideas += len(signals.get("ideas", []))
+        except:
+            continue
+    
+    # Count tickets created in period (still from SQLite)
     with connect() as conn:
-        # Count signals from meetings
-        meetings = conn.execute(
-            """
-            SELECT signals_json FROM meeting_summaries 
-            WHERE (meeting_date >= ? OR (meeting_date IS NULL AND created_at >= ?))
-            AND signals_json IS NOT NULL
-            """,
-            (cutoff, cutoff)
-        ).fetchall()
-        
-        decisions = actions = blockers = risks = ideas = 0
-        
-        for m in meetings:
-            try:
-                signals = json.loads(m["signals_json"])
-                decisions += len(signals.get("decisions", []))
-                actions += len(signals.get("action_items", []))
-                blockers += len(signals.get("blockers", []))
-                risks += len(signals.get("risks", []))
-                ideas += len(signals.get("ideas", []))
-            except:
-                continue
-        
-        # Count tickets created in period
         tickets_count = conn.execute(
             "SELECT COUNT(*) as cnt FROM tickets WHERE created_at >= ?",
             (cutoff,)
         ).fetchone()["cnt"]
-        
-        return JSONResponse({
-            "decisions": decisions,
-            "actions": actions,
-            "blockers": blockers,
-            "risks": risks,
-            "ideas": ideas,
-            "meetings_count": len(meetings),
-            "tickets_created": tickets_count
-        })
-
+    
+    return JSONResponse({
+        "decisions": decisions,
+        "actions": actions,
+        "blockers": blockers,
+        "risks": risks,
+        "ideas": ideas,
+        "meetings_count": len(meetings),
+        "tickets_created": tickets_count
+    })
 
 @app.get("/api/reports/workflow-progress")
 async def get_workflow_progress_report():
@@ -2457,23 +2412,15 @@ async def get_daily_report(days: int = 14):
             (cutoff,)
         ).fetchall()
         
-        # Get daily signal counts
+        # Get daily signal counts from Supabase
         daily_signals = {}
-        meetings = conn.execute(
-            """
-            SELECT COALESCE(meeting_date, date(created_at)) as date, signals_json 
-            FROM meeting_summaries 
-            WHERE (meeting_date >= ? OR (meeting_date IS NULL AND created_at >= ?))
-            AND signals_json IS NOT NULL
-            """,
-            (cutoff, cutoff)
-        ).fetchall()
+        meetings = meetings_supabase.get_meetings_with_signals_in_range(days=days)
         
         for m in meetings:
-            date = m["date"]
+            date = m.get("meeting_date") or m.get("created_at", "")[:10]
             if date:
                 try:
-                    signals = json.loads(m["signals_json"])
+                    signals = m.get("signals", {})
                     count = sum(len(signals.get(k, [])) for k in ["decisions", "action_items", "blockers", "risks", "ideas"])
                     daily_signals[date] = daily_signals.get(date, 0) + count
                 except:
@@ -2702,59 +2649,47 @@ async def get_weekly_intelligence():
     week_start = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
     today = datetime.now().strftime("%Y-%m-%d")
     
+    # Get meetings from Supabase
+    meetings_from_supabase = meetings_supabase.get_meetings_with_signals_in_range(days=7)
+    
+    meetings_data = []
+    all_decisions = []
+    all_actions = []
+    all_blockers = []
+    all_risks = []
+    all_ideas = []
+    
+    for m in meetings_from_supabase:
+        meeting_info = {
+            "id": m.get("id"),
+            "name": m.get("meeting_name") or "Untitled Meeting",
+            "date": m.get("meeting_date") or (m.get("created_at") or "")[:10]
+        }
+        
+        signals = m.get("signals", {})
+        if signals:
+            meeting_info["signal_count"] = sum(
+                len(signals.get(k, [])) 
+                for k in ["decisions", "action_items", "blockers", "risks", "ideas"]
+            )
+            
+            # Collect signals with meeting context
+            for d in signals.get("decisions", []):
+                all_decisions.append({"text": d, "meeting": m.get("meeting_name")})
+            for a in signals.get("action_items", []):
+                all_actions.append({"text": a, "meeting": m.get("meeting_name")})
+            for b in signals.get("blockers", []):
+                all_blockers.append({"text": b, "meeting": m.get("meeting_name")})
+            for r in signals.get("risks", []):
+                all_risks.append({"text": r, "meeting": m.get("meeting_name")})
+            for i in signals.get("ideas", []):
+                all_ideas.append({"text": i, "meeting": m.get("meeting_name")})
+        else:
+            meeting_info["signal_count"] = 0
+        
+        meetings_data.append(meeting_info)
+    
     with connect() as conn:
-        # =====================================================================
-        # MEETINGS THIS WEEK
-        # =====================================================================
-        meetings = conn.execute(
-            """
-            SELECT id, meeting_name, meeting_date, signals_json, created_at
-            FROM meeting_summaries 
-            WHERE (meeting_date >= ? OR (meeting_date IS NULL AND created_at >= ?))
-            ORDER BY COALESCE(meeting_date, created_at) DESC
-            LIMIT 20
-            """,
-            (week_start, week_start)
-        ).fetchall()
-        
-        meetings_data = []
-        all_decisions = []
-        all_actions = []
-        all_blockers = []
-        all_risks = []
-        all_ideas = []
-        
-        for m in meetings:
-            meeting_info = {
-                "id": m["id"],
-                "name": m["meeting_name"] or "Untitled Meeting",
-                "date": m["meeting_date"] or m["created_at"][:10]
-            }
-            
-            if m["signals_json"]:
-                try:
-                    signals = json.loads(m["signals_json"])
-                    meeting_info["signal_count"] = sum(
-                        len(signals.get(k, [])) 
-                        for k in ["decisions", "action_items", "blockers", "risks", "ideas"]
-                    )
-                    
-                    # Collect signals with meeting context
-                    for d in signals.get("decisions", []):
-                        all_decisions.append({"text": d, "meeting": meeting_info["name"], "meeting_id": m["id"]})
-                    for a in signals.get("action_items", []):
-                        all_actions.append({"text": a, "meeting": meeting_info["name"], "meeting_id": m["id"]})
-                    for b in signals.get("blockers", []):
-                        all_blockers.append({"text": b, "meeting": meeting_info["name"], "meeting_id": m["id"]})
-                    for r in signals.get("risks", []):
-                        all_risks.append({"text": r, "meeting": meeting_info["name"], "meeting_id": m["id"]})
-                    for i in signals.get("ideas", []):
-                        all_ideas.append({"text": i, "meeting": meeting_info["name"], "meeting_id": m["id"]})
-                except:
-                    meeting_info["signal_count"] = 0
-            
-            meetings_data.append(meeting_info)
-        
         # =====================================================================
         # DIKW PYRAMID ACTIVITY (using dikw_items table)
         # =====================================================================
@@ -4466,18 +4401,13 @@ async def dikw_auto_process(request: Request):
             })
     
     if not all_items:
-        # If no items, suggest some based on recent signals
-        with connect() as conn:
-            recent_signals = conn.execute(
-                """SELECT signals_json, meeting_name FROM meeting_summaries 
-                   WHERE signals_json IS NOT NULL 
-                   ORDER BY COALESCE(meeting_date, created_at) DESC LIMIT 5"""
-            ).fetchall()
+        # If no items, suggest some based on recent signals (from Supabase)
+        recent_signals = meetings_supabase.get_meetings_with_signals(limit=5)
         
         signal_context = ""
         for row in recent_signals:
             try:
-                signals = json.loads(row["signals_json"]) if isinstance(row["signals_json"], str) else row["signals_json"]
+                signals = row.get("signals", {})
                 for sig_type, items in signals.items():
                     for item in items[:2]:
                         signal_context += f"- {sig_type}: {item}\n"
@@ -4578,17 +4508,11 @@ async def dikw_auto_process(request: Request):
 @app.get("/api/signals/unprocessed")
 async def get_unprocessed_signals():
     """Get signals that haven't been promoted to DIKW yet."""
+    # Get meetings with signals from Supabase
+    meetings = meetings_supabase.get_meetings_with_signals(limit=20)
+    
     with connect() as conn:
-        # Get all signals from meetings that haven't been processed
-        meetings = conn.execute(
-            """SELECT id, meeting_name, signals_json 
-               FROM meeting_summaries 
-               WHERE signals_json IS NOT NULL
-               ORDER BY COALESCE(meeting_date, created_at) DESC
-               LIMIT 20"""
-        ).fetchall()
-        
-        # Get already processed signals
+        # Get already processed signals from SQLite
         processed = conn.execute(
             """SELECT meeting_id, signal_type, signal_text 
                FROM signal_status 
@@ -4599,31 +4523,31 @@ async def get_unprocessed_signals():
             (p['meeting_id'], p['signal_type'], p['signal_text']) 
             for p in processed
         )
-        
-        unprocessed = []
-        for meeting in meetings:
-            try:
-                signals = json.loads(meeting['signals_json'])
-                for signal_type in ['decisions', 'action_items', 'blockers', 'risks', 'ideas']:
-                    items = signals.get(signal_type, [])
-                    if isinstance(items, list):
-                        for item in items:
-                            text = item if isinstance(item, str) else item.get('text', str(item))
-                            normalized_type = signal_type.rstrip('s')  # decisions -> decision
-                            if normalized_type == 'action_item':
-                                normalized_type = 'action_item'
-                            
-                            if (meeting['id'], normalized_type, text) not in processed_set:
-                                unprocessed.append({
-                                    'meeting_id': meeting['id'],
-                                    'meeting_name': meeting['meeting_name'],
-                                    'signal_type': normalized_type,
-                                    'text': text
-                                })
-            except:
-                pass
-        
-        return JSONResponse(unprocessed)
+    
+    unprocessed = []
+    for meeting in meetings:
+        try:
+            signals = meeting.get('signals', {})
+            for signal_type in ['decisions', 'action_items', 'blockers', 'risks', 'ideas']:
+                items = signals.get(signal_type, [])
+                if isinstance(items, list):
+                    for item in items:
+                        text = item if isinstance(item, str) else item.get('text', str(item))
+                        normalized_type = signal_type.rstrip('s')  # decisions -> decision
+                        if normalized_type == 'action_item':
+                            normalized_type = 'action_item'
+                        
+                        if (meeting['id'], normalized_type, text) not in processed_set:
+                            unprocessed.append({
+                                'meeting_id': meeting['id'],
+                                'meeting_name': meeting['meeting_name'],
+                                'signal_type': normalized_type,
+                                'text': text
+                            })
+        except:
+            pass
+    
+    return JSONResponse(unprocessed)
 
 
 @app.get("/meetings/new")
@@ -4694,7 +4618,7 @@ async def load_meeting_bundle_ui(
     
     meeting_id = result.get("meeting_id")
     
-    # Store Pocket action items in signals_json if provided
+    # Store Pocket action items in signals if provided
     if meeting_id and pocket_action_items and pocket_action_items.strip():
         try:
             # Parse action items from the text format back to structured data
@@ -4706,23 +4630,17 @@ async def load_meeting_bundle_ui(
                 item["source"] = "pocket"
             
             if pocket_items:
-                # Update the meeting's signals_json to include action items
-                with connect() as conn:
-                    row = conn.execute(
-                        "SELECT signals_json FROM meeting_summaries WHERE id = ?",
-                        (meeting_id,)
-                    ).fetchone()
-                    
-                    signals = json.loads(row["signals_json"]) if row and row["signals_json"] else {}
+                # Get current meeting signals from Supabase
+                meeting = meetings_supabase.get_meeting_by_id(meeting_id)
+                if meeting:
+                    signals = meeting.get("signals", {})
                     
                     # Merge Pocket action items (preserve existing)
                     existing_items = signals.get("action_items", [])
                     signals["action_items"] = existing_items + pocket_items
                     
-                    conn.execute(
-                        "UPDATE meeting_summaries SET signals_json = ? WHERE id = ?",
-                        (json.dumps(signals), meeting_id)
-                    )
+                    # Update in Supabase
+                    meetings_supabase.update_meeting(meeting_id, {"signals": signals})
                     
                 logger.info(f"Added {len(pocket_items)} Pocket action items to meeting {meeting_id}")
         except Exception as e:
