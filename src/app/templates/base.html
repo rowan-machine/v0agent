@@ -2732,7 +2732,17 @@
     // Hook into mode changes to auto-start tracking
     const originalSetMode = window.setMode;
     window.setMode = function(mode, persist = true) {
-      // Call original
+      console.log('[Mode Wrapper] Called with mode:', mode);
+      
+      // Update mode name display DIRECTLY here to ensure it happens
+      const modeNameEl = document.getElementById('currentModeName');
+      if (modeNameEl) {
+        const newName = modeNames[mode] || mode;
+        console.log('[Mode Wrapper] Updating button text to:', newName);
+        modeNameEl.textContent = newName;
+      }
+      
+      // Call original for everything else
       originalSetMode(mode, persist);
       
       // Ensure selector is closed (force close)
