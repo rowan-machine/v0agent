@@ -327,3 +327,52 @@ async def init_default_modes():
         return JSONResponse({"status": "ok", "message": "Default modes initialized"})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+
+
+# ============================================
+# Feature Flags & Beta Features
+# ============================================
+
+@router.get("/api/settings/features")
+async def get_feature_flags():
+    """
+    Get all feature flags with their current state.
+    
+    Returns enabled/disabled status and stability level for each feature.
+    """
+    from ..infrastructure.feature_flags import get_all_flags
+    return JSONResponse(get_all_flags())
+
+
+@router.get("/api/settings/features/beta")
+async def get_beta_features():
+    """
+    Get beta features with known issues.
+    
+    These features are functional but may have bugs.
+    """
+    from ..infrastructure.feature_flags import get_beta_features
+    return JSONResponse(get_beta_features())
+
+
+@router.get("/api/settings/features/alpha")
+async def get_alpha_features():
+    """
+    Get alpha/experimental features.
+    
+    These features are in early development and may be unstable.
+    """
+    from ..infrastructure.feature_flags import get_alpha_features
+    return JSONResponse(get_alpha_features())
+
+
+@router.get("/api/settings/features/diagnostics")
+async def run_feature_diagnostics():
+    """
+    Run diagnostics on feature flags.
+    
+    Returns counts, environment overrides, and known issues summary.
+    """
+    from ..infrastructure.feature_flags import run_diagnostics
+    return JSONResponse(run_diagnostics())
+

@@ -49,9 +49,10 @@ agent.db
 .gitlab-ci.yml
 .circleci/
 
-# Documentation
+# Documentation - but keep docs/ folder for career features
 *.md
-docs/
+!README.md
+# docs/ - removed from ignore, needed for career documentation features
 
 # Development
 .pytest_cache/

@@ -5,9 +5,6 @@ on:
     branches: [dev]
   workflow_dispatch:  # Allow manual trigger
 
-env:
-  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
 jobs:
   deploy-staging:
     name: Deploy to Staging
@@ -27,7 +24,8 @@ jobs:
           railway link c32f6be2-fe5d-4750-9195-00f9995c7c92 --environment staging
           railway up --detach
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          # Uses staging-specific token (RAILWAY_TOKEN_STAGING) or falls back to main token
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING || secrets.RAILWAY_TOKEN }}
 
       - name: Wait for deployment
         run: sleep 30

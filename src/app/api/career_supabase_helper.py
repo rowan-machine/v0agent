@@ -4,9 +4,9 @@ Career Supabase Integration Helper
 Provides helper functions to sync career data to Supabase alongside SQLite writes.
 This module can be imported into career.py for dual-write functionality.
 
-Supports multiple Supabase backends:
-- Default backend: Falls back to main v0agent database
-- Career backend: Dedicated career database (if configured)
+Uses single Supabase backend configured via SUPABASE_URL/SUPABASE_KEY:
+- Staging/Dev: Share same Supabase database
+- Production: Separate Supabase database
 
 Usage in career.py:
     from ..career_supabase_helper import sync_suggestion_to_supabase
@@ -22,40 +22,40 @@ from functools import wraps
 
 logger = logging.getLogger(__name__)
 
-# Try to import Supabase infrastructure - prefer multi-backend
+# Try to import Supabase infrastructure
 try:
-    from ..infrastructure.supabase_multi import get_career_client, get_default_client
-    SUPABASE_MULTI_AVAILABLE = True
-except ImportError:
-    SUPABASE_MULTI_AVAILABLE = False
-
-# Fallback to single-backend Supabase agent
-try:
-    from ..infrastructure.supabase_agent import (
-        get_supabase_agent_client,
-        SupabaseAgentClient,
-    )
+    from ..infrastructure.supabase_client import get_supabase_client as get_infra_client
     SUPABASE_AVAILABLE = True
 except ImportError:
     SUPABASE_AVAILABLE = False
-    logger.warning("Supabase agent not available - writes will be SQLite-only")
+
+# Fallback to agent client
+if not SUPABASE_AVAILABLE:
+    try:
+        from ..infrastructure.supabase_agent import (
+            get_supabase_agent_client,
+            SupabaseAgentClient,
+        )
+        SUPABASE_AVAILABLE = True
+    except ImportError:
+        SUPABASE_AVAILABLE = False
+        logger.warning("Supabase not available - writes will be SQLite-only")
 
 
 def get_supabase_client() -> Optional[Any]:
     """
     Get Supabase client for career operations.
     
-    Prefers career-specific backend if configured, falls back to default.
+    Uses the same Supabase backend as the rest of the app.
     """
-    # Try multi-backend first
-    if SUPABASE_MULTI_AVAILABLE:
-        client = get_career_client()
+    # Try infrastructure client first
+    try:
+        from ..infrastructure.supabase_client import get_supabase_client as get_infra_client
+        client = get_infra_client()
         if client:
             return client
-        # Fall back to default
-        client = get_default_client()
-        if client:
-            return client
+    except ImportError:
+        pass
     
     # Fall back to agent client
     if not SUPABASE_AVAILABLE:
