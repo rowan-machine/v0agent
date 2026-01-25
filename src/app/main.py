@@ -4848,6 +4848,144 @@ async def pocket_webhook(request: Request):
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=502)
 
+
+# -------------------------
+# Generate Transcript Documents from Meeting
+# -------------------------
+
+@app.post("/api/meetings/{meeting_id}/generate-document")
+async def generate_transcript_document(meeting_id: str, request: Request):
+    """
+    Generate a transcript document from a meeting's raw_text field.
+    
+    Body:
+        - transcript_type: "pocket" or "teams"
+    
+    Creates a document in Supabase linked to the meeting.
+    Returns error if document already exists for that transcript type.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        form = await request.form()
+        body = dict(form)
+    
+    transcript_type = (body.get("transcript_type") or "").strip().lower()
+    if transcript_type not in ("pocket", "teams"):
+        return JSONResponse({"success": False, "error": "transcript_type must be 'pocket' or 'teams'"}, status_code=400)
+    
+    # Get the meeting from Supabase
+    meeting = meetings_supabase.get_meeting_by_id(meeting_id)
+    if not meeting:
+        return JSONResponse({"success": False, "error": "Meeting not found"}, status_code=404)
+    
+    meeting_name = meeting.get("meeting_name") or meeting.get("title") or "Untitled"
+    meeting_date = meeting.get("meeting_date")
+    raw_text = meeting.get("raw_text") or ""
+    
+    # Check if document already exists
+    from .infrastructure.supabase_client import get_supabase_client
+    client = get_supabase_client()
+    if client:
+        # Check for existing document of this type
+        source_pattern = f"{'Pocket' if transcript_type == 'pocket' else 'Teams'} Transcript:%"
+        existing = client.table("documents").select("id").eq("meeting_id", meeting_id).ilike("source", source_pattern).execute()
+        if existing.data:
+            return JSONResponse({
+                "success": False, 
+                "error": f"{transcript_type.title()} transcript document already exists",
+                "document_id": existing.data[0]["id"]
+            }, status_code=409)
+    
+    # Parse the transcript from raw_text
+    pocket_transcript = ""
+    teams_transcript = ""
+    
+    if "=== Pocket Transcript ===" in raw_text:
+        parts = raw_text.split("=== Pocket Transcript ===")
+        if len(parts) > 1:
+            pocket_part = parts[1]
+            if "=== Teams Transcript ===" in pocket_part:
+                pocket_transcript = pocket_part.split("=== Teams Transcript ===")[0].strip()
+            else:
+                pocket_transcript = pocket_part.strip()
+    
+    if "=== Teams Transcript ===" in raw_text:
+        parts = raw_text.split("=== Teams Transcript ===")
+        if len(parts) > 1:
+            teams_transcript = parts[1].strip()
+    
+    # If no section markers, use entire raw_text as teams transcript
+    if raw_text and not pocket_transcript and not teams_transcript and "===" not in raw_text:
+        teams_transcript = raw_text
+    
+    # Get the right transcript
+    transcript_content = pocket_transcript if transcript_type == "pocket" else teams_transcript
+    
+    if not transcript_content:
+        return JSONResponse({
+            "success": False, 
+            "error": f"No {transcript_type.title()} transcript content found in meeting"
+        }, status_code=404)
+    
+    # Create the document
+    source_name = f"{'Pocket' if transcript_type == 'pocket' else 'Teams'} Transcript: {meeting_name}"
+    doc_data = {
+        "meeting_id": meeting_id,
+        "source": source_name,
+        "content": transcript_content,
+        "document_date": meeting_date,
+    }
+    
+    created_doc = documents_supabase.create_document(doc_data)
+    if not created_doc:
+        return JSONResponse({"success": False, "error": "Failed to create document"}, status_code=500)
+    
+    logging.getLogger(__name__).info(f"Created {transcript_type} transcript document {created_doc['id']} for meeting {meeting_id}")
+    
+    return JSONResponse({
+        "success": True,
+        "document_id": created_doc["id"],
+        "source": source_name,
+        "content_length": len(transcript_content),
+    })
+
+
+@app.get("/api/meetings/{meeting_id}/transcript-documents")
+async def get_transcript_documents(meeting_id: str):
+    """
+    Check which transcript documents exist for a meeting.
+    
+    Returns status of pocket and teams transcript documents.
+    """
+    from .infrastructure.supabase_client import get_supabase_client
+    client = get_supabase_client()
+    
+    result = {
+        "pocket": {"exists": False, "document_id": None},
+        "teams": {"exists": False, "document_id": None},
+    }
+    
+    if client:
+        # Check for Pocket transcript
+        pocket_docs = client.table("documents").select("id").eq("meeting_id", meeting_id).ilike("source", "Pocket Transcript:%").execute()
+        if pocket_docs.data:
+            result["pocket"] = {"exists": True, "document_id": pocket_docs.data[0]["id"]}
+        
+        # Check for Teams transcript
+        teams_docs = client.table("documents").select("id").eq("meeting_id", meeting_id).ilike("source", "Teams Transcript:%").execute()
+        if teams_docs.data:
+            result["teams"] = {"exists": True, "document_id": teams_docs.data[0]["id"]}
+        
+        # Also check for generic "Transcript:" (legacy format)
+        if not result["teams"]["exists"]:
+            legacy_docs = client.table("documents").select("id").eq("meeting_id", meeting_id).ilike("source", "Transcript:%").execute()
+            if legacy_docs.data:
+                result["teams"] = {"exists": True, "document_id": legacy_docs.data[0]["id"]}
+    
+    return JSONResponse({"success": True, "meeting_id": meeting_id, **result})
+
+
 # -------------------------
 # Routers
 # -------------------------

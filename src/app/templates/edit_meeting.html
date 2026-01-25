@@ -78,10 +78,20 @@
         <div class="bg-amber-50 border border-amber-200 rounded-xl p-6 space-y-5">
             <div class="flex items-center justify-between">
                 <h2 class="text-lg font-semibold text-amber-900">📱 Pocket Transcript</h2>
-                <button type="button" onclick="toggleSection('pocketTranscriptSection')" class="text-sm text-amber-600 hover:text-amber-800">
-                    Show/Hide
-                </button>
+                <div class="flex items-center gap-3">
+                    <button type="button" 
+                            id="generatePocketDocBtn"
+                            onclick="generateTranscriptDocument('pocket')" 
+                            class="text-sm px-3 py-1 bg-amber-600 text-white rounded hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            {% if not meeting['pocket_transcript'] %}disabled{% endif %}>
+                        📄 Generate Document
+                    </button>
+                    <button type="button" onclick="toggleSection('pocketTranscriptSection')" class="text-sm text-amber-600 hover:text-amber-800">
+                        Show/Hide
+                    </button>
+                </div>
             </div>
+            <div id="pocketDocStatus" class="text-xs text-amber-700 hidden"></div>
             <div id="pocketTranscriptSection" style="display: {{ 'block' if meeting['pocket_transcript'] else 'none' }};">
                 <textarea name="pocket_transcript" rows="12"
                           placeholder="Paste Pocket/mobile transcript here..."
@@ -95,10 +105,20 @@
         <div class="bg-blue-50 border border-blue-200 rounded-xl p-6 space-y-5">
             <div class="flex items-center justify-between">
                 <h2 class="text-lg font-semibold text-blue-900">💼 Teams Transcript</h2>
-                <button type="button" onclick="toggleSection('teamsTranscriptSection')" class="text-sm text-blue-600 hover:text-blue-800">
-                    Show/Hide
-                </button>
+                <div class="flex items-center gap-3">
+                    <button type="button" 
+                            id="generateTeamsDocBtn"
+                            onclick="generateTranscriptDocument('teams')" 
+                            class="text-sm px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            {% if not meeting['teams_transcript'] %}disabled{% endif %}>
+                        📄 Generate Document
+                    </button>
+                    <button type="button" onclick="toggleSection('teamsTranscriptSection')" class="text-sm text-blue-600 hover:text-blue-800">
+                        Show/Hide
+                    </button>
+                </div>
             </div>
+            <div id="teamsDocStatus" class="text-xs text-blue-700 hidden"></div>
             <div id="teamsTranscriptSection" style="display: {{ 'block' if meeting['teams_transcript'] else 'none' }};">
                 <textarea name="teams_transcript" rows="12"
                           placeholder="Paste Microsoft Teams transcript here..."
@@ -398,6 +418,102 @@ function toggleSection(sectionId) {
     const section = document.getElementById(sectionId);
     section.style.display = section.style.display === 'none' ? 'block' : 'none';
 }
+
+// ============================================
+// Generate Transcript Documents
+// ============================================
+
+const meetingId = "{{ meeting['id'] }}";
+
+async function checkExistingDocuments() {
+    try {
+        const resp = await fetch(`/api/meetings/${meetingId}/transcript-documents`);
+        if (resp.ok) {
+            const data = await resp.json();
+            
+            // Update Pocket button
+            if (data.pocket && data.pocket.exists) {
+                const btn = document.getElementById('generatePocketDocBtn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.textContent = '✅ Document Created';
+                }
+                const status = document.getElementById('pocketDocStatus');
+                if (status) {
+                    status.textContent = `Document already exists (ID: ${data.pocket.document_id})`;
+                    status.classList.remove('hidden');
+                }
+            }
+            
+            // Update Teams button
+            if (data.teams && data.teams.exists) {
+                const btn = document.getElementById('generateTeamsDocBtn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.textContent = '✅ Document Created';
+                }
+                const status = document.getElementById('teamsDocStatus');
+                if (status) {
+                    status.textContent = `Document already exists (ID: ${data.teams.document_id})`;
+                    status.classList.remove('hidden');
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Failed to check existing documents:', err);
+    }
+}
+
+async function generateTranscriptDocument(transcriptType) {
+    const btnId = transcriptType === 'pocket' ? 'generatePocketDocBtn' : 'generateTeamsDocBtn';
+    const statusId = transcriptType === 'pocket' ? 'pocketDocStatus' : 'teamsDocStatus';
+    
+    const btn = document.getElementById(btnId);
+    const statusEl = document.getElementById(statusId);
+    
+    // Disable button and show loading
+    btn.disabled = true;
+    btn.textContent = '⏳ Generating...';
+    statusEl.classList.remove('hidden');
+    statusEl.textContent = 'Creating document...';
+    
+    try {
+        const resp = await fetch(`/api/meetings/${meetingId}/generate-document`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transcript_type: transcriptType })
+        });
+        
+        const data = await resp.json();
+        
+        if (resp.ok && data.success) {
+            btn.textContent = '✅ Document Created';
+            statusEl.textContent = `Document created successfully (ID: ${data.document_id}, ${data.content_length} chars)`;
+            statusEl.classList.remove('text-red-600');
+            statusEl.classList.add('text-green-600');
+        } else {
+            if (resp.status === 409) {
+                // Document already exists
+                btn.textContent = '✅ Document Created';
+                statusEl.textContent = `Document already exists (ID: ${data.document_id || 'unknown'})`;
+            } else {
+                // Other error - re-enable button
+                btn.disabled = false;
+                btn.textContent = '📄 Generate Document';
+                statusEl.textContent = `Error: ${data.error || 'Unknown error'}`;
+                statusEl.classList.add('text-red-600');
+            }
+        }
+    } catch (err) {
+        btn.disabled = false;
+        btn.textContent = '📄 Generate Document';
+        statusEl.textContent = `Network error: ${err.message}`;
+        statusEl.classList.add('text-red-600');
+    }
+}
+
+// Check for existing documents on page load
+document.addEventListener('DOMContentLoaded', checkExistingDocuments);
 
 // ============================================
 // Pocket Lookup Functionality
