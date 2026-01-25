@@ -15,6 +15,7 @@ from fastapi import APIRouter, Request, Query
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from ..db import connect
+from ..services import tickets_supabase
 # llm.ask removed - use lazy imports inside functions for backward compatibility
 import json
 
@@ -1662,32 +1663,35 @@ async def get_completed_projects():
 
 @router.post("/api/career/sync-completed-projects")
 async def sync_completed_projects():
-    """Sync completed tickets to career memories (without overwriting pinned ones)."""
+    """Sync completed tickets to career memories (without overwriting pinned ones) - reads from Supabase."""
+    # Get completed tickets from Supabase
+    all_tickets = tickets_supabase.get_all_tickets()
+    completed_tickets = [t for t in all_tickets if t.get("status") in ('done', 'complete', 'completed')]
+    
     with connect() as conn:
-        # Get completed tickets not already in memories
-        tickets = conn.execute("""
-            SELECT t.* FROM tickets t
-            WHERE t.status IN ('done', 'complete', 'completed')
-            AND NOT EXISTS (
-                SELECT 1 FROM career_memories cm 
-                WHERE cm.source_type = 'ticket' AND cm.source_id = t.id
-            )
+        # Get IDs already in memories
+        existing = conn.execute("""
+            SELECT source_id FROM career_memories WHERE source_type = 'ticket'
         """).fetchall()
+        existing_ids = {row["source_id"] for row in existing}
         
         added = 0
-        for t in tickets:
+        for t in completed_tickets:
+            if t["id"] in existing_ids:
+                continue
+                
             # Create memory for completed ticket
-            skills = t["tags"] if t["tags"] else ""
+            skills = t.get("tags") or ""
             metadata = json.dumps({
-                "ticket_id": t["ticket_id"],
-                "status": t["status"],
-                "completed_at": t["updated_at"]
+                "ticket_id": t.get("ticket_id"),
+                "status": t.get("status"),
+                "completed_at": t.get("updated_at")
             })
             
             conn.execute("""
                 INSERT INTO career_memories (memory_type, title, description, source_type, source_id, skills, is_pinned, metadata)
                 VALUES ('completed_project', ?, ?, 'ticket', ?, ?, 0, ?)
-            """, (t["title"], t["ai_summary"] or t["description"], t["id"], skills, metadata))
+            """, (t.get("title") or "", t.get("ai_summary") or t.get("description") or "", t["id"], skills, metadata))
             added += 1
         
         conn.commit()
@@ -2297,15 +2301,14 @@ async def populate_skills_from_projects():
         except Exception:
             pass  # ai_implementation_memories table may not exist
         
-        # 3. Also process completed tickets with tags
-        tickets = conn.execute("""
-            SELECT tags FROM tickets
-            WHERE status IN ('done', 'complete', 'completed')
-            AND tags IS NOT NULL AND tags != ''
-        """).fetchall()
+        # 3. Also process completed tickets with tags (from Supabase)
+        all_tickets = tickets_supabase.get_all_tickets()
+        completed_tickets = [t for t in all_tickets 
+                           if t.get("status") in ('done', 'complete', 'completed')
+                           and t.get("tags")]
         
-        for ticket in tickets:
-            for tag in (ticket["tags"] or "").split(","):
+        for ticket in completed_tickets:
+            for tag in (ticket.get("tags") or "").split(","):
                 tag = tag.strip()
                 if tag:
                     conn.execute("""
@@ -2331,23 +2334,22 @@ async def populate_skills_from_projects():
 
 @router.post("/api/career/skills/update-from-tickets")
 async def update_skills_from_tickets():
-    """Update skill counts based on completed tickets."""
+    """Update skill counts based on completed tickets (from Supabase)."""
+    # Get completed tickets from Supabase
+    all_tickets = tickets_supabase.get_all_tickets()
+    completed_tickets = [t for t in all_tickets 
+                       if t.get("status") in ('done', 'complete', 'completed')
+                       and t.get("tags")]
+    
+    # Count occurrences of each skill/tag
+    tag_counts = {}
+    for t in completed_tickets:
+        for tag in (t.get("tags") or "").split(","):
+            tag = tag.strip().lower()
+            if tag:
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+    
     with connect() as conn:
-        # Get tags from completed tickets
-        tickets = conn.execute("""
-            SELECT tags FROM tickets
-            WHERE status IN ('done', 'complete', 'completed')
-            AND tags IS NOT NULL AND tags != ''
-        """).fetchall()
-        
-        # Count occurrences of each skill/tag
-        tag_counts = {}
-        for t in tickets:
-            for tag in (t["tags"] or "").split(","):
-                tag = tag.strip().lower()
-                if tag:
-                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
-        
         # Update skill tracker
         updated = 0
         for tag, count in tag_counts.items():

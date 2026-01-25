@@ -40,6 +40,8 @@ from .auth import (
 )
 from .integrations.pocket import PocketClient, extract_latest_summary, extract_transcript_text, extract_mind_map, extract_action_items, get_all_summary_versions, get_all_mind_map_versions
 from .services import meetings_supabase  # Supabase-first meeting reads
+from .services import documents_supabase  # Supabase-first document reads
+from .services import tickets_supabase  # Supabase-first ticket reads
 from typing import Optional
 
 # =============================================================================
@@ -155,16 +157,21 @@ def startup():
     if migration_result["applied"] > 0:
         print(f"✅ Applied {migration_result['applied']} database migrations")
     
-    # Sync data from Supabase in production
-    try:
-        from .sync_from_supabase import sync_all_from_supabase
-        sync_results = sync_all_from_supabase()
-        if sync_results:
-            total = sum(sync_results.values())
-            if total > 0:
-                print(f"✅ Synced {total} items from Supabase to SQLite")
-    except Exception as e:
-        print(f"⚠️ Supabase sync failed (non-fatal): {e}")
+    # DISABLED: Supabase → SQLite sync
+    # We now read directly from Supabase for multi-device access.
+    # Syncing was causing deleted items to reappear.
+    # To re-enable, uncomment the block below:
+    # 
+    # try:
+    #     from .sync_from_supabase import sync_all_from_supabase
+    #     sync_results = sync_all_from_supabase()
+    #     if sync_results:
+    #         total = sum(sync_results.values())
+    #         if total > 0:
+    #             print(f"✅ Synced {total} items from Supabase to SQLite")
+    # except Exception as e:
+    #     print(f"⚠️ Supabase sync failed (non-fatal): {e}")
+    print("ℹ️ SQLite sync disabled - reading directly from Supabase")
     
     # Initialize background job scheduler (production only)
     try:
@@ -323,14 +330,17 @@ def dashboard(request: Request):
     else:
         greeting_context = "ready to dive in"
     
-    # Get stats - from Supabase first, SQLite for other tables
+    # Get stats - from Supabase first
     meeting_stats = meetings_supabase.get_dashboard_stats()
     meetings_count = meeting_stats["meetings_count"]
     meetings_with_signals = meeting_stats["meetings_with_signals"]
     signals_count = meeting_stats["signals_count"]
     
+    # Get docs and tickets count from Supabase
+    docs_count = documents_supabase.get_documents_count()
+    tickets_count = tickets_supabase.get_tickets_count(statuses=["todo", "in_progress", "in_review"])
+    
     with connect() as conn:
-        docs_count = conn.execute("SELECT COUNT(*) FROM docs").fetchone()[0]
         conversations_count = conn.execute("SELECT COUNT(*) FROM conversations").fetchone()[0] if table_exists(conn, 'conversations') else 0
         
         # Get feedback for signals (still from SQLite for now)
@@ -440,7 +450,7 @@ def dashboard(request: Request):
         others = [h for h in highlights if h["type"] not in ("blocker", "action")]
         highlights = (blockers_first + actions + others)[:6]
         
-        # Recent items (meetings from Supabase, docs from SQLite)
+        # Recent items (meetings and docs from Supabase)
         recent_items = []
         recent_mtgs = meetings_supabase.get_recent_meetings(limit=5)
         for m in recent_mtgs:
@@ -451,14 +461,13 @@ def dashboard(request: Request):
                 "url": f"/meetings/{m['id']}"
             })
         
-        recent_docs = conn.execute(
-            "SELECT id, source, document_date FROM docs ORDER BY COALESCE(document_date, created_at) DESC LIMIT 5"
-        ).fetchall()
+        # Get recent docs from Supabase
+        recent_docs = documents_supabase.get_recent_documents(limit=5)
         for d in recent_docs:
             recent_items.append({
                 "type": "doc",
-                "title": d["source"],
-                "date": d["document_date"],
+                "title": d.get("source", "Untitled"),
+                "date": d.get("document_date"),
                 "url": f"/documents/{d['id']}"
             })
         
@@ -466,18 +475,8 @@ def dashboard(request: Request):
         recent_items.sort(key=lambda x: x["date"] or "", reverse=True)
         recent_items = recent_items[:5]
         
-        # Get active tickets
-        active_tickets = conn.execute(
-            """SELECT * FROM tickets 
-               WHERE status IN ('todo', 'in_progress', 'in_review', 'blocked')
-               ORDER BY CASE status 
-                   WHEN 'in_progress' THEN 1 
-                   WHEN 'blocked' THEN 2
-                   WHEN 'in_review' THEN 3
-                   ELSE 4 END,
-               created_at DESC
-               LIMIT 5"""
-        ).fetchall()
+        # Get active tickets from Supabase
+        active_tickets = tickets_supabase.get_active_tickets(limit=5)
 
         execution_ticket = None
         execution_tasks = []
@@ -502,15 +501,11 @@ def dashboard(request: Request):
                         normalized.append({"index": idx, "title": title, "description": description, "status": status})
                     execution_ticket = {
                         "id": ticket["id"],
-                        "ticket_id": ticket["ticket_id"],
-                        "title": ticket["title"],
+                        "ticket_id": ticket.get("ticket_id"),
+                        "title": ticket.get("title"),
                     }
                     execution_tasks = normalized
                     break
-        
-        tickets_count = conn.execute(
-            "SELECT COUNT(*) FROM tickets WHERE status IN ('todo', 'in_progress', 'in_review')"
-        ).fetchone()[0]
     
     return templates.TemplateResponse(
         "dashboard.html",
@@ -664,48 +659,37 @@ async def get_highlights(request: Request):
     
     highlights = []
     
+    # 1. Check for blocked tickets (HIGH PRIORITY) - from Supabase
+    blocked_tickets = tickets_supabase.get_blocked_tickets(limit=3)
+    for t in blocked_tickets:
+        highlight_id = f"blocked-{t.get('ticket_id')}"
+        if highlight_id not in dismissed_ids:
+            highlights.append({
+                "id": highlight_id,
+                "type": "blocker",
+                "label": "🚧 Blocked Ticket",
+                "text": f"{t.get('ticket_id')}: {t.get('title')}",
+                "action": "Unblock this ticket to keep making progress",
+                "link": f"/tickets?focus={t.get('ticket_id')}",
+                "link_text": "View Ticket"
+            })
+    
+    # 2. Check for stale in-progress tickets (> 3 days old) - from Supabase
+    stale_tickets = tickets_supabase.get_stale_in_progress_tickets(days=3, limit=2)
+    for t in stale_tickets:
+        highlight_id = f"stale-{t.get('ticket_id')}"
+        if highlight_id not in dismissed_ids:
+            highlights.append({
+                "id": highlight_id,
+                "type": "action",
+                "label": "⏰ Stale Work",
+                "text": f"{t.get('ticket_id')}: {t.get('title')}",
+                "action": "This has been in progress for a while. Complete or update it?",
+                "link": f"/tickets?focus={t.get('ticket_id')}",
+                "link_text": "Update Status"
+            })
+    
     with connect() as conn:
-        # ===== COACHING SUGGESTIONS BASED ON APP STATE =====
-        
-        # 1. Check for blocked tickets (HIGH PRIORITY)
-        blocked_tickets = conn.execute(
-            """SELECT ticket_id, title FROM tickets 
-               WHERE status = 'blocked' 
-               ORDER BY updated_at DESC LIMIT 3"""
-        ).fetchall()
-        for t in blocked_tickets:
-            highlight_id = f"blocked-{t['ticket_id']}"
-            if highlight_id not in dismissed_ids:
-                highlights.append({
-                    "id": highlight_id,
-                    "type": "blocker",
-                    "label": "🚧 Blocked Ticket",
-                    "text": f"{t['ticket_id']}: {t['title']}",
-                    "action": "Unblock this ticket to keep making progress",
-                    "link": f"/tickets?focus={t['ticket_id']}",
-                    "link_text": "View Ticket"
-                })
-        
-        # 2. Check for stale in-progress tickets (> 3 days old)
-        stale_tickets = conn.execute(
-            """SELECT ticket_id, title, updated_at FROM tickets 
-               WHERE status = 'in_progress' 
-               AND date(updated_at) < date('now', '-3 days')
-               ORDER BY updated_at ASC LIMIT 2"""
-        ).fetchall()
-        for t in stale_tickets:
-            highlight_id = f"stale-{t['ticket_id']}"
-            if highlight_id not in dismissed_ids:
-                highlights.append({
-                    "id": highlight_id,
-                    "type": "action",
-                    "label": "⏰ Stale Work",
-                    "text": f"{t['ticket_id']}: {t['title']}",
-                    "action": "This has been in progress for a while. Complete or update it?",
-                    "link": f"/tickets?focus={t['ticket_id']}",
-                    "link_text": "Update Status"
-                })
-        
         # 3. Check sprint progress
         sprint = conn.execute("SELECT * FROM sprint_settings WHERE id = 1").fetchone()
         if sprint and sprint['sprint_start_date']:
@@ -719,9 +703,7 @@ async def get_highlights(request: Request):
                 
                 # Sprint ending soon
                 if 0 < days_left <= 3 and f"sprint-ending" not in dismissed_ids:
-                    todo_count = conn.execute(
-                        "SELECT COUNT(*) as c FROM tickets WHERE status = 'todo'"
-                    ).fetchone()['c']
+                    todo_count = tickets_supabase.get_tickets_count(statuses=["todo"])
                     if todo_count > 0:
                         highlights.append({
                             "id": "sprint-ending",
@@ -735,9 +717,7 @@ async def get_highlights(request: Request):
                 
                 # Sprint just started - set it up
                 if progress < 10 and f"sprint-setup" not in dismissed_ids:
-                    ticket_count = conn.execute(
-                        "SELECT COUNT(*) as c FROM tickets"
-                    ).fetchone()['c']
+                    ticket_count = tickets_supabase.get_tickets_count()
                     if ticket_count == 0:
                         highlights.append({
                             "id": "sprint-setup",
@@ -1028,11 +1008,11 @@ async def convert_signal_to_ticket(request: Request):
     # Get meeting name from Supabase for context
     meeting_name = meetings_supabase.get_meeting_name(meeting_id) or "Unknown Meeting"
     
-    # Generate ticket ID
+    # Generate ticket ID from Supabase
+    next_num = tickets_supabase.get_next_ticket_number()
+    ticket_id = f"SIG-{next_num}"
+    
     with connect() as conn:
-        count = conn.execute("SELECT COUNT(*) as c FROM tickets").fetchone()["c"]
-        ticket_id = f"SIG-{count + 1}"
-        
         # Determine priority based on signal type
         priority_map = {"blocker": "high", "risk": "high", "action_item": "medium", "decision": "low", "idea": "low"}
         priority = priority_map.get(signal_type, "medium")
@@ -1355,14 +1335,16 @@ async def convert_ai_to_action(request: Request):
     if not content:
         return JSONResponse({"error": "Content is required"}, status_code=400)
     
+    # Generate ticket ID from Supabase
+    next_num = tickets_supabase.get_next_ticket_number()
+    ticket_id = f"AI-{next_num}"
+    
+    # Extract first line as title
+    title = content.split('\n')[0][:100].strip('*#- ')
+    if not title:
+        title = query[:100] if query else "AI Generated Action Item"
+    
     with connect() as conn:
-        count = conn.execute("SELECT COUNT(*) as c FROM tickets").fetchone()["c"]
-        ticket_id = f"AI-{count + 1}"
-        
-        # Extract first line as title
-        title = content.split('\n')[0][:100].strip('*#- ')
-        if not title:
-            title = query[:100] if query else "AI Generated Action Item"
         
         conn.execute(
             """INSERT INTO tickets (ticket_id, title, description, status, priority, ai_summary, created_at)
@@ -2335,12 +2317,8 @@ async def get_signals_report(days: int = 14):
         except:
             continue
     
-    # Count tickets created in period (still from SQLite)
-    with connect() as conn:
-        tickets_count = conn.execute(
-            "SELECT COUNT(*) as cnt FROM tickets WHERE created_at >= ?",
-            (cutoff,)
-        ).fetchone()["cnt"]
+    # Count tickets created in period from Supabase
+    tickets_count = tickets_supabase.get_tickets_created_since(cutoff)
     
     return JSONResponse({
         "decisions": decisions,
@@ -2468,155 +2446,130 @@ async def get_sprint_burndown(force: bool = False):
             days_remaining = sprint_total_days - sprint_day
             # Estimate working days (exclude weekends roughly)
             working_days_remaining = max(0, int(days_remaining * 5 / 7))
+    
+    # Get all active tickets assigned to sprint from Supabase
+    tickets = tickets_supabase.get_active_sprint_tickets()
+    
+    total_points = 0
+    completed_points = 0
+    in_progress_points = 0
+    remaining_points = 0
+    
+    ticket_breakdown = []
+    
+    for ticket in tickets:
+        points = ticket.get("sprint_points") or 0
+        total_points += points
         
-        # Get all active tickets assigned to sprint (not done)
-        tickets = conn.execute(
-            """
-            SELECT id, ticket_id, title, status, sprint_points, in_sprint, task_decomposition
-            FROM tickets 
-            WHERE status IN ('todo', 'in_progress', 'in_review', 'blocked')
-            AND in_sprint = 1
-            ORDER BY 
-                CASE status
-                    WHEN 'blocked' THEN 0
-                    WHEN 'in_progress' THEN 1
-                    WHEN 'in_review' THEN 2
-                    WHEN 'todo' THEN 3
-                END,
-                sprint_points DESC
-            """
-        ).fetchall()
+        # Parse task decomposition
+        tasks = []
+        total_tasks = 0
+        completed_tasks = 0
         
-        total_points = 0
-        completed_points = 0
-        in_progress_points = 0
-        remaining_points = 0
+        if ticket.get("task_decomposition"):
+            try:
+                parsed = json.loads(ticket["task_decomposition"]) if isinstance(ticket["task_decomposition"], str) else ticket["task_decomposition"]
+                if isinstance(parsed, list):
+                    for idx, item in enumerate(parsed):
+                        if isinstance(item, dict):
+                            title = item.get("title") or item.get("text") or item.get("task") or item.get("name") or "Task"
+                            description = item.get("description") or item.get("details") or ""
+                            status = item.get("status", "pending")
+                        else:
+                            title = str(item)
+                            description = ""
+                            status = "pending"
+                        
+                        is_done = status in ("done", "completed")
+                        total_tasks += 1
+                        if is_done:
+                            completed_tasks += 1
+                        
+                        tasks.append({
+                            "index": idx,
+                            "title": title,
+                            "description": description,
+                            "status": status,
+                            "done": is_done
+                        })
+            except:
+                pass
         
-        ticket_breakdown = []
+        # Calculate progress percentage for this ticket
+        progress_pct = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
         
-        for ticket in tickets:
-            points = ticket["sprint_points"] or 0
-            total_points += points
-            
-            # Parse task decomposition
-            tasks = []
-            total_tasks = 0
-            completed_tasks = 0
-            
-            if ticket["task_decomposition"]:
-                try:
-                    parsed = json.loads(ticket["task_decomposition"])
-                    if isinstance(parsed, list):
-                        for idx, item in enumerate(parsed):
-                            if isinstance(item, dict):
-                                title = item.get("title") or item.get("text") or item.get("task") or item.get("name") or "Task"
-                                description = item.get("description") or item.get("details") or ""
-                                status = item.get("status", "pending")
-                            else:
-                                title = str(item)
-                                description = ""
-                                status = "pending"
-                            
-                            is_done = status in ("done", "completed")
-                            total_tasks += 1
-                            if is_done:
-                                completed_tasks += 1
-                            
-                            tasks.append({
-                                "index": idx,
-                                "title": title,
-                                "description": description,
-                                "status": status,
-                                "done": is_done
-                            })
-                except:
-                    pass
-            
-            # Calculate progress percentage for this ticket
-            progress_pct = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
-            
-            # Estimate points based on progress
-            ticket_completed_points = (points * progress_pct / 100)
-            ticket_remaining = points - ticket_completed_points
-            
-            if ticket["status"] == "in_progress":
-                in_progress_points += ticket_remaining
-            else:
-                remaining_points += points
-            
-            completed_points += ticket_completed_points
-            
-            ticket_breakdown.append({
-                "id": ticket["id"],
-                "ticket_id": ticket["ticket_id"],
-                "title": ticket["title"],
-                "status": ticket["status"],
-                "sprint_points": points,
-                "total_tasks": total_tasks,
-                "completed_tasks": completed_tasks,
-                "progress_pct": round(progress_pct, 1),
-                "tasks": tasks
-            })
+        # Estimate points based on progress
+        ticket_completed_points = (points * progress_pct / 100)
+        ticket_remaining = points - ticket_completed_points
         
-        # Get completed tickets for total burndown context (in sprint only)
-        completed_tickets = conn.execute(
-            """
-            SELECT SUM(COALESCE(sprint_points, 0)) as points
-            FROM tickets 
-            WHERE status IN ('done', 'complete')
-            AND in_sprint = 1
-            AND updated_at >= date('now', '-14 days')
-            """
-        ).fetchone()
+        if ticket.get("status") == "in_progress":
+            in_progress_points += ticket_remaining
+        else:
+            remaining_points += points
         
-        done_points = completed_tickets["points"] or 0
+        completed_points += ticket_completed_points
         
-        # Count total remaining tasks
-        total_remaining_tasks = sum(
-            t["total_tasks"] - t["completed_tasks"] for t in ticket_breakdown
-        )
+        ticket_breakdown.append({
+            "id": ticket["id"],
+            "ticket_id": ticket.get("ticket_id"),
+            "title": ticket.get("title"),
+            "status": ticket.get("status"),
+            "sprint_points": points,
+            "total_tasks": total_tasks,
+            "completed_tasks": completed_tasks,
+            "progress_pct": round(progress_pct, 1),
+            "tasks": tasks
+        })
+    
+    # Get completed tickets for total burndown context (in sprint only)
+    done_points = tickets_supabase.get_completed_sprint_points()
+    
+    # Count total remaining tasks
+    total_remaining_tasks = sum(
+        t["total_tasks"] - t["completed_tasks"] for t in ticket_breakdown
+    )
+    
+    # Calculate jeopardy status
+    jeopardy_status = None
+    jeopardy_message = None
+    
+    if working_days_remaining is not None:
+        remaining_points_value = remaining_points + in_progress_points
+        # Assume ~2 tasks per working day as velocity
+        estimated_capacity_tasks = working_days_remaining * 3  # 3 tasks per day rough estimate
+        # Assume ~3 points per working day as velocity
+        estimated_capacity_points = working_days_remaining * 3
         
-        # Calculate jeopardy status
-        jeopardy_status = None
-        jeopardy_message = None
-        
-        if working_days_remaining is not None:
-            remaining_points_value = remaining_points + in_progress_points
-            # Assume ~2 tasks per working day as velocity
-            estimated_capacity_tasks = working_days_remaining * 3  # 3 tasks per day rough estimate
-            # Assume ~3 points per working day as velocity
-            estimated_capacity_points = working_days_remaining * 3
-            
-            if remaining_points_value > estimated_capacity_points * 1.5:
-                jeopardy_status = "critical"
-                jeopardy_message = f"🚨 Sprint at risk: {remaining_points_value:.0f} points remaining with only {working_days_remaining} working days left"
-            elif remaining_points_value > estimated_capacity_points:
-                jeopardy_status = "warning"
-                jeopardy_message = f"⚠️ Sprint may be at risk: {remaining_points_value:.0f} points remaining"
-            elif total_remaining_tasks > estimated_capacity_tasks:
-                jeopardy_status = "warning"
-                jeopardy_message = f"⚠️ High task count: {total_remaining_tasks} subtasks remaining with {working_days_remaining} days left"
-        
-        result = {
-            "total_points": total_points,
-            "completed_points": round(completed_points, 1),
-            "in_progress_points": round(in_progress_points, 1),
-            "remaining_points": round(remaining_points, 1),
-            "done_this_sprint": done_points,
-            "total_remaining_tasks": total_remaining_tasks,
-            "working_days_remaining": working_days_remaining,
-            "sprint_day": sprint_day,
-            "sprint_total_days": sprint_total_days,
-            "jeopardy_status": jeopardy_status,
-            "jeopardy_message": jeopardy_message,
-            "tickets": ticket_breakdown
-        }
-        
-        # Update cache
-        _sprint_burndown_cache["data"] = result
-        _sprint_burndown_cache["timestamp"] = now
-        
-        return JSONResponse(result)
+        if remaining_points_value > estimated_capacity_points * 1.5:
+            jeopardy_status = "critical"
+            jeopardy_message = f"🚨 Sprint at risk: {remaining_points_value:.0f} points remaining with only {working_days_remaining} working days left"
+        elif remaining_points_value > estimated_capacity_points:
+            jeopardy_status = "warning"
+            jeopardy_message = f"⚠️ Sprint may be at risk: {remaining_points_value:.0f} points remaining"
+        elif total_remaining_tasks > estimated_capacity_tasks:
+            jeopardy_status = "warning"
+            jeopardy_message = f"⚠️ High task count: {total_remaining_tasks} subtasks remaining with {working_days_remaining} days left"
+    
+    result = {
+        "total_points": total_points,
+        "completed_points": round(completed_points, 1),
+        "in_progress_points": round(in_progress_points, 1),
+        "remaining_points": round(remaining_points, 1),
+        "done_this_sprint": done_points,
+        "total_remaining_tasks": total_remaining_tasks,
+        "working_days_remaining": working_days_remaining,
+        "sprint_day": sprint_day,
+        "sprint_total_days": sprint_total_days,
+        "jeopardy_status": jeopardy_status,
+        "jeopardy_message": jeopardy_message,
+        "tickets": ticket_breakdown
+    }
+    
+    # Update cache
+    _sprint_burndown_cache["data"] = result
+    _sprint_burndown_cache["timestamp"] = now
+    
+    return JSONResponse(result)
 
 
 def format_duration(seconds: int) -> str:
@@ -2728,43 +2681,20 @@ async def get_weekly_intelligence():
         ).fetchall()
         
         # =====================================================================
-        # TICKET/SPRINT PROGRESS
+        # TICKET/SPRINT PROGRESS (from Supabase)
         # =====================================================================
-        ticket_stats = conn.execute(
-            """
-            SELECT 
-                status,
-                COUNT(*) as count,
-                SUM(COALESCE(sprint_points, 0)) as points
-            FROM tickets
-            WHERE in_sprint = 1
-            GROUP BY status
-            """
-        ).fetchall()
-        
-        sprint_overview = {
-            "todo": {"count": 0, "points": 0},
-            "in_progress": {"count": 0, "points": 0},
-            "in_review": {"count": 0, "points": 0},
-            "blocked": {"count": 0, "points": 0},
-            "done": {"count": 0, "points": 0}
-        }
-        for row in ticket_stats:
-            if row["status"] in sprint_overview:
-                sprint_overview[row["status"]] = {
-                    "count": row["count"],
-                    "points": row["points"] or 0
-                }
+        sprint_overview = tickets_supabase.get_sprint_ticket_stats()
+        if not sprint_overview:
+            sprint_overview = {
+                "todo": {"count": 0, "points": 0},
+                "in_progress": {"count": 0, "points": 0},
+                "in_review": {"count": 0, "points": 0},
+                "blocked": {"count": 0, "points": 0},
+                "done": {"count": 0, "points": 0}
+            }
         
         # Blocked tickets need attention
-        blocked_tickets = conn.execute(
-            """
-            SELECT id, ticket_id, title
-            FROM tickets
-            WHERE status = 'blocked' AND in_sprint = 1
-            LIMIT 5
-            """
-        ).fetchall()
+        blocked_tickets = tickets_supabase.get_blocked_sprint_tickets(limit=5)
         
         # =====================================================================
         # ACTION ITEMS DUE SOON (from accountability_items table)

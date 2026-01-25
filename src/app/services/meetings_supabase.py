@@ -3,6 +3,9 @@ Meetings Service - Supabase Direct Reads
 
 This module provides meeting operations that read directly from Supabase,
 eliminating the need for SQLite sync and enabling real-time data access.
+
+NOTE: This module is now a thin wrapper around the repository layer.
+For new code, prefer importing from src.app.repositories directly.
 """
 
 import json
@@ -10,11 +13,24 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+from ..repositories import get_meeting_repository
+from ..repositories.base import QueryOptions
+
 logger = logging.getLogger(__name__)
+
+# Get repository singleton (default Supabase backend)
+_repo = None
+
+def _get_repo():
+    """Get or create the repository singleton."""
+    global _repo
+    if _repo is None:
+        _repo = get_meeting_repository("supabase")
+    return _repo
 
 
 def get_supabase_client():
-    """Get Supabase client from infrastructure."""
+    """Get Supabase client from infrastructure - DEPRECATED, use repository."""
     from ..infrastructure.supabase_client import get_supabase_client as _get_client
     return _get_client()
 
@@ -26,33 +42,7 @@ def get_all_meetings(limit: int = 100) -> List[Dict[str, Any]]:
     Returns:
         List of meeting dictionaries with id, meeting_name, meeting_date, signals, etc.
     """
-    client = get_supabase_client()
-    if not client:
-        logger.warning("Supabase not available, returning empty list")
-        return []
-    
-    try:
-        result = client.table("meetings").select("*").order(
-            "created_at", desc=True
-        ).limit(limit).execute()
-        
-        meetings = []
-        for row in result.data:
-            meetings.append({
-                "id": row.get("id"),
-                "meeting_name": row.get("meeting_name", "Untitled Meeting"),
-                "meeting_date": row.get("meeting_date"),
-                "synthesized_notes": row.get("synthesized_notes", ""),
-                "signals_json": json.dumps(row.get("signals", {})) if row.get("signals") else None,
-                "signals": row.get("signals", {}),
-                "raw_text": row.get("raw_text"),
-                "created_at": row.get("created_at"),
-            })
-        
-        return meetings
-    except Exception as e:
-        logger.error(f"Failed to get meetings from Supabase: {e}")
-        return []
+    return _get_repo().get_all(QueryOptions(limit=limit))
 
 
 def get_meeting_by_id(meeting_id: str) -> Optional[Dict[str, Any]]:
@@ -65,29 +55,7 @@ def get_meeting_by_id(meeting_id: str) -> Optional[Dict[str, Any]]:
     Returns:
         Meeting dictionary or None if not found
     """
-    client = get_supabase_client()
-    if not client:
-        return None
-    
-    try:
-        result = client.table("meetings").select("*").eq("id", meeting_id).single().execute()
-        
-        if result.data:
-            row = result.data
-            return {
-                "id": row.get("id"),
-                "meeting_name": row.get("meeting_name", "Untitled Meeting"),
-                "meeting_date": row.get("meeting_date"),
-                "synthesized_notes": row.get("synthesized_notes", ""),
-                "signals_json": json.dumps(row.get("signals", {})) if row.get("signals") else None,
-                "signals": row.get("signals", {}),
-                "raw_text": row.get("raw_text"),
-                "created_at": row.get("created_at"),
-            }
-        return None
-    except Exception as e:
-        logger.error(f"Failed to get meeting {meeting_id} from Supabase: {e}")
-        return None
+    return _get_repo().get_by_id(meeting_id)
 
 
 def get_meetings_count() -> int:
@@ -97,16 +65,7 @@ def get_meetings_count() -> int:
     Returns:
         Number of meetings
     """
-    client = get_supabase_client()
-    if not client:
-        return 0
-    
-    try:
-        result = client.table("meetings").select("id", count="exact").execute()
-        return result.count or 0
-    except Exception as e:
-        logger.error(f"Failed to get meetings count: {e}")
-        return 0
+    return _get_repo().get_count()
 
 
 def get_recent_meetings(limit: int = 5) -> List[Dict[str, Any]]:
@@ -116,26 +75,7 @@ def get_recent_meetings(limit: int = 5) -> List[Dict[str, Any]]:
     Returns:
         List of recent meetings with id, meeting_name, meeting_date
     """
-    client = get_supabase_client()
-    if not client:
-        return []
-    
-    try:
-        result = client.table("meetings").select(
-            "id, meeting_name, meeting_date, created_at"
-        ).order("meeting_date", desc=True, nullsfirst=False).limit(limit).execute()
-        
-        return [
-            {
-                "id": row.get("id"),
-                "meeting_name": row.get("meeting_name", "Untitled Meeting"),
-                "meeting_date": row.get("meeting_date"),
-            }
-            for row in result.data
-        ]
-    except Exception as e:
-        logger.error(f"Failed to get recent meetings: {e}")
-        return []
+    return _get_repo().get_recent(limit)
 
 
 def get_meetings_with_signals(limit: int = 100) -> List[Dict[str, Any]]:
@@ -145,34 +85,7 @@ def get_meetings_with_signals(limit: int = 100) -> List[Dict[str, Any]]:
     Returns:
         List of meetings with id, meeting_name, signals
     """
-    client = get_supabase_client()
-    if not client:
-        return []
-    
-    try:
-        result = client.table("meetings").select(
-            "id, meeting_name, signals, meeting_date, created_at"
-        ).not_.is_("signals", "null").order(
-            "meeting_date", desc=True, nullsfirst=False
-        ).limit(limit).execute()
-        
-        meetings = []
-        for row in result.data:
-            signals = row.get("signals", {})
-            if signals:  # Only include if signals is not empty
-                meetings.append({
-                    "id": row.get("id"),
-                    "meeting_name": row.get("meeting_name", "Untitled Meeting"),
-                    "meeting_date": row.get("meeting_date"),
-                    "created_at": row.get("created_at"),
-                    "signals_json": json.dumps(signals),
-                    "signals": signals,
-                })
-        
-        return meetings
-    except Exception as e:
-        logger.error(f"Failed to get meetings with signals: {e}")
-        return []
+    return _get_repo().get_with_signals(limit)
 
 
 def get_meeting_signals(meeting_id: str) -> Optional[Dict[str, Any]]:
@@ -185,7 +98,7 @@ def get_meeting_signals(meeting_id: str) -> Optional[Dict[str, Any]]:
     Returns:
         Signals dictionary or None
     """
-    meeting = get_meeting_by_id(meeting_id)
+    meeting = _get_repo().get_by_id(meeting_id)
     if meeting:
         return meeting.get("signals")
     return None
@@ -201,13 +114,38 @@ def get_meetings_with_signals_in_range(days: int = 30) -> List[Dict[str, Any]]:
     Returns:
         List of meetings with signals
     """
-    client = get_supabase_client()
-    if not client:
-        return []
+    from datetime import timedelta
+    cutoff_start = (datetime.now() - timedelta(days=days)).isoformat()[:10]
+    cutoff_end = datetime.now().isoformat()[:10]
     
-    try:
-        from datetime import timedelta
-        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+    meetings = _get_repo().get_by_date_range(cutoff_start, cutoff_end, limit=200)
+    # Filter to only those with signals
+    return [m for m in meetings if m.get("signals")]
+
+
+# =============================================================================
+# LEGACY FUNCTIONS - Keep for backward compatibility, delegate to repository
+# =============================================================================
+
+def create_meeting(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Create a new meeting in Supabase."""
+    return _get_repo().create(data)
+
+
+def update_meeting(meeting_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Update an existing meeting in Supabase."""
+    return _get_repo().update(meeting_id, data)
+
+
+def delete_meeting(meeting_id: str) -> bool:
+    """Delete a meeting from Supabase."""
+    return _get_repo().delete(meeting_id)
+
+
+# Keep old function that does direct client access for specific use cases
+def get_supabase_direct():
+    """Get direct Supabase client for advanced operations."""
+    return get_supabase_client()
         
         result = client.table("meetings").select(
             "id, meeting_name, signals, meeting_date"

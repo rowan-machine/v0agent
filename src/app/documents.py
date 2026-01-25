@@ -8,6 +8,7 @@ import logging
 from .db import connect
 from .memory.embed import embed_text, EMBED_MODEL
 from .memory.vector_store import upsert_embedding
+from .services import documents_supabase  # Supabase-first reads
 
 # NOTE: Neo4j removed - using Supabase knowledge graph instead (Phase 5.10)
 
@@ -143,25 +144,24 @@ def store_doc(
 
 @router.get("/documents")
 def list_documents(request: Request, success: str = Query(default=None)):
-    with connect() as conn:
-        rows = conn.execute(
-            """
-            SELECT id, source, document_date, created_at, meeting_id
-            FROM docs
-            ORDER BY COALESCE(document_date, created_at) DESC
-            """
-        ).fetchall()
+    # Read from Supabase directly
+    rows = documents_supabase.get_all_documents(limit=500)
 
     formatted_docs = []
     for row in rows:
         doc = dict(row)
-        date_str = doc["document_date"] or doc["created_at"]
+        date_str = doc.get("document_date") or doc.get("created_at")
         if date_str:
             try:
-                if " " in date_str:
-                    dt = datetime.strptime(date_str.split(".")[0], "%Y-%m-%d %H:%M:%S")
+                if " " in str(date_str):
+                    dt = datetime.strptime(str(date_str).split(".")[0], "%Y-%m-%d %H:%M:%S")
                     dt_utc = dt.replace(tzinfo=ZoneInfo("UTC"))
                     dt_central = dt_utc.astimezone(ZoneInfo("America/Chicago"))
+                    doc["display_date"] = dt_central.strftime("%Y-%m-%d %I:%M %p %Z")
+                elif "T" in str(date_str):
+                    # ISO format from Supabase
+                    dt = datetime.fromisoformat(str(date_str).replace("Z", "+00:00"))
+                    dt_central = dt.astimezone(ZoneInfo("America/Chicago"))
                     doc["display_date"] = dt_central.strftime("%Y-%m-%d %I:%M %p %Z")
                 else:
                     doc["display_date"] = date_str
@@ -179,12 +179,9 @@ def list_documents(request: Request, success: str = Query(default=None)):
 
 
 @router.get("/documents/{doc_id}")
-def view_document(doc_id: int, request: Request):
-    with connect() as conn:
-        doc = conn.execute(
-            "SELECT * FROM docs WHERE id = ?",
-            (doc_id,),
-        ).fetchone()
+def view_document(doc_id: str, request: Request):
+    # Read from Supabase directly
+    doc = documents_supabase.get_document_by_id(doc_id)
 
     return templates.TemplateResponse(
         "view_doc.html",
@@ -193,16 +190,13 @@ def view_document(doc_id: int, request: Request):
 
 
 @router.get("/documents/{doc_id}/edit")
-def edit_document(doc_id: int, request: Request):
-    with connect() as conn:
-        doc = conn.execute(
-            "SELECT * FROM docs WHERE id = ?",
-            (doc_id,),
-        ).fetchone()
-        
-        # Check if this is a transcript linked to a meeting
-        if doc and doc['source'] and doc['source'].startswith('Transcript: '):
-            meeting_name = doc['source'].replace('Transcript: ', '').split(' (')[0]
+def edit_document(doc_id: str, request: Request):
+    # Read from Supabase directly
+    doc = documents_supabase.get_document_by_id(doc_id)
+    
+    if doc and doc.get('source') and doc.get('source').startswith('Transcript: '):
+        meeting_name = doc['source'].replace('Transcript: ', '').split(' (')[0]
+        with connect() as conn:
             meeting = conn.execute(
                 "SELECT id FROM meeting_summaries WHERE meeting_name = ?",
                 (meeting_name,)
@@ -227,6 +221,14 @@ def update_document(
     content: str = Form(...),
     document_date: str = Form(...)
 ):
+    # Update in Supabase
+    documents_supabase.update_document(doc_id, {
+        "source": source,
+        "content": content,
+        "document_date": document_date
+    })
+    
+    # Also update SQLite for backwards compatibility
     with connect() as conn:
         conn.execute(
             """
@@ -258,7 +260,11 @@ def update_document(
 
 
 @router.post("/documents/{doc_id}/delete")
-def delete_document(doc_id: int):
+def delete_document(doc_id: str):
+    # Delete from Supabase first (source of truth)
+    documents_supabase.delete_document(doc_id)
+    
+    # Also clean up SQLite for backwards compatibility
     with connect() as conn:
         conn.execute("DELETE FROM docs WHERE id = ?", (doc_id,))
         conn.execute(

@@ -1,6 +1,42 @@
 import sqlite3
+import logging
+import traceback
 
 DB_PATH = "agent.db"
+
+# Configure SQLite usage logging
+_sqlite_logger = logging.getLogger("sqlite_usage")
+_sqlite_logger.setLevel(logging.WARNING)  # Change to DEBUG to see all queries
+
+# Track which code paths are hitting SQLite
+_SQLITE_DEPRECATION_TABLES = {"meeting_summaries", "docs", "tickets"}
+
+
+def _log_sqlite_usage(query: str = None):
+    """Log SQLite usage with caller info - helps identify code that needs migration."""
+    stack = traceback.extract_stack()
+    # Find the first frame outside db.py
+    for frame in reversed(stack[:-2]):
+        if "db.py" not in frame.filename:
+            caller = f"{frame.filename}:{frame.lineno} in {frame.name}"
+            break
+    else:
+        caller = "unknown"
+    
+    # Check if query touches deprecated tables
+    if query:
+        query_lower = query.lower()
+        for table in _SQLITE_DEPRECATION_TABLES:
+            if table in query_lower:
+                _sqlite_logger.warning(
+                    f"⚠️ SQLite query on '{table}' table - should use Supabase!\n"
+                    f"   Caller: {caller}\n"
+                    f"   Query: {query[:200]}..."
+                )
+                return
+    
+    # For all other queries, log at debug level
+    _sqlite_logger.debug(f"SQLite query from: {caller}")
 
 SCHEMA = """
 PRAGMA journal_mode=WAL;
@@ -578,10 +614,45 @@ CREATE TABLE IF NOT EXISTS skill_tracker (
 CREATE INDEX IF NOT EXISTS idx_skill_tracker_category ON skill_tracker(category);
 """
 
+
+class _LoggingConnection:
+    """Wrapper around SQLite connection that logs queries on deprecated tables."""
+    
+    def __init__(self, conn):
+        self._conn = conn
+        self.row_factory = conn.row_factory
+    
+    def execute(self, sql, params=()):
+        _log_sqlite_usage(sql)
+        return self._conn.execute(sql, params)
+    
+    def executemany(self, sql, params):
+        _log_sqlite_usage(sql)
+        return self._conn.executemany(sql, params)
+    
+    def executescript(self, script):
+        return self._conn.executescript(script)
+    
+    def commit(self):
+        return self._conn.commit()
+    
+    def rollback(self):
+        return self._conn.rollback()
+    
+    def close(self):
+        return self._conn.close()
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, *args):
+        return self._conn.__exit__(*args)
+
+
 def connect():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
-    return conn
+    return _LoggingConnection(conn)
 
 def table_exists(conn, table_name: str) -> bool:
     """Check if a table exists in the database."""

@@ -20,6 +20,7 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 
 from ..db import connect
+from . import tickets_supabase, meetings_supabase
 from .notification_queue import (
     NotificationQueue,
     NotificationType,
@@ -170,131 +171,134 @@ class OneOnOnePrepJob:
         }
     
     def _get_top_work_items(self, limit: int = 3) -> List[Dict[str, Any]]:
-        """Get top active tickets ordered by recent activity."""
-        with connect() as conn:
-            rows = conn.execute("""
-                SELECT id, title, status, tags, updated_at, created_at
-                FROM tickets
-                WHERE status NOT IN ('done', 'closed', 'archived')
-                ORDER BY 
-                    COALESCE(updated_at, created_at) DESC
-                LIMIT ?
-            """, (limit,)).fetchall()
+        """Get top active tickets ordered by recent activity (from Supabase)."""
+        all_tickets = tickets_supabase.get_active_tickets()
+        
+        # Sort by most recent activity
+        def get_activity_time(t):
+            return t.get("updated_at") or t.get("created_at") or ""
+        
+        sorted_tickets = sorted(all_tickets, key=get_activity_time, reverse=True)
         
         items = []
-        for row in rows:
+        for ticket in sorted_tickets[:limit]:
             items.append({
-                "id": row["id"],
-                "title": row["title"],
-                "status": row["status"],
-                "tags": row["tags"],
-                "last_activity": row["updated_at"] or row["created_at"],
+                "id": ticket["id"],
+                "title": ticket.get("title") or "",
+                "status": ticket.get("status") or "",
+                "tags": ticket.get("tags") or "",
+                "last_activity": ticket.get("updated_at") or ticket.get("created_at"),
             })
         
         return items
     
     def _get_blockers(self, days: int = 14) -> List[Dict[str, Any]]:
-        """Get blockers from recent meetings and tickets."""
+        """Get blockers from recent meetings and tickets (from Supabase)."""
         cutoff = (datetime.now() - timedelta(days=days)).isoformat()
         blockers = []
         
-        with connect() as conn:
-            # Get blockers from meeting signals
-            meetings = conn.execute("""
-                SELECT id, meeting_name, meeting_date, signals_json
-                FROM meeting_summaries
-                WHERE signals_json IS NOT NULL
-                AND COALESCE(meeting_date, created_at) >= ?
-                ORDER BY COALESCE(meeting_date, created_at) DESC
-            """, (cutoff,)).fetchall()
+        # Get blockers from meeting signals (Supabase)
+        all_meetings = meetings_supabase.get_all_meetings()
+        for meeting in all_meetings:
+            meeting_date = meeting.get("meeting_date") or meeting.get("created_at") or ""
+            if meeting_date < cutoff:
+                continue
             
-            for meeting in meetings:
-                signals = json.loads(meeting["signals_json"] or "{}")
-                for blocker in signals.get("blockers", []):
-                    if isinstance(blocker, str):
-                        blockers.append({
-                            "text": blocker,
-                            "source": f"Meeting: {meeting['meeting_name']}",
-                            "meeting_id": meeting["id"],
-                            "date": meeting["meeting_date"],
-                        })
-                    elif isinstance(blocker, dict):
-                        blockers.append({
-                            "text": blocker.get("text", str(blocker)),
-                            "source": f"Meeting: {meeting['meeting_name']}",
-                            "meeting_id": meeting["id"],
-                            "date": meeting["meeting_date"],
-                        })
-            
-            # Get tickets with blocked status
-            blocked_tickets = conn.execute("""
-                SELECT id, title, status
-                FROM tickets
-                WHERE status = 'blocked'
-                OR tags LIKE '%blocked%'
-            """).fetchall()
-            
-            for ticket in blocked_tickets:
-                blockers.append({
-                    "text": ticket["title"],
-                    "source": f"Ticket #{ticket['id']}",
-                    "ticket_id": ticket["id"],
-                })
+            signals_json = meeting.get("signals_json")
+            if not signals_json:
+                continue
+                
+            try:
+                signals = json.loads(signals_json) if isinstance(signals_json, str) else signals_json
+            except:
+                continue
+                
+            for blocker in signals.get("blockers", []):
+                if isinstance(blocker, str):
+                    blockers.append({
+                        "text": blocker,
+                        "source": f"Meeting: {meeting.get('meeting_name', 'Unknown')}",
+                        "meeting_id": meeting["id"],
+                        "date": meeting.get("meeting_date"),
+                    })
+                elif isinstance(blocker, dict):
+                    blockers.append({
+                        "text": blocker.get("text", str(blocker)),
+                        "source": f"Meeting: {meeting.get('meeting_name', 'Unknown')}",
+                        "meeting_id": meeting["id"],
+                        "date": meeting.get("meeting_date"),
+                    })
+        
+        # Get tickets with blocked status (Supabase)
+        blocked_tickets = tickets_supabase.get_blocked_tickets()
+        for ticket in blocked_tickets:
+            blockers.append({
+                "text": ticket.get("title") or "",
+                "source": f"Ticket #{ticket['id']}",
+                "ticket_id": ticket["id"],
+            })
         
         return blockers[:10]  # Limit to top 10
     
     def _get_observations(self, days: int = 14) -> List[Dict[str, Any]]:
-        """Get decisions, risks, and ideas from recent meetings."""
+        """Get decisions, risks, and ideas from recent meetings (from Supabase)."""
         cutoff = (datetime.now() - timedelta(days=days)).isoformat()
         observations = []
         
-        with connect() as conn:
-            meetings = conn.execute("""
-                SELECT id, meeting_name, meeting_date, signals_json
-                FROM meeting_summaries
-                WHERE signals_json IS NOT NULL
-                AND COALESCE(meeting_date, created_at) >= ?
-                ORDER BY COALESCE(meeting_date, created_at) DESC
-                LIMIT 10
-            """, (cutoff,)).fetchall()
+        all_meetings = meetings_supabase.get_all_meetings()
+        count = 0
+        for meeting in all_meetings:
+            if count >= 10:
+                break
+            meeting_date = meeting.get("meeting_date") or meeting.get("created_at") or ""
+            if meeting_date < cutoff:
+                continue
             
-            for meeting in meetings:
-                signals = json.loads(meeting["signals_json"] or "{}")
-                
-                # Collect decisions
-                for decision in signals.get("decisions", [])[:2]:
-                    text = decision if isinstance(decision, str) else decision.get("text", str(decision))
-                    observations.append({
-                        "type": "decision",
-                        "text": text,
-                        "source": meeting["meeting_name"],
-                        "meeting_id": meeting["id"],
-                    })
-                
-                # Collect risks
-                for risk in signals.get("risks", [])[:2]:
-                    text = risk if isinstance(risk, str) else risk.get("text", str(risk))
-                    observations.append({
-                        "type": "risk",
-                        "text": text,
-                        "source": meeting["meeting_name"],
-                        "meeting_id": meeting["id"],
-                    })
-                
-                # Collect ideas
-                for idea in signals.get("ideas", [])[:1]:
-                    text = idea if isinstance(idea, str) else idea.get("text", str(idea))
-                    observations.append({
-                        "type": "idea",
-                        "text": text,
-                        "source": meeting["meeting_name"],
-                        "meeting_id": meeting["id"],
-                    })
+            signals_json = meeting.get("signals_json")
+            if not signals_json:
+                continue
+            
+            try:
+                signals = json.loads(signals_json) if isinstance(signals_json, str) else signals_json
+            except:
+                continue
+            
+            count += 1
+            
+            # Collect decisions
+            for decision in signals.get("decisions", [])[:2]:
+                text = decision if isinstance(decision, str) else decision.get("text", str(decision))
+                observations.append({
+                    "type": "decision",
+                    "text": text,
+                    "source": meeting.get("meeting_name") or "Unknown",
+                    "meeting_id": meeting["id"],
+                })
+            
+            # Collect risks
+            for risk in signals.get("risks", [])[:2]:
+                text = risk if isinstance(risk, str) else risk.get("text", str(risk))
+                observations.append({
+                    "type": "risk",
+                    "text": text,
+                    "source": meeting.get("meeting_name") or "Unknown",
+                    "meeting_id": meeting["id"],
+                })
+            
+            # Collect ideas
+            for idea in signals.get("ideas", [])[:1]:
+                text = idea if isinstance(idea, str) else idea.get("text", str(idea))
+                observations.append({
+                    "type": "idea",
+                    "text": text,
+                    "source": meeting.get("meeting_name") or "Unknown",
+                    "meeting_id": meeting["id"],
+                })
         
         return observations[:10]
     
     def _get_overdue_actions(self) -> List[Dict[str, Any]]:
-        """Get action items that appear overdue based on date patterns."""
+        """Get action items that appear overdue based on date patterns (from Supabase)."""
         overdue = []
         today = datetime.now()
         
@@ -306,44 +310,50 @@ class OneOnOnePrepJob:
             (r'due\s+(\d{1,2}/\d{1,2})', 'date'),
         ]
         
-        with connect() as conn:
-            meetings = conn.execute("""
-                SELECT id, meeting_name, meeting_date, signals_json
-                FROM meeting_summaries
-                WHERE signals_json IS NOT NULL
-                ORDER BY COALESCE(meeting_date, created_at) DESC
-                LIMIT 20
-            """).fetchall()
+        all_meetings = meetings_supabase.get_all_meetings()
+        count = 0
+        for meeting in all_meetings:
+            if count >= 20:
+                break
             
-            for meeting in meetings:
-                signals = json.loads(meeting["signals_json"] or "{}")
-                meeting_date = meeting["meeting_date"]
+            signals_json = meeting.get("signals_json")
+            if not signals_json:
+                continue
+            
+            count += 1
+            
+            try:
+                signals = json.loads(signals_json) if isinstance(signals_json, str) else signals_json
+            except:
+                continue
+            
+            meeting_date = meeting.get("meeting_date")
+            
+            for action in signals.get("action_items", []):
+                text = action if isinstance(action, str) else action.get("text", str(action))
+                text_lower = text.lower()
                 
-                for action in signals.get("action_items", []):
-                    text = action if isinstance(action, str) else action.get("text", str(action))
-                    text_lower = text.lower()
-                    
-                    # Check for date patterns that suggest it might be overdue
-                    is_overdue = False
-                    for pattern, pattern_type in date_patterns:
-                        if re.search(pattern, text_lower):
-                            # If meeting was > 7 days ago, likely overdue
-                            if meeting_date:
-                                try:
-                                    meeting_dt = datetime.fromisoformat(meeting_date)
-                                    if (today - meeting_dt).days > 7:
-                                        is_overdue = True
-                                except:
-                                    pass
-                            break
-                    
-                    if is_overdue:
-                        overdue.append({
-                            "text": text,
-                            "source": meeting["meeting_name"],
-                            "meeting_id": meeting["id"],
-                            "meeting_date": meeting_date,
-                        })
+                # Check for date patterns that suggest it might be overdue
+                is_overdue = False
+                for pattern, pattern_type in date_patterns:
+                    if re.search(pattern, text_lower):
+                        # If meeting was > 7 days ago, likely overdue
+                        if meeting_date:
+                            try:
+                                meeting_dt = datetime.fromisoformat(meeting_date.replace('Z', '+00:00').replace('+00:00', ''))
+                                if (today - meeting_dt).days > 7:
+                                    is_overdue = True
+                            except:
+                                pass
+                        break
+                
+                if is_overdue:
+                    overdue.append({
+                        "text": text,
+                        "source": meeting.get("meeting_name") or "Unknown",
+                        "meeting_id": meeting["id"],
+                        "meeting_date": meeting_date,
+                    })
         
         return overdue[:5]
     
@@ -731,31 +741,26 @@ class StaleTicketAlertJob:
         }
     
     def _get_stale_tickets(self) -> List[Dict[str, Any]]:
-        """Find tickets with no activity for STALE_TICKET_DAYS."""
+        """Find tickets with no activity for STALE_TICKET_DAYS (from Supabase)."""
         cutoff = (datetime.now() - timedelta(days=self.STALE_TICKET_DAYS)).isoformat()
         
-        with connect() as conn:
-            rows = conn.execute("""
-                SELECT id, title, status, updated_at, created_at
-                FROM tickets
-                WHERE status NOT IN ('done', 'closed', 'archived')
-                AND COALESCE(updated_at, created_at) < ?
-                ORDER BY COALESCE(updated_at, created_at) ASC
-                LIMIT 10
-            """, (cutoff,)).fetchall()
+        stale_tickets = tickets_supabase.get_stale_in_progress_tickets(days=self.STALE_TICKET_DAYS)
         
         stale = []
-        for row in rows:
-            last_activity = row["updated_at"] or row["created_at"]
+        for ticket in stale_tickets[:10]:
+            last_activity = ticket.get("updated_at") or ticket.get("created_at")
             if last_activity:
-                days_stale = (datetime.now() - datetime.fromisoformat(last_activity.replace('Z', '+00:00').replace('+00:00', ''))).days
+                try:
+                    days_stale = (datetime.now() - datetime.fromisoformat(last_activity.replace('Z', '+00:00').replace('+00:00', ''))).days
+                except:
+                    days_stale = self.STALE_TICKET_DAYS
             else:
                 days_stale = self.STALE_TICKET_DAYS
             
             stale.append({
-                "id": row["id"],
-                "title": row["title"],
-                "status": row["status"],
+                "id": ticket["id"],
+                "title": ticket.get("title") or "",
+                "status": ticket.get("status") or "",
                 "last_activity": last_activity,
                 "days_stale": days_stale,
             })
@@ -763,45 +768,44 @@ class StaleTicketAlertJob:
         return stale
     
     def _get_stale_blockers(self) -> List[Dict[str, Any]]:
-        """Find blockers mentioned in meetings that haven't been resolved."""
+        """Find blockers mentioned in meetings that haven't been resolved (from Supabase)."""
         cutoff_recent = (datetime.now() - timedelta(days=self.STALE_BLOCKER_DAYS)).isoformat()
         cutoff_old = (datetime.now() - timedelta(days=30)).isoformat()  # Don't look more than 30 days back
         
         blockers = []
         
-        with connect() as conn:
-            meetings = conn.execute("""
-                SELECT id, meeting_name, meeting_date, signals_json
-                FROM meeting_summaries
-                WHERE signals_json IS NOT NULL
-                AND meeting_date BETWEEN ? AND ?
-                ORDER BY meeting_date DESC
-            """, (cutoff_old, cutoff_recent)).fetchall()
+        all_meetings = meetings_supabase.get_all_meetings()
+        for meeting in all_meetings:
+            meeting_date = meeting.get("meeting_date") or ""
+            if not meeting_date or meeting_date < cutoff_old or meeting_date > cutoff_recent:
+                continue
             
-            for meeting in meetings:
-                try:
-                    signals = json.loads(meeting["signals_json"]) if meeting["signals_json"] else {}
-                    for signal in signals.get("blockers", []):
-                        text = signal.get("text", "") if isinstance(signal, dict) else str(signal)
-                        if text:
-                            meeting_date = meeting["meeting_date"]
-                            if meeting_date:
-                                try:
-                                    days_old = (datetime.now() - datetime.fromisoformat(meeting_date.replace('Z', ''))).days
-                                except:
-                                    days_old = self.STALE_BLOCKER_DAYS
-                            else:
+            signals_json = meeting.get("signals_json")
+            if not signals_json:
+                continue
+                
+            try:
+                signals = json.loads(signals_json) if isinstance(signals_json, str) else signals_json
+                for signal in signals.get("blockers", []):
+                    text = signal.get("text", "") if isinstance(signal, dict) else str(signal)
+                    if text:
+                        if meeting_date:
+                            try:
+                                days_old = (datetime.now() - datetime.fromisoformat(meeting_date.replace('Z', ''))).days
+                            except:
                                 days_old = self.STALE_BLOCKER_DAYS
-                            
-                            blockers.append({
-                                "text": text,
-                                "source": meeting["meeting_name"],
-                                "meeting_id": meeting["id"],
-                                "meeting_date": meeting_date,
-                                "days_old": days_old,
-                            })
-                except json.JSONDecodeError:
-                    continue
+                        else:
+                            days_old = self.STALE_BLOCKER_DAYS
+                        
+                        blockers.append({
+                            "text": text,
+                            "source": meeting.get("meeting_name") or "Unknown",
+                            "meeting_id": meeting["id"],
+                            "meeting_date": meeting_date,
+                            "days_old": days_old,
+                        })
+            except json.JSONDecodeError:
+                continue
         
         return blockers
 
@@ -882,103 +886,109 @@ class GroomingMatchJob:
         }
     
     def _get_recent_grooming_meetings(self) -> List[Dict[str, Any]]:
-        """Find grooming meetings from the last 2 hours that haven't been matched yet."""
-        cutoff = (datetime.now() - timedelta(hours=24)).isoformat()  # Look back 24h for matches
+        """Find grooming meetings from the last 24 hours that haven't been matched yet (from Supabase)."""
+        cutoff = (datetime.now() - timedelta(hours=24)).isoformat()
         
+        all_meetings = meetings_supabase.get_all_meetings()
+        
+        # Get processed meeting IDs from notifications table (SQLite for now)
+        processed_ids = set()
         with connect() as conn:
-            # Build keyword search pattern
-            keyword_conditions = " OR ".join([f"LOWER(meeting_name) LIKE '%{kw}%'" for kw in self.GROOMING_KEYWORDS])
-            
-            rows = conn.execute(f"""
-                SELECT id, meeting_name, meeting_date, raw_text, signals_json
-                FROM meeting_summaries
-                WHERE created_at > ?
-                AND ({keyword_conditions})
-                AND id NOT IN (
-                    SELECT CAST(json_extract(metadata, '$.meeting_id') AS INTEGER) 
-                    FROM notifications 
-                    WHERE type = 'transcript_match' 
-                    AND json_extract(metadata, '$.meeting_id') IS NOT NULL
-                )
-                ORDER BY created_at DESC
-                LIMIT 5
-            """, (cutoff,)).fetchall()
+            rows = conn.execute("""
+                SELECT CAST(json_extract(metadata, '$.meeting_id') AS INTEGER) as mid
+                FROM notifications 
+                WHERE type = 'transcript_match' 
+                AND json_extract(metadata, '$.meeting_id') IS NOT NULL
+            """).fetchall()
+            processed_ids = {row["mid"] for row in rows if row["mid"]}
         
-        return [dict(row) for row in rows]
+        results = []
+        for meeting in all_meetings:
+            created_at = meeting.get("created_at") or ""
+            if created_at < cutoff:
+                continue
+            if meeting["id"] in processed_ids:
+                continue
+            
+            meeting_name = (meeting.get("meeting_name") or "").lower()
+            if any(kw in meeting_name for kw in self.GROOMING_KEYWORDS):
+                results.append({
+                    "id": meeting["id"],
+                    "meeting_name": meeting.get("meeting_name") or "",
+                    "meeting_date": meeting.get("meeting_date"),
+                    "raw_text": meeting.get("raw_text") or "",
+                    "signals_json": meeting.get("signals_json"),
+                })
+                if len(results) >= 5:
+                    break
+        
+        return results
     
     def _find_matching_tickets(self, meeting: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Find tickets that match the grooming meeting content."""
+        """Find tickets that match the grooming meeting content (from Supabase)."""
         meeting_text = (meeting.get("raw_text") or "")[:2000].lower()
         meeting_name = (meeting.get("meeting_name") or "").lower()
         
         # Extract key terms from meeting
         # Simple keyword extraction - look for capitalized words, ticket IDs, etc.
-        import re
         ticket_id_pattern = re.compile(r'\b([A-Z]+-\d+)\b')
         potential_ids = ticket_id_pattern.findall(meeting.get("raw_text") or "")
         
         matches = []
         
-        with connect() as conn:
-            # First, check for exact ticket ID matches
-            if potential_ids:
-                placeholders = ",".join(["?" for _ in potential_ids])
-                id_matches = conn.execute(f"""
-                    SELECT id, title, status, description, tags
-                    FROM tickets
-                    WHERE ticket_id IN ({placeholders})
-                    AND status NOT IN ('done', 'closed', 'archived')
-                """, potential_ids).fetchall()
-                
-                for row in id_matches:
+        # Get all active tickets from Supabase
+        all_tickets = tickets_supabase.get_active_tickets()
+        
+        # First, check for exact ticket ID matches
+        if potential_ids:
+            potential_ids_lower = [pid.lower() for pid in potential_ids]
+            for ticket in all_tickets:
+                ticket_id = (ticket.get("ticket_id") or "").lower()
+                if ticket_id in potential_ids_lower:
                     matches.append({
-                        "id": row["id"],
-                        "title": row["title"],
-                        "status": row["status"],
-                        "description": row["description"],
-                        "tags": row["tags"],
+                        "id": ticket["id"],
+                        "title": ticket.get("title") or "",
+                        "status": ticket.get("status") or "",
+                        "description": ticket.get("description") or "",
+                        "tags": ticket.get("tags") or "",
                         "score": 100,  # Exact ID match
                         "match_type": "id_match",
                     })
+        
+        # Then, do fuzzy title matching
+        if not matches:
+            # Sort by updated_at for recent tickets
+            def get_updated(t):
+                return t.get("updated_at") or ""
+            sorted_tickets = sorted(all_tickets, key=get_updated, reverse=True)[:50]
             
-            # Then, do fuzzy title matching
-            if not matches:
-                # Get active tickets and score by keyword overlap
-                tickets = conn.execute("""
-                    SELECT id, title, status, description, tags, ticket_id
-                    FROM tickets
-                    WHERE status NOT IN ('done', 'closed', 'archived')
-                    ORDER BY updated_at DESC NULLS LAST
-                    LIMIT 50
-                """).fetchall()
+            for ticket in sorted_tickets:
+                title = (ticket.get("title") or "").lower()
+                desc = (ticket.get("description") or "").lower()
                 
-                for ticket in tickets:
-                    title = (ticket["title"] or "").lower()
-                    desc = (ticket["description"] or "").lower()
-                    
-                    # Simple scoring: count word overlaps
-                    title_words = set(title.split())
-                    meeting_words = set(meeting_text.split())
-                    
-                    # Remove common words
-                    common_words = {'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been',
-                                   'to', 'of', 'and', 'in', 'that', 'for', 'on', 'with', 'as'}
-                    title_words -= common_words
-                    meeting_words -= common_words
-                    
-                    overlap = len(title_words & meeting_words)
-                    
-                    if overlap >= 2:  # At least 2 significant words overlap
-                        score = min(overlap * 15, 80)  # Cap at 80 for fuzzy match
-                        matches.append({
-                            "id": ticket["id"],
-                            "title": ticket["title"],
-                            "status": ticket["status"],
-                            "description": ticket["description"],
-                            "tags": ticket["tags"],
-                            "score": score,
-                            "match_type": "keyword_match",
-                        })
+                # Simple scoring: count word overlaps
+                title_words = set(title.split())
+                meeting_words = set(meeting_text.split())
+                
+                # Remove common words
+                common_words = {'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been',
+                               'to', 'of', 'and', 'in', 'that', 'for', 'on', 'with', 'as'}
+                title_words -= common_words
+                meeting_words -= common_words
+                
+                overlap = len(title_words & meeting_words)
+                
+                if overlap >= 2:  # At least 2 significant words overlap
+                    score = min(overlap * 15, 80)  # Cap at 80 for fuzzy match
+                    matches.append({
+                        "id": ticket["id"],
+                        "title": ticket.get("title") or "",
+                        "status": ticket.get("status") or "",
+                        "description": ticket.get("description") or "",
+                        "tags": ticket.get("tags") or "",
+                        "score": score,
+                        "match_type": "keyword_match",
+                    })
         
         # Sort by score descending
         matches.sort(key=lambda x: x["score"], reverse=True)
@@ -1263,55 +1273,61 @@ class OverdueEncouragementJob:
             "pending_tasks": [],
         }
         
-        with connect() as conn:
-            # Get active tickets
-            tickets = conn.execute("""
-                SELECT id, title, task_decomposition, implementation_plan
-                FROM tickets
-                WHERE status IN ('in_progress', 'todo')
-                ORDER BY CASE status WHEN 'in_progress' THEN 1 ELSE 2 END
-                LIMIT 1
-            """).fetchall()
+        # Get active tickets from Supabase
+        all_tickets = tickets_supabase.get_active_tickets()
+        
+        # Sort: in_progress first, then todo
+        def sort_priority(t):
+            status = t.get("status", "")
+            if status == "in_progress":
+                return 0
+            elif status == "todo":
+                return 1
+            return 2
+        
+        sorted_tickets = sorted(all_tickets, key=sort_priority)
+        
+        if sorted_tickets:
+            ticket = sorted_tickets[0]
+            context["ticket_title"] = ticket.get("title") or ""
             
-            if tickets:
-                ticket = tickets[0]
-                context["ticket_title"] = ticket["title"]
+            # Parse task decomposition for pending tasks
+            task_decomp = ticket.get("task_decomposition")
+            if task_decomp:
+                try:
+                    tasks = json.loads(task_decomp) if isinstance(task_decomp, str) else task_decomp
+                    for task in tasks if isinstance(tasks, list) else []:
+                        if isinstance(task, dict):
+                            status = task.get("status", "pending")
+                            if status not in ("done", "complete", "completed"):
+                                title = task.get("title") or task.get("text") or str(task)
+                                context["pending_tasks"].append(title[:50])
+                        elif isinstance(task, str):
+                            context["pending_tasks"].append(task[:50])
+                except:
+                    pass
+            
+            # Extract key topics from implementation plan
+            impl_plan = ticket.get("implementation_plan")
+            if impl_plan:
+                plan = impl_plan
+                # Find technical keywords
+                keywords = re.findall(
+                    r'\b(api|function|class|method|transform|logic|data|model|service|component|handler|endpoint)\b',
+                    plan.lower()
+                )
+                if keywords:
+                    # Use most common keyword as focus
+                    from collections import Counter
+                    focus = Counter(keywords).most_common(1)[0][0]
+                    context["task_focus"] = f"the {focus}"
                 
-                # Parse task decomposition for pending tasks
-                if ticket["task_decomposition"]:
-                    try:
-                        tasks = json.loads(ticket["task_decomposition"])
-                        for task in tasks if isinstance(tasks, list) else []:
-                            if isinstance(task, dict):
-                                status = task.get("status", "pending")
-                                if status not in ("done", "complete", "completed"):
-                                    title = task.get("title") or task.get("text") or str(task)
-                                    context["pending_tasks"].append(title[:50])
-                            elif isinstance(task, str):
-                                context["pending_tasks"].append(task[:50])
-                    except:
-                        pass
-                
-                # Extract key topics from implementation plan
-                if ticket["implementation_plan"]:
-                    plan = ticket["implementation_plan"]
-                    # Find technical keywords
-                    keywords = re.findall(
-                        r'\b(api|function|class|method|transform|logic|data|model|service|component|handler|endpoint)\b',
-                        plan.lower()
-                    )
-                    if keywords:
-                        # Use most common keyword as focus
-                        from collections import Counter
-                        focus = Counter(keywords).most_common(1)[0][0]
-                        context["task_focus"] = f"the {focus}"
-                    
-                    # Extract hints (first sentences of paragraphs)
-                    paragraphs = plan.split('\n\n')[:3]
-                    for para in paragraphs:
-                        first_sentence = para.split('.')[0].strip()[:80]
-                        if first_sentence and len(first_sentence) > 10:
-                            context["implementation_hints"].append(first_sentence)
+                # Extract hints (first sentences of paragraphs)
+                paragraphs = plan.split('\n\n')[:3]
+                for para in paragraphs:
+                    first_sentence = para.split('.')[0].strip()[:80]
+                    if first_sentence and len(first_sentence) > 10:
+                        context["implementation_hints"].append(first_sentence)
         
         # Set default task focus if none found
         if not context["task_focus"]:

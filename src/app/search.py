@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request, Query
 from fastapi.templating import Jinja2Templates
 from .db import connect
+from .services import documents_supabase, meetings_supabase
 from typing import Optional
 import re
 
@@ -59,6 +60,83 @@ def highlight_match(text: str, query: str, context_chars: int = 100) -> str:
     return snippet
 
 
+def _search_documents_supabase(query: str, start_date: str = None, end_date: str = None, limit: int = 10) -> list:
+    """Search documents using Supabase."""
+    all_docs = documents_supabase.get_all_documents()
+    results = []
+    
+    like = query.lower()
+    for d in all_docs:
+        content = (d.get("content") or "").lower()
+        source = (d.get("source") or "").lower()
+        doc_date = d.get("document_date") or d.get("created_at") or ""
+        
+        # Date filtering
+        if start_date and doc_date < start_date:
+            continue
+        if end_date and doc_date > end_date:
+            continue
+        
+        # Content/source matching
+        if like in content or like in source:
+            results.append({
+                "type": "document",
+                "id": d["id"],
+                "title": d.get("source") or "Untitled",
+                "snippet": highlight_match(d.get("content") or "", query),
+                "date": doc_date,
+            })
+            if len(results) >= limit:
+                break
+    
+    return results
+
+
+def _search_meetings_supabase(query: str, include_transcripts: bool, start_date: str = None, end_date: str = None, limit: int = 10) -> list:
+    """Search meetings using Supabase."""
+    all_meetings = meetings_supabase.get_all_meetings()
+    results = []
+    
+    like = query.lower()
+    for m in all_meetings:
+        notes = (m.get("synthesized_notes") or "").lower()
+        name = (m.get("meeting_name") or "").lower()
+        raw = (m.get("raw_text") or "").lower() if include_transcripts else ""
+        meeting_date = m.get("meeting_date") or m.get("created_at") or ""
+        
+        # Date filtering
+        if start_date and meeting_date < start_date:
+            continue
+        if end_date and meeting_date > end_date:
+            continue
+        
+        # Content matching
+        if like in notes or like in name or (include_transcripts and like in raw):
+            # Determine match source for snippet
+            if like in (m.get("synthesized_notes") or "").lower():
+                snippet = highlight_match(m.get("synthesized_notes") or "", query)
+                match_source = "notes"
+            elif include_transcripts and like in (m.get("raw_text") or "").lower():
+                snippet = highlight_match(m.get("raw_text") or "", query)
+                match_source = "transcript"
+            else:
+                snippet = (m.get("synthesized_notes") or "")[:300]
+                match_source = "title"
+            
+            results.append({
+                "type": "meeting",
+                "id": m["id"],
+                "title": m.get("meeting_name") or "Untitled Meeting",
+                "snippet": snippet,
+                "date": meeting_date,
+                "match_source": match_source,
+            })
+            if len(results) >= limit:
+                break
+    
+    return results
+
+
 @router.get("/search")
 def search(
     request: Request,
@@ -72,87 +150,22 @@ def search(
     results = []
 
     if q and len(q) >= 2:
-        like = f"%{q.lower()}%"
+        # -------- Documents (from Supabase) --------
+        if source_type in ("docs", "both"):
+            doc_results = _search_documents_supabase(q, start_date, end_date, limit)
+            results.extend(doc_results)
 
-        with connect() as conn:
-
-            # -------- Documents --------
-            if source_type in ("docs", "both"):
-                date_clauses, date_params = date_clause(start_date, end_date, "document_date")
-                where = ["(LOWER(content) LIKE ? OR LOWER(source) LIKE ?)"] + date_clauses
-
-                docs = conn.execute(
-                    f"""
-                    SELECT id, source AS title, content, document_date, created_at
-                    FROM docs
-                    WHERE {' AND '.join(where)}
-                    ORDER BY document_date DESC
-                    LIMIT ?
-                    """,
-                    (like, like, *date_params, limit),
-                ).fetchall()
-
-                for d in docs:
-                    results.append({
-                        "type": "document",
-                        "id": d["id"],
-                        "title": d["title"],
-                        "snippet": highlight_match(d["content"], q),
-                        "date": d["document_date"] or d["created_at"],
-                    })
-
-            # -------- Meetings (notes + optional raw_text) --------
-            if source_type in ("meetings", "both", "transcripts"):
-                date_clauses, date_params = date_clause(start_date, end_date, "meeting_date")
-                
-                # F2: Include raw_text in search when include_transcripts is True
-                if include_transcripts or source_type == "transcripts":
-                    where_clause = "(LOWER(synthesized_notes) LIKE ? OR LOWER(meeting_name) LIKE ? OR LOWER(raw_text) LIKE ?)"
-                    search_params = (like, like, like, *date_params, limit)
-                else:
-                    where_clause = "(LOWER(synthesized_notes) LIKE ? OR LOWER(meeting_name) LIKE ?)"
-                    search_params = (like, like, *date_params, limit)
-                
-                where = [where_clause] + date_clauses
-
-                meetings = conn.execute(
-                    f"""
-                    SELECT id, meeting_name AS title, synthesized_notes, raw_text, meeting_date, created_at
-                    FROM meeting_summaries
-                    WHERE {' AND '.join(where)}
-                    ORDER BY meeting_date DESC
-                    LIMIT ?
-                    """,
-                    search_params,
-                ).fetchall()
-
-                for m in meetings:
-                    # Check where the match was found for better snippet
-                    notes = m["synthesized_notes"] or ""
-                    raw = m["raw_text"] or ""
-                    
-                    if q.lower() in notes.lower():
-                        snippet = highlight_match(notes, q)
-                        match_source = "notes"
-                    elif q.lower() in raw.lower():
-                        snippet = highlight_match(raw, q)
-                        match_source = "transcript"
-                    else:
-                        snippet = notes[:300]
-                        match_source = "title"
-                    
-                    results.append({
-                        "type": "meeting",
-                        "id": m["id"],
-                        "title": m["title"],
-                        "snippet": snippet,
-                        "date": m["meeting_date"] or m["created_at"],
-                        "match_source": match_source,
-                    })
-            
-            # -------- F2: Meeting Documents (linked transcripts/summaries) --------
-            if include_transcripts or source_type == "transcripts":
-                # Search in meeting_documents table (Teams/Pocket transcripts)
+        # -------- Meetings (from Supabase) --------
+        if source_type in ("meetings", "both", "transcripts"):
+            search_transcripts = include_transcripts or source_type == "transcripts"
+            meeting_results = _search_meetings_supabase(q, search_transcripts, start_date, end_date, limit)
+            results.extend(meeting_results)
+        
+        # -------- F2: Meeting Documents (linked transcripts/summaries from SQLite) --------
+        # Note: meeting_documents table stays in SQLite for now (complex join)
+        if include_transcripts or source_type == "transcripts":
+            like = f"%{q.lower()}%"
+            with connect() as conn:
                 doc_results = conn.execute(
                     """
                     SELECT md.id, md.meeting_id, md.doc_type, md.source, md.content,

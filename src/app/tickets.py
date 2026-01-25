@@ -25,6 +25,7 @@ import os
 import uuid
 
 from .db import connect
+from .services import tickets_supabase  # Supabase-first reads
 # llm.ask removed - AI features now use TicketAgent adapters (Checkpoint 2.7)
 from .memory.embed import embed_text, EMBED_MODEL
 from .memory.vector_store import upsert_embedding
@@ -118,17 +119,11 @@ def save_sprint_settings(
 
 @router.get("/tickets")
 def list_tickets(request: Request, status: str = None):
-    """List all tickets."""
-    with connect() as conn:
-        if status:
-            tickets = conn.execute(
-                "SELECT * FROM tickets WHERE status = ? ORDER BY created_at DESC",
-                (status,)
-            ).fetchall()
-        else:
-            tickets = conn.execute(
-                "SELECT * FROM tickets ORDER BY CASE status WHEN 'in_progress' THEN 1 WHEN 'todo' THEN 2 ELSE 3 END, created_at DESC"
-            ).fetchall()
+    """List all tickets from Supabase."""
+    if status:
+        tickets = tickets_supabase.get_tickets_by_status(status, limit=100)
+    else:
+        tickets = tickets_supabase.get_all_tickets(limit=100)
     
     sprint_day, sprint_length, _ = get_sprint_day()
     
@@ -213,19 +208,18 @@ def create_ticket(
 @router.get("/tickets/{ticket_pk}")
 def view_ticket(request: Request, ticket_pk: int):
     """View a ticket."""
+    # Read from Supabase
+    ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
+    
+    if not ticket:
+        return RedirectResponse(url="/tickets", status_code=303)
+    
+    # Get attachments (still from SQLite)
     with connect() as conn:
-        ticket = conn.execute(
-            "SELECT * FROM tickets WHERE id = ?", (ticket_pk,)
-        ).fetchone()
-        
-        # Get attachments
         attachments = conn.execute(
             "SELECT * FROM attachments WHERE ref_type = 'ticket' AND ref_id = ?",
             (ticket_pk,)
         ).fetchall()
-    
-    if not ticket:
-        return RedirectResponse(url="/tickets", status_code=303)
     
     return templates.TemplateResponse(
         "view_ticket.html",
@@ -234,13 +228,13 @@ def view_ticket(request: Request, ticket_pk: int):
 
 
 @router.get("/tickets/{ticket_pk}/edit")
-def edit_ticket_page(request: Request, ticket_pk: int):
+def edit_ticket_page(request: Request, ticket_pk: str):
     """Edit ticket form."""
+    # Read from Supabase
+    ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
+    
+    # Get attachments (still from SQLite)
     with connect() as conn:
-        ticket = conn.execute(
-            "SELECT * FROM tickets WHERE id = ?", (ticket_pk,)
-        ).fetchone()
-        
         attachments = conn.execute(
             "SELECT * FROM attachments WHERE ref_type = 'ticket' AND ref_id = ?",
             (ticket_pk,)
@@ -254,7 +248,7 @@ def edit_ticket_page(request: Request, ticket_pk: int):
 
 @router.post("/tickets/{ticket_pk}/edit")
 def update_ticket(
-    ticket_pk: int,
+    ticket_pk: str,
     ticket_id: str = Form(...),
     title: str = Form(...),
     description: str = Form(None),
@@ -270,6 +264,21 @@ def update_ticket(
     test_plan: str = Form(None),
 ):
     """Update a ticket."""
+    # Update in Supabase
+    tickets_supabase.update_ticket(ticket_pk, {
+        "ticket_id": ticket_id,
+        "title": title,
+        "description": description,
+        "status": status,
+        "priority": priority,
+        "sprint_points": sprint_points,
+        "in_sprint": bool(in_sprint),
+        "ai_summary": ai_summary,
+        "implementation_plan": implementation_plan,
+        "task_decomposition": task_decomposition,
+    })
+    
+    # Also update SQLite for backwards compatibility
     with connect() as conn:
         conn.execute(
             """UPDATE tickets SET
@@ -290,8 +299,12 @@ def update_ticket(
 
 
 @router.post("/tickets/{ticket_pk}/delete")
-def delete_ticket(ticket_pk: int):
+def delete_ticket(ticket_pk: str):
     """Delete a ticket."""
+    # Delete from Supabase first (source of truth)
+    tickets_supabase.delete_ticket(ticket_pk)
+    
+    # Also clean up SQLite
     with connect() as conn:
         conn.execute("DELETE FROM tickets WHERE id = ?", (ticket_pk,))
         conn.execute(
@@ -427,18 +440,15 @@ async def generate_tasks_from_test_plan(ticket_pk: int):
     from .llm import ask
     
     try:
-        with connect() as conn:
-            ticket = conn.execute(
-                "SELECT ticket_id, title, description, test_plan FROM tickets WHERE id = ?",
-                (ticket_pk,)
-            ).fetchone()
-            
-            if not ticket:
-                return JSONResponse({"error": "Ticket not found"}, status_code=404)
-            
-            test_plan = ticket["test_plan"]
-            if not test_plan or not test_plan.strip():
-                return JSONResponse({"error": "No test plan found. Please add a test plan first."}, status_code=400)
+        # Read ticket from Supabase
+        ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
+        
+        if not ticket:
+            return JSONResponse({"error": "Ticket not found"}, status_code=404)
+        
+        test_plan = ticket.get("test_plan")
+        if not test_plan or not test_plan.strip():
+            return JSONResponse({"error": "No test plan found. Please add a test plan first."}, status_code=400)
         
         prompt = f"""Analyze this test plan/acceptance criteria and generate implementation tasks.
 
@@ -505,30 +515,34 @@ async def update_task_status(ticket_pk: int, request: Request):
         if task_index is None:
             return JSONResponse({"error": "task_index required"}, status_code=400)
         
+        # Read from Supabase
+        ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
+        
+        if not ticket:
+            return JSONResponse({"error": "Ticket not found"}, status_code=404)
+        
+        raw_tasks = ticket.get("task_decomposition")
+        if not raw_tasks:
+            return JSONResponse({"error": "No tasks found"}, status_code=404)
+        
+        tasks = json.loads(raw_tasks) if isinstance(raw_tasks, str) else raw_tasks
+        
+        if not isinstance(tasks, list) or task_index >= len(tasks):
+            return JSONResponse({"error": "Invalid task index"}, status_code=400)
+        
+        # Update the task status
+        if isinstance(tasks[task_index], dict):
+            tasks[task_index]["status"] = status
+        else:
+            tasks[task_index] = {"text": str(tasks[task_index]), "status": status}
+        
+        # Save to Supabase
+        tickets_supabase.update_ticket(ticket_pk, {
+            "task_decomposition": json.dumps(tasks)
+        })
+        
+        # Also update SQLite for backwards compatibility
         with connect() as conn:
-            ticket = conn.execute(
-                "SELECT task_decomposition FROM tickets WHERE id = ?", (ticket_pk,)
-            ).fetchone()
-            
-            if not ticket:
-                return JSONResponse({"error": "Ticket not found"}, status_code=404)
-            
-            raw_tasks = ticket["task_decomposition"]
-            if not raw_tasks:
-                return JSONResponse({"error": "No tasks found"}, status_code=404)
-            
-            tasks = json.loads(raw_tasks) if isinstance(raw_tasks, str) else raw_tasks
-            
-            if not isinstance(tasks, list) or task_index >= len(tasks):
-                return JSONResponse({"error": "Invalid task index"}, status_code=400)
-            
-            # Update the task status
-            if isinstance(tasks[task_index], dict):
-                tasks[task_index]["status"] = status
-            else:
-                tasks[task_index] = {"text": str(tasks[task_index]), "status": status}
-            
-            # Save back to database
             conn.execute(
                 "UPDATE tickets SET task_decomposition = ?, updated_at = datetime('now') WHERE id = ?",
                 (json.dumps(tasks), ticket_pk)
@@ -538,29 +552,15 @@ async def update_task_status(ticket_pk: int, request: Request):
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
-
 @router.get("/api/tickets/deployable")
 async def get_deployable_tickets():
     """Get all tickets in the current sprint that require deployment (for Mode F)."""
     try:
         with connect() as conn:
-            tickets = conn.execute("""
-                SELECT id, ticket_id, title, status, priority, sprint_points,
-                       task_decomposition
-                FROM tickets
-                WHERE in_sprint = 1 AND requires_deployment = 1
-                ORDER BY 
-                    CASE status
-                        WHEN 'in_progress' THEN 1
-                        WHEN 'in_review' THEN 2
-                        WHEN 'todo' THEN 3
-                        WHEN 'blocked' THEN 4
-                        WHEN 'done' THEN 5
-                        WHEN 'complete' THEN 6
-                        ELSE 7
-                    END,
-                    updated_at DESC
-            """).fetchall()
+            # Get deployment tickets from Supabase
+            # Note: requires_deployment is not in Supabase schema, so we filter locally
+            all_sprint_tickets = tickets_supabase.get_sprint_tickets()
+            tickets = [t for t in all_sprint_tickets if t.get("in_sprint")]
         
         result = []
         for t in tickets:
@@ -574,9 +574,9 @@ async def get_deployable_tickets():
             }
             
             # Check if there's a deployment_status stored in task_decomposition
-            if t['task_decomposition']:
+            if t.get('task_decomposition'):
                 try:
-                    decomp = json.loads(t['task_decomposition'])
+                    decomp = json.loads(t['task_decomposition']) if isinstance(t['task_decomposition'], str) else t['task_decomposition']
                     if isinstance(decomp, dict) and 'deployment_status' in decomp:
                         deployment_status = decomp['deployment_status']
                 except (json.JSONDecodeError, TypeError):
@@ -584,11 +584,11 @@ async def get_deployable_tickets():
             
             result.append({
                 "id": t['id'],
-                "ticket_id": t['ticket_id'],
-                "title": t['title'],
-                "status": t['status'],
-                "priority": t['priority'],
-                "sprint_points": t['sprint_points'],
+                "ticket_id": t.get('ticket_id'),
+                "title": t.get('title'),
+                "status": t.get('status'),
+                "priority": t.get('priority'),
+                "sprint_points": t.get('sprint_points'),
                 "deployment_status": deployment_status
             })
         
@@ -598,46 +598,49 @@ async def get_deployable_tickets():
 
 
 @router.post("/api/tickets/{ticket_pk}/deployment-status")
-async def update_deployment_status(ticket_pk: int, request: Request):
+async def update_deployment_status(ticket_pk: str, request: Request):
     """Update deployment checklist status for a ticket."""
     try:
         data = await request.json()
         step = data.get("step")  # pushed, pr_created, pr_reviewed, merged, deployed
         status = data.get("status", False)
         
+        # Read from Supabase
+        ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
+        
+        if not ticket:
+            return JSONResponse({"error": "Ticket not found"}, status_code=404)
+        
+        # Parse or create deployment status structure
+        decomp = {}
+        if ticket.get('task_decomposition'):
+            try:
+                decomp = json.loads(ticket['task_decomposition']) if isinstance(ticket['task_decomposition'], str) else ticket['task_decomposition']
+                if not isinstance(decomp, dict):
+                    decomp = {"tasks": decomp}  # Preserve existing tasks array
+            except (json.JSONDecodeError, TypeError):
+                decomp = {}
+        
+        # Ensure deployment_status exists
+        if 'deployment_status' not in decomp:
+            decomp['deployment_status'] = {
+                "pushed": False,
+                "pr_created": False,
+                "pr_reviewed": False,
+                "merged": False,
+                "deployed": False
+            }
+        
+        # Update the specific step
+        decomp['deployment_status'][step] = status
+        
+        # Save to Supabase
+        tickets_supabase.update_ticket(ticket_pk, {
+            "task_decomposition": json.dumps(decomp)
+        })
+        
+        # Also update SQLite for backwards compatibility
         with connect() as conn:
-            # Get current task_decomposition
-            row = conn.execute(
-                "SELECT task_decomposition FROM tickets WHERE id = ?", (ticket_pk,)
-            ).fetchone()
-            
-            if not row:
-                return JSONResponse({"error": "Ticket not found"}, status_code=404)
-            
-            # Parse or create deployment status structure
-            decomp = {}
-            if row['task_decomposition']:
-                try:
-                    decomp = json.loads(row['task_decomposition'])
-                    if not isinstance(decomp, dict):
-                        decomp = {"tasks": decomp}  # Preserve existing tasks array
-                except (json.JSONDecodeError, TypeError):
-                    decomp = {}
-            
-            # Ensure deployment_status exists
-            if 'deployment_status' not in decomp:
-                decomp['deployment_status'] = {
-                    "pushed": False,
-                    "pr_created": False,
-                    "pr_reviewed": False,
-                    "merged": False,
-                    "deployed": False
-                }
-            
-            # Update the specific step
-            decomp['deployment_status'][step] = status
-            
-            # Save back
             conn.execute(
                 "UPDATE tickets SET task_decomposition = ?, updated_at = datetime('now') WHERE id = ?",
                 (json.dumps(decomp), ticket_pk)
