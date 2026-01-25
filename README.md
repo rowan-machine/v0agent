@@ -415,7 +415,20 @@ uvicorn src.app.main:app --reload --log-level debug
 
 ---
 
-## 📝 License
+## � Documentation
+
+See the [docs/](docs/README.md) folder for comprehensive documentation:
+
+| Document | Description |
+|----------|-------------|
+| [Architecture](docs/architecture/) | System design and infrastructure |
+| [Guides](docs/guides/) | Deployment, testing, and quick start guides |
+| [Migration](docs/migration/) | Database migration records and plans |
+| [Reference](docs/reference/) | Best practices and API references |
+
+---
+
+## �📝 License
 
 MIT License — see [LICENSE](LICENSE) for details.
 

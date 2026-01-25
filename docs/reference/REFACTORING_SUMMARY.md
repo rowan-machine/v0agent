@@ -83,7 +83,7 @@ src/app/agents/
 
 ### 3. Phased Migration Rollout Plan ✅
 
-**Created:** [PHASED_MIGRATION_ROLLOUT.md](PHASED_MIGRATION_ROLLOUT.md) (1,600+ lines)
+**Created:** [PHASED_MIGRATION_ROLLOUT.md](../migration/PHASED_MIGRATION_ROLLOUT.md) (1,600+ lines)
 
 **Complete execution guide for Phases 2-7 with:**
 
@@ -151,7 +151,7 @@ src/app/agents/
 ## How to Use These Documents
 
 ### For Phase 2 Implementation:
-1. Read [PHASED_MIGRATION_ROLLOUT.md](PHASED_MIGRATION_ROLLOUT.md#phase-2-agent-extraction) → Phase 2 section (detailed steps)
+1. Read [PHASED_MIGRATION_ROLLOUT.md](../migration/PHASED_MIGRATION_ROLLOUT.md#phase-2-agent-extraction) → Phase 2 section (detailed steps)
 2. Reference [REFACTORING_BEST_PRACTICES.md](REFACTORING_BEST_PRACTICES.md) → Testing Strategy (how to test agents)
 3. Follow adapter pattern from [REFACTORING_BEST_PRACTICES_ADVANCED.md](REFACTORING_BEST_PRACTICES_ADVANCED.md#1-backward-compatibility-adapter-pattern) (copy template)
 4. Set up feature flags from [REFACTORING_BEST_PRACTICES_ADVANCED.md](REFACTORING_BEST_PRACTICES_ADVANCED.md#2-feature-flags-for-gradual-rollout) (copy config)
@@ -159,7 +159,7 @@ src/app/agents/
 6. Only then move to Phase 3
 
 ### For Phase 4 (Database Evolution):
-1. Read [PHASED_MIGRATION_ROLLOUT.md](PHASED_MIGRATION_ROLLOUT.md#phase-4-multi-device-sync--task-queues) → Checkpoints 4.1-4.5
+1. Read [PHASED_MIGRATION_ROLLOUT.md](../migration/PHASED_MIGRATION_ROLLOUT.md#phase-4-multi-device-sync--task-queues) → Checkpoints 4.1-4.5
 2. Create new tables alongside old (Checkpoint 4.1)
 3. Create compatibility views (Checkpoint 4.2)
 4. Migrate data incrementally (Checkpoint 4.3)

@@ -27,7 +27,7 @@
 ---
 
 ### 🛠️ Refactoring Procedures
-**File:** `REFACTORING_BEST_PRACTICES.md` (600+ lines)
+**File:** [REFACTORING_BEST_PRACTICES.md](../reference/REFACTORING_BEST_PRACTICES.md) (600+ lines)
 
 **Quick Answer To:**
 - "How do I refactor without breaking things?" → See Testing Strategy
@@ -186,8 +186,8 @@ See: `JSON_UI_BEST_PRACTICES.md` → Complete implementation
 
 ### Starting Phase 2 (Agent Refactoring)
 
-1. **Check status** → `MIGRATION_MANIFEST.md` → Agent extraction status
-2. **Set up tests** → `REFACTORING_BEST_PRACTICES.md` → Testing Strategy
+1. **Check status** → [MIGRATION_MANIFEST.md](../migration/MIGRATION_MANIFEST.md) → Agent extraction status
+2. **Set up tests** → [REFACTORING_BEST_PRACTICES.md](../reference/REFACTORING_BEST_PRACTICES.md) → Testing Strategy
 3. **Write tests for current behavior** (GREEN bar)
 4. **Extract one method** → Run tests (GREEN bar)
 5. **Repeat** until complete
@@ -196,7 +196,7 @@ See: `JSON_UI_BEST_PRACTICES.md` → Complete implementation
 
 ### Starting Phase 4 (Queues)
 
-1. **Understand design** → `MIGRATION_MANIFEST.md` → Multi-Agent Queue System
+1. **Understand design** → [MIGRATION_MANIFEST.md](../migration/MIGRATION_MANIFEST.md) → Multi-Agent Queue System
 2. **Review database schema** (agent_task_queue table)
 3. **Implement TaskQueue class** using provided design
 4. **Create config/queues.yaml** with queue settings

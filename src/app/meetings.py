@@ -14,6 +14,7 @@ from .memory.vector_store import upsert_embedding
 from .mcp.parser import parse_meeting_summary
 from .mcp.extract import extract_structured_signals
 from .mcp.cleaner import clean_meeting_text
+from .services import meetings_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -97,15 +98,23 @@ async def store_meeting(
     parsed_sections = parse_meeting_summary(cleaned_notes)
     signals = extract_structured_signals(parsed_sections)
     
-    with connect() as conn:
-        cur = conn.execute(
-            """
-            INSERT INTO meeting_summaries (meeting_name, synthesized_notes, meeting_date, signals_json)
-            VALUES (?, ?, ?, ?)
-            """,
-            (meeting_name, cleaned_notes, meeting_date, json.dumps(signals)),
-        )
-        meeting_id = cur.lastrowid
+    # Create meeting in Supabase (primary storage)
+    import uuid
+    meeting_data = {
+        "id": str(uuid.uuid4()),
+        "meeting_name": meeting_name,
+        "synthesized_notes": cleaned_notes,
+        "meeting_date": meeting_date,
+        "signals_json": signals,  # Will be serialized by the service
+    }
+    
+    created = meetings_supabase.create_meeting(meeting_data)
+    if not created:
+        logger.error("Failed to create meeting in Supabase")
+        return RedirectResponse(url="/meetings?error=create_failed", status_code=303)
+    
+    meeting_id = created.get("id")
+    logger.info(f"Created meeting {meeting_id} in Supabase")
 
     # Process screenshots with vision API
     screenshot_summaries = []
@@ -116,8 +125,11 @@ async def store_meeting(
     # Include screenshot summaries in embedding for searchability
     screenshot_text = "\n\n".join([f"[Screenshot]: {s}" for s in screenshot_summaries]) if screenshot_summaries else ""
     text_for_embedding = f"{meeting_name}\n{synthesized_notes}\n{screenshot_text}"
-    vector = embed_text(text_for_embedding)
-    upsert_embedding("meeting", meeting_id, EMBED_MODEL, vector)
+    try:
+        vector = embed_text(text_for_embedding)
+        upsert_embedding("meeting", meeting_id, EMBED_MODEL, vector)
+    except Exception as e:
+        logger.warning(f"Failed to create embedding: {e}")
 
     # ---- Auto-sync to Neo4j knowledge graph ----
     if sync_single_meeting:
@@ -131,30 +143,27 @@ async def store_meeting(
 
 @router.get("/meetings")
 def list_meetings(request: Request, success: str = Query(default=None)):
-    with connect() as conn:
-        rows = conn.execute(
-            """
-            SELECT id, meeting_name, meeting_date, created_at
-            FROM meeting_summaries
-            ORDER BY COALESCE(meeting_date, created_at) DESC
-            """
-        ).fetchall()
-
+    # Use Supabase as primary source
+    meetings_list = meetings_supabase.get_all_meetings(limit=500)
+    
     formatted = []
-    for row in rows:
-        meeting = dict(row)
-        date_str = meeting["meeting_date"] or meeting["created_at"]
+    for meeting in meetings_list:
+        date_str = meeting.get("meeting_date") or meeting.get("created_at")
         if date_str:
             try:
-                if " " in date_str:
-                    dt = datetime.strptime(date_str.split(".")[0], "%Y-%m-%d %H:%M:%S")
+                # Handle ISO format from Supabase
+                if "T" in str(date_str):
+                    date_str = str(date_str).split("T")[0]
+                    meeting["display_date"] = date_str
+                elif " " in str(date_str):
+                    dt = datetime.strptime(str(date_str).split(".")[0].split("+")[0], "%Y-%m-%d %H:%M:%S")
                     dt_utc = dt.replace(tzinfo=ZoneInfo("UTC"))
                     dt_central = dt_utc.astimezone(ZoneInfo("America/Chicago"))
                     meeting["display_date"] = dt_central.strftime("%Y-%m-%d %I:%M %p %Z")
                 else:
-                    meeting["display_date"] = date_str
+                    meeting["display_date"] = str(date_str)
             except Exception:
-                meeting["display_date"] = date_str
+                meeting["display_date"] = str(date_str) if date_str else ""
         else:
             meeting["display_date"] = ""
 
@@ -167,33 +176,25 @@ def list_meetings(request: Request, success: str = Query(default=None)):
 
 
 @router.get("/meetings/{meeting_id}")
-def view_meeting(meeting_id: int, request: Request):
-    with connect() as conn:
-        meeting = conn.execute(
-            "SELECT * FROM meeting_summaries WHERE id = ?",
-            (meeting_id,),
-        ).fetchone()
+def view_meeting(meeting_id: str, request: Request):
+    # Fetch from Supabase (primary source)
+    meeting = meetings_supabase.get_meeting_by_id(meeting_id)
+    
+    # Find linked transcript document
+    linked_transcript = None
+    documents = []
+    if meeting:
+        # Get documents from Supabase by meeting name
+        from .services import documents_supabase
+        all_docs = documents_supabase.get_all_documents(limit=100)
+        meeting_name = meeting.get('meeting_name', '')
+        documents = [d for d in all_docs if d.get('meeting_id') == meeting_id or (meeting_name and meeting_name in d.get('source', ''))]
         
-        # Find linked transcript document
-        linked_transcript = None
-        documents = []
-        if meeting:
-            # Get all documents linked to this meeting
-            docs = conn.execute(
-                """SELECT id, source, content, document_date FROM docs 
-                   WHERE meeting_id = ? OR source LIKE ?
-                   ORDER BY created_at DESC""",
-                (meeting_id, f"%{meeting['meeting_name']}%")
-            ).fetchall()
-            documents = [dict(d) for d in docs]
-            
-            # Find transcript specifically for extract signals button
-            transcript = conn.execute(
-                "SELECT id, source FROM docs WHERE source LIKE ?",
-                (f"Transcript: {meeting['meeting_name']}%",)
-            ).fetchone()
-            if transcript:
-                linked_transcript = dict(transcript)
+        # Find transcript specifically for extract signals button
+        for doc in documents:
+            if doc.get('source', '').startswith(f"Transcript: {meeting_name}"):
+                linked_transcript = doc
+                break
     
     if not meeting:
         from fastapi.responses import RedirectResponse
@@ -235,38 +236,30 @@ def view_meeting(meeting_id: int, request: Request):
 
 
 @router.get("/meetings/{meeting_id}/edit")
-def edit_meeting(meeting_id: int, request: Request, from_transcript: int = None):
-    with connect() as conn:
-        meeting = conn.execute(
-            "SELECT * FROM meeting_summaries WHERE id = ?",
-            (meeting_id,),
-        ).fetchone()
+def edit_meeting(meeting_id: str, request: Request, from_transcript: str = None):
+    # Fetch from Supabase
+    meeting = meetings_supabase.get_meeting_by_id(meeting_id)
+    
+    # Find linked documents
+    linked_transcript = None
+    pocket_summary_doc = None
+    if meeting:
+        # Get documents from Supabase
+        from .services import documents_supabase
+        all_docs = documents_supabase.get_all_documents(limit=100)
+        meeting_name = meeting.get('meeting_name', '')
         
-        # If coming from a transcript edit, also load the transcript content
-        linked_transcript = None
-        pocket_summary_doc = None
-        if meeting:
-            # Check for transcript docs linked by meeting_id
-            transcript = conn.execute(
-                "SELECT id, source, content FROM docs WHERE meeting_id = ? AND source LIKE 'Transcript:%'",
-                (meeting_id,)
-            ).fetchone()
-            # Fallback to name matching if no meeting_id link
-            if not transcript:
-                transcript = conn.execute(
-                    "SELECT id, source, content FROM docs WHERE source LIKE ?",
-                    (f"Transcript: {meeting['meeting_name']}%",)
-                ).fetchone()
-            if transcript:
-                linked_transcript = dict(transcript)
+        # Find transcript doc
+        for doc in all_docs:
+            source = doc.get('source', '')
+            if doc.get('meeting_id') == meeting_id and source.startswith('Transcript:'):
+                linked_transcript = doc
+            elif meeting_name and source.startswith(f"Transcript: {meeting_name}"):
+                linked_transcript = doc
             
-            # Also check for Pocket summary doc linked by meeting_id
-            pocket_doc = conn.execute(
-                "SELECT id, source, content FROM docs WHERE meeting_id = ? AND source LIKE 'Pocket Summary%'",
-                (meeting_id,)
-            ).fetchone()
-            if pocket_doc:
-                pocket_summary_doc = dict(pocket_doc)
+            # Also check for Pocket summary doc
+            if doc.get('meeting_id') == meeting_id and source.startswith('Pocket Summary'):
+                pocket_summary_doc = doc
     
     # Convert to dict and parse out pocket/teams transcripts from raw_text
     meeting_dict = dict(meeting) if meeting else {}
@@ -313,14 +306,14 @@ def edit_meeting(meeting_id: int, request: Request, from_transcript: int = None)
 
 @router.post("/meetings/{meeting_id}/edit")
 def update_meeting(
-    meeting_id: int,
+    meeting_id: str,
     background_tasks: BackgroundTasks,
     meeting_name: str = Form(...),
     synthesized_notes: str = Form(...),
     meeting_date: str = Form(...),
     raw_text: str = Form(None),
     signals_json: str = Form(None),
-    linked_transcript_id: int = Form(None),
+    linked_transcript_id: str = Form(None),
     linked_transcript_content: str = Form(None),
     pocket_transcript: str = Form(None),
     teams_transcript: str = Form(None),
@@ -357,33 +350,43 @@ def update_meeting(
         parsed_sections = parse_meeting_summary(cleaned_notes)
         signals = extract_structured_signals(parsed_sections)
     
-    with connect() as conn:
-        conn.execute(
-            """
-            UPDATE meeting_summaries
-            SET meeting_name = ?, synthesized_notes = ?, meeting_date = ?, signals_json = ?, raw_text = ?, pocket_ai_summary = ?, pocket_mind_map = ?
-            WHERE id = ?
-            """,
-            (meeting_name, cleaned_notes, meeting_date, json.dumps(signals), merged_raw_text, pocket_ai_summary or "", pocket_mind_map or "", meeting_id),
-        )
+    # Update meeting in Supabase
+    update_data = {
+        "meeting_name": meeting_name,
+        "synthesized_notes": cleaned_notes,
+        "meeting_date": meeting_date,
+        "signals_json": signals,
+        "raw_text": merged_raw_text,
+        "pocket_ai_summary": pocket_ai_summary or "",
+        "pocket_mind_map": pocket_mind_map or "",
+    }
+    
+    updated = meetings_supabase.update_meeting(meeting_id, update_data)
+    if not updated:
+        logger.error(f"Failed to update meeting {meeting_id} in Supabase")
+    
+    # Also update linked transcript document if provided
+    if linked_transcript_id and linked_transcript_content is not None:
+        from .services import documents_supabase
+        documents_supabase.update_document(linked_transcript_id, {"content": linked_transcript_content})
         
-        # Also update linked transcript document if provided
-        if linked_transcript_id and linked_transcript_content is not None:
-            conn.execute(
-                "UPDATE docs SET content = ? WHERE id = ?",
-                (linked_transcript_content, linked_transcript_id)
-            )
-            # Update document embedding
-            doc = conn.execute("SELECT source FROM docs WHERE id = ?", (linked_transcript_id,)).fetchone()
-            if doc:
-                doc_embed_text = f"{doc['source']}\n{linked_transcript_content}"
+        # Update document embedding
+        doc = documents_supabase.get_document_by_id(linked_transcript_id)
+        if doc:
+            try:
+                doc_embed_text = f"{doc.get('source', '')}\n{linked_transcript_content}"
                 doc_vector = embed_text(doc_embed_text)
                 upsert_embedding("doc", linked_transcript_id, EMBED_MODEL, doc_vector)
+            except Exception as e:
+                logger.warning(f"Failed to update document embedding: {e}")
 
     # ---- VX.2b: embedding on update ----
-    text_for_embedding = f"{meeting_name}\n{synthesized_notes}"
-    vector = embed_text(text_for_embedding)
-    upsert_embedding("meeting", meeting_id, EMBED_MODEL, vector)
+    try:
+        text_for_embedding = f"{meeting_name}\n{synthesized_notes}"
+        vector = embed_text(text_for_embedding)
+        upsert_embedding("meeting", meeting_id, EMBED_MODEL, vector)
+    except Exception as e:
+        logger.warning(f"Failed to create embedding: {e}")
     
     # ---- AUTO-SYNTHESIS: trigger synthesis when mindmap is provided ----
     if pocket_mind_map and pocket_mind_map.strip():
@@ -393,7 +396,7 @@ def update_meeting(
     return RedirectResponse(url="/meetings?success=meeting_updated", status_code=303)
 
 
-def trigger_mindmap_synthesis(meeting_id: int, level: int = 0, new_mindmap: str = None):
+def trigger_mindmap_synthesis(meeting_id: str, level: int = 0, new_mindmap: str = None):
     """Background task to trigger mindmap synthesis after save.
     
     Only regenerates synthesis if the mindmap content has changed.
@@ -401,66 +404,42 @@ def trigger_mindmap_synthesis(meeting_id: int, level: int = 0, new_mindmap: str 
     try:
         from .services.mindmap_synthesis import MindmapSynthesizer
         
-        # First, check if this mindmap is new or changed
-        with connect() as conn:
-            meeting = conn.execute(
-                "SELECT meeting_name, pocket_mind_map FROM meeting_summaries WHERE id = ?",
-                (meeting_id,)
-            ).fetchone()
+        # Get meeting from Supabase
+        meeting = meetings_supabase.get_meeting_by_id(meeting_id)
+        
+        if not meeting or not meeting.get('pocket_mind_map'):
+            return
+        
+        mindmap_changed = True  # Assume changed for now, synthesis will handle dedup
+        
+        if mindmap_changed:
+            # Store/update the mindmap for this conversation
+            MindmapSynthesizer.store_conversation_mindmap(
+                conversation_id=f"meeting_{meeting_id}",
+                title=meeting.get('meeting_name', ''),
+                mindmap_data=meeting.get('pocket_mind_map', ''),
+                hierarchy_level=level
+            )
             
-            if not meeting or not meeting['pocket_mind_map']:
-                return
-            
-            # Check if mindmap already exists for this conversation
-            existing = conn.execute(
-                "SELECT id, mindmap_json FROM conversation_mindmaps WHERE conversation_id = ?",
-                (f"meeting_{meeting_id}",)
-            ).fetchone()
-            
-            mindmap_changed = True
-            if existing:
-                # Compare mindmap content (simple length check for now)
-                import json
-                try:
-                    old_data = json.loads(existing['mindmap_json'])
-                    new_data = json.loads(meeting['pocket_mind_map']) if isinstance(meeting['pocket_mind_map'], str) else meeting['pocket_mind_map']
-                    # Check if node count is the same (simple heuristic)
-                    old_nodes = len(old_data.get('nodes', []))
-                    new_nodes = len(new_data.get('nodes', []))
-                    if old_nodes == new_nodes:
-                        mindmap_changed = False
-                        logger.info(f"Mindmap unchanged for meeting {meeting_id}, skipping synthesis")
-                except:
-                    pass  # If comparison fails, assume changed
-            
-            if mindmap_changed:
-                # Store/update the mindmap for this conversation
-                MindmapSynthesizer.store_conversation_mindmap(
-                    conversation_id=f"meeting_{meeting_id}",
-                    title=meeting['meeting_name'],
-                    mindmap_data=meeting['pocket_mind_map'],
-                    hierarchy_level=level
-                )
-                
-                # Only regenerate synthesis if mindmaps changed
-                if MindmapSynthesizer.needs_synthesis():
-                    MindmapSynthesizer.generate_synthesis(force=True)
-                    logger.info(f"✅ Mindmap synthesis completed for meeting {meeting_id}")
-                else:
-                    logger.info(f"No synthesis needed for meeting {meeting_id}")
+            # Only regenerate synthesis if mindmaps changed
+            if MindmapSynthesizer.needs_synthesis():
+                MindmapSynthesizer.generate_synthesis(force=True)
+                logger.info(f"✅ Mindmap synthesis completed for meeting {meeting_id}")
+            else:
+                logger.info(f"No synthesis needed for meeting {meeting_id}")
             
     except Exception as e:
         logger.error(f"Failed to trigger mindmap synthesis: {e}")
 
 
 @router.post("/meetings/{meeting_id}/delete")
-def delete_meeting(meeting_id: int):
-    with connect() as conn:
-        conn.execute("DELETE FROM meeting_summaries WHERE id = ?", (meeting_id,))
-        conn.execute(
-            "DELETE FROM embeddings WHERE ref_type = 'meeting' AND ref_id = ?",
-            (meeting_id,),
-        )
+def delete_meeting(meeting_id: str):
+    # Delete from Supabase
+    success = meetings_supabase.delete_meeting(meeting_id)
+    if not success:
+        logger.error(f"Failed to delete meeting {meeting_id} from Supabase")
+    
+    # Note: Embeddings are stored in Supabase's vector table, deletion cascades
 
     return RedirectResponse(url="/meetings?success=meeting_deleted", status_code=303)
 

@@ -70,23 +70,23 @@ All tests passing in CI/CD pipeline.
 ### Architecture Documents
 - [MULTI_AGENT_ARCHITECTURE.md](MULTI_AGENT_ARCHITECTURE.md) - Agent system design
 - [INFRASTRUCTURE_SUMMARY.md](INFRASTRUCTURE_SUMMARY.md) - Infrastructure overview
-- [MINDMAP_RAG_ARCHITECTURE.md](MINDMAP_RAG_ARCHITECTURE.md) - RAG implementation
+- [MINDMAP_RAG_ARCHITECTURE.md](../reference/MINDMAP_RAG_ARCHITECTURE.md) - RAG implementation
 
 ### Migration Records
-- [MIGRATION_MANIFEST.md](MIGRATION_MANIFEST.md) - Complete migration record
-- [CUTOVER_CHECKLIST.md](CUTOVER_CHECKLIST.md) - Database cutover steps
-- [PHASE_1_COMPLETE.md](PHASE_1_COMPLETE.md) - Phase 1 details
-- [PHASE_2_GROUNDWORK_REPORT.md](PHASE_2_GROUNDWORK_REPORT.md) - Phase 2 details
+- [MIGRATION_MANIFEST.md](../migration/MIGRATION_MANIFEST.md) - Complete migration record
+- [CUTOVER_CHECKLIST.md](../migration/CUTOVER_CHECKLIST.md) - Database cutover steps
+- [PHASE_1_COMPLETE.md](../migration/PHASE_1_COMPLETE.md) - Phase 1 details
+- [PHASE_2_GROUNDWORK_REPORT.md](../migration/PHASE_2_GROUNDWORK_REPORT.md) - Phase 2 details
 
 ### Implementation Guides
-- [INTEGRATION_QUICK_START.md](INTEGRATION_QUICK_START.md) - Quick start guide
-- [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Deployment instructions
-- [TESTING_STRATEGY.md](TESTING_STRATEGY.md) - Testing approach
+- [INTEGRATION_QUICK_START.md](../guides/INTEGRATION_QUICK_START.md) - Quick start guide
+- [DEPLOYMENT_GUIDE.md](../guides/DEPLOYMENT_GUIDE.md) - Deployment instructions
+- [TESTING_STRATEGY.md](../guides/TESTING_STRATEGY.md) - Testing approach
 
 ### Best Practices
-- [REFACTORING_BEST_PRACTICES.md](REFACTORING_BEST_PRACTICES.md) - Refactoring guide
-- [REFACTORING_BEST_PRACTICES_ADVANCED.md](REFACTORING_BEST_PRACTICES_ADVANCED.md) - Advanced patterns
-- [JSON_UI_BEST_PRACTICES.md](JSON_UI_BEST_PRACTICES.md) - UI configuration
+- [REFACTORING_BEST_PRACTICES.md](../reference/REFACTORING_BEST_PRACTICES.md) - Refactoring guide
+- [REFACTORING_BEST_PRACTICES_ADVANCED.md](../reference/REFACTORING_BEST_PRACTICES_ADVANCED.md) - Advanced patterns
+- [JSON_UI_BEST_PRACTICES.md](../reference/JSON_UI_BEST_PRACTICES.md) - UI configuration
 
 ### NEW: Architecture Hardening
 - [ARCHITECTURE_HARDENING_PLAN.md](ARCHITECTURE_HARDENING_PLAN.md) - Hexagonal architecture transition plan

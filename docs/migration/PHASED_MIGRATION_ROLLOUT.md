@@ -1467,7 +1467,7 @@ This project uses:
 - Multi-device sync via mDNS + task queues
 - React Native mobile app for offline-first operation
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for details.
+See [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) for details.
 ```
 
 **Exit Criteria:**
