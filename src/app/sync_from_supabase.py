@@ -427,6 +427,10 @@ def sync_conversations_from_supabase() -> int:
         except:
             pass
         try:
+            conn.execute("ALTER TABLE conversations ADD COLUMN updated_at TEXT")
+        except:
+            pass
+        try:
             conn.execute("ALTER TABLE messages ADD COLUMN supabase_id TEXT UNIQUE")
         except:
             pass
@@ -456,7 +460,7 @@ def sync_conversations_from_supabase() -> int:
                         WHERE supabase_id = ?
                     """, (
                         conv.get("title"),
-                        conv.get("summary"),
+                        conv.get("context") or conv.get("summary"),  # Supabase uses 'context', SQLite uses 'summary'
                         conv.get("updated_at"),
                         1 if conv.get("archived") else 0,
                         supabase_id
@@ -469,7 +473,7 @@ def sync_conversations_from_supabase() -> int:
                         VALUES (?, ?, ?, ?, ?, ?)
                     """, (
                         conv.get("title"),
-                        conv.get("summary"),
+                        conv.get("context") or conv.get("summary"),  # Supabase uses 'context', SQLite uses 'summary'
                         conv.get("created_at"),
                         conv.get("updated_at"),
                         1 if conv.get("archived") else 0,

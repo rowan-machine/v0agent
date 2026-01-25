@@ -299,6 +299,135 @@ def sync_notifications(client, dry_run=True):
     return inserted
 
 
+def get_existing_supabase_conversations(client):
+    """Get set of conversation titles from Supabase."""
+    resp = client.get('/conversations', params={'select': 'id,title,created_at'})
+    resp.raise_for_status()
+    # Return dict of title+created_at to uuid for mapping
+    return {(c.get('title') or '', c.get('created_at', '')[:10]): c['id'] for c in resp.json()}
+
+
+def sync_conversations(client, dry_run=True):
+    """Sync conversations and messages from SQLite to Supabase."""
+    print("\n💬 Syncing Conversations...")
+    
+    # Get existing in Supabase
+    existing = get_existing_supabase_conversations(client)
+    print(f"   Supabase has {len(existing)} conversations")
+    
+    # Get all from SQLite
+    conn = sqlite3.connect('agent.db')
+    conn.row_factory = sqlite3.Row
+    
+    # Check if conversations table exists
+    table_check = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'"
+    ).fetchone()
+    
+    if not table_check:
+        print("   No conversations table in SQLite")
+        conn.close()
+        return 0
+    
+    conversations = conn.execute("""
+        SELECT id, title, summary, created_at, archived, meeting_id, document_id
+        FROM conversations
+    """).fetchall()
+    print(f"   SQLite has {len(conversations)} conversations")
+    
+    # Track SQLite ID to Supabase UUID mapping
+    id_mapping = {}
+    
+    # Find missing conversations
+    to_insert = []
+    for conv in conversations:
+        key = (conv['title'] or '', (conv['created_at'] or '')[:10])
+        if key not in existing:
+            import uuid
+            new_uuid = str(uuid.uuid4())
+            id_mapping[conv['id']] = new_uuid
+            
+            to_insert.append({
+                'id': new_uuid,
+                'title': conv['title'],
+                'context': conv['summary'],  # Map summary to context
+                'created_at': conv['created_at'],
+                'archived': bool(conv['archived']) if conv['archived'] is not None else False,
+                'is_active': True,
+            })
+        else:
+            # Map existing conversation
+            id_mapping[conv['id']] = existing[key]
+    
+    print(f"   Missing from Supabase: {len(to_insert)} conversations")
+    
+    if to_insert and not dry_run:
+        # Insert conversations
+        for conv in to_insert:
+            try:
+                resp = client.post('/conversations', json=conv)
+                resp.raise_for_status()
+                print(f"   ✅ Inserted conversation: {conv['title'][:40] if conv['title'] else '(untitled)'}...")
+            except Exception as e:
+                print(f"   ❌ Error inserting conversation: {e}")
+                if hasattr(resp, 'text'):
+                    print(f"      Response: {resp.text[:500]}")
+    
+    # Now sync messages
+    messages = conn.execute("""
+        SELECT id, conversation_id, role, content, created_at
+        FROM messages
+        ORDER BY conversation_id, created_at
+    """).fetchall()
+    conn.close()
+    
+    print(f"   SQLite has {len(messages)} messages")
+    
+    # Get existing messages
+    resp = client.get('/messages', params={'select': 'id,conversation_id,created_at'})
+    resp.raise_for_status()
+    existing_msgs = {(m['conversation_id'], m.get('created_at', '')[:19]) for m in resp.json()}
+    
+    # Find missing messages
+    msgs_to_insert = []
+    for msg in messages:
+        conv_uuid = id_mapping.get(msg['conversation_id'])
+        if not conv_uuid:
+            continue  # Skip if conversation wasn't mapped
+        
+        key = (conv_uuid, (msg['created_at'] or '')[:19])
+        if key not in existing_msgs:
+            import uuid
+            msgs_to_insert.append({
+                'id': str(uuid.uuid4()),
+                'conversation_id': conv_uuid,
+                'role': msg['role'],
+                'content': msg['content'],
+                'created_at': msg['created_at'],
+            })
+    
+    print(f"   Missing from Supabase: {len(msgs_to_insert)} messages")
+    
+    if msgs_to_insert and not dry_run:
+        # Insert messages in batches
+        batch_size = 50
+        inserted = 0
+        for i in range(0, len(msgs_to_insert), batch_size):
+            batch = msgs_to_insert[i:i+batch_size]
+            try:
+                resp = client.post('/messages', json=batch)
+                resp.raise_for_status()
+                inserted += len(batch)
+                print(f"   ✅ Inserted batch {i//batch_size + 1}: {len(batch)} messages")
+            except Exception as e:
+                print(f"   ❌ Error inserting messages batch: {e}")
+                if hasattr(resp, 'text'):
+                    print(f"      Response: {resp.text[:500]}")
+        print(f"   ✅ Total messages inserted: {inserted}")
+    
+    return len(to_insert)
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description='Sync SQLite data to Supabase')
@@ -320,6 +449,7 @@ def main():
         meetings_synced = sync_meetings(client, dry_run=dry_run)
         docs_synced = sync_documents(client, dry_run=dry_run)
         notifications_synced = sync_notifications(client, dry_run=dry_run)
+        conversations_synced = sync_conversations(client, dry_run=dry_run)
         
         print("\n" + "="*50)
         if dry_run:
@@ -327,12 +457,14 @@ def main():
             print(f"   Would sync {meetings_synced} meetings")
             print(f"   Would sync {docs_synced} documents")
             print(f"   Would sync {notifications_synced} notifications")
+            print(f"   Would sync {conversations_synced} conversations (with messages)")
             print("\nRun with --execute to perform the sync")
         else:
             print(f"📊 SYNC COMPLETE:")
             print(f"   Synced {meetings_synced} meetings")
             print(f"   Synced {docs_synced} documents")
             print(f"   Synced {notifications_synced} notifications")
+            print(f"   Synced {conversations_synced} conversations (with messages)")
     finally:
         client.close()
 
