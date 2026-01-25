@@ -1,0 +1,53 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://v0agent-staging.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: |
+          curl -fsSL https://railway.com/install.sh | sh
+
+      - name: Deploy to Staging
+        run: |
+          railway link c32f6be2-fe5d-4750-9195-00f9995c7c92 --environment staging
+          railway up --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Health Check
+        run: |
+          for i in {1..10}; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" https://v0agent-staging.up.railway.app/health || echo "000")
+            if [ "$status" = "200" ]; then
+              echo "✅ Staging deployment healthy!"
+              exit 0
+            fi
+            echo "Attempt $i: Status $status, waiting..."
+            sleep 10
+          done
+          echo "❌ Health check failed after 10 attempts"
+          exit 1
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "⚠️ Staging deployment failed. Check Railway logs for details."
+          echo "Run: railway logs --environment staging"

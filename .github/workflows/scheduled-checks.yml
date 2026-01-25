@@ -1,0 +1,62 @@
+name: Scheduled Checks
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  health-check:
+    name: Environment Health Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Staging Health
+        id: staging
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" https://v0agent-staging.up.railway.app/health || echo "000")
+          echo "status=$status" >> $GITHUB_OUTPUT
+          if [ "$status" != "200" ]; then
+            echo "⚠️ Staging health check failed (status: $status)"
+          else
+            echo "✅ Staging healthy"
+          fi
+
+      - name: Check Production Health
+        id: production
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" https://v0agent-production.up.railway.app/health || echo "000")
+          echo "status=$status" >> $GITHUB_OUTPUT
+          if [ "$status" != "200" ]; then
+            echo "🚨 Production health check failed (status: $status)"
+            exit 1
+          else
+            echo "✅ Production healthy"
+          fi
+
+      - name: Report Status
+        if: always()
+        run: |
+          echo "## Health Check Report ($(date))"
+          echo ""
+          echo "| Environment | Status |"
+          echo "|-------------|--------|"
+          echo "| Staging | ${{ steps.staging.outputs.status }} |"
+          echo "| Production | ${{ steps.production.outputs.status }} |"
+
+  dependency-check:
+    name: Dependency Updates Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check for outdated packages
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt --output-format markdown || true
+        continue-on-error: true

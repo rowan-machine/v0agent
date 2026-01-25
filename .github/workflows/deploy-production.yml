@@ -1,0 +1,96 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+jobs:
+  # First, run all CI checks
+  ci-checks:
+    name: Run CI Checks
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  # Deploy to staging first for final validation
+  staging-validation:
+    name: Staging Validation
+    runs-on: ubuntu-latest
+    needs: ci-checks
+    steps:
+      - name: Validate Staging Environment
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" https://v0agent-staging.up.railway.app/health || echo "000")
+          if [ "$status" != "200" ]; then
+            echo "⚠️ Warning: Staging environment may not be healthy (status: $status)"
+          else
+            echo "✅ Staging environment healthy"
+          fi
+
+  # Deploy to production with manual approval
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [ci-checks, staging-validation]
+    environment:
+      name: production
+      url: https://v0agent-production.up.railway.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: |
+          curl -fsSL https://railway.com/install.sh | sh
+
+      - name: Deploy to Production
+        run: |
+          railway link c32f6be2-fe5d-4750-9195-00f9995c7c92 --environment production
+          railway up --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Wait for deployment
+        run: sleep 45
+
+      - name: Health Check
+        run: |
+          for i in {1..15}; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" https://v0agent-production.up.railway.app/health || echo "000")
+            if [ "$status" = "200" ]; then
+              echo "✅ Production deployment healthy!"
+              exit 0
+            fi
+            echo "Attempt $i: Status $status, waiting..."
+            sleep 15
+          done
+          echo "❌ Health check failed after 15 attempts"
+          exit 1
+
+      - name: Create GitHub Release Tag
+        if: success()
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          TAG="deploy-$(date +%Y%m%d-%H%M%S)"
+          git tag -a "$TAG" -m "Production deployment at $(date)"
+          git push origin "$TAG"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify on Success
+        if: success()
+        run: |
+          echo "🎉 Production deployment successful!"
+          echo "URL: https://v0agent-production.up.railway.app"
+
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "🚨 PRODUCTION DEPLOYMENT FAILED!"
+          echo "Please check Railway logs immediately."
+          echo "Run: railway logs --environment production"
+          echo ""
+          echo "Consider rolling back if needed."
