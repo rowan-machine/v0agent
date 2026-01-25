@@ -2188,7 +2188,6 @@
     // ===== GLOBAL MODE CLICK HANDLER =====
     // Define this FIRST so onclick handlers can find it
     window.handleModeClick = function(mode) {
-      console.log('[handleModeClick] Called with:', mode);
       
       const modeNameMap = {
         'mode-a': 'A: Context',
@@ -2205,7 +2204,6 @@
       const nameEl = document.getElementById('currentModeName');
       if (nameEl) {
         nameEl.textContent = modeNameMap[mode] || mode;
-        console.log('[handleModeClick] Updated text to:', nameEl.textContent);
       }
       
       // 2. Save to localStorage
@@ -2228,7 +2226,6 @@
         try {
           window.originalSetModeBackup(mode, true);
         } catch(e) {
-          console.log('[handleModeClick] originalSetMode error:', e);
         }
       }
     };
@@ -2318,7 +2315,6 @@
     }
     
     function setMode(mode, persist = true) {
-      console.log('[Mode] setMode called with:', mode);
       document.documentElement.setAttribute('data-mode', mode);
       localStorage.setItem('signalflow-mode', mode);
       
@@ -2326,7 +2322,6 @@
       const modeNameEl = document.getElementById('currentModeName');
       if (modeNameEl) {
         const newName = modeNames[mode] || mode;
-        console.log('[Mode] Updating mode name to:', newName);
         modeNameEl.innerHTML = '';
         modeNameEl.textContent = newName;
       }
@@ -2341,7 +2336,6 @@
       if (selector) selector.classList.remove('open');
       
       // Dispatch custom event for other components (like dashboard workflow panel)
-      console.log('[Mode] Dispatching modeChanged event');
       document.dispatchEvent(new CustomEvent('modeChanged', { detail: { mode: mode } }));
       
       // Save mode change to server for tracking
@@ -2409,7 +2403,6 @@
       
       // Skip auto-switching if mode is pinned
       if (isModePinned()) {
-        console.log('[Mode] Mode is pinned, skipping auto-switch');
         setMode(currentMode, false);
         loadSprintTimeStats();
         return;
@@ -2780,13 +2773,11 @@
     // Hook into mode changes to auto-start tracking
     const originalSetMode = window.setMode;
     window.setMode = function(mode, persist = true) {
-      console.log('[Mode Wrapper] Called with mode:', mode);
       
       // Update mode name display DIRECTLY here to ensure it happens
       const modeNameEl = document.getElementById('currentModeName');
       if (modeNameEl) {
         const newName = modeNames[mode] || mode;
-        console.log('[Mode Wrapper] Updating button text to:', newName);
         modeNameEl.textContent = newName;
       }
       
@@ -2824,7 +2815,6 @@
         if (!btn) return;
         
         const mode = btn.dataset.mode;
-        console.log('[Mode Delegation] Clicked mode:', mode);
         
         // Mode name mapping
         const modeNameMap = {
@@ -2842,7 +2832,6 @@
         const nameEl = document.getElementById('currentModeName');
         if (nameEl) {
           nameEl.textContent = modeNameMap[mode] || mode;
-          console.log('[Mode Delegation] Updated text to:', nameEl.textContent);
         }
         
         // 2. Save to localStorage
@@ -2863,7 +2852,6 @@
         e.stopPropagation();
       });
       
-      console.log('[Mode] Event delegation setup complete');
     }
     
     // Setup when DOM is ready
