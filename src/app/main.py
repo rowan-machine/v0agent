@@ -1043,6 +1043,69 @@ async def convert_signal_to_ticket(request: Request):
 
 
 # -------------------------
+# AI Transcript Summarization API
+# -------------------------
+
+@app.post("/api/ai/draft-summary")
+async def draft_summary_from_transcript_api(request: Request):
+    """
+    Generate a structured meeting summary from a transcript using GPT-4o.
+    
+    This endpoint does not require a meeting ID - useful for Load Bundle flow
+    where the meeting doesn't exist yet.
+    
+    Model: gpt-4o (configured in model_routing.yaml task_type: transcript_summarization)
+    
+    Body:
+        - transcript: The meeting transcript text (required)
+        - meeting_name: Name of the meeting (optional, default: "Meeting")
+        - focus_areas: List of areas to emphasize (optional)
+    
+    Returns:
+        - status: "draft_generated" or "error"
+        - draft_summary: Structured summary in template format
+        - model_used: "gpt-4o"
+    """
+    from .mcp.tools import draft_summary_from_transcript
+    
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    
+    transcript = body.get("transcript", "")
+    meeting_name = body.get("meeting_name", "Meeting")
+    focus_areas = body.get("focus_areas", [])
+    
+    if not transcript or len(transcript) < 100:
+        return JSONResponse({
+            "status": "error",
+            "error": "Transcript too short. Provide at least 100 characters."
+        }, status_code=400)
+    
+    # Call the MCP tool which uses GPT-4o
+    result = draft_summary_from_transcript({
+        "transcript": transcript,
+        "meeting_name": meeting_name,
+        "focus_areas": focus_areas
+    })
+    
+    if result.get("status") == "error" or result.get("error"):
+        return JSONResponse({
+            "status": "error",
+            "error": result.get("error", "Unknown error during summarization")
+        }, status_code=500)
+    
+    return JSONResponse({
+        "status": "draft_generated",
+        "draft_summary": result.get("draft_summary"),
+        "model_used": result.get("model_used", "gpt-4o"),
+        "meeting_name": meeting_name,
+        "instructions": "Review and edit this summary, then save with your meeting."
+    })
+
+
+# -------------------------
 # AI Memory API
 # -------------------------
 

@@ -354,9 +354,20 @@
         
         <div class="transcript-box">
           <h4>💼 Teams Transcript</h4>
-          <div class="form-group" style="margin-bottom: 0;">
-            <textarea name="teams_transcript" class="short" placeholder="Paste Microsoft Teams transcript here..."></textarea>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span></span>
+            <button type="button" 
+                    id="summarizeTranscriptBtn"
+                    onclick="summarizeTeamsTranscript()" 
+                    class="btn-small btn-green"
+                    style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background: #16a34a; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                ✨ Auto-Summarize (GPT-4o)
+            </button>
           </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <textarea name="teams_transcript" id="teams_transcript" class="short" placeholder="Paste Microsoft Teams transcript here..."></textarea>
+          </div>
+          <div id="summarizeStatus" class="hint" style="display: none; margin-top: 0.5rem;"></div>
         </div>
       </div>
     </div>
@@ -380,6 +391,78 @@
 </div>
 
 <script>
+// ============================================
+// Summarize Teams Transcript with GPT-4o
+// ============================================
+async function summarizeTeamsTranscript() {
+    const btn = document.getElementById('summarizeTranscriptBtn');
+    const statusEl = document.getElementById('summarizeStatus');
+    const teamsTextarea = document.getElementById('teams_transcript');
+    const summaryTextarea = document.querySelector('textarea[name="summary_text"]');
+    
+    // Get transcript text from the textarea
+    const transcriptText = teamsTextarea ? teamsTextarea.value.trim() : '';
+    const meetingName = document.querySelector('input[name="meeting_name"]')?.value || 'Meeting';
+    
+    if (!transcriptText || transcriptText.length < 100) {
+        statusEl.style.display = 'block';
+        statusEl.textContent = 'Error: Paste a Teams transcript first (minimum 100 characters)';
+        statusEl.style.color = '#dc2626';
+        return;
+    }
+    
+    // Disable button and show loading
+    btn.disabled = true;
+    btn.textContent = '⏳ Summarizing...';
+    statusEl.style.display = 'block';
+    statusEl.textContent = 'Processing transcript with GPT-4o... This may take 15-30 seconds.';
+    statusEl.style.color = '#16a34a';
+    
+    try {
+        // Use direct MCP tool call since we don't have a meeting ID yet
+        const resp = await fetch('/api/ai/draft-summary', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                transcript: transcriptText,
+                meeting_name: meetingName
+            })
+        });
+        
+        const data = await resp.json();
+        
+        if (resp.ok && (data.status === 'draft_generated' || data.draft_summary)) {
+            btn.textContent = '✅ Summary Generated';
+            statusEl.textContent = `Summary generated using ${data.model_used || 'GPT-4o'}. Review in Structured Summary field above.`;
+            
+            // Auto-fill the structured summary textarea
+            if (summaryTextarea && data.draft_summary) {
+                summaryTextarea.value = data.draft_summary;
+                summaryTextarea.style.backgroundColor = '#f0fff4';
+                
+                // Scroll to the summary section
+                summaryTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            // Re-enable button for re-generation
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.textContent = '✨ Auto-Summarize (GPT-4o)';
+            }, 3000);
+        } else {
+            btn.disabled = false;
+            btn.textContent = '✨ Auto-Summarize (GPT-4o)';
+            statusEl.textContent = `Error: ${data.error || 'Unknown error'}`;
+            statusEl.style.color = '#dc2626';
+        }
+    } catch (err) {
+        btn.disabled = false;
+        btn.textContent = '✨ Auto-Summarize (GPT-4o)';
+        statusEl.textContent = `Network error: ${err.message}`;
+        statusEl.style.color = '#dc2626';
+    }
+}
+
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 const preview = document.getElementById('screenshot-preview');

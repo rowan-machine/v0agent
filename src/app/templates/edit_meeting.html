@@ -107,6 +107,13 @@
                 <h2 class="text-lg font-semibold text-blue-900">💼 Teams Transcript</h2>
                 <div class="flex items-center gap-3">
                     <button type="button" 
+                            id="summarizeTranscriptBtn"
+                            onclick="summarizeTranscript()" 
+                            class="text-sm px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            {% if not meeting['teams_transcript'] %}disabled{% endif %}>
+                        ✨ Summarize Transcript
+                    </button>
+                    <button type="button" 
                             id="generateTeamsDocBtn"
                             onclick="generateTranscriptDocument('teams')" 
                             class="text-sm px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -118,13 +125,14 @@
                     </button>
                 </div>
             </div>
+            <div id="summarizeStatus" class="text-xs text-green-700 hidden"></div>
             <div id="teamsDocStatus" class="text-xs text-blue-700 hidden"></div>
             <div id="teamsTranscriptSection" style="display: {{ 'block' if meeting['teams_transcript'] else 'none' }};">
                 <textarea name="teams_transcript" rows="12"
                           placeholder="Paste Microsoft Teams transcript here..."
                           class="w-full px-4 py-3 border border-blue-300 rounded-lg text-sm font-mono bg-white
                                  focus:ring-2 focus:ring-blue-500 focus:border-blue-500">{{ meeting['teams_transcript'] or '' }}</textarea>
-                <p class="text-xs text-blue-600 mt-1">Transcript from Microsoft Teams meeting</p>
+                <p class="text-xs text-blue-600 mt-1">Transcript from Microsoft Teams meeting. Click "✨ Summarize Transcript" to auto-generate structured notes using GPT-4o.</p>
             </div>
         </div>
 
@@ -504,6 +512,85 @@ async function checkExistingDocuments() {
         }
     } catch (err) {
         console.error('Failed to check existing documents:', err);
+    }
+}
+
+// ============================================
+// Summarize Transcript with GPT-4o
+// ============================================
+async function summarizeTranscript() {
+    const btn = document.getElementById('summarizeTranscriptBtn');
+    const statusEl = document.getElementById('summarizeStatus');
+    const teamsTextarea = document.querySelector('textarea[name="teams_transcript"]');
+    const synthesizedTextarea = document.querySelector('textarea[name="synthesized_notes"]');
+    
+    // Get transcript text from the textarea
+    const transcriptText = teamsTextarea ? teamsTextarea.value.trim() : '';
+    
+    if (!transcriptText || transcriptText.length < 100) {
+        statusEl.classList.remove('hidden');
+        statusEl.textContent = 'Error: Paste a Teams transcript first (minimum 100 characters)';
+        statusEl.classList.add('text-red-600');
+        statusEl.classList.remove('text-green-600');
+        return;
+    }
+    
+    // Disable button and show loading
+    btn.disabled = true;
+    btn.textContent = '⏳ Summarizing with GPT-4o...';
+    statusEl.classList.remove('hidden');
+    statusEl.textContent = 'Processing transcript... This may take 15-30 seconds for long meetings.';
+    statusEl.classList.remove('text-red-600');
+    statusEl.classList.add('text-green-600');
+    
+    try {
+        const resp = await fetch(`/api/meetings/${meetingId}/summarize-transcript`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                transcript_text: transcriptText 
+            })
+        });
+        
+        const data = await resp.json();
+        
+        if (resp.ok && data.success) {
+            btn.textContent = '✅ Summary Generated';
+            statusEl.textContent = `Summary generated using ${data.model_used || 'GPT-4o'}. Review and save the meeting to keep changes.`;
+            
+            // Auto-fill the summarized notes textarea
+            if (synthesizedTextarea && data.draft_summary) {
+                synthesizedTextarea.value = data.draft_summary;
+                synthesizedTextarea.style.backgroundColor = '#f0fff4'; // Light green to indicate new content
+                
+                // Scroll to the synthesized notes section
+                synthesizedTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                // Flash the textarea to draw attention
+                synthesizedTextarea.classList.add('ring-2', 'ring-green-500');
+                setTimeout(() => {
+                    synthesizedTextarea.classList.remove('ring-2', 'ring-green-500');
+                }, 2000);
+            }
+            
+            // Re-enable button for re-generation
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.textContent = '✨ Summarize Transcript';
+            }, 3000);
+        } else {
+            btn.disabled = false;
+            btn.textContent = '✨ Summarize Transcript';
+            statusEl.textContent = `Error: ${data.error || 'Unknown error'}`;
+            statusEl.classList.add('text-red-600');
+            statusEl.classList.remove('text-green-600');
+        }
+    } catch (err) {
+        btn.disabled = false;
+        btn.textContent = '✨ Summarize Transcript';
+        statusEl.textContent = `Network error: ${err.message}`;
+        statusEl.classList.add('text-red-600');
+        statusEl.classList.remove('text-green-600');
     }
 }
 

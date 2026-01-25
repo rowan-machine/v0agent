@@ -641,6 +641,8 @@ def draft_summary_from_transcript(args: Dict[str, Any]) -> Dict[str, Any]:
     Generate a draft meeting summary from a transcript using LLM.
     User reviews/edits before loading via load_meeting_bundle.
     
+    Uses GPT-4o for best extraction quality on long transcripts.
+    
     Args:
         transcript: The meeting transcript text
         meeting_name: Name of the meeting
@@ -655,8 +657,8 @@ def draft_summary_from_transcript(args: Dict[str, Any]) -> Dict[str, Any]:
     if not transcript or len(transcript) < 100:
         return {"error": "Transcript too short. Provide at least 100 characters."}
     
-    # Truncate if too long (keep first and last parts for context)
-    max_chars = 12000
+    # GPT-4o supports 128K context - use larger chunks
+    max_chars = 100000
     if len(transcript) > max_chars:
         half = max_chars // 2
         transcript = transcript[:half] + "\n\n[... middle section omitted for length ...]\n\n" + transcript[-half:]
@@ -665,43 +667,56 @@ def draft_summary_from_transcript(args: Dict[str, Any]) -> Dict[str, Any]:
     if focus_areas:
         focus_instruction = f"\nPay special attention to these areas: {', '.join(focus_areas)}"
     
-    prompt = f"""Analyze this meeting transcript and generate a structured summary.
+    prompt = f"""Analyze this meeting transcript and generate a structured summary in the exact format below.
 
 Meeting: {meeting_name}
 {focus_instruction}
 
-Generate the summary in this exact format:
+Generate the summary in this EXACT format (keep all headers and structure):
 
-### Summarized notes
-[2-3 sentence overview of what was discussed]
+📖 Summarized Notes
 
-### Work Identified
-[List specific work items or tasks mentioned]
+**Work Identified (candidates, not tasks)**
+- [List specific work items, tickets, or tasks mentioned - these are candidates to track, not commitments]
 
 ### Outcomes
-[Key decisions and agreements reached]
+- [Key outcomes and agreements reached in the meeting]
 
-### Context
-[Background information and constraints mentioned]
+## Context
+- [Meeting type, purpose, participants context, and background information]
+
+## Key Signal (Problem)
+- [The core problem, challenge, or focus area being addressed]
+
+## Notes
+- [Detailed notes organized by topic or ticket number (e.g., DEV-8095, DEV-8101)]
+- Include specifics: story points, assignees, technical details discussed
 
 ### Synthesized Signals (Authoritative)
 **Decision:**
-- [List each decision made]
+- [List each decision made with context]
 
 **Action items:**
-- [List who will do what]
+- [List who will do what - format: "Person will action"]
 
 **Blocked:**
-- [List any blockers mentioned]
-
-**Risk:**
-- [List any risks identified]
-
-**Idea:**
-- [List any ideas proposed]
+- [List any blockers or dependencies mentioned]
 
 ### Risks / Open Questions
-[Unresolved items needing follow-up]
+- [Unresolved items, architectural questions, things needing follow-up]
+
+### Screenshots / Photos
+(empty — artifacts pasted separately)
+
+### Notes (raw)
+(empty — transcript / raw notes supplied separately)
+
+### Commitments / Ideas
+**Commitments:**
+- [Explicit commitments made by specific people]
+
+**Ideas:**
+- [Ideas proposed for future consideration]
 
 ---
 TRANSCRIPT:
@@ -709,12 +724,14 @@ TRANSCRIPT:
 """
     
     try:
-        draft = ask(prompt, model="gpt-4.1-mini")
+        # Use GPT-4o for best extraction quality (configured in model_routing.yaml)
+        draft = ask(prompt, model="gpt-4o")
         
         return {
             "status": "draft_generated",
             "meeting_name": meeting_name,
             "draft_summary": draft,
+            "model_used": "gpt-4o",
             "instructions": "Review and edit this draft, then use load_meeting_bundle to save it."
         }
     except Exception as e:

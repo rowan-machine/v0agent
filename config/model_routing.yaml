@@ -70,18 +70,18 @@ task_types:
     cost_tier: standard
     description: "Signal extraction, entity extraction"
   
+  # ============================================
+  # PREMIUM COST TIER - Complex reasoning
+  # ============================================
+
   conversation:
-    default_model: gpt-4o-mini
+    default_model: gpt-4o
     fallback_models:
       - gpt-3.5-turbo
     latency_budget_ms: 4000
     max_tokens: 1000
-    cost_tier: standard
+    cost_tier: premium
     description: "Chat responses, Q&A"
-
-  # ============================================
-  # PREMIUM COST TIER - Complex reasoning
-  # ============================================
   
   synthesis:
     default_model: gpt-4o
@@ -101,6 +101,36 @@ task_types:
     max_tokens: 2000
     cost_tier: premium
     description: "Deep analysis, career insights, pattern detection"
+  
+  # NEW: Transcript summarization - uses GPT-4o for best extraction quality
+  transcript_summarization:
+    default_model: gpt-4o
+    fallback_models:
+      - gpt-4o-mini
+    latency_budget_ms: 30000
+    max_tokens: 4000
+    cost_tier: premium
+    description: "Meeting transcript to structured notes extraction (Teams/Pocket)"
+  
+  # NEW: Implementation planning - uses Claude Opus 4.5 for superior technical reasoning
+  implementation_planning:
+    default_model: claude-opus-4-5-20250514
+    fallback_models:
+      - gpt-4o
+    latency_budget_ms: 45000
+    max_tokens: 8000
+    cost_tier: premium
+    description: "Technical implementation plans, architecture decisions"
+  
+  # NEW: Task breakdown - uses Claude Opus 4.5 for development task decomposition
+  task_breakdown:
+    default_model: claude-opus-4-5-20250514
+    fallback_models:
+      - gpt-4o
+    latency_budget_ms: 30000
+    max_tokens: 4000
+    cost_tier: premium
+    description: "Ticket task breakdown, subtask generation, work decomposition"
   
   long_context:
     default_model: gpt-4o
