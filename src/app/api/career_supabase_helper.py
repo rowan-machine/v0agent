@@ -4,6 +4,10 @@ Career Supabase Integration Helper
 Provides helper functions to sync career data to Supabase alongside SQLite writes.
 This module can be imported into career.py for dual-write functionality.
 
+Supports multiple Supabase backends:
+- Default backend: Falls back to main v0agent database
+- Career backend: Dedicated career database (if configured)
+
 Usage in career.py:
     from ..career_supabase_helper import sync_suggestion_to_supabase
     
@@ -18,7 +22,14 @@ from functools import wraps
 
 logger = logging.getLogger(__name__)
 
-# Try to import Supabase infrastructure
+# Try to import Supabase infrastructure - prefer multi-backend
+try:
+    from ..infrastructure.supabase_multi import get_career_client, get_default_client
+    SUPABASE_MULTI_AVAILABLE = True
+except ImportError:
+    SUPABASE_MULTI_AVAILABLE = False
+
+# Fallback to single-backend Supabase agent
 try:
     from ..infrastructure.supabase_agent import (
         get_supabase_agent_client,
@@ -30,8 +41,23 @@ except ImportError:
     logger.warning("Supabase agent not available - writes will be SQLite-only")
 
 
-def get_supabase_client() -> Optional[SupabaseAgentClient]:
-    """Get Supabase agent client if available."""
+def get_supabase_client() -> Optional[Any]:
+    """
+    Get Supabase client for career operations.
+    
+    Prefers career-specific backend if configured, falls back to default.
+    """
+    # Try multi-backend first
+    if SUPABASE_MULTI_AVAILABLE:
+        client = get_career_client()
+        if client:
+            return client
+        # Fall back to default
+        client = get_default_client()
+        if client:
+            return client
+    
+    # Fall back to agent client
     if not SUPABASE_AVAILABLE:
         return None
     try:
@@ -56,11 +82,30 @@ def sync_suggestion_to_supabase(
         True if sync initiated, False otherwise
     """
     client = get_supabase_client()
-    if not client or not client.is_connected:
+    if not client:
+        return False
+    
+    # Check if it's the agent client (async) or direct client
+    if hasattr(client, 'is_connected') and not client.is_connected:
         return False
     
     try:
-        # Create async task for background sync
+        # If using direct Supabase client (from multi-backend)
+        if hasattr(client, 'table'):
+            # Direct sync using raw client
+            client.table("career_suggestions").insert({
+                "user_id": user_id,
+                "suggestion_type": suggestion_data.get('suggestion_type', 'skill_building'),
+                "title": suggestion_data.get('title'),
+                "description": suggestion_data.get('description'),
+                "rationale": suggestion_data.get('rationale'),
+                "difficulty": suggestion_data.get('difficulty'),
+                "time_estimate": suggestion_data.get('time_estimate'),
+                "related_goal": suggestion_data.get('related_goal'),
+            }).execute()
+            return True
+        
+        # Create async task for background sync (agent client)
         async def _sync():
             return await client.save_career_suggestion(
                 user_id=user_id,
