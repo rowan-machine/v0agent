@@ -554,9 +554,35 @@ def _sync_messages_from_supabase() -> int:
     return synced
 
 
-def sync_all_from_supabase() -> Dict[str, int]:
+def _clear_sqlite_tables_for_sync():
+    """
+    Clear SQLite tables before full sync to ensure deletions in Supabase are reflected.
+    This ensures SQLite is a true mirror of Supabase.
+    """
+    tables_to_clear = [
+        "meeting_summaries",
+        "docs", 
+        "tickets",
+        "dikw_items",
+        "signal_status",
+        "conversations",
+    ]
+    
+    with connect() as conn:
+        for table in tables_to_clear:
+            if table_exists(conn, table):
+                conn.execute(f"DELETE FROM {table}")
+                logger.info(f"🗑️ Cleared SQLite table: {table}")
+        conn.commit()
+
+
+def sync_all_from_supabase(full_sync: bool = True) -> Dict[str, int]:
     """
     Sync all data from Supabase to SQLite.
+    
+    Args:
+        full_sync: If True, clears SQLite tables first to ensure deletions 
+                   in Supabase are reflected. Default True for production.
     
     Returns:
         Dict of table names to number of items synced
@@ -572,6 +598,12 @@ def sync_all_from_supabase() -> Dict[str, int]:
         return results
     
     logger.info("🔄 Starting Supabase → SQLite sync...")
+    
+    # Clear SQLite tables first if full_sync is enabled
+    # This ensures deletions in Supabase are reflected in SQLite
+    if full_sync:
+        logger.info("🔄 Full sync enabled - clearing SQLite tables first...")
+        _clear_sqlite_tables_for_sync()
     
     results["meetings"] = sync_meetings_from_supabase()
     results["documents"] = sync_documents_from_supabase()
