@@ -41,6 +41,13 @@ def get_all_tickets(limit: int = 100) -> List[Dict[str, Any]]:
 
 def _format_ticket(row: Dict) -> Dict[str, Any]:
     """Format a Supabase ticket row to match expected format."""
+    # Handle tags - Supabase stores as array, template expects comma-separated string
+    tags = row.get("tags", [])
+    if isinstance(tags, list):
+        tags = ", ".join(tags) if tags else ""
+    elif tags is None:
+        tags = ""
+    
     return {
         "id": row.get("id"),
         "ticket_id": row.get("ticket_id"),
@@ -53,7 +60,7 @@ def _format_ticket(row: Dict) -> Dict[str, Any]:
         "ai_summary": row.get("ai_summary"),
         "implementation_plan": row.get("implementation_plan"),
         "task_decomposition": row.get("task_decomposition"),
-        "tags": row.get("tags", []),
+        "tags": tags,
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at"),
     }
