@@ -483,7 +483,7 @@ Example:
 {% if ticket %}
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
-const ticketId = {{ ticket.id }};
+const ticketId = "{{ ticket.id }}";
 
 // AI Summary Generation
 document.getElementById('generate-summary-btn').addEventListener('click', async () => {
