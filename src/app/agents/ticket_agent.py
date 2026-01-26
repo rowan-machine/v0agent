@@ -23,7 +23,6 @@ import logging
 
 from jinja2 import Environment, FileSystemLoader
 from ..agents.base import BaseAgent, AgentConfig
-from ..db import connect
 from ..llm import ask
 
 logger = logging.getLogger(__name__)
@@ -401,7 +400,7 @@ Return ONLY the JSON array, no markdown or explanation."""
 # =============================================================================
 
 async def summarize_ticket_adapter(
-    ticket_pk: int,
+    ticket_pk: str,
     format_hint: str = "",
 ) -> Dict[str, Any]:
     """
@@ -409,30 +408,24 @@ async def summarize_ticket_adapter(
     
     Maintains backward compatibility with existing API.
     """
-    # Fetch ticket from database
-    with connect() as conn:
-        ticket = conn.execute(
-            "SELECT * FROM tickets WHERE id = ?", (ticket_pk,)
-        ).fetchone()
+    from ..services import tickets_supabase
+    
+    # Fetch ticket from Supabase
+    ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
     
     if not ticket:
         return {"success": False, "error": "Ticket not found"}
     
-    # Convert sqlite Row to dict
-    ticket_dict = dict(ticket)
-    
     # Create agent and generate summary
     agent = TicketAgent()
-    result = await agent.summarize(ticket_dict, format_hint)
+    result = await agent.summarize(ticket, format_hint)
     
     # Auto-save the generated summary if successful
     if result.get("success") and result.get("summary"):
         try:
-            with connect() as conn:
-                conn.execute(
-                    "UPDATE tickets SET ai_summary = ?, updated_at = datetime('now') WHERE id = ?",
-                    (result["summary"], ticket_pk)
-                )
+            tickets_supabase.update_ticket(ticket_pk, {
+                "ai_summary": result["summary"]
+            })
             result["saved"] = True
         except Exception as e:
             logger.warning(f"Failed to save summary: {e}")
@@ -441,70 +434,62 @@ async def summarize_ticket_adapter(
     return result
 
 
-async def generate_plan_adapter(ticket_pk: int) -> Dict[str, Any]:
+async def generate_plan_adapter(ticket_pk: str) -> Dict[str, Any]:
     """
     Adapter function for /api/tickets/{id}/generate-plan endpoint.
     
     Maintains backward compatibility with existing API.
     """
-    # Fetch ticket from database
-    with connect() as conn:
-        ticket = conn.execute(
-            "SELECT * FROM tickets WHERE id = ?", (ticket_pk,)
-        ).fetchone()
+    from ..services import tickets_supabase
+    
+    # Fetch ticket from Supabase
+    ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
     
     if not ticket:
         return {"success": False, "error": "Ticket not found"}
     
-    # Convert sqlite Row to dict
-    ticket_dict = dict(ticket)
-    
     # Create agent and generate plan
     agent = TicketAgent()
-    result = await agent.generate_plan(ticket_dict)
+    result = await agent.generate_plan(ticket)
     
     return result
 
 
-async def decompose_ticket_adapter(ticket_pk: int) -> Dict[str, Any]:
+async def decompose_ticket_adapter(ticket_pk: str) -> Dict[str, Any]:
     """
     Adapter function for /api/tickets/{id}/generate-decomposition endpoint.
     
     Maintains backward compatibility with existing API.
     """
-    # Fetch ticket from database
-    with connect() as conn:
-        ticket = conn.execute(
-            "SELECT * FROM tickets WHERE id = ?", (ticket_pk,)
-        ).fetchone()
+    from ..services import tickets_supabase
+    
+    # Fetch ticket from Supabase
+    ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
     
     if not ticket:
         return {"success": False, "error": "Ticket not found"}
     
-    # Convert sqlite Row to dict
-    ticket_dict = dict(ticket)
-    
     # Create agent and decompose
     agent = TicketAgent()
-    result = await agent.decompose(ticket_dict)
+    result = await agent.decompose(ticket)
     
     return result
 
 
 # Synchronous wrappers for non-async contexts
-def summarize_ticket_sync(ticket_pk: int, format_hint: str = "") -> Dict[str, Any]:
+def summarize_ticket_sync(ticket_pk: str, format_hint: str = "") -> Dict[str, Any]:
     """Synchronous wrapper for summarize_ticket_adapter."""
     import asyncio
     return asyncio.run(summarize_ticket_adapter(ticket_pk, format_hint))
 
 
-def generate_plan_sync(ticket_pk: int) -> Dict[str, Any]:
+def generate_plan_sync(ticket_pk: str) -> Dict[str, Any]:
     """Synchronous wrapper for generate_plan_adapter."""
     import asyncio
     return asyncio.run(generate_plan_adapter(ticket_pk))
 
 
-def decompose_ticket_sync(ticket_pk: int) -> Dict[str, Any]:
+def decompose_ticket_sync(ticket_pk: str) -> Dict[str, Any]:
     """Synchronous wrapper for decompose_ticket_adapter."""
     import asyncio
     return asyncio.run(decompose_ticket_adapter(ticket_pk))
