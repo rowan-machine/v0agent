@@ -578,7 +578,8 @@ function renderTasks() {
                 <p class="text-sm ${task.done ? 'line-through text-gray-400' : 'text-gray-700'}">${escapeHtml(task.text)}</p>
                 <div class="flex flex-wrap items-center gap-2 mt-1">
                     ${task.estimate ? `<span class="text-xs text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded">⏱️ ${escapeHtml(task.estimate)}</span>` : ''}
-                    ${task.test_case ? `<span class="text-xs text-cyan-600 bg-cyan-50 px-1.5 py-0.5 rounded">✓ ${escapeHtml(task.test_case)}</span>` : ''}
+                    ${task.acceptance_criteria ? `<span class="text-xs text-green-600 bg-green-50 px-1.5 py-0.5 rounded" title="${escapeHtml(task.acceptance_criteria)}">✓ ${escapeHtml(task.acceptance_criteria.length > 50 ? task.acceptance_criteria.substring(0, 50) + '...' : task.acceptance_criteria)}</span>` : ''}
+                    ${task.test_case ? `<span class="text-xs text-cyan-600 bg-cyan-50 px-1.5 py-0.5 rounded">🧪 ${escapeHtml(task.test_case)}</span>` : ''}
                 </div>
             </div>
             <button type="button" onclick="removeTask(${i})"
@@ -690,7 +691,14 @@ document.getElementById('generate-decomposition-btn').addEventListener('click', 
         const data = await resp.json();
         
         if (data.tasks && data.tasks.length > 0) {
-            tasks = data.tasks.map(t => typeof t === 'string' ? { text: t, done: false } : { text: t.text, estimate: t.estimate, done: false });
+            tasks = data.tasks.map(t => typeof t === 'string' 
+                ? { text: t, done: false } 
+                : { 
+                    text: t.text, 
+                    estimate: t.estimate, 
+                    acceptance_criteria: t.acceptance_criteria,
+                    done: false 
+                });
             renderTasks();
         } else {
             alert(data.error || 'Could not generate task breakdown');

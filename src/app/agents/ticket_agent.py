@@ -23,7 +23,7 @@ import logging
 
 from jinja2 import Environment, FileSystemLoader
 from ..agents.base import BaseAgent, AgentConfig
-from ..llm import ask
+from ..llm import ask, CLAUDE_OPUS_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -327,7 +327,8 @@ Be specific and actionable. Assume access to local development environment."""
             prompt = self._build_decompose_prompt(ticket, min_tasks, max_tasks)
         
         try:
-            result = ask(prompt)
+            # Use Claude Opus 4.5 for superior task decomposition
+            result = ask(prompt, model=CLAUDE_OPUS_MODEL)
             
             # Parse the JSON response
             json_match = re.search(r'\[[\s\S]*\]', result)
@@ -341,6 +342,7 @@ Be specific and actionable. Assume access to local development environment."""
                         validated_tasks.append({
                             "text": task["text"],
                             "estimate": task.get("estimate", "1h"),
+                            "acceptance_criteria": task.get("acceptance_criteria", ""),
                             "status": "pending",
                         })
                 
@@ -370,29 +372,53 @@ Be specific and actionable. Assume access to local development environment."""
         max_tasks: int,
     ) -> str:
         """Build the task decomposition prompt inline."""
-        ai_summary_section = f"AI Summary: {ticket['ai_summary']}" if ticket.get('ai_summary') else ""
-        plan_section = f"Implementation Plan: {ticket['implementation_plan']}" if ticket.get('implementation_plan') else ""
+        ai_summary_section = f"\n**AI Summary:**\n{ticket['ai_summary']}\n" if ticket.get('ai_summary') else ""
+        plan_section = f"\n**Implementation Plan:**\n{ticket['implementation_plan']}\n" if ticket.get('implementation_plan') else ""
         
-        return f"""Break down this ticket into specific, actionable subtasks. You're helping a senior data engineer working with Airflow, Python, GitLab, and AWS.
+        return f"""You are decomposing a development ticket into actionable subtasks. Analyze the ticket description carefully to:
 
-Ticket: {ticket.get('ticket_id', 'N/A')} - {ticket.get('title', 'Untitled')}
+1. **Extract the core requirements** from the description
+2. **Identify acceptance criteria** - what conditions must be met for the ticket to be complete
+3. **Generate specific, atomic tasks** that fulfill each requirement and acceptance criterion
 
-Description:
+## TICKET INFORMATION
+
+**Ticket ID:** {ticket.get('ticket_id', 'N/A')}
+**Title:** {ticket.get('title', 'Untitled')}
+
+**Description:**
 {ticket.get('description') or 'No description provided'}
+{ai_summary_section}{plan_section}
 
-{ai_summary_section}
-{plan_section}
+## TASK GENERATION RULES
 
-Generate {min_tasks}-{max_tasks} specific, atomic tasks that would complete this ticket.
-Return ONLY a JSON array of objects with "text" (task description) and "estimate" (time estimate like "1h", "2h", "30m").
+1. Each task must directly trace back to something in the ticket description
+2. Include acceptance criteria for each task (what "done" looks like)
+3. Tasks should be atomic - completable in a single focused session
+4. Include setup/scaffolding tasks if needed
+5. Include testing/validation tasks
+6. Estimates should be realistic (30m, 1h, 2h, 4h, 8h)
 
-Example format:
+## OUTPUT FORMAT
+
+Generate {min_tasks}-{max_tasks} tasks. Return ONLY a JSON array:
+
+```json
 [
-  {{"text": "Create new DAG file for data pipeline", "estimate": "2h"}},
-  {{"text": "Add unit tests for transformer function", "estimate": "1h"}}
+  {{
+    "text": "Task description - clear, specific action",
+    "estimate": "2h",
+    "acceptance_criteria": "What must be true when this task is complete"
+  }},
+  {{
+    "text": "Write unit tests for the new feature",
+    "estimate": "1h",
+    "acceptance_criteria": "All tests pass, >80% coverage on new code"
+  }}
 ]
+```
 
-Return ONLY the JSON array, no markdown or explanation."""
+Return ONLY the JSON array, no markdown code fences or explanation."""
 
 
 # =============================================================================

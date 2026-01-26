@@ -5,19 +5,45 @@ from openai import OpenAI
 from dotenv import load_dotenv
 load_dotenv()
 
-_client = None
+_openai_client = None
+_anthropic_client = None
 
-def _client_once():
-    global _client
-    if _client is None:
+# Claude model identifier
+CLAUDE_OPUS_MODEL = "claude-opus-4-5-20250514"
+
+def _openai_client_once():
+    global _openai_client
+    if _openai_client is None:
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             raise ValueError(
                 "OPENAI_API_KEY environment variable is not set. "
                 "Please add it to your .env file."
             )
-        _client = OpenAI(api_key=api_key)
-    return _client
+        _openai_client = OpenAI(api_key=api_key)
+    return _openai_client
+
+
+def _anthropic_client_once():
+    global _anthropic_client
+    if _anthropic_client is None:
+        try:
+            import anthropic
+            api_key = os.environ.get("ANTHROPIC_API_KEY")
+            if not api_key:
+                raise ValueError(
+                    "ANTHROPIC_API_KEY environment variable is not set. "
+                    "Please add it to your .env file."
+                )
+            _anthropic_client = anthropic.Anthropic(api_key=api_key)
+        except ImportError:
+            raise ImportError("anthropic package not installed. Run: pip install anthropic")
+    return _anthropic_client
+
+
+def _is_claude_model(model: str) -> bool:
+    """Check if the model is a Claude model."""
+    return model and (model.startswith("claude") or "anthropic" in model.lower())
 
 SYSTEM_PROMPT = """You are a meeting retrieval agent. You answer questions ONLY using the provided context.
 If the answer is not supported by the context, say:
@@ -90,11 +116,23 @@ def ask(prompt: str, model: str = None, trace_name: str = "llm.ask", thread_id: 
         print(f"⚠️ LangSmith: tracing init error: {e}")
     
     try:
-        resp = _client_once().chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        response_text = resp.choices[0].message.content.strip()
+        # Route to appropriate provider based on model
+        if _is_claude_model(model):
+            # Use Anthropic API for Claude models
+            client = _anthropic_client_once()
+            message = client.messages.create(
+                model=model,
+                max_tokens=8192,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            response_text = message.content[0].text.strip()
+        else:
+            # Use OpenAI API
+            resp = _openai_client_once().chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            response_text = resp.choices[0].message.content.strip()
         
         # Update trace with success
         if langsmith_client and run_id:
@@ -138,7 +176,7 @@ If it's a screenshot of a meeting, diagram, or document:
 
 Return the analysis as structured text that can be stored and searched."""
     
-    resp = _client_once().chat.completions.create(
+    resp = _openai_client_once().chat.completions.create(
         model="gpt-4o",  # Vision requires gpt-4o or gpt-4-turbo
         messages=[
             {
@@ -244,7 +282,7 @@ def answer(question: str, context_blocks: list[str], trace_name: str = "llm.answ
         print(f"⚠️ LangSmith: tracing init error: {e}")
     
     try:
-        resp = _client_once().chat.completions.create(
+        resp = _openai_client_once().chat.completions.create(
             model=model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
