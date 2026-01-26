@@ -537,10 +537,14 @@ async def search_health():
 # -------------------------
 
 # Entity type configuration
+# Note: table names differ between SQLite and Supabase
+# - SQLite: meeting_summaries, docs
+# - Supabase: meetings, documents
 ENTITY_CONFIG = {
     "meetings": {
         "icon": "📅",
-        "table": "meeting_summaries",
+        "table": "meeting_summaries",  # SQLite name
+        "table_supabase": "meetings",  # Supabase name
         "id_field": "id",
         "title_field": "meeting_name",
         "content_field": "synthesized_notes",
@@ -549,7 +553,8 @@ ENTITY_CONFIG = {
     },
     "documents": {
         "icon": "📄",
-        "table": "docs",
+        "table": "docs",  # SQLite name
+        "table_supabase": "documents",  # Supabase name
         "id_field": "id",
         "title_field": "source",
         "content_field": "content",
@@ -559,6 +564,7 @@ ENTITY_CONFIG = {
     "tickets": {
         "icon": "🎫",
         "table": "tickets",
+        "table_supabase": "tickets",
         "id_field": "id",
         "title_field": "title",
         "content_field": "description",
@@ -569,6 +575,7 @@ ENTITY_CONFIG = {
     "dikw": {
         "icon": "💡",
         "table": "dikw_items",
+        "table_supabase": "dikw_items",
         "id_field": "id",
         "title_field": "level",
         "content_field": "content",
@@ -579,6 +586,7 @@ ENTITY_CONFIG = {
     "signals": {
         "icon": "📡",
         "table": "signal_status",
+        "table_supabase": "signal_status",
         "id_field": "id",
         "title_field": "signal_type",
         "content_field": "signal_text",
@@ -625,12 +633,93 @@ async def search_entity_keyword(
     limit: int,
     my_mentions_only: bool = False,
 ) -> List[UnifiedSearchResultItem]:
-    """Keyword search for a single entity type."""
+    """Keyword search for a single entity type.
+    
+    Uses Supabase if available, falls back to SQLite.
+    """
     config = ENTITY_CONFIG.get(entity_type)
     if not config:
         return []
     
     results = []
+    
+    # Try Supabase first (where the data lives)
+    sb = get_supabase_client()
+    if sb:
+        try:
+            table_name = config.get("table_supabase", config["table"])
+            title_field = config["title_field"]
+            content_field = config["content_field"]
+            date_field = config["date_field"]
+            
+            # Build select columns
+            select_cols = [config["id_field"], title_field, content_field, date_field]
+            if "extra_fields" in config:
+                select_cols.extend(config["extra_fields"])
+            
+            # Execute Supabase query with ilike filter (case-insensitive)
+            # Note: Supabase PostgREST uses ilike for case-insensitive search
+            query_builder = sb.table(table_name).select(",".join(select_cols))
+            
+            # Apply search filter (title OR content contains query)
+            # PostgREST doesn't support OR easily, so we search both and dedupe
+            title_results = query_builder.ilike(title_field, f"%{query}%").order(date_field, desc=True).limit(limit).execute()
+            
+            query_builder2 = sb.table(table_name).select(",".join(select_cols))
+            content_results = query_builder2.ilike(content_field, f"%{query}%").order(date_field, desc=True).limit(limit).execute()
+            
+            # Combine and dedupe
+            seen_ids = set()
+            all_rows = []
+            for row in (title_results.data or []) + (content_results.data or []):
+                if row["id"] not in seen_ids:
+                    seen_ids.add(row["id"])
+                    all_rows.append(row)
+            
+            # Apply my_mentions filter if needed
+            if my_mentions_only:
+                all_rows = [r for r in all_rows if "@rowan" in (r.get(content_field) or "").lower()]
+            
+            # Process results
+            for row in all_rows[:limit]:
+                title = row.get(title_field) or "Untitled"
+                if entity_type == "dikw":
+                    level = row.get("level", "")
+                    title = f"{level}: {title[:50]}" if level else title[:50]
+                elif entity_type == "tickets" and row.get("ticket_id"):
+                    title = f"{row['ticket_id']}: {title}"
+                
+                content = row.get(content_field) or ""
+                score = 0.5
+                query_lower = query.lower()
+                
+                if query_lower in title.lower():
+                    score += 0.3
+                
+                match_count = content.lower().count(query_lower)
+                if match_count > 1:
+                    score += min(0.2, match_count * 0.05)
+                
+                results.append(UnifiedSearchResultItem(
+                    id=str(row["id"]),  # Supabase uses UUIDs
+                    entity_type=entity_type,
+                    title=title,
+                    snippet=highlight_snippet(content, query),
+                    date=str(row.get(date_field) or ""),
+                    score=round(score, 3),
+                    match_type="keyword",
+                    icon=config["icon"],
+                    url=config["url_template"].format(id=row["id"]),
+                    metadata={k: row.get(k) for k in config.get("extra_fields", []) if row.get(k)},
+                ))
+            
+            logger.debug(f"Supabase keyword search for {entity_type}: found {len(results)} results")
+            return results
+            
+        except Exception as e:
+            logger.warning(f"Supabase keyword search failed for {entity_type}, falling back to SQLite: {e}")
+    
+    # Fallback to SQLite
     like = f"%{query.lower()}%"
     
     try:
