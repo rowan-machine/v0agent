@@ -19,17 +19,9 @@ jobs:
       - name: Check Railway Token
         id: check-token
         run: |
-          if [ -z "${{ secrets.RAILWAY_TOKEN }}" ]; then
+          if [ -z "${{ secrets.RAILWAY_TOKEN_STAGING }}" ]; then
             echo "has_token=false" >> $GITHUB_OUTPUT
-            echo "⚠️ RAILWAY_TOKEN secret not configured"
-            echo ""
-            echo "To enable automatic deployments, add RAILWAY_TOKEN to GitHub Secrets:"
-            echo "1. Go to https://railway.app/account/tokens"
-            echo "2. Create a new token"
-            echo "3. Add it to GitHub: Settings > Secrets > Actions > New repository secret"
-            echo "   Name: RAILWAY_TOKEN"
-            echo ""
-            echo "Skipping Railway deployment - use Railway's GitHub integration or manual deploy instead."
+            echo "⚠️ RAILWAY_TOKEN_STAGING secret not configured"
           else
             echo "has_token=true" >> $GITHUB_OUTPUT
           fi
@@ -44,7 +36,7 @@ jobs:
           railway link c32f6be2-fe5d-4750-9195-00f9995c7c92 --environment staging
           railway up --detach
         env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN_STAGING }}
 
       - name: Wait for deployment
         if: steps.check-token.outputs.has_token == 'true'
