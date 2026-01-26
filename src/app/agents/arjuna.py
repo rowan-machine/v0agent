@@ -2263,7 +2263,7 @@ class SimpleLLMClient:
         max_tokens: int = 1000,
     ) -> str:
         """Call the LLM."""
-        from ..llm import _client_once
+        from ..llm import _openai_client_once
         
         messages = []
         if system_prompt:

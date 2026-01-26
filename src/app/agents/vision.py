@@ -62,7 +62,7 @@ If it's a screenshot of a meeting, diagram, or document:
 Return the analysis as structured text that can be stored and searched."""
         
         # Use the raw LLM call for vision (needs special message format)
-        from ..llm import _client_once
+        from ..llm import _openai_client_once
         
         resp = _client_once().chat.completions.create(
             model=self.config.model,

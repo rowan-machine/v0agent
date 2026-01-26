@@ -2,7 +2,7 @@
 
 import json
 from typing import Dict, Any
-from ..llm import _client_once
+from ..llm import _openai_client_once
 
 # ---- Schema Definition ----
 REQUIRED_KEYS = {"keywords", "concepts"}

@@ -434,7 +434,7 @@ async def traced_llm_call(
     Returns:
         LLM response text
     """
-    from .llm import _client_once
+    from .llm import _openai_client_once
     
     metadata = TraceMetadata(
         agent_name=agent_name,
@@ -479,7 +479,7 @@ async def traced_llm_call(
     
     try:
         # Make the actual LLM call
-        response = _client_once().chat.completions.create(
+        response = _openai_client_once().chat.completions.create(
             model=model,
             messages=messages,
             temperature=temperature,
@@ -533,8 +533,8 @@ def create_traced_openai_wrapper():
         Wrapped OpenAI client with tracing enabled
     """
     if not is_tracing_enabled():
-        from .llm import _client_once
-        return _client_once()
+        from .llm import _openai_client_once
+        return _openai_client_once()
     
     try:
         from langchain_openai import ChatOpenAI
@@ -550,8 +550,8 @@ def create_traced_openai_wrapper():
         )
     except ImportError:
         logger.warning("langchain-openai not installed, using raw OpenAI client")
-        from .llm import _client_once
-        return _client_once()
+        from .llm import _openai_client_once
+        return _openai_client_once()
 
 
 # =============================================================================
