@@ -148,6 +148,10 @@ def list_meetings(request: Request, success: str = Query(default=None)):
     
     formatted = []
     for meeting in meetings_list:
+        # Ensure meeting is a proper dict
+        if not isinstance(meeting, dict):
+            meeting = dict(meeting) if hasattr(meeting, '__iter__') else {}
+        
         date_str = meeting.get("meeting_date") or meeting.get("created_at")
         if date_str:
             try:
@@ -166,6 +170,10 @@ def list_meetings(request: Request, success: str = Query(default=None)):
                 meeting["display_date"] = str(date_str) if date_str else ""
         else:
             meeting["display_date"] = ""
+        
+        # Ensure meeting_name exists
+        if "meeting_name" not in meeting or not meeting.get("meeting_name"):
+            meeting["meeting_name"] = "Untitled Meeting"
 
         formatted.append(meeting)
 
