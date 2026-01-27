@@ -559,10 +559,18 @@ document.getElementById('pocket-recording-select').addEventListener('change', as
     
     const summary = data.summary_text || '';
     const mindMap = data.mind_map_text || '';
+    const transcript = data.transcript_text || '';
     const actionItems = data.action_items || [];
     
+    // Populate Pocket AI Summary
     if (summaryEl) summaryEl.value = summary;
     if (mindMapEl) mindMapEl.value = mindMap;
+    
+    // Populate Pocket Transcript
+    const pocketTranscriptEl = document.querySelector('textarea[name="pocket_transcript"]');
+    if (pocketTranscriptEl && transcript) {
+      pocketTranscriptEl.value = transcript;
+    }
     
     // Initialize interactive mindmap editor
     initMindmapEditor(mindMap);
@@ -590,11 +598,13 @@ document.getElementById('pocket-recording-select').addEventListener('change', as
     let msg = 'Fetched';
     const hasSummary = !!summary;
     const hasMindMap = !!mindMap;
+    const hasTranscript = !!transcript;
     const hasItems = actionItems && actionItems.length > 0;
     
     const parts = [];
     if (hasSummary) parts.push('summary');
     if (hasMindMap) parts.push('mind map');
+    if (hasTranscript) parts.push('transcript');
     if (hasItems) parts.push(`${actionItems.length} action items`);
     
     if (parts.length > 0) {
