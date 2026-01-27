@@ -102,14 +102,14 @@ src/app/agents/arjuna/
 
 ## Phase 2.4: Other Large Files
 
-### Status: Analysis Complete ✅
+### Status: Analysis Complete ✅ | Career Migration In Progress 🔄
 
 ### Identified Large Files (>1000 lines)
 
 | File | Lines | Priority | Status | Notes |
 |------|-------|----------|--------|-------|
 | `api/career.py` | 2779 | High | 🟡 Partially Migrated | 35/64 routes in domains/career/api/ |
-| `_arjuna_core.py` | 2466 | High | 🔄 In progress | Phase 2.3 |
+| `_arjuna_core.py` | 2466 | High | ✅ Complete | Phase 2.3 decomposed into 11 modules |
 | `services/background_jobs.py` | 1417 | Medium | ⏳ Future | Split by job type |
 | `api/search.py` | 1285 | Medium | 🟡 Partially Extracted | Some routes migrated |
 | `main.py` | 1235 | Low | ✅ Acceptable | Application setup |
@@ -121,13 +121,26 @@ src/app/agents/arjuna/
 - **Migrated to domains/career/api/**: 35 routes (55%)
 - **Remaining**: 29 routes
 - **Deprecation warning**: ✅ Added
-- **Decision**: Continue incremental migration, lower priority than Phase 2.3
+
+### Unmigrated Routes by Category
+
+| Category | Routes | Target File |
+|----------|--------|-------------|
+| AI Memories | `/add-ai-memory`, `/ai-memories`, `/ai-memories/compress`, `/ai-memories/{id}` | `ai_memories.py` |
+| Chat | `/chat`, `/chat/history`, `/chat/summary`, `/capabilities` | Already in `chat.py` - verify |
+| Code Locker | `/code-locker/*` (5 routes) | Already in `code_locker.py` - verify |
+| Skills Advanced | `/skills/assess-from-codebase`, `/skills/from-resume`, `/skills/initialize`, `/skills/populate-from-projects`, `/skills/remove-by-categories`, `/skills/reset`, `/skills/update-from-tickets` | `skills_advanced.py` |
+| Docs | `/docs/adrs`, `/docs/ai-implementations`, `/docs/assess-codebase`, `/docs/skill-evidence`, `/docs/sync-to-memories` | `docs.py` |
+| Signals | `/signals/feedback-learn`, `/signals/quality-hints/{type}`, `/signals/refresh-learnings` | Move to signals domain |
+| Misc | `/backends/status`, `/extract-resume-text`, `/assess-codebase-ai` | `misc.py` |
 
 ### Next Steps
-1. ✅ Complete Phase 2.3 - Arjuna core.py and adapters.py
-2. ⏳ Continue `api/career.py` migration (29 remaining routes)
-3. ⏳ Split `background_jobs.py` by job type
-4. ⏳ Consider further extraction of search module
+1. ✅ Complete Phase 2.3 - Arjuna decomposition
+2. 🔄 Migrate AI Memories routes to domains/career/api/ai_memories.py
+3. ⏳ Migrate Skills Advanced routes to domains/career/api/skills_advanced.py
+4. ⏳ Migrate Docs routes to domains/career/api/docs.py
+5. ⏳ Move Signals routes to domains/signals/api/
+6. ⏳ Split `background_jobs.py` by job type
 
 ## Phase 2.8 Completion Summary
 
