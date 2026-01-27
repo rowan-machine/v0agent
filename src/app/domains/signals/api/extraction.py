@@ -6,6 +6,8 @@ Provides endpoints for:
 - Extracting signals from documents using MeetingAnalyzerAgent
 - Saving extracted signals to meetings
 - Merging new signals with existing meeting signals
+
+Uses repository pattern for data access.
 """
 
 from datetime import datetime
@@ -15,6 +17,8 @@ import logging
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
+
+from ....repositories import get_meeting_repository, get_document_repository
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +44,6 @@ async def extract_signals_from_document(request: Request):
     Returns:
         Extracted signals with counts
     """
-    from ....infrastructure.supabase_client import get_supabase_client
     from ....agents.meeting_analyzer import get_meeting_analyzer
     
     data = await request.json()
@@ -50,17 +53,14 @@ async def extract_signals_from_document(request: Request):
     if not doc_id:
         return JSONResponse({"error": "document_id is required"}, status_code=400)
 
-    supabase = get_supabase_client()
-    doc_result = supabase.table("documents").select(
-        "id, source, content"
-    ).eq("id", doc_id).single().execute()
-    doc = doc_result.data
+    doc_repo = get_document_repository()
+    doc = doc_repo.get_by_id(doc_id)
     
     if not doc:
         return JSONResponse({"error": "Document not found"}, status_code=404)
     
-    content = doc["content"]
-    source = doc["source"]
+    content = doc.get("content", "")
+    source = doc.get("source", "")
     
     # Truncate if too long
     if len(content) > 15000:
@@ -105,7 +105,7 @@ async def extract_signals_from_document(request: Request):
         # If meeting_id provided, merge with existing signals
         if meeting_id:
             return await _merge_with_meeting(
-                supabase, meeting_id, extracted_signals, total_extracted
+                meeting_id, extracted_signals, total_extracted
             )
         
         return JSONResponse({
@@ -122,16 +122,13 @@ async def extract_signals_from_document(request: Request):
 
 
 async def _merge_with_meeting(
-    supabase,
     meeting_id: str,
     extracted_signals: Dict[str, Any],
     total_extracted: int
 ) -> JSONResponse:
     """Merge extracted signals with an existing meeting's signals."""
-    meeting_result = supabase.table("meetings").select(
-        "signals"
-    ).eq("id", meeting_id).single().execute()
-    meeting = meeting_result.data
+    meeting_repo = get_meeting_repository()
+    meeting = meeting_repo.get_by_id(meeting_id)
 
     if meeting and meeting.get("signals"):
         existing = meeting["signals"] if isinstance(meeting["signals"], dict) else json.loads(meeting["signals"])
@@ -146,9 +143,7 @@ async def _merge_with_meeting(
             existing[key] = existing_items
 
         # Update meeting with merged signals
-        supabase.table("meetings").update({
-            "signals": existing
-        }).eq("id", meeting_id).execute()
+        meeting_repo.update(meeting_id, {"signals": existing})
         
         return JSONResponse({
             "status": "ok",
@@ -181,8 +176,6 @@ async def save_signals_from_document(request: Request):
     Returns:
         Status with meeting ID and signal counts
     """
-    from ....infrastructure.supabase_client import get_supabase_client
-    
     data = await request.json()
     doc_id = data.get("document_id")
     signals = data.get("signals")
@@ -193,18 +186,19 @@ async def save_signals_from_document(request: Request):
             status_code=400
         )
     
-    supabase = get_supabase_client()
+    doc_repo = get_document_repository()
+    meeting_repo = get_meeting_repository()
     
     # Get document info
-    doc_result = supabase.table("documents").select(
-        "id, source, content, document_date"
-    ).eq("id", doc_id).single().execute()
-    doc = doc_result.data
+    doc = doc_repo.get_by_id(doc_id)
 
     if not doc:
         return JSONResponse({"error": "Document not found"}, status_code=404)
 
-    # Check if signals already saved for this document
+    # Check if signals already saved for this document (use search or custom query)
+    # For now, we need to use a workaround since the repository doesn't have this method
+    from ....infrastructure.supabase_client import get_supabase_client
+    supabase = get_supabase_client()
     existing_result = supabase.table("meetings").select(
         "id"
     ).eq("source_document_id", doc_id).execute()
@@ -212,10 +206,10 @@ async def save_signals_from_document(request: Request):
 
     if existing:
         # Update existing record
-        supabase.table("meetings").update({
+        meeting_repo.update(existing["id"], {
             "signals": signals,
             "updated_at": datetime.now().isoformat()
-        }).eq("source_document_id", doc_id).execute()
+        })
         
         return JSONResponse({
             "status": "ok",
@@ -224,7 +218,7 @@ async def save_signals_from_document(request: Request):
         })
     
     # Create new meeting record for document signals
-    meeting_name = f"[Document] {doc['source']}"
+    meeting_name = f"[Document] {doc.get('source', 'Unknown')}"
     meeting_date = doc.get("document_date") or datetime.now().strftime("%Y-%m-%d")
     
     # Count total signals
@@ -251,16 +245,16 @@ async def save_signals_from_document(request: Request):
         f"{', '.join(signal_summary_parts) if signal_summary_parts else 'none'}"
     )
     
-    insert_result = supabase.table("meetings").insert({
+    new_meeting = meeting_repo.create({
         "meeting_name": meeting_name,
         "meeting_date": meeting_date,
         "synthesized_notes": synthesized_notes,
         "signals": signals,
         "source_document_id": doc_id,
         "created_at": datetime.now().isoformat()
-    }).execute()
+    })
     
-    new_id = insert_result.data[0]["id"] if insert_result.data else None
+    new_id = new_meeting.get("id") if new_meeting else None
     
     return JSONResponse({
         "status": "ok",
