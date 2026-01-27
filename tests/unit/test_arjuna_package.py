@@ -316,3 +316,99 @@ class TestPackageExports:
         
         assert arjuna.__doc__ is not None
         assert "Arjuna" in arjuna.__doc__
+
+
+# =============================================================================
+# NEW MIXINS TESTS (Phase 2.3)
+# =============================================================================
+
+class TestMCPHandlerMixin:
+    """Tests for ArjunaMCPMixin."""
+    
+    def test_mcp_mixin_importable(self):
+        """ArjunaMCPMixin should be importable."""
+        from src.app.agents.arjuna import ArjunaMCPMixin
+        
+        assert ArjunaMCPMixin is not None
+    
+    def test_mcp_mixin_has_methods(self):
+        """ArjunaMCPMixin should have expected methods."""
+        from src.app.agents.arjuna import ArjunaMCPMixin
+        
+        assert hasattr(ArjunaMCPMixin, '_handle_mcp_command')
+        assert hasattr(ArjunaMCPMixin, '_route_agent_command')
+
+
+class TestChainExecutorMixin:
+    """Tests for ArjunaChainMixin."""
+    
+    def test_chain_mixin_importable(self):
+        """ArjunaChainMixin should be importable."""
+        from src.app.agents.arjuna import ArjunaChainMixin
+        
+        assert ArjunaChainMixin is not None
+    
+    def test_chain_definitions_importable(self):
+        """CHAIN_DEFINITIONS should be importable."""
+        from src.app.agents.arjuna import CHAIN_DEFINITIONS
+        
+        assert CHAIN_DEFINITIONS is not None
+        assert isinstance(CHAIN_DEFINITIONS, dict)
+    
+    def test_chain_definitions_have_steps(self):
+        """Each chain definition should have steps."""
+        from src.app.agents.arjuna import CHAIN_DEFINITIONS
+        
+        for name, chain in CHAIN_DEFINITIONS.items():
+            assert "steps" in chain, f"Chain {name} missing 'steps'"
+            assert "description" in chain, f"Chain {name} missing 'description'"
+            assert len(chain["steps"]) > 0, f"Chain {name} has no steps"
+    
+    def test_chain_mixin_has_methods(self):
+        """ArjunaChainMixin should have expected methods."""
+        from src.app.agents.arjuna import ArjunaChainMixin
+        
+        assert hasattr(ArjunaChainMixin, '_execute_chain_command')
+        assert hasattr(ArjunaChainMixin, '_execute_chain_step')
+
+
+class TestIntentMixin:
+    """Tests for ArjunaIntentMixin."""
+    
+    def test_intent_mixin_importable(self):
+        """ArjunaIntentMixin should be importable."""
+        from src.app.agents.arjuna import ArjunaIntentMixin
+        
+        assert ArjunaIntentMixin is not None
+    
+    def test_intent_mixin_has_methods(self):
+        """ArjunaIntentMixin should have expected methods."""
+        from src.app.agents.arjuna import ArjunaIntentMixin
+        
+        assert hasattr(ArjunaIntentMixin, '_parse_intent')
+        assert hasattr(ArjunaIntentMixin, '_build_intent_prompt')
+        assert hasattr(ArjunaIntentMixin, '_execute_intent')
+
+
+class TestTicketMixin:
+    """Tests for ArjunaTicketMixin."""
+    
+    def test_ticket_mixin_importable(self):
+        """ArjunaTicketMixin should be importable."""
+        from src.app.agents.arjuna import ArjunaTicketMixin
+        
+        assert ArjunaTicketMixin is not None
+    
+    def test_ticket_mixin_has_methods(self):
+        """ArjunaTicketMixin should have expected methods."""
+        from src.app.agents.arjuna import ArjunaTicketMixin
+        
+        assert hasattr(ArjunaTicketMixin, '_create_ticket')
+        assert hasattr(ArjunaTicketMixin, '_update_ticket')
+        assert hasattr(ArjunaTicketMixin, '_list_tickets')
+        assert hasattr(ArjunaTicketMixin, '_create_accountability')
+        assert hasattr(ArjunaTicketMixin, '_handle_navigation')
+        assert hasattr(ArjunaTicketMixin, '_change_model')
+        assert hasattr(ArjunaTicketMixin, '_update_sprint')
+        assert hasattr(ArjunaTicketMixin, '_reset_workflow')
+        assert hasattr(ArjunaTicketMixin, '_search_meetings')
