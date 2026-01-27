@@ -47,6 +47,7 @@ from .domains.meetings.api import router as meetings_domain_router
 from .domains.tickets.api import router as tickets_domain_router
 from .domains.documents.api import router as documents_domain_router
 from .domains.dashboard import router as dashboard_domain_router  # Dashboard (Refactor Phase 2)
+from .domains.signals import signals_router as signals_domain_router  # Signals (Refactor Phase 2.8)
 from .mcp.registry import TOOL_REGISTRY
 from .llm import ask as ask_llm
 from .auth import (
@@ -1231,4 +1232,5 @@ app.include_router(dikw_domain_router, prefix="/api/domains")  # DIKW domain
 app.include_router(meetings_domain_router, prefix="/api/domains")  # Meetings domain
 app.include_router(tickets_domain_router, prefix="/api/domains")  # Tickets domain
 app.include_router(documents_domain_router, prefix="/api/domains")  # Documents domain
+app.include_router(signals_domain_router)  # Signals domain (already has /api/signals prefix)
 app.include_router(dashboard_domain_router)  # Dashboard (already has /api/dashboard prefix)

@@ -1,14 +1,27 @@
 # src/app/signals.py
 """
-Signal views for browsing extracted meeting signals.
+DEPRECATED: Signal views for browsing extracted meeting signals.
 
-This module delegates signal extraction to MeetingAnalyzerAgent (Checkpoint 2.4)
-for AI-powered features, maintaining backward compatibility.
+This module is deprecated. Use domains/signals/api instead.
+Routes are available at:
+- /api/signals/* (JSON API)
+- /api/signals/view/* (HTML views)
 
 Migration Status:
-- MeetingAnalyzerAgent: src/app/agents/meeting_analyzer.py (new agent implementation)
-- This file: Adapters + FastAPI routes (will be slimmed down over time)
+- New location: src/app/domains/signals/api/
+- MeetingAnalyzerAgent: src/app/agents/meeting_analyzer.py
+- This file: DEPRECATED - legacy routes only
 """
+
+import warnings
+
+# Emit deprecation warning on import
+warnings.warn(
+    "signals.py is deprecated. Use domains/signals/api instead. "
+    "Routes available at /api/signals/*",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import JSONResponse
@@ -16,7 +29,6 @@ from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta
 import json
 from .infrastructure.supabase_client import get_supabase_client
-# llm.ask removed - signal extraction uses MeetingAnalyzerAgent (Checkpoint 2.4)
 
 # Import from new MeetingAnalyzer agent (Checkpoint 2.4)
 from .agents.meeting_analyzer import (
