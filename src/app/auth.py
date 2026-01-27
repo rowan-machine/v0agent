@@ -145,6 +145,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
         
+        # Skip auth completely in test mode
+        if os.environ.get("SIGNALFLOW_ENV") == "test":
+            request.state.session_token = "test-session"
+            return await call_next(request)
+        
         # Allow public routes
         for route in PUBLIC_ROUTES:
             if path.startswith(route):

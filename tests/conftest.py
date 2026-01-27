@@ -48,9 +48,11 @@ class MockSupabaseTable:
         self._order_by = None
         self._limit = None
         self._select_cols = "*"
+        self._count_type = None
         
-    def select(self, columns: str = "*"):
+    def select(self, columns: str = "*", count: str = None):
         self._select_cols = columns
+        self._count_type = count  # 'exact', 'planned', 'estimated'
         return self
     
     def insert(self, data: Dict | List[Dict]):
@@ -238,18 +240,16 @@ def client(mock_supabase) -> Generator[TestClient, None, None]:
     Patches get_supabase_client() to return the mock client.
     """
     with patch("src.app.infrastructure.supabase_client.get_supabase_client", return_value=mock_supabase):
-        with patch("src.app.repositories.meeting_repository.get_supabase_client", return_value=mock_supabase):
-            with TestClient(app) as test_client:
-                yield test_client
+        with TestClient(app) as test_client:
+            yield test_client
 
 
 @pytest.fixture(scope="function")
 def client_with_data(mock_supabase_with_data) -> Generator[TestClient, None, None]:
     """FastAPI test client with pre-loaded test data."""
     with patch("src.app.infrastructure.supabase_client.get_supabase_client", return_value=mock_supabase_with_data):
-        with patch("src.app.repositories.meeting_repository.get_supabase_client", return_value=mock_supabase_with_data):
-            with TestClient(app) as test_client:
-                yield test_client
+        with TestClient(app) as test_client:
+            yield test_client
 
 
 # ============== Embedding Mock Fixtures ==============
@@ -261,7 +261,7 @@ def mock_embeddings():
     
     with patch("src.app.memory.embed.embed_text", return_value=mock_vector):
         with patch("src.app.memory.vector_store.upsert_embedding"):
-            with patch("src.app.memory.vector_store.semantic_search", return_value=[]):
+            with patch("src.app.memory.vector_store.fetch_all_embeddings", return_value=[]):
                 yield mock_vector
 
 

@@ -50,7 +50,11 @@ from .integrations.pocket import PocketClient, extract_latest_summary, extract_t
 from .services import meetings_supabase  # Supabase-first meeting reads
 from .services import documents_supabase  # Supabase-first document reads
 from .services import tickets_supabase  # Supabase-first ticket reads
+from .infrastructure.supabase_client import get_supabase_client
 from typing import Optional
+
+# Get supabase client for direct table access
+supabase = get_supabase_client()
 
 # Initialize logger
 logger = logging.getLogger(__name__)
