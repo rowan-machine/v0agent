@@ -15,6 +15,12 @@ import asyncio
 import time
 
 from src.app.infrastructure.supabase_client import get_supabase_client
+from src.app.repositories import (
+    get_meeting_repository,
+    get_document_repository,
+    get_dikw_repository,
+    get_signal_repository,
+)
 from src.app.api.models import (
     UnifiedSearchRequest,
     UnifiedSearchResultItem,
@@ -374,33 +380,30 @@ async def unified_search_post(request: UnifiedSearchRequest) -> UnifiedSearchRes
 # -------------------------
 
 def get_source_content(ref_type: str, ref_id, supabase) -> Optional[dict]:
-    """Fetch the source item content for embedding lookup."""
+    """Fetch the source item content for embedding lookup using repositories."""
     try:
         if ref_type == "meeting":
-            result = supabase.table("meetings").select(
-                "id, meeting_name, synthesized_notes, meeting_date"
-            ).eq("id", ref_id).execute()
-            if result.data:
-                row = result.data[0]
+            meeting_repo = get_meeting_repository()
+            meeting = meeting_repo.get_by_id(ref_id)
+            if meeting:
                 return {
-                    "id": row["id"],
-                    "title": row.get("meeting_name"),
-                    "content": row.get("synthesized_notes"),
-                    "date": row.get("meeting_date")
+                    "id": meeting.id,
+                    "title": meeting.meeting_name,
+                    "content": meeting.synthesized_notes,
+                    "date": meeting.meeting_date
                 }
         elif ref_type == "document":
-            result = supabase.table("documents").select(
-                "id, source, content, document_date"
-            ).eq("id", ref_id).execute()
-            if result.data:
-                row = result.data[0]
+            doc_repo = get_document_repository()
+            doc = doc_repo.get_by_id(ref_id)
+            if doc:
                 return {
-                    "id": row["id"],
-                    "title": row.get("source"),
-                    "content": row.get("content"),
-                    "date": row.get("document_date")
+                    "id": doc.id,
+                    "title": doc.source,
+                    "content": doc.content,
+                    "date": doc.document_date
                 }
         elif ref_type == "ticket":
+            # Tickets still use direct supabase call (need TicketRepository)
             result = supabase.table("tickets").select(
                 "id, ticket_id, description, created_at"
             ).eq("id", ref_id).execute()
@@ -413,30 +416,26 @@ def get_source_content(ref_type: str, ref_id, supabase) -> Optional[dict]:
                     "date": row.get("created_at")
                 }
         elif ref_type == "dikw":
-            result = supabase.table("dikw_items").select(
-                "id, level, content, created_at"
-            ).eq("id", ref_id).execute()
-            if result.data:
-                row = result.data[0]
-                level = row.get("level", "")
-                content = row.get("content", "")
+            dikw_repo = get_dikw_repository()
+            item = dikw_repo.get_by_id(ref_id)
+            if item:
+                level = item.level or ""
+                content = item.content or ""
                 return {
-                    "id": row["id"],
+                    "id": item.id,
                     "title": f"{level}: {content[:50]}" if level else content[:50],
                     "content": content,
-                    "date": row.get("created_at")
+                    "date": item.created_at
                 }
         elif ref_type == "signal":
-            result = supabase.table("signal_status").select(
-                "id, signal_type, signal_text, created_at"
-            ).eq("id", ref_id).execute()
-            if result.data:
-                row = result.data[0]
+            signal_repo = get_signal_repository()
+            signal = signal_repo.get_by_id(ref_id)
+            if signal:
                 return {
-                    "id": row["id"],
-                    "title": row.get("signal_type"),
-                    "content": row.get("signal_text"),
-                    "date": row.get("created_at")
+                    "id": signal.id,
+                    "title": signal.signal_type,
+                    "content": signal.signal_text,
+                    "date": signal.created_at
                 }
         return None
     except Exception as e:

@@ -39,6 +39,7 @@ class SignalStatus:
     converted_ref_id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    id: Optional[int] = None
 
 
 class SignalRepository(ABC):
@@ -132,6 +133,11 @@ class SignalRepository(ABC):
     @abstractmethod
     def get_converted_signals(self, converted_to: str) -> List[Dict[str, Any]]:
         """Get all signals converted to a specific type (ticket, dikw)."""
+        pass
+    
+    @abstractmethod
+    def get_by_id(self, signal_id: int) -> Optional[SignalStatus]:
+        """Get a signal status by ID."""
         pass
 
 
@@ -294,6 +300,31 @@ class SupabaseSignalRepository(SignalRepository):
             return result.data or []
         except Exception:
             return []
+
+    def get_by_id(self, signal_id: int) -> Optional[SignalStatus]:
+        """Get a signal status by ID."""
+        if not self._supabase:
+            return None
+        try:
+            result = self._supabase.table("signal_status").select(
+                "id, meeting_id, signal_type, signal_text, status, notes, converted_to, converted_ref_id, created_at, updated_at"
+            ).eq("id", signal_id).execute()
+            if result.data:
+                row = result.data[0]
+                return SignalStatus(
+                    meeting_id=row.get("meeting_id"),
+                    signal_type=row.get("signal_type"),
+                    signal_text=row.get("signal_text"),
+                    status=row.get("status", "pending"),
+                    notes=row.get("notes"),
+                    converted_to=row.get("converted_to"),
+                    converted_ref_id=row.get("converted_ref_id"),
+                    created_at=row.get("created_at"),
+                    updated_at=row.get("updated_at"),
+                )
+            return None
+        except Exception:
+            return None
 
 
 # Factory function
