@@ -31,8 +31,8 @@ DIKW_NEXT_LEVEL = {
 
 def _get_supabase():
     """Get Supabase client (lazy import for compatibility)."""
-    from ..db_supabase import supabase
-    return supabase
+    from ..infrastructure.supabase_client import get_supabase_client
+    return get_supabase_client()
 
 
 def normalize_signal_type(signal_type: str) -> str:

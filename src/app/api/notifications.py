@@ -22,8 +22,8 @@ router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
 def _get_supabase():
     """Get Supabase client (lazy import for compatibility)."""
-    from ..db_supabase import supabase
-    return supabase
+    from ..infrastructure.supabase_client import get_supabase_client
+    return get_supabase_client()
 
 
 @router.get("")

@@ -24,8 +24,8 @@ DIKW_LEVELS = ["data", "information", "knowledge", "wisdom"]
 
 def _get_supabase():
     """Get Supabase client (lazy import for compatibility)."""
-    from ..db_supabase import supabase
-    return supabase
+    from ..infrastructure.supabase_client import get_supabase_client
+    return get_supabase_client()
 
 
 @router.get("/data")
