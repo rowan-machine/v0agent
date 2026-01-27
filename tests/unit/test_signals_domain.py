@@ -126,7 +126,8 @@ class TestBrowseHelperFunctions:
         
         meeting = {"id": "meeting-1"}
         signals = {"decisions": ["Important decision"]}
-        status_map = {"meeting-1:decision:Important decision": "reviewed"}
+        # Status map now returns dict with status key (matches repository format)
+        status_map = {"meeting-1:decision:Important decision": {"status": "reviewed"}}
         
         result = _collect_all_signals(meeting, signals, status_map)
         

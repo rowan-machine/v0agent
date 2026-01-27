@@ -37,6 +37,13 @@ class MeetingRepository(BaseRepository[Dict[str, Any]]):
         pass
     
     @abstractmethod
+    def get_with_signals_by_days(
+        self, days: Optional[int] = None, limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Get meetings with signals, optionally filtered by days back."""
+        pass
+    
+    @abstractmethod
     def search(
         self, query: str, include_transcripts: bool = False, limit: int = 10
     ) -> List[Dict[str, Any]]:
@@ -242,6 +249,30 @@ class SupabaseMeetingRepository(MeetingRepository):
             return [self._format_row(row) for row in result.data]
         except Exception as e:
             logger.error(f"Failed to get meetings with signals: {e}")
+            return []
+    
+    def get_with_signals_by_days(
+        self, days: Optional[int] = None, limit: int = 100
+    ) -> List[Dict[str, Any]]:
+        """Get meetings with signals, optionally filtered by days back."""
+        if not self.client:
+            return []
+        
+        try:
+            from datetime import timedelta
+            
+            query = self.client.table("meetings").select(
+                "id, meeting_name, meeting_date, signals"
+            ).not_.is_("signals", "null").neq("signals", "{}")
+            
+            if days:
+                cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+                query = query.gte("meeting_date", cutoff_date)
+            
+            result = query.order("meeting_date", desc=True).limit(limit).execute()
+            return result.data or []
+        except Exception as e:
+            logger.error(f"Failed to get meetings with signals by days: {e}")
             return []
     
     def search(

@@ -5,6 +5,8 @@ Signal Browsing API - Browse signals by type with date filtering.
 Provides endpoints for viewing signals across all meetings, filtered by:
 - Signal type (decisions, action_items, blockers, risks, ideas, all)
 - Date range (7 days, 14 days, 30 days, 42 days, 90 days, all)
+
+Uses repository pattern for data access.
 """
 
 from datetime import datetime, timedelta
@@ -15,6 +17,8 @@ import logging
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
+
+from ....repositories import get_meeting_repository, get_signal_repository
 
 logger = logging.getLogger(__name__)
 
@@ -67,42 +71,23 @@ def get_signals_by_type(
     Returns:
         Tuple of (list of meeting signal results, total signal count)
     """
-    from ....infrastructure.supabase_client import get_supabase_client
+    meeting_repo = get_meeting_repository()
+    signal_repo = get_signal_repository()
     
-    supabase = get_supabase_client()
-    if not supabase:
+    # Get meetings with signals using repository
+    meetings = meeting_repo.get_with_signals_by_days(days=days, limit=limit)
+    if not meetings:
         return [], 0
 
-    # Build query
-    query = supabase.table("meetings").select(
-        "id, meeting_name, meeting_date, signals"
-    ).neq("signals", None).neq("signals", "{}")
-
-    if days:
-        cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
-        query = query.gte("meeting_date", cutoff_date)
-
-    query = query.order("meeting_date", desc=True).limit(limit)
-    result = query.execute()
-    meetings = result.data or []
-
-    # Fetch signal statuses for these meetings
+    # Get signal statuses using repository
     meeting_ids = [m["id"] for m in meetings]
-    status_map = {}
-    if meeting_ids:
-        status_result = supabase.table("signal_status").select(
-            "meeting_id, signal_type, signal_text, status"
-        ).in_("meeting_id", meeting_ids).execute()
-        status_rows = status_result.data or []
-        for row in status_rows:
-            key = f"{row['meeting_id']}:{row['signal_type']}:{row['signal_text']}"
-            status_map[key] = row["status"]
+    status_map = signal_repo.get_status_for_meetings(meeting_ids) if meeting_ids else {}
 
     results = []
     total_signals = 0
 
     for meeting in meetings:
-        if not meeting["signals"]:
+        if not meeting.get("signals"):
             continue
 
         try:
@@ -130,7 +115,7 @@ def get_signals_by_type(
 def _collect_all_signals(
     meeting: Dict[str, Any],
     signals: Dict[str, Any],
-    status_map: Dict[str, str]
+    status_map: Dict[str, Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
     """Collect signals of all types from a meeting."""
     all_items = []
@@ -143,17 +128,19 @@ def _collect_all_signals(
             for item in items:
                 if item:
                     status_key = f"{meeting['id']}:{mapped_type}:{item}"
+                    status_data = status_map.get(status_key, {})
                     all_items.append({
                         "text": item,
                         "type": mapped_type,
-                        "status": status_map.get(status_key)
+                        "status": status_data.get("status") if status_data else None
                     })
         elif isinstance(items, str) and items.strip():
             status_key = f"{meeting['id']}:{mapped_type}:{items}"
+            status_data = status_map.get(status_key, {})
             all_items.append({
                 "text": items,
                 "type": mapped_type,
-                "status": status_map.get(status_key)
+                "status": status_data.get("status") if status_data else None
             })
     
     return all_items
@@ -163,7 +150,7 @@ def _collect_typed_signals(
     meeting: Dict[str, Any],
     signals: Dict[str, Any],
     signal_type: str,
-    status_map: Dict[str, str]
+    status_map: Dict[str, Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
     """Collect signals of a specific type from a meeting."""
     signal_items = signals.get(signal_type, [])
@@ -174,17 +161,19 @@ def _collect_typed_signals(
         for s in signal_items:
             if s:
                 status_key = f"{meeting['id']}:{mapped_type}:{s}"
+                status_data = status_map.get(status_key, {})
                 items.append({
                     "text": s,
                     "type": mapped_type,
-                    "status": status_map.get(status_key)
+                    "status": status_data.get("status") if status_data else None
                 })
     elif isinstance(signal_items, str) and signal_items.strip():
         status_key = f"{meeting['id']}:{mapped_type}:{signal_items}"
+        status_data = status_map.get(status_key, {})
         items = [{
             "text": signal_items,
             "type": mapped_type,
-            "status": status_map.get(status_key)
+            "status": status_data.get("status") if status_data else None
         }]
     
     return items
