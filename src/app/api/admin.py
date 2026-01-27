@@ -9,6 +9,8 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from typing import List
 
+from ..infrastructure.supabase_client import get_supabase_client
+
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
 
@@ -101,13 +103,12 @@ def health_check():
     Returns overall system status including database and migration state.
     """
     from ..db_migrations import get_migration_status
-    from ..db import connect
     
     # Check database
     db_status = "ok"
     try:
-        with connect() as conn:
-            conn.execute("SELECT 1").fetchone()
+        supabase = get_supabase_client()
+        supabase.table("meetings").select("id").limit(1).execute()
     except Exception as e:
         db_status = f"error: {str(e)}"
     
@@ -233,7 +234,6 @@ async def sync_data(request: SyncRequest):
     Can specify specific tables or reverse direction.
     """
     from ..infrastructure import get_supabase_sync
-    from ..db import connect
     
     sync = get_supabase_sync()
     
@@ -249,48 +249,52 @@ async def sync_data(request: SyncRequest):
     errors = []
     
     try:
-        with connect() as conn:
-            for table in tables:
-                try:
-                    if table == "meetings":
-                        rows = conn.execute("SELECT * FROM meeting_summaries").fetchall()
-                        count = 0
-                        for row in rows:
-                            result = await sync.sync_meeting(dict(row))
-                            if result:
-                                count += 1
-                        synced["meetings"] = count
-                        
-                    elif table == "documents":
-                        rows = conn.execute("SELECT * FROM docs").fetchall()
-                        count = 0
-                        for row in rows:
-                            result = await sync.sync_document(dict(row))
-                            if result:
-                                count += 1
-                        synced["documents"] = count
-                        
-                    elif table == "tickets":
-                        rows = conn.execute("SELECT * FROM tickets").fetchall()
-                        count = 0
-                        for row in rows:
-                            result = await sync.sync_ticket(dict(row))
-                            if result:
-                                count += 1
-                        synced["tickets"] = count
-                        
-                    elif table == "dikw_items":
-                        rows = conn.execute("SELECT * FROM dikw_items").fetchall()
-                        count = 0
-                        for row in rows:
-                            result = await sync.sync_dikw_item(dict(row))
-                            if result:
-                                count += 1
-                        synced["dikw_items"] = count
-                        
-                except Exception as e:
-                    errors.append(f"{table}: {str(e)}")
+        supabase = get_supabase_client()
+        for table in tables:
+            try:
+                if table == "meetings":
+                    result = supabase.table("meetings").select("*").execute()
+                    rows = result.data or []
+                    count = 0
+                    for row in rows:
+                        result = await sync.sync_meeting(row)
+                        if result:
+                            count += 1
+                    synced["meetings"] = count
                     
+                elif table == "documents":
+                    result = supabase.table("documents").select("*").execute()
+                    rows = result.data or []
+                    count = 0
+                    for row in rows:
+                        result = await sync.sync_document(row)
+                        if result:
+                            count += 1
+                    synced["documents"] = count
+                    
+                elif table == "tickets":
+                    result = supabase.table("tickets").select("*").execute()
+                    rows = result.data or []
+                    count = 0
+                    for row in rows:
+                        result = await sync.sync_ticket(row)
+                        if result:
+                            count += 1
+                    synced["tickets"] = count
+                    
+                elif table == "dikw_items":
+                    result = supabase.table("dikw_items").select("*").execute()
+                    rows = result.data or []
+                    count = 0
+                    for row in rows:
+                        result = await sync.sync_dikw_item(row)
+                        if result:
+                            count += 1
+                    synced["dikw_items"] = count
+                    
+            except Exception as e:
+                errors.append(f"{table}: {str(e)}")
+                
     except Exception as e:
         errors.append(f"Database error: {str(e)}")
     

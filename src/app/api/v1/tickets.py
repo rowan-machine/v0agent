@@ -16,7 +16,7 @@ from ..v1.models import (
     TicketCreate, TicketUpdate, TicketResponse,
     PaginatedResponse, APIResponse
 )
-from ...db import connect
+from ...infrastructure.supabase_client import get_supabase_client
 from ...repositories import get_ticket_repository
 
 logger = logging.getLogger(__name__)
@@ -65,36 +65,6 @@ def _get_tickets_from_supabase(skip: int = 0, limit: int = 50, status: Optional[
         raise
 
 
-def _get_tickets_from_sqlite(skip: int = 0, limit: int = 50, status: Optional[str] = None, tag: Optional[str] = None) -> tuple[List[Dict[str, Any]], int]:
-    """
-    Fetch tickets from SQLite.
-    Returns (tickets_list, total_count).
-    """
-    with connect() as conn:
-        query = "SELECT * FROM tickets WHERE 1=1"
-        params = []
-        
-        if status:
-            query += " AND status = ?"
-            params.append(status)
-        if tag:
-            query += " AND tags LIKE ?"
-            params.append(f"%{tag}%")
-        
-        # Get total count
-        count_query = query.replace("SELECT *", "SELECT COUNT(*) as count")
-        total = conn.execute(count_query, tuple(params)).fetchone()["count"]
-        
-        # Add pagination
-        query += " ORDER BY priority DESC, id DESC LIMIT ? OFFSET ?"
-        params.extend([limit, skip])
-        
-        rows = conn.execute(query, tuple(params)).fetchall()
-        tickets = [dict(row) for row in rows]
-    
-    return tickets, total
-
-
 @router.get("", response_model=PaginatedResponse)
 async def list_tickets(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -106,21 +76,13 @@ async def list_tickets(
     List all tickets with pagination and filtering.
     
     Status: backlog, active, in_progress, done, archived
-    Uses Supabase as primary source with SQLite fallback.
+    Uses Supabase as primary source.
     """
-    # Try Supabase first
     try:
         tickets, total = _get_tickets_from_supabase(skip, limit, status, tag)
         return PaginatedResponse(items=tickets, skip=skip, limit=limit, total=total)
     except Exception as e:
-        logger.warning(f"⚠️ Supabase unavailable for tickets, falling back to SQLite: {e}")
-    
-    # Fall back to SQLite
-    try:
-        tickets, total = _get_tickets_from_sqlite(skip, limit, status, tag)
-        return PaginatedResponse(items=tickets, skip=skip, limit=limit, total=total)
-    except Exception as e:
-        logger.error(f"❌ SQLite also failed for tickets: {e}")
+        logger.error(f"❌ Failed to fetch tickets: {e}")
         raise HTTPException(status_code=500, detail="Unable to fetch tickets")
 
 
@@ -131,16 +93,13 @@ async def get_ticket(ticket_id: int):
     
     Returns 404 if ticket not found.
     """
-    with connect() as conn:
-        row = conn.execute(
-            "SELECT * FROM tickets WHERE id = ?",
-            (ticket_id,)
-        ).fetchone()
+    supabase = get_supabase_client()
+    result = supabase.table("tickets").select("*").eq("id", ticket_id).execute()
     
-    if not row:
+    if not result.data:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    tkt = dict(row)
+    tkt = result.data[0]
     return TicketResponse(
         id=tkt.get("pk"),
         title=tkt.get("title", ""),
@@ -160,15 +119,17 @@ async def create_ticket(ticket: TicketCreate):
     
     Returns the created ticket ID.
     """
-    with connect() as conn:
-        cursor = conn.execute(
-            """INSERT INTO tickets (title, description, status, priority, points, tags)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (ticket.title, ticket.description, ticket.status,
-             ticket.priority, ticket.points, ticket.tags)
-        )
-        ticket_id = cursor.lastrowid
-        conn.commit()
+    supabase = get_supabase_client()
+    result = supabase.table("tickets").insert({
+        "title": ticket.title,
+        "description": ticket.description,
+        "status": ticket.status,
+        "priority": ticket.priority,
+        "points": ticket.points,
+        "tags": ticket.tags
+    }).execute()
+    
+    ticket_id = result.data[0]["id"] if result.data else None
     
     return APIResponse(
         success=True,
@@ -185,44 +146,31 @@ async def update_ticket(ticket_id: int, ticket: TicketUpdate):
     Only updates fields that are provided.
     Returns 404 if ticket not found.
     """
-    with connect() as conn:
-        # Check if ticket exists
-        existing = conn.execute(
-            "SELECT id FROM tickets WHERE id = ?",
-            (ticket_id,)
-        ).fetchone()
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Ticket not found")
-        
-        # Build dynamic update query
-        updates = []
-        params = []
-        
-        if ticket.title is not None:
-            updates.append("title = ?")
-            params.append(ticket.title)
-        if ticket.description is not None:
-            updates.append("description = ?")
-            params.append(ticket.description)
-        if ticket.status is not None:
-            updates.append("status = ?")
-            params.append(ticket.status)
-        if ticket.priority is not None:
-            updates.append("priority = ?")
-            params.append(ticket.priority)
-        if ticket.points is not None:
-            updates.append("points = ?")
-            params.append(ticket.points)
-        if ticket.tags is not None:
-            updates.append("tags = ?")
-            params.append(ticket.tags)
-        
-        if updates:
-            query = f"UPDATE tickets SET {', '.join(updates)} WHERE id = ?"
-            params.append(ticket_id)
-            conn.execute(query, tuple(params))
-            conn.commit()
+    supabase = get_supabase_client()
+    
+    # Check if ticket exists
+    existing = supabase.table("tickets").select("id").eq("id", ticket_id).execute()
+    
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    # Build update dict
+    updates = {}
+    if ticket.title is not None:
+        updates["title"] = ticket.title
+    if ticket.description is not None:
+        updates["description"] = ticket.description
+    if ticket.status is not None:
+        updates["status"] = ticket.status
+    if ticket.priority is not None:
+        updates["priority"] = ticket.priority
+    if ticket.points is not None:
+        updates["points"] = ticket.points
+    if ticket.tags is not None:
+        updates["tags"] = ticket.tags
+    
+    if updates:
+        supabase.table("tickets").update(updates).eq("id", ticket_id).execute()
     
     return APIResponse(
         success=True,
@@ -238,18 +186,15 @@ async def delete_ticket(ticket_id: int):
     
     Returns 204 No Content on success, 404 if ticket not found.
     """
-    with connect() as conn:
-        # Check if ticket exists
-        existing = conn.execute(
-            "SELECT id FROM tickets WHERE id = ?",
-            (ticket_id,)
-        ).fetchone()
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Ticket not found")
-        
-        conn.execute("DELETE FROM tickets WHERE id = ?", (ticket_id,))
-        conn.commit()
+    supabase = get_supabase_client()
+    
+    # Check if ticket exists
+    existing = supabase.table("tickets").select("id").eq("id", ticket_id).execute()
+    
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    
+    supabase.table("tickets").delete().eq("id", ticket_id).execute()
     
     return Response(status_code=204)
 
@@ -268,16 +213,13 @@ async def generate_ticket_summary(ticket_id: int):
     # Lazy import for backward compatibility
     from ...agents.ticket_agent import summarize_ticket_adapter
     
-    with connect() as conn:
-        row = conn.execute(
-            "SELECT * FROM tickets WHERE id = ?",
-            (ticket_id,)
-        ).fetchone()
+    supabase = get_supabase_client()
+    result = supabase.table("tickets").select("*").eq("id", ticket_id).execute()
     
-    if not row:
+    if not result.data:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    ticket = dict(row)
+    ticket = result.data[0]
     summary = await summarize_ticket_adapter(ticket)
     
     return APIResponse(
@@ -297,16 +239,13 @@ async def generate_ticket_plan(ticket_id: int):
     # Lazy import for backward compatibility
     from ...agents.ticket_agent import generate_plan_adapter
     
-    with connect() as conn:
-        row = conn.execute(
-            "SELECT * FROM tickets WHERE id = ?",
-            (ticket_id,)
-        ).fetchone()
+    supabase = get_supabase_client()
+    result = supabase.table("tickets").select("*").eq("id", ticket_id).execute()
     
-    if not row:
+    if not result.data:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    ticket = dict(row)
+    ticket = result.data[0]
     plan = await generate_plan_adapter(ticket)
     
     return APIResponse(
@@ -326,16 +265,13 @@ async def decompose_ticket(ticket_id: int):
     # Lazy import for backward compatibility
     from ...agents.ticket_agent import decompose_ticket_adapter
     
-    with connect() as conn:
-        row = conn.execute(
-            "SELECT * FROM tickets WHERE id = ?",
-            (ticket_id,)
-        ).fetchone()
+    supabase = get_supabase_client()
+    result = supabase.table("tickets").select("*").eq("id", ticket_id).execute()
     
-    if not row:
+    if not result.data:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    ticket = dict(row)
+    ticket = result.data[0]
     subtasks = await decompose_ticket_adapter(ticket)
     
     return APIResponse(

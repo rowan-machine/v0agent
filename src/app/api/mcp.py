@@ -4,7 +4,7 @@ from typing import Optional
 import json
 from ..mcp.registry import TOOL_REGISTRY
 from ..mcp.schemas import MCPCall
-from ..db import connect
+from ..infrastructure.supabase_client import get_supabase_client
 
 router = APIRouter()
 
@@ -43,17 +43,13 @@ def search_signals(request: SignalSearchRequest):
     query_lower = request.query.lower()
     signal_type = request.signal_type
     
-    with connect() as conn:
-        meetings = conn.execute(
-            """
-            SELECT id, meeting_name, meeting_date, signals_json
-            FROM meeting_summaries
-            WHERE signals_json IS NOT NULL AND signals_json != '{}'
-            ORDER BY COALESCE(meeting_date, created_at) DESC
-            LIMIT ?
-            """,
-            (request.limit,)
-        ).fetchall()
+    supabase = get_supabase_client()
+    response = supabase.table("meetings").select(
+        "id, meeting_name, meeting_date, signals"
+    ).not_.is_("signals", "null").neq("signals", "{}").order(
+        "meeting_date", desc=True, nullsfirst=False
+    ).limit(request.limit).execute()
+    meetings = response.data
     
     results = []
     
@@ -62,11 +58,11 @@ def search_signals(request: SignalSearchRequest):
         signal_types_to_search = [signal_type]
     
     for meeting in meetings:
-        if not meeting["signals_json"]:
+        if not meeting.get("signals_json"):
             continue
         
         try:
-            signals = json.loads(meeting["signals_json"])
+            signals = json.loads(meeting["signals_json"]) if isinstance(meeting["signals_json"], str) else meeting["signals_json"]
         except:
             continue
         

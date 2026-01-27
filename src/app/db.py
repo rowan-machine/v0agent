@@ -1,8 +1,54 @@
+"""
+DEPRECATED: This module is deprecated and should not be used.
+
+All database operations should use Supabase via the infrastructure module:
+    from .infrastructure.supabase_client import get_supabase_client
+    
+For testing, use Supabase test fixtures or mock the infrastructure layer.
+
+This module is kept only for backward compatibility with:
+- Legacy migration scripts
+- Test fixtures that haven't been migrated yet
+
+To fully disable SQLite and enforce Supabase-only mode, set:
+    DISABLE_SQLITE=1 or SUPABASE_ONLY=1
+
+Migration guide:
+    OLD: from app.db import connect
+         with connect() as conn:
+             conn.execute("SELECT * FROM table WHERE id = ?", (id,))
+             
+    NEW: from app.infrastructure.supabase_client import get_supabase_client
+         supabase = get_supabase_client()
+         result = supabase.table("table").select("*").eq("id", id).execute()
+"""
+
 import sqlite3
 import logging
 import traceback
+import os
+import warnings
 
 DB_PATH = "agent.db"
+
+# Environment variable to disable SQLite entirely (for Supabase-only mode)
+DISABLE_SQLITE = os.environ.get("DISABLE_SQLITE", "").lower() in ("1", "true", "yes")
+SUPABASE_ONLY = os.environ.get("SUPABASE_ONLY", "").lower() in ("1", "true", "yes")
+
+# If either flag is set, disable SQLite
+if SUPABASE_ONLY:
+    DISABLE_SQLITE = True
+
+_logger = logging.getLogger(__name__)
+
+def _emit_deprecation_warning(func_name: str):
+    """Emit a deprecation warning for SQLite usage."""
+    warnings.warn(
+        f"db.{func_name}() is deprecated. Use Supabase via get_supabase_client() instead. "
+        "Set DISABLE_SQLITE=1 or SUPABASE_ONLY=1 to enforce Supabase-only mode.",
+        DeprecationWarning,
+        stacklevel=3
+    )
 
 # Configure SQLite usage logging
 _sqlite_logger = logging.getLogger("sqlite_usage")
@@ -650,9 +696,58 @@ class _LoggingConnection:
 
 
 def connect():
+    """
+    DEPRECATED: Use get_supabase_client() instead.
+    
+    This function is kept for backward compatibility with tests and migration scripts.
+    Set DISABLE_SQLITE=1 to raise an error and enforce Supabase-only mode.
+    """
+    _emit_deprecation_warning("connect")
+    if DISABLE_SQLITE:
+        raise RuntimeError(
+            "SQLite is disabled (DISABLE_SQLITE=1 or SUPABASE_ONLY=1). "
+            "Use Supabase via get_supabase_client() instead."
+        )
+    if not os.path.exists(DB_PATH):
+        raise RuntimeError(f"SQLite database '{DB_PATH}' not found. Set DISABLE_SQLITE=1 for Supabase-only mode.")
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return _LoggingConnection(conn)
+
+
+def sqlite_available() -> bool:
+    """
+    DEPRECATED: Check if SQLite database is available.
+    
+    In Supabase-only mode, always returns False.
+    """
+    _emit_deprecation_warning("sqlite_available")
+    return not DISABLE_SQLITE and os.path.exists(DB_PATH)
+
+
+from contextlib import contextmanager
+
+@contextmanager
+def safe_connect():
+    """
+    Context manager that yields a connection if SQLite is available, else None.
+    Use like:
+        with safe_connect() as conn:
+            if conn:
+                # do SQLite stuff
+            else:
+                # fallback behavior
+    """
+    if not sqlite_available():
+        yield None
+    else:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        try:
+            yield _LoggingConnection(conn)
+        finally:
+            conn.close()
+
 
 def table_exists(conn, table_name: str) -> bool:
     """Check if a table exists in the database."""
@@ -663,6 +758,13 @@ def table_exists(conn, table_name: str) -> bool:
     return cursor.fetchone() is not None
 
 def init_db():
+    if DISABLE_SQLITE:
+        logging.getLogger(__name__).info("SQLite disabled - skipping init_db()")
+        return
+    if not os.path.exists(DB_PATH):
+        logging.getLogger(__name__).info(f"SQLite database '{DB_PATH}' not found - skipping init_db()")
+        return
+    
     with connect() as conn:
         conn.executescript(SCHEMA)
         

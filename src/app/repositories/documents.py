@@ -3,7 +3,7 @@
 Document Repository - Ports and Adapters
 
 Port: DocumentRepository (abstract interface)
-Adapters: SupabaseDocumentRepository, SQLiteDocumentRepository
+Adapters: SupabaseDocumentRepository
 """
 
 import logging
@@ -73,10 +73,12 @@ class SupabaseDocumentRepository(DocumentRepository):
             return []
         
         options = options or QueryOptions()
+        # Documents use document_date, not meeting_date
+        order_col = "document_date" if options.order_by == "meeting_date" else options.order_by
         
         try:
             query = self.client.table("documents").select("*")
-            query = query.order(options.order_by, desc=options.order_desc)
+            query = query.order(order_col, desc=options.order_desc)
             
             if options.offset:
                 query = query.range(options.offset, options.offset + options.limit - 1)
@@ -185,120 +187,3 @@ class SupabaseDocumentRepository(DocumentRepository):
                     break
         
         return results
-
-
-# =============================================================================
-# SQLITE ADAPTER
-# =============================================================================
-
-class SQLiteDocumentRepository(DocumentRepository):
-    """
-    SQLite adapter for document repository.
-    """
-    
-    def _get_connection(self):
-        """Get SQLite connection."""
-        from ..db import connect
-        return connect()
-    
-    def _format_row(self, row) -> Dict[str, Any]:
-        """Format SQLite row to standard document dict."""
-        return {
-            "id": row["id"],
-            "source": row["source"],
-            "content": row["content"],
-            "document_date": row.get("document_date"),
-            "created_at": row.get("created_at"),
-        }
-    
-    def get_all(self, options: Optional[QueryOptions] = None) -> List[Dict[str, Any]]:
-        """Get all documents from SQLite."""
-        options = options or QueryOptions()
-        order_dir = "DESC" if options.order_desc else "ASC"
-        
-        with self._get_connection() as conn:
-            rows = conn.execute(f"""
-                SELECT * FROM docs
-                ORDER BY {options.order_by} {order_dir}
-                LIMIT ? OFFSET ?
-            """, (options.limit, options.offset)).fetchall()
-            
-            return [self._format_row(row) for row in rows]
-    
-    def get_by_id(self, entity_id: str) -> Optional[Dict[str, Any]]:
-        """Get a single document by ID."""
-        with self._get_connection() as conn:
-            row = conn.execute(
-                "SELECT * FROM docs WHERE id = ?", (entity_id,)
-            ).fetchone()
-            
-            return self._format_row(row) if row else None
-    
-    def get_count(self, filters: Optional[Dict[str, Any]] = None) -> int:
-        """Get count of documents."""
-        with self._get_connection() as conn:
-            result = conn.execute("SELECT COUNT(*) FROM docs").fetchone()
-            return result[0] if result else 0
-    
-    def create(self, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Create a new document."""
-        with self._get_connection() as conn:
-            cursor = conn.execute("""
-                INSERT INTO docs (source, content, document_date)
-                VALUES (?, ?, ?)
-            """, (
-                data.get("source"),
-                data.get("content"),
-                data.get("document_date"),
-            ))
-            conn.commit()
-            return self.get_by_id(cursor.lastrowid)
-    
-    def update(self, entity_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Update an existing document."""
-        fields = []
-        values = []
-        for key in ["source", "content", "document_date"]:
-            if key in data:
-                fields.append(f"{key} = ?")
-                values.append(data[key])
-        
-        if not fields:
-            return self.get_by_id(entity_id)
-        
-        values.append(entity_id)
-        
-        with self._get_connection() as conn:
-            conn.execute(
-                f"UPDATE docs SET {', '.join(fields)} WHERE id = ?",
-                values
-            )
-            conn.commit()
-            return self.get_by_id(entity_id)
-    
-    def delete(self, entity_id: str) -> bool:
-        """Delete a document."""
-        with self._get_connection() as conn:
-            conn.execute("DELETE FROM docs WHERE id = ?", (entity_id,))
-            conn.commit()
-            return True
-    
-    def get_by_meeting_id(self, meeting_id: str) -> List[Dict[str, Any]]:
-        """Get all documents associated with a meeting - not supported in SQLite schema."""
-        # SQLite docs table doesn't have meeting_id foreign key
-        return []
-    
-    def search(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """Search documents by text content."""
-        like = f"%{query.lower()}%"
-        
-        with self._get_connection() as conn:
-            rows = conn.execute("""
-                SELECT * FROM docs
-                WHERE LOWER(content) LIKE ?
-                OR LOWER(source) LIKE ?
-                ORDER BY document_date DESC
-                LIMIT ?
-            """, (like, like, limit)).fetchall()
-            
-            return [self._format_row(row) for row in rows]

@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta
 import json
-from .db import connect
+from .infrastructure.supabase_client import get_supabase_client
 # llm.ask removed - signal extraction uses MeetingAnalyzerAgent (Checkpoint 2.4)
 
 # Import from new MeetingAnalyzer agent (Checkpoint 2.4)
@@ -51,55 +51,37 @@ def get_signals_by_type(signal_type: str, days: int = None, limit: int = 100):
         "ideas": "idea",
     }
     
-    # Build date filter
-    date_filter = ""
-    params = []
-    
+    supabase = get_supabase_client()
+
+    # Build query
+    query = supabase.table("meetings").select("id, meeting_name, meeting_date, signals").neq("signals", None).neq("signals", "{}")
+
     if days:
         cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
-        date_filter = "AND (meeting_date >= ? OR (meeting_date IS NULL AND created_at >= ?))"
-        params = [cutoff_date, cutoff_date]
-    
-    params.append(limit)
-    
-    with connect() as conn:
-        meetings = conn.execute(
-            f"""
-            SELECT id, meeting_name, meeting_date, signals_json
-            FROM meeting_summaries
-            WHERE signals_json IS NOT NULL AND signals_json != '{{}}'
-            {date_filter}
-            ORDER BY COALESCE(meeting_date, created_at) DESC
-            LIMIT ?
-            """,
-            tuple(params)
-        ).fetchall()
+        query = query.gte("meeting_date", cutoff_date)
 
-        meeting_ids = [m["id"] for m in meetings]
-        status_map = {}
-        if meeting_ids:
-            placeholders = ",".join(["?"] * len(meeting_ids))
-            status_rows = conn.execute(
-                f"""
-                SELECT meeting_id, signal_type, signal_text, status
-                FROM signal_status
-                WHERE meeting_id IN ({placeholders})
-                """,
-                tuple(meeting_ids)
-            ).fetchall()
-            for row in status_rows:
-                key = f"{row['meeting_id']}:{row['signal_type']}:{row['signal_text']}"
-                status_map[key] = row["status"]
-    
+    query = query.order("meeting_date", desc=True).limit(limit)
+    result = query.execute()
+    meetings = result.data or []
+
+    meeting_ids = [m["id"] for m in meetings]
+    status_map = {}
+    if meeting_ids:
+        status_result = supabase.table("signal_status").select("meeting_id, signal_type, signal_text, status").in_("meeting_id", meeting_ids).execute()
+        status_rows = status_result.data or []
+        for row in status_rows:
+            key = f"{row['meeting_id']}:{row['signal_type']}:{row['signal_text']}"
+            status_map[key] = row["status"]
+
     results = []
     total_signals = 0
-    
+
     for meeting in meetings:
-        if not meeting["signals_json"]:
+        if not meeting["signals"]:
             continue
-        
+
         try:
-            signals = json.loads(meeting["signals_json"])
+            signals = meeting["signals"] if isinstance(meeting["signals"], dict) else json.loads(meeting["signals"])
         except Exception:
             continue
         
@@ -230,99 +212,91 @@ async def extract_signals_from_document(request: Request):
     
     if not doc_id:
         return JSONResponse({"error": "document_id is required"}, status_code=400)
+
+    supabase = get_supabase_client()
+    doc_result = supabase.table("documents").select("id, source, content").eq("id", doc_id).single().execute()
+    doc = doc_result.data
     
-    with connect() as conn:
-        doc = conn.execute(
-            "SELECT id, source, content FROM docs WHERE id = ?",
-            (doc_id,)
-        ).fetchone()
+    if not doc:
+        return JSONResponse({"error": "Document not found"}, status_code=404)
+    
+    content = doc["content"]
+    source = doc["source"]
+    
+    # Truncate if too long
+    if len(content) > 15000:
+        content = content[:15000] + "\n\n[... truncated for processing ...]"
+    
+    try:
+        # Use MeetingAnalyzerAgent for signal extraction
+        agent = get_meeting_analyzer()
         
-        if not doc:
-            return JSONResponse({"error": "Document not found"}, status_code=404)
+        # First, try adaptive parsing to extract sections
+        parsed_sections = agent.parse_adaptive(content)
         
-        content = doc["content"]
-        source = doc["source"]
+        # Then extract signals from sections
+        signals_result = agent.extract_signals_from_sections(parsed_sections)
         
-        # Truncate if too long
-        if len(content) > 15000:
-            content = content[:15000] + "\n\n[... truncated for processing ...]"
+        # If parsing didn't yield many signals, use AI extraction
+        if agent._should_use_ai_extraction(signals_result):
+            ai_signals = await agent._extract_signals_with_ai(content, source)
+            # Merge with parsed signals
+            signals = agent._merge_signals(signals_result, ai_signals)
+        else:
+            signals = signals_result
         
-        try:
-            # Use MeetingAnalyzerAgent for signal extraction
-            agent = get_meeting_analyzer()
-            
-            # First, try adaptive parsing to extract sections
-            parsed_sections = agent.parse_adaptive(content)
-            
-            # Then extract signals from sections
-            signals_result = agent.extract_signals_from_sections(parsed_sections)
-            
-            # If parsing didn't yield many signals, use AI extraction
-            if agent._should_use_ai_extraction(signals_result):
-                ai_signals = await agent._extract_signals_with_ai(content, source)
-                # Merge with parsed signals
-                signals = agent._merge_signals(signals_result, ai_signals)
-            else:
-                signals = signals_result
-            
-            # Deduplicate
-            signals = agent._deduplicate_signals(signals)
-            
-            # Convert to expected format
-            extracted_signals = {
-                "decisions": signals.get("decisions", []),
-                "action_items": signals.get("action_items", []),
-                "blockers": signals.get("blockers", []),
-                "risks": signals.get("risks", []),
-                "ideas": signals.get("ideas", []),
-            }
-            
-            # Count extracted signals
-            total_extracted = sum(len(extracted_signals.get(k, [])) for k in ["decisions", "action_items", "blockers", "risks", "ideas"])
-            
-            # If meeting_id provided, merge with existing signals
-            if meeting_id:
-                meeting = conn.execute(
-                    "SELECT signals_json FROM meeting_summaries WHERE id = ?",
-                    (meeting_id,)
-                ).fetchone()
+        # Deduplicate
+        signals = agent._deduplicate_signals(signals)
+        
+        # Convert to expected format
+        extracted_signals = {
+            "decisions": signals.get("decisions", []),
+            "action_items": signals.get("action_items", []),
+            "blockers": signals.get("blockers", []),
+            "risks": signals.get("risks", []),
+            "ideas": signals.get("ideas", []),
+        }
+        
+        # Count extracted signals
+        total_extracted = sum(len(extracted_signals.get(k, [])) for k in ["decisions", "action_items", "blockers", "risks", "ideas"])
+        
+        # If meeting_id provided, merge with existing signals
+        if meeting_id:
+            meeting_result = supabase.table("meetings").select("signals").eq("id", meeting_id).single().execute()
+            meeting = meeting_result.data
+
+            if meeting and meeting.get("signals"):
+                existing = meeting["signals"] if isinstance(meeting["signals"], dict) else json.loads(meeting["signals"])
+                # Merge new signals (avoiding duplicates)
+                for key in ["decisions", "action_items", "blockers", "risks", "ideas"]:
+                    existing_items = existing.get(key, [])
+                    new_items = extracted_signals.get(key, [])
+                    for item in new_items:
+                        if item not in existing_items:
+                            existing_items.append(item)
+                    existing[key] = existing_items
+
+                # Update meeting with merged signals
+                supabase.table("meetings").update({"signals": existing}).eq("id", meeting_id).execute()
                 
-                if meeting and meeting["signals_json"]:
-                    existing = json.loads(meeting["signals_json"])
-                    # Merge new signals (avoiding duplicates)
-                    for key in ["decisions", "action_items", "blockers", "risks", "ideas"]:
-                        existing_items = existing.get(key, [])
-                        new_items = extracted_signals.get(key, [])
-                        for item in new_items:
-                            if item not in existing_items:
-                                existing_items.append(item)
-                        existing[key] = existing_items
-                    
-                    # Update meeting with merged signals
-                    conn.execute(
-                        "UPDATE meeting_summaries SET signals_json = ? WHERE id = ?",
-                        (json.dumps(existing), meeting_id)
-                    )
-                    conn.commit()
-                    
-                    return JSONResponse({
-                        "status": "ok",
-                        "action": "merged",
-                        "meeting_id": meeting_id,
-                        "new_signals": total_extracted,
-                        "signals": extracted_signals
-                    })
-            
-            return JSONResponse({
-                "status": "ok",
-                "action": "extracted",
-                "document_id": doc_id,
-                "total_signals": total_extracted,
-                "signals": extracted_signals
-            })
-            
-        except Exception as e:
-            return JSONResponse({"error": str(e)}, status_code=500)
+                return JSONResponse({
+                    "status": "ok",
+                    "action": "merged",
+                    "meeting_id": meeting_id,
+                    "new_signals": total_extracted,
+                    "signals": extracted_signals
+                })
+        
+        return JSONResponse({
+            "status": "ok",
+            "action": "extracted",
+            "document_id": doc_id,
+            "total_signals": total_extracted,
+            "signals": extracted_signals
+        })
+        
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @router.post("/api/signals/save-from-document")
@@ -339,70 +313,67 @@ async def save_signals_from_document(request: Request):
     if not doc_id or not signals:
         return JSONResponse({"error": "document_id and signals are required"}, status_code=400)
     
-    with connect() as conn:
-        # Get document info
-        doc = conn.execute(
-            "SELECT id, source, content, document_date FROM docs WHERE id = ?",
-            (doc_id,)
-        ).fetchone()
-        
-        if not doc:
-            return JSONResponse({"error": "Document not found"}, status_code=404)
-        
-        # Check if signals already saved for this document
-        existing = conn.execute(
-            "SELECT id FROM meeting_summaries WHERE source_document_id = ?",
-            (doc_id,)
-        ).fetchone()
-        
-        if existing:
-            # Update existing record
-            conn.execute(
-                """UPDATE meeting_summaries 
-                   SET signals_json = ?, updated_at = datetime('now')
-                   WHERE source_document_id = ?""",
-                (json.dumps(signals), doc_id)
-            )
-            conn.commit()
-            return JSONResponse({
-                "status": "ok",
-                "action": "updated",
-                "meeting_id": existing["id"]
-            })
-        
-        # Create new meeting record for document signals
-        meeting_name = f"[Document] {doc['source']}"
-        meeting_date = doc["document_date"] or datetime.now().strftime("%Y-%m-%d")
-        
-        # Count total signals
-        total_signals = sum(len(signals.get(k, [])) for k in ["decisions", "action_items", "blockers", "risks", "ideas"])
-        
-        # Generate a brief summary of the signals for synthesized_notes
-        signal_summary_parts = []
-        if signals.get("decisions"):
-            signal_summary_parts.append(f"{len(signals['decisions'])} decisions")
-        if signals.get("action_items"):
-            signal_summary_parts.append(f"{len(signals['action_items'])} action items")
-        if signals.get("blockers"):
-            signal_summary_parts.append(f"{len(signals['blockers'])} blockers")
-        if signals.get("risks"):
-            signal_summary_parts.append(f"{len(signals['risks'])} risks")
-        if signals.get("ideas"):
-            signal_summary_parts.append(f"{len(signals['ideas'])} ideas")
-        
-        synthesized_notes = f"Signals extracted from document: {', '.join(signal_summary_parts) if signal_summary_parts else 'none'}"
-        
-        cursor = conn.execute(
-            """INSERT INTO meeting_summaries 
-               (meeting_name, meeting_date, synthesized_notes, signals_json, source_document_id, created_at)
-               VALUES (?, ?, ?, ?, ?, datetime('now'))""",
-            (meeting_name, meeting_date, synthesized_notes, json.dumps(signals), doc_id)
-        )
-        conn.commit()
-        
+    supabase = get_supabase_client()
+    
+    # Get document info
+    doc_result = supabase.table("documents").select("id, source, content, document_date").eq("id", doc_id).single().execute()
+    doc = doc_result.data
+
+    if not doc:
+        return JSONResponse({"error": "Document not found"}, status_code=404)
+
+    # Check if signals already saved for this document
+    existing_result = supabase.table("meetings").select("id").eq("source_document_id", doc_id).execute()
+    existing = existing_result.data[0] if existing_result.data else None
+
+    if existing:
+        # Update existing record
+        supabase.table("meetings").update({
+            "signals": signals,
+            "updated_at": datetime.now().isoformat()
+        }).eq("source_document_id", doc_id).execute()
         return JSONResponse({
             "status": "ok",
-            "action": "created",
-            "meeting_id": cursor.lastrowid,
-            "total_signals": total_signals
+            "action": "updated",
+            "meeting_id": existing["id"]
         })
+    
+    # Create new meeting record for document signals
+    meeting_name = f"[Document] {doc['source']}"
+    meeting_date = doc.get("document_date") or datetime.now().strftime("%Y-%m-%d")
+    
+    # Count total signals
+    total_signals = sum(len(signals.get(k, [])) for k in ["decisions", "action_items", "blockers", "risks", "ideas"])
+    
+    # Generate a brief summary of the signals for synthesized_notes
+    signal_summary_parts = []
+    if signals.get("decisions"):
+        signal_summary_parts.append(f"{len(signals['decisions'])} decisions")
+    if signals.get("action_items"):
+        signal_summary_parts.append(f"{len(signals['action_items'])} action items")
+    if signals.get("blockers"):
+        signal_summary_parts.append(f"{len(signals['blockers'])} blockers")
+    if signals.get("risks"):
+        signal_summary_parts.append(f"{len(signals['risks'])} risks")
+    if signals.get("ideas"):
+        signal_summary_parts.append(f"{len(signals['ideas'])} ideas")
+    
+    synthesized_notes = f"Signals extracted from document: {', '.join(signal_summary_parts) if signal_summary_parts else 'none'}"
+    
+    insert_result = supabase.table("meetings").insert({
+        "meeting_name": meeting_name,
+        "meeting_date": meeting_date,
+        "synthesized_notes": synthesized_notes,
+        "signals": signals,
+        "source_document_id": doc_id,
+        "created_at": datetime.now().isoformat()
+    }).execute()
+    
+    new_id = insert_result.data[0]["id"] if insert_result.data else None
+    
+    return JSONResponse({
+        "status": "ok",
+        "action": "created",
+        "meeting_id": new_id,
+        "total_signals": total_signals
+    })

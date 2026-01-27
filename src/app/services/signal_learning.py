@@ -20,7 +20,6 @@ from datetime import datetime, timedelta
 import json
 import logging
 
-from ..db import connect
 from ..infrastructure.supabase_client import get_supabase_client as get_supabase
 
 logger = logging.getLogger(__name__)
@@ -55,46 +54,21 @@ class SignalLearningService:
         """
         supabase = get_supabase()
         if not supabase:
-            return self._get_feedback_summary_sqlite(days)
+            logger.warning("Supabase not available for feedback summary")
+            return self._empty_summary()
         
         return self._get_feedback_summary_supabase(supabase, days)
     
-    def _get_feedback_summary_sqlite(self, days: int) -> Dict[str, Any]:
-        """SQLite fallback for feedback summary."""
-        cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
-        
-        with connect() as conn:
-            # Get feedback counts by type and action
-            type_counts = conn.execute("""
-                SELECT 
-                    signal_type,
-                    feedback,
-                    COUNT(*) as count
-                FROM signal_feedback 
-                WHERE created_at >= ?
-                GROUP BY signal_type, feedback
-                ORDER BY count DESC
-            """, (cutoff_date,)).fetchall()
-            
-            # Get recently rejected signal texts for pattern learning
-            rejected = conn.execute("""
-                SELECT signal_type, signal_text 
-                FROM signal_feedback 
-                WHERE feedback = 'down' AND created_at >= ?
-                ORDER BY created_at DESC
-                LIMIT 50
-            """, (cutoff_date,)).fetchall()
-            
-            # Get highly approved signals for positive patterns
-            approved = conn.execute("""
-                SELECT signal_type, signal_text 
-                FROM signal_feedback 
-                WHERE feedback = 'up' AND created_at >= ?
-                ORDER BY created_at DESC
-                LIMIT 50
-            """, (cutoff_date,)).fetchall()
-        
-        return self._build_summary(type_counts, rejected, approved)
+    def _empty_summary(self) -> Dict[str, Any]:
+        """Return empty summary when no data available."""
+        return {
+            "by_type": {},
+            "total_feedback": 0,
+            "approval_rate": 0.0,
+            "rejection_rate": 0.0,
+            "rejected_patterns": [],
+            "approved_patterns": []
+        }
     
     def _get_feedback_summary_supabase(self, supabase, days: int) -> Dict[str, Any]:
         """Supabase implementation for feedback summary."""
@@ -141,7 +115,7 @@ class SignalLearningService:
         
         except Exception as e:
             logger.error(f"Failed to get feedback summary from Supabase: {e}")
-            return self._get_feedback_summary_sqlite(days)
+            return self._empty_summary()
     
     def _build_summary(
         self, 
@@ -366,31 +340,38 @@ class SignalLearningService:
         return None
     
     def _store_learning_sqlite(self, learning_context: str) -> Optional[str]:
-        """SQLite fallback for storing learning."""
+        """Supabase storage for learning (renamed from SQLite for compatibility)."""
         try:
-            with connect() as conn:
-                # Check for existing
-                existing = conn.execute(
-                    "SELECT id FROM ai_memory WHERE source_type = 'signal_learning'"
-                ).fetchone()
-                
-                if existing:
-                    conn.execute(
-                        "UPDATE ai_memory SET content = ?, updated_at = datetime('now') WHERE id = ?",
-                        (learning_context, existing["id"])
-                    )
-                    conn.commit()
-                    return str(existing["id"])
-                else:
-                    cursor = conn.execute("""
-                        INSERT INTO ai_memory (source_type, source_query, content, status, importance, tags)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, ("signal_learning", "Signal feedback patterns", learning_context, "approved", 8, "signal,learning,feedback"))
-                    conn.commit()
-                    return str(cursor.lastrowid)
+            supabase = get_supabase()
+            if not supabase:
+                logger.warning("Supabase not available for storing learning")
+                return None
+            
+            # Check for existing
+            existing_result = supabase.table("ai_memory").select("id").eq("source_type", "signal_learning").execute()
+            
+            if existing_result.data:
+                existing_id = existing_result.data[0]["id"]
+                supabase.table("ai_memory").update({
+                    "content": learning_context,
+                    "updated_at": "now()"
+                }).eq("id", existing_id).execute()
+                return str(existing_id)
+            else:
+                insert_result = supabase.table("ai_memory").insert({
+                    "source_type": "signal_learning",
+                    "source_query": "Signal feedback patterns",
+                    "content": learning_context,
+                    "status": "approved",
+                    "importance": 8,
+                    "tags": "signal,learning,feedback"
+                }).execute()
+                if insert_result.data:
+                    return str(insert_result.data[0]["id"])
+                return None
         
         except Exception as e:
-            logger.error(f"Failed to store signal learning in SQLite: {e}")
+            logger.error(f"Failed to store signal learning in Supabase: {e}")
             return None
     
     def get_signal_quality_hints(self, signal_type: str) -> Dict[str, Any]:

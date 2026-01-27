@@ -3,7 +3,7 @@ from datetime import datetime
 import re
 from .parser import parse_meeting_summary
 
-from ..db import connect
+from ..infrastructure.supabase_client import get_supabase_client
 from ..chat.turn import run_turn
 
 import json
@@ -76,20 +76,14 @@ def store_meeting_synthesis(args: Dict[str, Any]) -> Dict[str, Any]:
     parsed_sections = parse_meeting_summary(cleaned_notes)
     signals = extract_structured_signals(parsed_sections)
     
-    with connect() as conn:
-        cur = conn.execute(
-            """
-            INSERT INTO meeting_summaries (meeting_name, synthesized_notes, meeting_date, signals_json)
-            VALUES (?, ?, ?, ?)
-            """,
-            (
-                args["meeting_name"],
-                cleaned_notes,
-                args.get("meeting_date"),
-                json.dumps(signals),
-            ),
-        )
-        meeting_id = cur.lastrowid
+    supabase = get_supabase_client()
+    result = supabase.table("meetings").insert({
+        "meeting_name": args["meeting_name"],
+        "synthesized_notes": cleaned_notes,
+        "meeting_date": args.get("meeting_date"),
+        "signals": signals
+    }).execute()
+    meeting_id = result.data[0]["id"] if result.data else None
     
     # Generate embeddings
     from ..memory.embed import embed_text, EMBED_MODEL
@@ -108,19 +102,13 @@ def store_meeting_synthesis(args: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def store_doc(args: Dict[str, Any]) -> Dict[str, Any]:
-    with connect() as conn:
-        cur = conn.execute(
-            """
-            INSERT INTO docs (source, content, document_date)
-            VALUES (?, ?, ?)
-            """,
-            (
-                args["source"],
-                args["content"],
-                args.get("document_date"),
-            ),
-        )
-        doc_id = cur.lastrowid
+    supabase = get_supabase_client()
+    result = supabase.table("documents").insert({
+        "source": args["source"],
+        "content": args["content"],
+        "document_date": args.get("document_date")
+    }).execute()
+    doc_id = result.data[0]["id"] if result.data else None
     
     # Generate embeddings
     from ..memory.embed import embed_text, EMBED_MODEL
@@ -189,22 +177,22 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
             }
     
     # Fallback: check by name + date (for non-Pocket imports)
-    with connect() as conn:
-        existing = conn.execute(
-            """
-            SELECT id FROM meeting_summaries 
-            WHERE meeting_name = ? AND (meeting_date = ? OR (meeting_date IS NULL AND ? IS NULL))
-            """,
-            (meeting_name, meeting_date, meeting_date)
-        ).fetchone()
-        
-        if existing:
-            return {
-                "status": "skipped",
-                "reason": "duplicate",
-                "existing_meeting_id": existing["id"],
-                "message": f"Meeting '{meeting_name}' on {meeting_date or 'no date'} already exists"
-            }
+    supabase = get_supabase_client()
+    result = supabase.table("meetings").select("id").eq("meeting_name", meeting_name).execute()
+    # Filter by date in code since NULL handling is tricky in Supabase
+    existing_meetings = result.data or []
+    for existing in existing_meetings:
+        # Check if dates match (both None or equal)
+        existing_check = supabase.table("meetings").select("id, meeting_date").eq("id", existing["id"]).execute()
+        if existing_check.data:
+            existing_date = existing_check.data[0].get("meeting_date")
+            if existing_date == meeting_date or (existing_date is None and meeting_date is None):
+                return {
+                    "status": "skipped",
+                    "reason": "duplicate",
+                    "existing_meeting_id": existing["id"],
+                    "message": f"Meeting '{meeting_name}' on {meeting_date or 'no date'} already exists"
+                }
 
     # -----------------------------
     # 1. Clean the text
@@ -278,69 +266,10 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
         })
         supabase_pocket_id = pocket_doc.get("id") if pocket_doc else None
     
-    # ----- 5b. Insert into SQLite (legacy, for backward compat) -----
-    with connect() as conn:
-
-        # ---- Insert meeting synthesis + signals (include raw_text and pocket_ai_summary)
-        cur = conn.execute(
-            """
-            INSERT INTO meeting_summaries
-                (meeting_name, synthesized_notes, meeting_date, signals_json, raw_text, pocket_ai_summary, pocket_template_type, pocket_mind_map)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                meeting_name,
-                synthesized_notes,
-                meeting_date,
-                json.dumps(signals),
-                transcript_text or "",
-                pocket_ai_summary.strip() if pocket_ai_summary else "",
-                pocket_template,
-                pocket_mind_map.strip() if pocket_mind_map else "",
-            ),
-        )
-
-        meeting_id = cur.lastrowid
-
-        # ---- Insert transcript as document (if provided)
-        transcript_id = None
-        if transcript_text:
-            cur = conn.execute(
-                """
-                INSERT INTO docs
-                    (meeting_id, source, content, document_date)
-                VALUES (?, ?, ?, ?)
-                """,
-                (
-                    meeting_id,
-                    f"Transcript: {meeting_name}",
-                    transcript_text,
-                    meeting_date,
-                ),
-            )
-            transcript_id = cur.lastrowid
-        
-        # ---- Insert Pocket AI summary as document (if provided)
-        pocket_summary_id = None
-        if pocket_ai_summary and pocket_ai_summary.strip():
-            # Detect Pocket template type from content
-            pocket_template = _detect_pocket_template(pocket_ai_summary)
-            pocket_source = f"Pocket Summary ({pocket_template}): {meeting_name}"
-            
-            cur = conn.execute(
-                """
-                INSERT INTO docs
-                    (meeting_id, source, content, document_date)
-                VALUES (?, ?, ?, ?)
-                """,
-                (
-                    meeting_id,
-                    pocket_source,
-                    pocket_ai_summary.strip(),
-                    meeting_date,
-                ),
-            )
-            pocket_summary_id = cur.lastrowid
+    # ----- 5b. Use Supabase IDs for embeddings (no SQLite dual-write) -----
+    meeting_id = supabase_meeting_id
+    transcript_id = supabase_transcript_id
+    pocket_summary_id = supabase_pocket_id
 
     # -----------------------------
     # 6. Generate embeddings immediately
@@ -368,12 +297,11 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
     # -----------------------------
     # 7. Return structured response
     # -----------------------------
-    # Prefer Supabase IDs if available (primary), fall back to SQLite IDs
     return {
         "status": "ok",
-        "meeting_id": supabase_meeting_id or meeting_id,
-        "transcript_id": supabase_transcript_id or transcript_id,
-        "pocket_summary_id": supabase_pocket_id or pocket_summary_id,
+        "meeting_id": supabase_meeting_id,
+        "transcript_id": supabase_transcript_id,
+        "pocket_summary_id": supabase_pocket_id,
         "embedded": True,
         "signals_extracted": {
             "decisions": len(signals.get("decisions", [])),
@@ -382,9 +310,6 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
             "risks": len(signals.get("risks", [])),
             "ideas": len(signals.get("ideas", [])),
         },
-        # Include both IDs for debugging
-        "_sqlite_meeting_id": meeting_id,
-        "_supabase_meeting_id": supabase_meeting_id,
     }
 
 
@@ -405,26 +330,17 @@ def collect_meeting_signals(args: Dict[str, Any]) -> Dict[str, Any]:
             "error": f"Invalid signal_type. Must be one of: {', '.join(valid_types)}"
         }
     
-    with connect() as conn:
-        meetings = conn.execute(
-            """
-            SELECT id, meeting_name, meeting_date, signals_json
-            FROM meeting_summaries
-            WHERE signals_json IS NOT NULL
-            ORDER BY COALESCE(meeting_date, created_at) DESC
-            LIMIT ?
-            """,
-            (limit,)
-        ).fetchall()
-    
+    supabase = get_supabase_client()
+    result = supabase.table("meetings").select("id, meeting_name, meeting_date, signals").neq("signals", None).order("meeting_date", desc=True).limit(limit).execute()
+    meetings = result.data or []
+
     results = []
-    
+
     for meeting in meetings:
-        if not meeting["signals_json"]:
+        if not meeting.get("signals"):
             continue
-            
-        signals = json.loads(meeting["signals_json"])
-        
+
+        signals = meeting["signals"] if isinstance(meeting["signals"], dict) else json.loads(meeting["signals"])
         if signal_type == "all":
             # Return all signal types
             meeting_signals = {
@@ -475,21 +391,16 @@ def get_meeting_signals(args: Dict[str, Any]) -> Dict[str, Any]:
     if not meeting_id:
         return {"error": "meeting_id is required"}
     
-    with connect() as conn:
-        meeting = conn.execute(
-            """
-            SELECT id, meeting_name, meeting_date, signals_json, synthesized_notes
-            FROM meeting_summaries
-            WHERE id = ?
-            """,
-            (meeting_id,)
-        ).fetchone()
-    
-    if not meeting:
+    supabase = get_supabase_client()
+    result = supabase.table("meetings").select("id, meeting_name, meeting_date, signals, synthesized_notes").eq("id", meeting_id).execute()
+    meetings = result.data or []
+
+    if not meetings:
         return {"error": f"Meeting {meeting_id} not found"}
-    
-    signals = json.loads(meeting["signals_json"]) if meeting["signals_json"] else None
-    
+
+    meeting = meetings[0]
+    signals_data = meeting.get("signals")
+    signals = signals_data if isinstance(signals_data, dict) else json.loads(signals_data) if signals_data else None
     return {
         "meeting_id": meeting["id"],
         "meeting_name": meeting["meeting_name"],
@@ -510,43 +421,41 @@ def update_meeting_signals(args: Dict[str, Any]) -> Dict[str, Any]:
     meeting_id = args.get("meeting_id")
     force = args.get("force", False)
     
-    with connect() as conn:
-        if meeting_id:
-            # Update specific meeting
-            query = "SELECT id, synthesized_notes, signals_json FROM meeting_summaries WHERE id = ?"
-            params = (meeting_id,)
+    supabase = get_supabase_client()
+    if meeting_id:
+        # Update specific meeting
+        result = supabase.table("meetings").select("id, synthesized_notes, signals").eq("id", meeting_id).execute()
+    else:
+        # Update all meetings
+        if force:
+            result = supabase.table("meetings").select("id, synthesized_notes, signals").execute()
         else:
-            # Update all meetings
-            if force:
-                query = "SELECT id, synthesized_notes, signals_json FROM meeting_summaries"
-            else:
-                query = "SELECT id, synthesized_notes, signals_json FROM meeting_summaries WHERE signals_json IS NULL OR signals_json = '{}' OR signals_json = ''"
-            params = ()
+            result = supabase.table("meetings").select("id, synthesized_notes, signals").or_("signals.is.null,signals.eq.{},signals.eq.").execute()
+    
+    meetings = result.data or []
+    
+    if not meetings:
+        return {"status": "ok", "updated": 0, "message": "No meetings found to update"}
+    
+    updated_count = 0
+    for meeting in meetings:
+        # Clean and re-parse
+        cleaned_notes = clean_meeting_text(meeting.get("synthesized_notes") or "")
+        parsed_sections = parse_meeting_summary(cleaned_notes)
+        signals = extract_structured_signals(parsed_sections)
         
-        meetings = conn.execute(query, params).fetchall()
-        
-        if not meetings:
-            return {"status": "ok", "updated": 0, "message": "No meetings found to update"}
-        
-        updated_count = 0
-        for meeting in meetings:
-            # Clean and re-parse
-            cleaned_notes = clean_meeting_text(meeting["synthesized_notes"])
-            parsed_sections = parse_meeting_summary(cleaned_notes)
-            signals = extract_structured_signals(parsed_sections)
-            
-            # Update database
-            conn.execute(
-                "UPDATE meeting_summaries SET signals_json = ?, synthesized_notes = ? WHERE id = ?",
-                (json.dumps(signals), cleaned_notes, meeting["id"])
-            )
-            updated_count += 1
-        
-        return {
-            "status": "ok",
-            "updated": updated_count,
-            "message": f"Successfully updated {updated_count} meeting(s)"
-        }
+        # Update database
+        supabase.table("meetings").update({
+            "signals": signals,
+            "synthesized_notes": cleaned_notes
+        }).eq("id", meeting["id"]).execute()
+        updated_count += 1
+    
+    return {
+        "status": "ok",
+        "updated": updated_count,
+        "message": f"Successfully updated {updated_count} meeting(s)"
+    }
 
 
 def export_meeting_signals(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -568,40 +477,28 @@ def export_meeting_signals(args: Dict[str, Any]) -> Dict[str, Any]:
     output_format = args.get("format", "full")
     
     # Build query with date filters
-    where_clauses = ["signals_json IS NOT NULL", "signals_json != '{}'"]
-    params = []
+    supabase = get_supabase_client()
+    query = supabase.table("meetings").select("id, meeting_name, meeting_date, signals").neq("signals", None).neq("signals", "{}")
     
     if start_date:
-        where_clauses.append("meeting_date >= ?")
-        params.append(start_date)
+        query = query.gte("meeting_date", start_date)
     if end_date:
-        where_clauses.append("meeting_date <= ?")
-        params.append(end_date)
+        query = query.lte("meeting_date", end_date)
     
-    params.append(limit)
-    
-    with connect() as conn:
-        meetings = conn.execute(
-            f"""
-            SELECT id, meeting_name, meeting_date, signals_json
-            FROM meeting_summaries
-            WHERE {' AND '.join(where_clauses)}
-            ORDER BY COALESCE(meeting_date, created_at) DESC
-            LIMIT ?
-            """,
-            tuple(params)
-        ).fetchall()
+    result = query.order("meeting_date", desc=True).limit(limit).execute()
+    meetings = result.data or []
     
     # Aggregate signals
     aggregated = {stype: [] for stype in signal_types}
     meeting_exports = []
     
     for meeting in meetings:
-        if not meeting["signals_json"]:
+        if not meeting["signals"]:
             continue
         
         try:
-            signals = json.loads(meeting["signals_json"])
+            signals_data = meeting.get("signals")
+            signals = signals_data if isinstance(signals_data, dict) else json.loads(signals_data)
         except:
             continue
         

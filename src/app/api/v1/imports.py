@@ -16,7 +16,7 @@ from datetime import datetime
 import json
 import logging
 
-from ...db import connect
+from ...infrastructure.supabase_client import get_supabase_client
 from ...mcp.parser import parse_meeting_summary
 from ...mcp.extract import extract_structured_signals
 from ...mcp.cleaner import clean_meeting_text
@@ -108,7 +108,7 @@ def infer_meeting_name_from_content(text: str, filename: str) -> str:
 
 
 def record_import_history(
-    conn,
+    supabase,
     filename: str,
     file_type: str,
     meeting_id: Optional[int] = None,
@@ -116,11 +116,14 @@ def record_import_history(
     error_message: Optional[str] = None
 ) -> int:
     """Record an import attempt in the import_history table."""
-    cursor = conn.execute("""
-        INSERT INTO import_history (filename, file_type, meeting_id, status, error_message)
-        VALUES (?, ?, ?, ?, ?)
-    """, (filename, file_type, meeting_id, status, error_message))
-    return cursor.lastrowid
+    result = supabase.table("import_history").insert({
+        "filename": filename,
+        "file_type": file_type,
+        "meeting_id": meeting_id,
+        "status": status,
+        "error_message": error_message
+    }).execute()
+    return result.data[0]["id"] if result.data else None
 
 
 # ============== API Endpoints ==============
@@ -190,42 +193,45 @@ async def import_transcript(
     
     # Create meeting and extract signals
     try:
-        with connect() as conn:
-            # Record import attempt
-            import_id = record_import_history(conn, filename, file_ext, status="processing")
+        supabase = get_supabase_client()
+        
+        # Record import attempt
+        import_id = record_import_history(supabase, filename, file_ext, status="processing")
+        
+        # Insert meeting
+        result = supabase.table("meetings").insert({
+            "meeting_name": meeting_name,
+            "synthesized_notes": text,
+            "meeting_date": meeting_date,
+            "raw_text": text,
+            "import_source": "markdown_upload",
+            "source_url": source_url
+        }).execute()
+        
+        meeting_id = result.data[0]["id"] if result.data else None
+        
+        # Extract signals using the proper pipeline: clean -> parse -> extract
+        try:
+            cleaned_text = clean_meeting_text(text)
+            parsed_sections = parse_meeting_summary(cleaned_text)
+            signals = extract_structured_signals(parsed_sections)
+            signal_count = sum(len(v) for v in signals.values() if isinstance(v, list))
             
-            # Insert meeting
-            cursor = conn.execute("""
-                INSERT INTO meeting_summaries 
-                (meeting_name, synthesized_notes, meeting_date, raw_text, import_source, source_url)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (meeting_name, text, meeting_date, text, 'markdown_upload', source_url))
-            
-            meeting_id = cursor.lastrowid
-            
-            # Extract signals using the proper pipeline: clean -> parse -> extract
-            try:
-                cleaned_text = clean_meeting_text(text)
-                parsed_sections = parse_meeting_summary(cleaned_text)
-                signals = extract_structured_signals(parsed_sections)
-                signal_count = sum(len(v) for v in signals.values() if isinstance(v, list))
-                
-                # Store signals as JSON
-                conn.execute("""
-                    UPDATE meeting_summaries SET signals_json = ? WHERE id = ?
-                """, (json.dumps(signals), meeting_id))
-            except Exception as e:
-                logger.warning(f"Signal extraction failed for import: {e}")
-                signals = {}
-                signal_count = 0
-                warnings.append(f"Signal extraction failed: {str(e)}")
+            # Store signals as JSON
+            supabase.table("meetings").update({
+                "signals": signals
+            }).eq("id", meeting_id).execute()
+        except Exception as e:
+            logger.warning(f"Signal extraction failed for import: {e}")
+            signals = {}
+            signal_count = 0
+            warnings.append(f"Signal extraction failed: {str(e)}")
             
             # Update import history with success
-            conn.execute("""
-                UPDATE import_history SET status = 'completed', meeting_id = ? WHERE id = ?
-            """, (meeting_id, import_id))
-            
-            conn.commit()
+            supabase.table("import_history").update({
+                "status": "completed",
+                "meeting_id": meeting_id
+            }).eq("id", import_id).execute()
             
             logger.info(f"Imported meeting '{meeting_name}' (id={meeting_id}) with {signal_count} signals from {filename}")
             
@@ -242,12 +248,11 @@ async def import_transcript(
         logger.error(f"Import failed for {filename}: {e}")
         # Try to record failure
         try:
-            with connect() as conn:
-                conn.execute("""
-                    UPDATE import_history SET status = 'failed', error_message = ? 
-                    WHERE filename = ? AND status = 'processing'
-                """, (str(e), filename))
-                conn.commit()
+            supabase = get_supabase_client()
+            supabase.table("import_history").update({
+                "status": "failed",
+                "error_message": str(e)
+            }).eq("filename", filename).eq("status", "processing").execute()
         except:
             pass
         raise HTTPException(status_code=500, detail=f"Import failed: {str(e)}")
@@ -265,18 +270,15 @@ async def get_import_history(
     - limit: Maximum number of records to return (default 50)
     - status: Filter by status ('completed', 'failed', 'processing')
     """
-    with connect() as conn:
-        query = "SELECT * FROM import_history"
-        params = []
-        
-        if status:
-            query += " WHERE status = ?"
-            params.append(status)
-        
-        query += " ORDER BY created_at DESC LIMIT ?"
-        params.append(limit)
-        
-        rows = conn.execute(query, tuple(params)).fetchall()
+    supabase = get_supabase_client()
+    
+    query = supabase.table("import_history").select("*")
+    
+    if status:
+        query = query.eq("status", status)
+    
+    result = query.order("created_at", desc=True).limit(limit).execute()
+    rows = result.data or []
     
     return [
         ImportHistoryItem(
@@ -299,11 +301,13 @@ async def delete_import_record(import_id: int):
     
     Note: This does NOT delete the associated meeting.
     """
-    with connect() as conn:
-        result = conn.execute("DELETE FROM import_history WHERE id = ?", (import_id,))
-        if result.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Import record not found")
-        conn.commit()
+    supabase = get_supabase_client()
+    
+    existing = supabase.table("import_history").select("id").eq("id", import_id).execute()
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Import record not found")
+    
+    supabase.table("import_history").delete().eq("id", import_id).execute()
     
     return {"message": "Import record deleted", "id": import_id}
 
@@ -408,7 +412,7 @@ def merge_signals_holistically(existing_signals: dict, new_signals: dict) -> tup
 
 
 def add_document_to_meeting(
-    conn,
+    supabase,
     meeting_id: int,
     doc_type: str,
     source: str,
@@ -427,23 +431,19 @@ def add_document_to_meeting(
     signals, signal_count = extract_signals_from_content(content)
     
     # Insert document
-    cursor = conn.execute("""
-        INSERT INTO meeting_documents 
-        (meeting_id, doc_type, source, content, format, signals_json, file_path, metadata_json, is_primary)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        meeting_id,
-        doc_type,
-        source,
-        content,
-        format,
-        json.dumps(signals) if signals else None,
-        file_path,
-        json.dumps(metadata) if metadata else None,
-        1 if is_primary else 0
-    ))
+    result = supabase.table("meeting_documents").insert({
+        "meeting_id": meeting_id,
+        "doc_type": doc_type,
+        "source": source,
+        "content": content,
+        "format": format,
+        "signals_json": json.dumps(signals) if signals else None,
+        "file_path": file_path,
+        "metadata_json": json.dumps(metadata) if metadata else None,
+        "is_primary": 1 if is_primary else 0
+    }).execute()
     
-    document_id = cursor.lastrowid
+    document_id = result.data[0]["id"] if result.data else None
     
     return MeetingDocumentResult(
         document_id=document_id,
@@ -490,139 +490,136 @@ async def amend_meeting_with_pocket(
     documents_added = []
     
     # Verify meeting exists
-    with connect() as conn:
-        meeting = conn.execute(
-            "SELECT id, meeting_name, signals_json FROM meeting_summaries WHERE id = ?",
-            (meeting_id,)
-        ).fetchone()
+    supabase = get_supabase_client()
+    
+    meeting_result = supabase.table("meetings").select(
+        "id, meeting_name, signals"
+    ).eq("id", meeting_id).execute()
+
+    if not meeting_result.data:
+        raise HTTPException(status_code=404, detail=f"Meeting {meeting_id} not found")
+
+    meeting = meeting_result.data[0]
+    meeting_name = meeting['meeting_name']
+    existing_signals = meeting['signals'] or {}
+    if isinstance(existing_signals, str):
+        existing_signals = json.loads(existing_signals)
+    
+    # Process transcript (text or file)
+    transcript_content = None
+    transcript_format = 'txt'
+    
+    if transcript_file:
+        # Read transcript file
+        file_ext = transcript_file.filename.split('.')[-1].lower() if '.' in transcript_file.filename else ''
+        if file_ext not in ALLOWED_EXTENSIONS:
+            warnings.append(f"Transcript file type .{file_ext} not supported, skipping")
+        else:
+            content_bytes = await transcript_file.read()
+            try:
+                transcript_content = extract_markdown_text(content_bytes)
+                transcript_format = file_ext or 'txt'
+            except ValueError as e:
+                warnings.append(f"Could not read transcript file: {e}")
+    elif transcript:
+        transcript_content = transcript.strip()
+    
+    # Process summary (text or file)
+    summary_content = None
+    summary_format = 'txt'
+    
+    if summary_file:
+        file_ext = summary_file.filename.split('.')[-1].lower() if '.' in summary_file.filename else ''
         
-        if not meeting:
-            raise HTTPException(status_code=404, detail=f"Meeting {meeting_id} not found")
+        # For F1b, we support more formats for summaries
+        summary_allowed = {'md', 'markdown', 'txt', 'text'}  # PDF/DOCX support deferred
         
-        meeting_name = meeting['meeting_name']
-        existing_signals = json.loads(meeting['signals_json'] or '{}')
-        
-        # Process transcript (text or file)
-        transcript_content = None
-        transcript_format = 'txt'
-        
-        if transcript_file:
-            # Read transcript file
-            file_ext = transcript_file.filename.split('.')[-1].lower() if '.' in transcript_file.filename else ''
-            if file_ext not in ALLOWED_EXTENSIONS:
-                warnings.append(f"Transcript file type .{file_ext} not supported, skipping")
+        if file_ext not in summary_allowed:
+            if file_ext in {'pdf', 'docx'}:
+                warnings.append(f"PDF/DOCX summary support coming soon, skipping .{file_ext} file")
             else:
-                content_bytes = await transcript_file.read()
-                try:
-                    transcript_content = extract_markdown_text(content_bytes)
-                    transcript_format = file_ext or 'txt'
-                except ValueError as e:
-                    warnings.append(f"Could not read transcript file: {e}")
-        elif transcript:
-            transcript_content = transcript.strip()
-        
-        # Process summary (text or file)
-        summary_content = None
-        summary_format = 'txt'
-        
-        if summary_file:
-            file_ext = summary_file.filename.split('.')[-1].lower() if '.' in summary_file.filename else ''
-            
-            # For F1b, we support more formats for summaries
-            summary_allowed = {'md', 'markdown', 'txt', 'text'}  # PDF/DOCX support deferred
-            
-            if file_ext not in summary_allowed:
-                if file_ext in {'pdf', 'docx'}:
-                    warnings.append(f"PDF/DOCX summary support coming soon, skipping .{file_ext} file")
-                else:
-                    warnings.append(f"Summary file type .{file_ext} not supported, skipping")
-            else:
-                content_bytes = await summary_file.read()
-                try:
-                    summary_content = extract_markdown_text(content_bytes)
-                    summary_format = file_ext or 'txt'
-                except ValueError as e:
-                    warnings.append(f"Could not read summary file: {e}")
-        elif summary:
-            summary_content = summary.strip()
-        
-        # Require at least one document
-        if not transcript_content and not summary_content:
-            raise HTTPException(
-                status_code=400,
-                detail="At least one of transcript or summary (text or file) must be provided"
-            )
-        
-        # Check if this is the first document from this source
-        existing_docs = conn.execute(
-            "SELECT doc_type FROM meeting_documents WHERE meeting_id = ? AND source = ?",
-            (meeting_id, source)
-        ).fetchall()
-        existing_types = {row['doc_type'] for row in existing_docs}
-        
-        # Add transcript if provided
-        if transcript_content:
-            is_primary = 'transcript' not in existing_types
-            doc_result = add_document_to_meeting(
-                conn, meeting_id, 'transcript', source, transcript_content,
-                format=transcript_format, is_primary=is_primary
-            )
-            documents_added.append(doc_result)
-            
-            # Also update raw_text if this is primary
-            if is_primary:
-                conn.execute(
-                    "UPDATE meeting_summaries SET raw_text = ? WHERE id = ?",
-                    (transcript_content, meeting_id)
-                )
-        
-        # Add summary if provided
-        if summary_content:
-            is_primary = 'summary' not in existing_types
-            doc_result = add_document_to_meeting(
-                conn, meeting_id, 'summary', source, summary_content,
-                format=summary_format, is_primary=is_primary
-            )
-            documents_added.append(doc_result)
-        
-        # Merge signals holistically from all summaries
-        all_summary_signals = [existing_signals]
-        for doc in documents_added:
-            if doc.doc_type == 'summary' and doc.signal_count > 0:
-                # Get the signals we just extracted
-                doc_row = conn.execute(
-                    "SELECT signals_json FROM meeting_documents WHERE id = ?",
-                    (doc.document_id,)
-                ).fetchone()
-                if doc_row and doc_row['signals_json']:
-                    all_summary_signals.append(json.loads(doc_row['signals_json']))
-        
-        # Merge all signals
-        merged_signals = existing_signals
-        total_merged = 0
-        for new_signals in all_summary_signals[1:]:
-            merged_signals, merged_count = merge_signals_holistically(merged_signals, new_signals)
-            total_merged += merged_count
-        
-        # Update meeting with merged signals
-        total_signal_count = sum(len(v) for v in merged_signals.values() if isinstance(v, list))
-        conn.execute(
-            "UPDATE meeting_summaries SET signals_json = ? WHERE id = ?",
-            (json.dumps(merged_signals), meeting_id)
+                warnings.append(f"Summary file type .{file_ext} not supported, skipping")
+        else:
+            content_bytes = await summary_file.read()
+            try:
+                summary_content = extract_markdown_text(content_bytes)
+                summary_format = file_ext or 'txt'
+            except ValueError as e:
+                warnings.append(f"Could not read summary file: {e}")
+    elif summary:
+        summary_content = summary.strip()
+    
+    # Require at least one document
+    if not transcript_content and not summary_content:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one of transcript or summary (text or file) must be provided"
         )
-        
-        conn.commit()
-        
-        logger.info(f"Amended meeting '{meeting_name}' (id={meeting_id}) with {len(documents_added)} documents from {source}")
-        
-        return AmendMeetingResult(
-            meeting_id=meeting_id,
-            meeting_name=meeting_name,
-            documents_added=documents_added,
-            total_signals_extracted=total_signal_count,
-            holistic_signals_merged=total_merged,
-            warnings=warnings
+    
+    # Check if this is the first document from this source
+    existing_docs = supabase.table("meeting_documents").select("doc_type").eq(
+        "meeting_id", meeting_id
+    ).eq("source", source).execute()
+    existing_types = {row['doc_type'] for row in (existing_docs.data or [])}
+    
+    # Add transcript if provided
+    if transcript_content:
+        is_primary = 'transcript' not in existing_types
+        doc_result = add_document_to_meeting(
+            supabase, meeting_id, 'transcript', source, transcript_content,
+            format=transcript_format, is_primary=is_primary
         )
+        documents_added.append(doc_result)
+        
+        # Also update raw_text if this is primary
+        if is_primary:
+            supabase.table("meetings").update({
+                "raw_text": transcript_content
+            }).eq("id", meeting_id).execute()
+    
+    # Add summary if provided
+    if summary_content:
+        is_primary = 'summary' not in existing_types
+        doc_result = add_document_to_meeting(
+            supabase, meeting_id, 'summary', source, summary_content,
+            format=summary_format, is_primary=is_primary
+        )
+        documents_added.append(doc_result)
+    
+    # Merge signals holistically from all summaries
+    all_summary_signals = [existing_signals]
+    for doc in documents_added:
+        if doc.doc_type == 'summary' and doc.signal_count > 0:
+            # Get the signals we just extracted
+            doc_row = supabase.table("meeting_documents").select("signals_json").eq(
+                "id", doc.document_id
+            ).execute()
+            if doc_row.data and doc_row.data[0].get('signals_json'):
+                all_summary_signals.append(json.loads(doc_row.data[0]['signals_json']))
+    
+    # Merge all signals
+    merged_signals = existing_signals
+    total_merged = 0
+    for new_signals in all_summary_signals[1:]:
+        merged_signals, merged_count = merge_signals_holistically(merged_signals, new_signals)
+        total_merged += merged_count
+    
+    # Update meeting with merged signals
+    total_signal_count = sum(len(v) for v in merged_signals.values() if isinstance(v, list))
+    supabase.table("meetings").update({
+        "signals": merged_signals
+    }).eq("id", meeting_id).execute()
+    
+    logger.info(f"Amended meeting '{meeting_name}' (id={meeting_id}) with {len(documents_added)} documents from {source}")
+    
+    return AmendMeetingResult(
+        meeting_id=meeting_id,
+        meeting_name=meeting_name,
+        documents_added=documents_added,
+        total_signals_extracted=total_signal_count,
+        holistic_signals_merged=total_merged,
+        warnings=warnings
+    )
 
 
 @router.get("/meetings/{meeting_id}/documents")
@@ -630,34 +627,28 @@ async def list_meeting_documents(meeting_id: int):
     """
     List all documents (transcripts and summaries) linked to a meeting.
     """
-    with connect() as conn:
-        meeting = conn.execute(
-            "SELECT id FROM meeting_summaries WHERE id = ?",
-            (meeting_id,)
-        ).fetchone()
-        
-        if not meeting:
-            raise HTTPException(status_code=404, detail=f"Meeting {meeting_id} not found")
-        
-        rows = conn.execute("""
-            SELECT id, doc_type, source, LENGTH(content) as content_length, 
-                   format, is_primary, created_at
-            FROM meeting_documents
-            WHERE meeting_id = ?
-            ORDER BY created_at
-        """, (meeting_id,)).fetchall()
+    supabase = get_supabase_client()
+    
+    meeting = supabase.table("meetings").select("id").eq("id", meeting_id).execute()
+    
+    if not meeting.data:
+        raise HTTPException(status_code=404, detail=f"Meeting {meeting_id} not found")
+    
+    rows = supabase.table("meeting_documents").select(
+        "id, doc_type, source, content, format, is_primary, created_at"
+    ).eq("meeting_id", meeting_id).order("created_at").execute()
     
     return [
         MeetingDocumentInfo(
             id=row['id'],
             doc_type=row['doc_type'],
             source=row['source'],
-            content_length=row['content_length'],
+            content_length=len(row.get('content') or ''),
             format=row['format'],
             is_primary=bool(row['is_primary']),
             created_at=row['created_at']
         )
-        for row in rows
+        for row in (rows.data or [])
     ]
 
 
@@ -666,15 +657,16 @@ async def get_meeting_document(meeting_id: int, doc_id: int):
     """
     Get a specific document's full content.
     """
-    with connect() as conn:
-        row = conn.execute("""
-            SELECT * FROM meeting_documents
-            WHERE id = ? AND meeting_id = ?
-        """, (doc_id, meeting_id)).fetchone()
-        
-        if not row:
-            raise HTTPException(status_code=404, detail="Document not found")
+    supabase = get_supabase_client()
     
+    result = supabase.table("meeting_documents").select("*").eq(
+        "id", doc_id
+    ).eq("meeting_id", meeting_id).execute()
+    
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    row = result.data[0]
     return {
         "id": row['id'],
         "meeting_id": row['meeting_id'],
@@ -682,7 +674,7 @@ async def get_meeting_document(meeting_id: int, doc_id: int):
         "source": row['source'],
         "content": row['content'],
         "format": row['format'],
-        "signals_json": json.loads(row['signals_json']) if row['signals_json'] else None,
+        "signals_json": json.loads(row['signals_json']) if row.get('signals_json') else None,
         "is_primary": bool(row['is_primary']),
         "created_at": row['created_at']
     }
@@ -771,7 +763,7 @@ def parse_mindmap_analysis(vision_response: str) -> dict:
         }
 
 
-def create_dikw_items_from_mindmap(conn, meeting_id: int, analysis: dict) -> int:
+def create_dikw_items_from_mindmap(supabase, meeting_id: int, analysis: dict) -> int:
     """
     Create DIKW items from mindmap analysis.
     
@@ -793,11 +785,15 @@ def create_dikw_items_from_mindmap(conn, meeting_id: int, analysis: dict) -> int
             level = 'information'
         
         try:
-            conn.execute("""
-                INSERT INTO dikw_items 
-                (level, content, source_type, meeting_id, tags, confidence, status)
-                VALUES (?, ?, 'mindmap', ?, ?, 0.6, 'active')
-            """, (level, content, meeting_id, category))
+            supabase.table("dikw_items").insert({
+                "level": level,
+                "content": content,
+                "source_type": "mindmap",
+                "meeting_id": meeting_id,
+                "tags": category,
+                "confidence": 0.6,
+                "status": "active"
+            }).execute()
             created_count += 1
         except Exception as e:
             logger.warning(f"Failed to create DIKW item: {e}")
@@ -847,16 +843,13 @@ async def ingest_mindmap(
         )
     
     # Verify meeting exists
-    with connect() as conn:
-        meeting = conn.execute(
-            "SELECT id, meeting_name FROM meeting_summaries WHERE id = ?",
-            (meeting_id,)
-        ).fetchone()
-        
-        if not meeting:
-            raise HTTPException(status_code=404, detail=f"Meeting {meeting_id} not found")
-        
-        meeting_name = meeting['meeting_name']
+    supabase = get_supabase_client()
+    
+    meeting_result = supabase.table("meetings").select("id, meeting_name").eq("id", meeting_id).execute()
+    if not meeting_result.data:
+        raise HTTPException(status_code=404, detail=f"Meeting {meeting_id} not found")
+    
+    meeting_name = meeting_result.data[0]['meeting_name']
     
     # Read and encode image
     try:
@@ -874,28 +867,26 @@ async def ingest_mindmap(
         raise HTTPException(status_code=500, detail=f"Vision analysis failed: {str(e)}")
     
     # Store document and create DIKW items
-    with connect() as conn:
-        # Store mindmap as a document
-        cursor = conn.execute("""
-            INSERT INTO meeting_documents 
-            (meeting_id, doc_type, source, content, format, signals_json, metadata_json, is_primary)
-            VALUES (?, 'mindmap', ?, ?, 'image', NULL, ?, 0)
-        """, (
-            meeting_id,
-            source,
-            f"[Mindmap Image: {mindmap.filename}]",  # Store reference, not binary
-            json.dumps({
-                "filename": mindmap.filename,
-                "file_size": len(image_bytes),
-                "analysis": analysis
-            })
-        ))
-        document_id = cursor.lastrowid
-        
-        # Create DIKW items
-        dikw_count = create_dikw_items_from_mindmap(conn, meeting_id, analysis)
-        
-        conn.commit()
+    # Store mindmap as a document
+    result = supabase.table("meeting_documents").insert({
+        "meeting_id": meeting_id,
+        "doc_type": "mindmap",
+        "source": source,
+        "content": f"[Mindmap Image: {mindmap.filename}]",
+        "format": "image",
+        "signals_json": None,
+        "metadata_json": json.dumps({
+            "filename": mindmap.filename,
+            "file_size": len(image_bytes),
+            "analysis": analysis
+        }),
+        "is_primary": 0
+    }).execute()
+    
+    document_id = result.data[0]["id"] if result.data else None
+    
+    # Create DIKW items
+    dikw_count = create_dikw_items_from_mindmap(supabase, meeting_id, analysis)
     
     logger.info(f"Ingested mindmap for meeting '{meeting_name}' (id={meeting_id}): "
                 f"{len(analysis.get('insights', []))} insights, {dikw_count} DIKW items")
@@ -938,25 +929,21 @@ async def list_meeting_mindmaps(meeting_id: int):
     """
     List all mindmap analyses linked to a meeting.
     """
-    with connect() as conn:
-        meeting = conn.execute(
-            "SELECT id FROM meeting_summaries WHERE id = ?",
-            (meeting_id,)
-        ).fetchone()
-        
-        if not meeting:
-            raise HTTPException(status_code=404, detail=f"Meeting {meeting_id} not found")
-        
-        rows = conn.execute("""
-            SELECT id, source, metadata_json, created_at
-            FROM meeting_documents
-            WHERE meeting_id = ? AND doc_type = 'mindmap'
-            ORDER BY created_at DESC
-        """, (meeting_id,)).fetchall()
+    supabase = get_supabase_client()
+    
+    meeting = supabase.table("meetings").select("id").eq("id", meeting_id).execute()
+    if not meeting.data:
+        raise HTTPException(status_code=404, detail=f"Meeting {meeting_id} not found")
+    
+    rows = supabase.table("documents").select(
+        "id, source, metadata_json, created_at"
+    ).eq("meeting_id", meeting_id).eq("doc_type", "mindmap").order(
+        "created_at", desc=True
+    ).execute()
     
     results = []
-    for row in rows:
-        metadata = json.loads(row['metadata_json']) if row['metadata_json'] else {}
+    for row in (rows.data or []):
+        metadata = json.loads(row['metadata_json']) if row.get('metadata_json') else {}
         analysis = metadata.get('analysis', {})
         
         results.append({

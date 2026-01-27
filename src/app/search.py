@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request, Query
 from fastapi.templating import Jinja2Templates
-from .db import connect
+from .infrastructure.supabase_client import get_supabase_client
 from .services import documents_supabase, meetings_supabase
 from typing import Optional
 import re
@@ -161,32 +161,34 @@ def search(
             meeting_results = _search_meetings_supabase(q, search_transcripts, start_date, end_date, limit)
             results.extend(meeting_results)
         
-        # -------- F2: Meeting Documents (linked transcripts/summaries from SQLite) --------
-        # Note: meeting_documents table stays in SQLite for now (complex join)
+        # -------- F2: Meeting Documents (linked transcripts/summaries) --------
         if include_transcripts or source_type == "transcripts":
-            like = f"%{q.lower()}%"
-            with connect() as conn:
-                doc_results = conn.execute(
-                    """
-                    SELECT md.id, md.meeting_id, md.doc_type, md.source, md.content,
-                           md.created_at, ms.meeting_name, ms.meeting_date
-                    FROM meeting_documents md
-                    JOIN meeting_summaries ms ON md.meeting_id = ms.id
-                    WHERE LOWER(md.content) LIKE ?
-                    ORDER BY md.created_at DESC
-                    LIMIT ?
-                    """,
-                    (like, limit),
-                ).fetchall()
+            like = q.lower()
+            supabase = get_supabase_client()
+            if supabase:
+                # Get meeting documents that match the query
+                doc_results = supabase.table("meeting_documents")\
+                    .select("id, meeting_id, doc_type, source, content, created_at")\
+                    .ilike("content", f"%{like}%")\
+                    .order("created_at", desc=True)\
+                    .limit(limit)\
+                    .execute()
                 
-                for d in doc_results:
+                for d in (doc_results.data or []):
+                    # Get meeting info
+                    meeting_result = supabase.table("meetings")\
+                        .select("meeting_name, meeting_date")\
+                        .eq("id", d["meeting_id"])\
+                        .execute()
+                    meeting = meeting_result.data[0] if meeting_result.data else {}
+                    
                     results.append({
                         "type": "transcript",
                         "id": d["meeting_id"],  # Link to meeting
                         "doc_id": d["id"],  # Document ID
-                        "title": f"{d['meeting_name']} ({d['source']} {d['doc_type']})",
+                        "title": f"{meeting.get('meeting_name', 'Meeting')} ({d['source']} {d['doc_type']})",
                         "snippet": highlight_match(d["content"], q),
-                        "date": d["meeting_date"] or d["created_at"],
+                        "date": meeting.get("meeting_date") or d["created_at"],
                         "source": d["source"],
                         "doc_type": d["doc_type"],
                     })

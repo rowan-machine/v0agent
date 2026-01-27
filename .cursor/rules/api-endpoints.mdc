@@ -1,59 +1,69 @@
 ---
-description: Documents FastAPI routes implementing CRUD operations for meetings and documents with custom knowledge management.
+description: Documents FastAPI routes for meetings and documents with focus on signal extraction and knowledge management
 ---
 
 
 # api-endpoints
 
-Core API Endpoint Components:
+## Meeting Signal Endpoints
 
-1. Meeting Signal Management
-Path: src/app/api/v1/meetings.py
+Routes implementing meeting intelligence and signal extraction:
+
+```python
+/api/v1/meetings/signals
+- Extracts decisions, action items, blockers and risks from meeting content
+- Implements signal confidence scoring (0-100)
+- Handles signal approval workflow states
+- Routes signals to appropriate knowledge graph nodes
+
+/api/v1/meetings/synthesis  
+- Processes meeting content through DIKW hierarchy levels
+- Merges related signals across multiple meetings
+- Generates knowledge graph relationships
+- Tracks signal promotion history
+```
+
 Importance Score: 85/100
 
-- Custom signal extraction endpoints for meeting content
-- Hierarchical knowledge organization routes 
-- Signal categorization endpoints:
-  - Decisions
-  - Action Items 
-  - Blockers/Risks
-  - Ideas/Innovation
-- Endpoints for promoting signals through DIKW levels
-- Routes for signal merging and relationship management
+## Document Processing Endpoints
 
-2. Document Knowledge Processing 
-Path: src/app/api/v1/documents.py
+Routes for document analysis and knowledge extraction:
+
+```python
+/api/v1/documents/analyze
+- Processes documents through domain-specific classifiers
+- Extracts structured signals and relationships
+- Maps content to existing knowledge nodes
+- Handles document version tracking
+
+/api/v1/documents/knowledge
+- Manages document-to-knowledge promotion workflow
+- Implements DIKW hierarchy transitions
+- Tracks document confidence scores
+- Maintains semantic relationships
+```
+
 Importance Score: 80/100
 
-- Document synthesis routes with mindmap generation
-- Knowledge extraction endpoints supporting:
-  - Vision-based document parsing
-  - Multi-format content analysis
-  - Knowledge graph relationship mapping
-- Document bundling API for meeting content
-- Routes for document-signal relationships
+## Knowledge Graph Endpoints
 
-3. Career Development APIs
-Path: src/app/api/v1/career.py
-Importance Score: 75/100
+Routes managing the knowledge relationship system:
 
-- Standup analysis endpoints with career mapping
-- Routes for:
-  - Skill tracking
-  - Growth recommendations
-  - Evidence collection
-  - Progress metrics
-- Career path suggestion endpoints
+```python
+/api/v1/knowledge/graph
+- Maintains typed relationships between entities
+- Handles bidirectional entity linking
+- Implements graph-based suggestion system
+- Manages entity confidence scores
+```
 
-Core Domain Routes:
-- /api/v1/meetings/signals/extract
-- /api/v1/meetings/signals/promote
-- /api/v1/documents/analyze
-- /api/v1/documents/synthesize
-- /api/v1/career/analyze
-- /api/v1/career/suggest
+Importance Score: 90/100
 
-The API implements specialized endpoints focused on meeting intelligence, document knowledge management, and career development tracking.
+Key Business Rules:
+1. Signal confidence thresholds determine promotion eligibility
+2. Knowledge items require minimum relationship count
+3. Document versions maintain ancestor links
+4. Meeting signals auto-expire after 30 days unless promoted
 
 $END$
 

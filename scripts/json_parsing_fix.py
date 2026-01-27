@@ -8,7 +8,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from app.repositories.meetings import SupabaseMeetingRepository, SQLiteMeetingRepository
+from app.repositories.meetings import SupabaseMeetingRepository
 
 def test_supabase_json_parsing():
     """Test that SupabaseMeetingRepository can parse JSON-encoded meeting data."""
@@ -49,43 +49,6 @@ def test_supabase_json_parsing():
     print("✓ Supabase JSON parsing test passed!")
 
 
-def test_sqlite_json_parsing():
-    """Test that SQLiteMeetingRepository can parse JSON-encoded meeting data."""
-    print("Testing SQLite JSON parsing...")
-    
-    repo = SQLiteMeetingRepository()
-    
-    # Create a dict that simulates a sqlite3.Row
-    problematic_row = {
-        "id": "123",
-        "meeting_name": json.dumps({
-            "meeting_name": "SQLite Test Meeting",
-            "meeting_date": "2024-01-16",
-            "synthesized_notes": "SQLite test notes",
-            "signals_json": '{"decisions": ["Use SQLite"]}',
-            "raw_text": "SQLite transcript"
-        }),
-        "meeting_date": None,
-        "synthesized_notes": None,
-        "signals_json": None,
-        "raw_text": None,
-        "pocket_ai_summary": None,
-        "pocket_mind_map": None,
-        "import_source": None,
-        "created_at": None
-    }
-    
-    # Format the row using the fixed _format_row method
-    result = repo._format_row(problematic_row)
-    
-    # Verify the data was correctly extracted
-    assert result["meeting_name"] == "SQLite Test Meeting", f"Expected 'SQLite Test Meeting', got '{result['meeting_name']}'"
-    assert result["meeting_date"] == "2024-01-16", f"Expected '2024-01-16', got '{result['meeting_date']}'"
-    assert result["synthesized_notes"] == "SQLite test notes", f"Expected 'SQLite test notes', got '{result['synthesized_notes']}'"
-    
-    print("✓ SQLite JSON parsing test passed!")
-
-
 def test_normal_rows_still_work():
     """Test that normal (non-JSON-encoded) rows still work correctly."""
     print("Testing normal row parsing...")
@@ -119,6 +82,5 @@ def test_normal_rows_still_work():
 
 if __name__ == "__main__":
     test_supabase_json_parsing()
-    test_sqlite_json_parsing()
     test_normal_rows_still_work()
     print("\n✓ All tests passed!")

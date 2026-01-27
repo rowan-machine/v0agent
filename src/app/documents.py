@@ -5,7 +5,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import logging
 
-from .db import connect
+from .infrastructure.supabase_client import get_supabase_client
 from .memory.embed import embed_text, EMBED_MODEL
 from .memory.vector_store import upsert_embedding
 from .services import documents_supabase  # Supabase-first reads
@@ -64,53 +64,50 @@ def auto_link_document(doc_id: int, content: str, min_similarity: float = 0.78):
             "match_count": 10,
         }).execute()
         
-        with connect() as conn:
-            links_created = 0
+        supabase = get_supabase_client()
+        links_created = 0
+        
+        for item in result.data or []:
+            item_type = item.get("ref_type")
+            item_id = item.get("ref_id")
+            similarity = item.get("similarity", 0)
             
-            for item in result.data or []:
-                item_type = item.get("ref_type")
-                item_id = item.get("ref_id")
-                similarity = item.get("similarity", 0)
-                
-                # Skip self-references (same document)
-                if item_type == "document" and str(item_id) == str(doc_id):
-                    continue
-                
-                # Skip documents with same content (likely transcripts)
-                if item_type == "document":
-                    continue
-                
-                # Determine link type based on similarity
-                link_type = "semantic_similar" if similarity > 0.85 else "same_topic"
-                
-                # Check if link already exists
-                existing = conn.execute(
-                    """SELECT id FROM entity_links 
-                       WHERE source_type = 'document' AND source_id = ? 
-                       AND target_type = ? AND target_id = ?""",
-                    (doc_id, item_type, item_id)
-                ).fetchone()
-                
-                if existing:
-                    continue
-                
-                # Create the link
-                conn.execute(
-                    """INSERT INTO entity_links 
-                       (source_type, source_id, target_type, target_id, link_type,
-                        similarity_score, confidence, is_bidirectional, created_by)
-                       VALUES ('document', ?, ?, ?, ?, ?, 0.8, 1, 'system')""",
-                    (doc_id, item_type, item_id, link_type, similarity)
-                )
-                links_created += 1
-                
-                if links_created >= 5:  # Limit auto-links per document
-                    break
+            # Skip self-references (same document)
+            if item_type == "document" and str(item_id) == str(doc_id):
+                continue
             
-            conn.commit()
+            # Skip documents with same content (likely transcripts)
+            if item_type == "document":
+                continue
             
-            if links_created > 0:
-                logger.info(f"Auto-linked document {doc_id} to {links_created} related items")
+            # Determine link type based on similarity
+            link_type = "semantic_similar" if similarity > 0.85 else "same_topic"
+            
+            # Check if link already exists
+            existing = supabase.table("entity_links").select("id").eq("source_type", "document").eq("source_id", doc_id).eq("target_type", item_type).eq("target_id", item_id).execute()
+            
+            if existing.data:
+                continue
+            
+            # Create the link
+            supabase.table("entity_links").insert({
+                "source_type": "document",
+                "source_id": doc_id,
+                "target_type": item_type,
+                "target_id": item_id,
+                "link_type": link_type,
+                "similarity_score": similarity,
+                "confidence": 0.8,
+                "is_bidirectional": True,
+                "created_by": "system"
+            }).execute()
+            links_created += 1
+            
+            if links_created >= 5:  # Limit auto-links per document
+                break
+        
+        if links_created > 0:
+            logger.info(f"Auto-linked document {doc_id} to {links_created} related items")
                 
     except ImportError as e:
         logger.debug(f"Auto-link skipped (missing module): {e}")
@@ -124,12 +121,13 @@ def store_doc(
     content: str = Form(...),
     document_date: str = Form(...)
 ):
-    with connect() as conn:
-        cur = conn.execute(
-            "INSERT INTO docs (source, content, document_date) VALUES (?, ?, ?)",
-            (source, content, document_date),
-        )
-        doc_id = cur.lastrowid
+    supabase = get_supabase_client()
+    result = supabase.table("documents").insert({
+        "source": source,
+        "content": content,
+        "document_date": document_date
+    }).execute()
+    doc_id = result.data[0]["id"] if result.data else None
 
     # ---- VX.2b: embedding on ingest ----
     text_for_embedding = f"{source}\n{content}"
@@ -196,17 +194,15 @@ def edit_document(doc_id: str, request: Request):
     
     if doc and doc.get('source') and doc.get('source').startswith('Transcript: '):
         meeting_name = doc['source'].replace('Transcript: ', '').split(' (')[0]
-        with connect() as conn:
-            meeting = conn.execute(
-                "SELECT id FROM meeting_summaries WHERE meeting_name = ?",
-                (meeting_name,)
-            ).fetchone()
-            if meeting:
-                # Redirect to the meeting edit page instead
-                return RedirectResponse(
-                    url=f"/meetings/{meeting['id']}/edit?from_transcript={doc_id}",
-                    status_code=302
-                )
+        supabase = get_supabase_client()
+        result = supabase.table("meetings").select("id").eq("meeting_name", meeting_name).execute()
+        meetings = result.data or []
+        if meetings:
+            # Redirect to the meeting edit page instead
+            return RedirectResponse(
+                url=f"/meetings/{meetings[0]['id']}/edit?from_transcript={doc_id}",
+                status_code=302
+            )
 
     return templates.TemplateResponse(
         "edit_doc.html",
@@ -227,17 +223,6 @@ def update_document(
         "content": content,
         "document_date": document_date
     })
-    
-    # Also update SQLite for backwards compatibility
-    with connect() as conn:
-        conn.execute(
-            """
-            UPDATE docs
-            SET source = ?, content = ?, document_date = ?
-            WHERE id = ?
-            """,
-            (source, content, document_date, doc_id),
-        )
 
     # ---- VX.2b: embedding on update ----
     text_for_embedding = f"{source}\n{content}"
@@ -246,14 +231,8 @@ def update_document(
 
     # ---- P5.11: Re-link on content change ----
     # Clear old auto-links and regenerate
-    with connect() as conn:
-        conn.execute(
-            """DELETE FROM entity_links 
-               WHERE source_type = 'document' AND source_id = ? 
-               AND created_by = 'system'""",
-            (doc_id,)
-        )
-        conn.commit()
+    supabase = get_supabase_client()
+    supabase.table("entity_links").delete().eq("source_type", "document").eq("source_id", doc_id).eq("created_by", "system").execute()
     auto_link_document(doc_id, content)
 
     return RedirectResponse(url="/documents?success=document_updated", status_code=303)
@@ -261,15 +240,11 @@ def update_document(
 
 @router.post("/documents/{doc_id}/delete")
 def delete_document(doc_id: str):
-    # Delete from Supabase first (source of truth)
+    # Delete from Supabase (source of truth)
     documents_supabase.delete_document(doc_id)
     
-    # Also clean up SQLite for backwards compatibility
-    with connect() as conn:
-        conn.execute("DELETE FROM docs WHERE id = ?", (doc_id,))
-        conn.execute(
-            "DELETE FROM embeddings WHERE ref_type = 'doc' AND ref_id = ?",
-            (doc_id,),
-        )
+    # Also clean up embeddings in Supabase
+    supabase = get_supabase_client()
+    supabase.table("embeddings").delete().eq("ref_type", "doc").eq("ref_id", doc_id).execute()
 
     return RedirectResponse(url="/documents?success=document_deleted", status_code=303)

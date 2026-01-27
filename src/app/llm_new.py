@@ -50,12 +50,13 @@ def _anthropic_client_once():
 
 def get_current_model():
     """Get currently selected model from settings."""
-    from .db import connect
+    from .infrastructure.supabase_client import get_supabase_client
     try:
-        with connect() as conn:
-            row = conn.execute("SELECT value FROM settings WHERE key = 'ai_model'").fetchone()
-            if row:
-                return row["value"]
+        supabase = get_supabase_client()
+        result = supabase.table("settings").select("value").eq("key", "ai_model").execute()
+        rows = result.data or []
+        if rows:
+            return rows[0]["value"]
     except:
         pass
     return DEFAULT_MODEL
@@ -64,12 +65,9 @@ def set_model(model_id: str):
     """Set the AI model to use."""
     if model_id not in AVAILABLE_MODELS:
         raise ValueError(f"Unknown model: {model_id}")
-    from .db import connect
-    with connect() as conn:
-        conn.execute(
-            "INSERT INTO settings (key, value) VALUES ('ai_model', ?) ON CONFLICT(key) DO UPDATE SET value = ?",
-            (model_id, model_id)
-        )
+    from .infrastructure.supabase_client import get_supabase_client
+    supabase = get_supabase_client()
+    supabase.table("settings").upsert({"key": "ai_model", "value": model_id}).execute()
 
 def ask(prompt: str, model: str = None) -> str:
     """Simple single-turn prompt to LLM without context."""

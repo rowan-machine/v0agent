@@ -12,7 +12,7 @@ import re
 from dotenv import load_dotenv
 load_dotenv()
 
-from .db import init_db, connect
+# SQLite imports removed - using Supabase-only mode
 from .meetings import router as meetings_router
 from .documents import router as documents_router
 from .search import router as search_router
@@ -20,7 +20,7 @@ from .query import router as query_router
 from .signals import router as signals_router
 from .tickets import router as tickets_router
 from .test_plans import router as test_plans_router
-from .chat.models import init_chat_tables
+from .chat import models as chat_models  # Chat module functions
 from .api.chat import router as chat_router
 from .api.mcp import router as mcp_router
 from .api.accountability import router as accountability_router
@@ -152,30 +152,8 @@ templates.env.globals['env'] = os.environ
 
 @app.on_event("startup")
 def startup():
-    init_db()
-    init_chat_tables()
-    
-    # Run Phase 4.1 database migrations
-    from .db_migrations import run_all_migrations
-    migration_result = run_all_migrations()
-    if migration_result["applied"] > 0:
-        print(f"✅ Applied {migration_result['applied']} database migrations")
-    
-    # DISABLED: Supabase → SQLite sync
-    # We now read directly from Supabase for multi-device access.
-    # Syncing was causing deleted items to reappear.
-    # To re-enable, uncomment the block below:
-    # 
-    # try:
-    #     from .sync_from_supabase import sync_all_from_supabase
-    #     sync_results = sync_all_from_supabase()
-    #     if sync_results:
-    #         total = sum(sync_results.values())
-    #         if total > 0:
-    #             print(f"✅ Synced {total} items from Supabase to SQLite")
-    # except Exception as e:
-    #     print(f"⚠️ Supabase sync failed (non-fatal): {e}")
-    print("ℹ️ SQLite sync disabled - reading directly from Supabase")
+    """Initialize the application on startup."""
+    print("ℹ️ Starting application with Supabase-only mode")
     
     # Initialize background job scheduler (production only)
     try:
@@ -239,59 +217,66 @@ def logout(request: Request):
 
 def get_sprint_info():
     """Get current sprint day and info, with working days calculation."""
-    with connect() as conn:
-        row = conn.execute("SELECT * FROM sprint_settings WHERE id = 1").fetchone()
-    if not row:
-        return None
+    # Try Supabase first
+    try:
+        from .infrastructure.supabase_client import get_supabase_client
+        client = get_supabase_client()
+        if client:
+            result = client.table('sprint_settings').select('*').limit(1).execute()
+            if result.data:
+                row_dict = result.data[0]
+                start_str = row_dict.get("sprint_start_date")
+                if start_str:
+                    # Handle both date formats
+                    if 'T' in str(start_str):
+                        start = datetime.fromisoformat(str(start_str).replace('Z', '+00:00')).replace(tzinfo=None)
+                    else:
+                        start = datetime.strptime(str(start_str), "%Y-%m-%d")
+                    
+                    today = datetime.now()
+                    delta = (today - start).days + 1
+                    sprint_length = row_dict.get("sprint_length_days", 14) or 14
+                    
+                    if delta < 1:
+                        day = 0
+                    elif delta > sprint_length:
+                        day = sprint_length
+                    else:
+                        day = delta
+                    
+                    # Calculate total working days in sprint
+                    total_working_days = 0
+                    for i in range(sprint_length):
+                        check_date = start + timedelta(days=i)
+                        if check_date.weekday() < 5:  # Mon-Fri
+                            total_working_days += 1
+                    
+                    # Calculate working days elapsed
+                    working_days_elapsed = 0
+                    for i in range(min(day, sprint_length)):
+                        check_date = start + timedelta(days=i)
+                        if check_date.weekday() < 5:  # Mon-Fri
+                            working_days_elapsed += 1
+                    
+                    working_days_remaining = max(0, total_working_days - working_days_elapsed)
+                    remaining_total = max(0, sprint_length - day)
+                    progress = int((working_days_elapsed / total_working_days) * 100) if total_working_days > 0 else 0
+                    
+                    return {
+                        "day": day,
+                        "length": sprint_length,
+                        "name": row_dict.get("sprint_name"),
+                        "remaining": remaining_total,
+                        "working_days_remaining": working_days_remaining,
+                        "working_days_elapsed": working_days_elapsed,
+                        "total_working_days": total_working_days,
+                        "progress": progress,
+                    }
+    except Exception as e:
+        logger.warning(f"Supabase sprint_settings read failed: {e}")
     
-    # Convert sqlite3.Row to dict for .get() access
-    row_dict = dict(row)
-    
-    start = datetime.strptime(row_dict["sprint_start_date"], "%Y-%m-%d")
-    today = datetime.now()
-    delta = (today - start).days + 1
-    sprint_length = row_dict.get("sprint_length_days", 14) or 14
-    
-    if delta < 1:
-        day = 0
-    elif delta > sprint_length:
-        day = sprint_length
-    else:
-        day = delta
-    
-    # Calculate total working days in sprint
-    total_working_days = 0
-    for i in range(sprint_length):
-        check_date = start + timedelta(days=i)
-        if check_date.weekday() < 5:  # Mon-Fri
-            total_working_days += 1
-    
-    # Calculate working days elapsed (from start to today, excluding weekends)
-    working_days_elapsed = 0
-    for i in range(min(day, sprint_length)):
-        check_date = start + timedelta(days=i)
-        if check_date.weekday() < 5:  # Mon-Fri
-            working_days_elapsed += 1
-    
-    # Calculate working days remaining
-    working_days_remaining = max(0, total_working_days - working_days_elapsed)
-    
-    # Calculate remaining total calendar days
-    remaining_total = max(0, sprint_length - day)
-    
-    # Progress based on working days
-    progress = int((working_days_elapsed / total_working_days) * 100) if total_working_days > 0 else 0
-    
-    return {
-        "day": day,
-        "length": sprint_length,
-        "name": row_dict.get("sprint_name"),
-        "remaining": remaining_total,
-        "working_days_remaining": working_days_remaining,
-        "working_days_elapsed": working_days_elapsed,
-        "total_working_days": total_working_days,
-        "progress": progress,
-    }
+    # Return default if no sprint settings found
+    return None
 
 @app.get("/")
 def dashboard(request: Request):
@@ -344,172 +329,169 @@ def dashboard(request: Request):
     docs_count = documents_supabase.get_documents_count()
     tickets_count = tickets_supabase.get_tickets_count(statuses=["todo", "in_progress", "in_review"])
     
-    with connect() as conn:
-        conversations_count = conn.execute("SELECT COUNT(*) FROM conversations").fetchone()[0] if table_exists(conn, 'conversations') else 0
-        
-        # Get feedback for signals (still from SQLite for now)
-        feedback_map = {}
+    # Conversations count from Supabase
+    conversations_count = 0
+    try:
+        conv_result = supabase.table("conversations").select("id", count="exact").execute()
+        conversations_count = conv_result.count or 0
+    except:
+        pass
+    
+    # Get feedback for signals from Supabase
+    feedback_map = {}
+    try:
+        feedback_rows = supabase.table("signal_feedback").select("meeting_id, signal_type, signal_text, feedback").execute().data
+        for f in feedback_rows:
+            key = f"{f['meeting_id']}:{f['signal_type']}:{f['signal_text']}"
+            feedback_map[key] = f['feedback']
+    except:
+        pass
+
+    # Get status for recent signals from Supabase
+    status_map = {}
+    try:
+        meeting_ids = [m["id"] for m in meetings_with_signals[:10]]
+        if meeting_ids:
+            status_rows = supabase.table("signal_status").select("meeting_id, signal_type, signal_text, status").in_("meeting_id", meeting_ids).execute().data
+            for s in status_rows:
+                key = f"{s['meeting_id']}:{s['signal_type']}:{s['signal_text']}"
+                status_map[key] = s["status"]
+    except:
+        pass
+    
+    # Build recent_signals from Supabase data
+    recent_signals = []
+    for m in meetings_with_signals[:10]:
         try:
-            feedback_rows = conn.execute("SELECT meeting_id, signal_type, signal_text, feedback FROM signal_feedback").fetchall()
-            for f in feedback_rows:
-                key = f"{f['meeting_id']}:{f['signal_type']}:{f['signal_text']}"
-                feedback_map[key] = f['feedback']
+            signals = m.get("signals", {})
+            for stype, icon_type in [("blockers", "blocker"), ("action_items", "action"), ("decisions", "decision"), ("ideas", "idea"), ("risks", "risk")]:
+                items = signals.get(stype, [])
+                if isinstance(items, list):
+                    for item in items[:2]:
+                        if item and len(recent_signals) < 8:
+                            feedback_key = f"{m['id']}:{icon_type}:{item}"
+                            status_key = f"{m['id']}:{icon_type}:{item}"
+                            recent_signals.append({
+                                "text": item,
+                                "type": icon_type,
+                                "source": m["meeting_name"],
+                                "meeting_id": m["id"],
+                                "feedback": feedback_map.get(feedback_key),
+                                "status": status_map.get(status_key)
+                            })
         except:
             pass
-
-        # Get status for recent signals (still from SQLite)
-        status_map = {}
+    
+    # Build highlights section from Supabase data
+    highlights = []
+    for m in meetings_with_signals[:5]:
         try:
-            meeting_ids = [m["id"] for m in meetings_with_signals[:10]]
-            if meeting_ids:
-                placeholders = ",".join(["?"] * len(meeting_ids))
-                status_rows = conn.execute(
-                    f"""
-                    SELECT meeting_id, signal_type, signal_text, status
-                    FROM signal_status
-                    WHERE meeting_id IN ({placeholders})
-                    """,
-                    tuple(meeting_ids)
-                ).fetchall()
-                for s in status_rows:
-                    key = f"{s['meeting_id']}:{s['signal_type']}:{s['signal_text']}"
-                    status_map[key] = s["status"]
+            signals = m.get("signals", {})
+            # Add blockers to highlights (highest priority)
+            for blocker in signals.get("blockers", [])[:2]:
+                if blocker:
+                    highlights.append({
+                        "type": "blocker",
+                        "label": "🚧 Blocker",
+                        "text": blocker,
+                        "source": m["meeting_name"],
+                        "meeting_id": m["id"],
+                    })
+            # Add action items
+            for action in signals.get("action_items", [])[:2]:
+                if action:
+                    highlights.append({
+                        "type": "action",
+                        "label": "📋 Action Item",
+                        "text": action,
+                        "source": m["meeting_name"],
+                        "meeting_id": m["id"],
+                    })
+            # Add decisions
+            for decision in signals.get("decisions", [])[:1]:
+                if decision:
+                    highlights.append({
+                        "type": "decision",
+                        "label": "✅ Decision",
+                        "text": decision,
+                        "source": m["meeting_name"],
+                        "meeting_id": m["id"],
+                    })
+            # Add risks
+            for risk in signals.get("risks", [])[:1]:
+                if risk:
+                    highlights.append({
+                        "type": "risk",
+                        "label": "⚠️ Risk",
+                        "text": risk,
+                        "source": m["meeting_name"],
+                        "meeting_id": m["id"],
+                    })
         except:
             pass
-        
-        # Build recent_signals from Supabase data
-        recent_signals = []
-        for m in meetings_with_signals[:10]:
-            try:
-                signals = m.get("signals", {})
-                for stype, icon_type in [("blockers", "blocker"), ("action_items", "action"), ("decisions", "decision"), ("ideas", "idea"), ("risks", "risk")]:
-                    items = signals.get(stype, [])
-                    if isinstance(items, list):
-                        for item in items[:2]:
-                            if item and len(recent_signals) < 8:
-                                feedback_key = f"{m['id']}:{icon_type}:{item}"
-                                status_key = f"{m['id']}:{icon_type}:{item}"
-                                recent_signals.append({
-                                    "text": item,
-                                    "type": icon_type,
-                                    "source": m["meeting_name"],
-                                    "meeting_id": m["id"],
-                                    "feedback": feedback_map.get(feedback_key),
-                                    "status": status_map.get(status_key)
-                                })
-            except:
-                pass
-        
-        # Build highlights section from Supabase data
-        highlights = []
-        for m in meetings_with_signals[:5]:
-            try:
-                signals = m.get("signals", {})
-                # Add blockers to highlights (highest priority)
-                for blocker in signals.get("blockers", [])[:2]:
-                    if blocker:
-                        highlights.append({
-                            "type": "blocker",
-                            "label": "🚧 Blocker",
-                            "text": blocker,
-                            "source": m["meeting_name"],
-                            "meeting_id": m["id"],
-                        })
-                # Add action items
-                for action in signals.get("action_items", [])[:2]:
-                    if action:
-                        highlights.append({
-                            "type": "action",
-                            "label": "📋 Action Item",
-                            "text": action,
-                            "source": m["meeting_name"],
-                            "meeting_id": m["id"],
-                        })
-                # Add decisions
-                for decision in signals.get("decisions", [])[:1]:
-                    if decision:
-                        highlights.append({
-                            "type": "decision",
-                            "label": "✅ Decision",
-                            "text": decision,
-                            "source": m["meeting_name"],
-                            "meeting_id": m["id"],
-                        })
-                # Add risks
-                for risk in signals.get("risks", [])[:1]:
-                    if risk:
-                        highlights.append({
-                            "type": "risk",
-                            "label": "⚠️ Risk",
-                            "text": risk,
-                            "source": m["meeting_name"],
-                            "meeting_id": m["id"],
-                        })
-            except:
-                pass
-        
-        # Limit highlights (prioritize blockers first)
-        blockers_first = [h for h in highlights if h["type"] == "blocker"]
-        actions = [h for h in highlights if h["type"] == "action"]
-        others = [h for h in highlights if h["type"] not in ("blocker", "action")]
-        highlights = (blockers_first + actions + others)[:6]
-        
-        # Recent items (meetings and docs from Supabase)
-        recent_items = []
-        recent_mtgs = meetings_supabase.get_recent_meetings(limit=5)
-        for m in recent_mtgs:
-            recent_items.append({
-                "type": "meeting",
-                "title": m["meeting_name"],
-                "date": m["meeting_date"],
-                "url": f"/meetings/{m['id']}"
-            })
-        
-        # Get recent docs from Supabase
-        recent_docs = documents_supabase.get_recent_documents(limit=5)
-        for d in recent_docs:
-            recent_items.append({
-                "type": "doc",
-                "title": d.get("source", "Untitled"),
-                "date": d.get("document_date"),
-                "url": f"/documents/{d['id']}"
-            })
-        
-        # Sort by date and take top 5
-        recent_items.sort(key=lambda x: x["date"] or "", reverse=True)
-        recent_items = recent_items[:5]
-        
-        # Get active tickets from Supabase
-        active_tickets = tickets_supabase.get_active_tickets(limit=5)
+    
+    # Limit highlights (prioritize blockers first)
+    blockers_first = [h for h in highlights if h["type"] == "blocker"]
+    actions = [h for h in highlights if h["type"] == "action"]
+    others = [h for h in highlights if h["type"] not in ("blocker", "action")]
+    highlights = (blockers_first + actions + others)[:6]
+    
+    # Recent items (meetings and docs from Supabase)
+    recent_items = []
+    recent_mtgs = meetings_supabase.get_recent_meetings(limit=5)
+    for m in recent_mtgs:
+        recent_items.append({
+            "type": "meeting",
+            "title": m["meeting_name"],
+            "date": m["meeting_date"],
+            "url": f"/meetings/{m['id']}"
+        })
+    
+    # Get recent docs from Supabase
+    recent_docs = documents_supabase.get_recent_documents(limit=5)
+    for d in recent_docs:
+        recent_items.append({
+            "type": "doc",
+            "title": d.get("source", "Untitled"),
+            "date": d.get("document_date"),
+            "url": f"/documents/{d['id']}"
+        })
+    
+    # Sort by date and take top 5
+    recent_items.sort(key=lambda x: x["date"] or "", reverse=True)
+    recent_items = recent_items[:5]
+    
+    # Get active tickets from Supabase
+    active_tickets = tickets_supabase.get_active_tickets(limit=5)
 
-        execution_ticket = None
-        execution_tasks = []
-        for ticket in active_tickets:
-            raw_tasks = ticket["task_decomposition"] if "task_decomposition" in ticket.keys() else None
-            if raw_tasks:
-                try:
-                    parsed = json.loads(raw_tasks) if isinstance(raw_tasks, str) else raw_tasks
-                except Exception:
-                    parsed = []
-                if isinstance(parsed, list) and parsed:
-                    normalized = []
-                    for idx, item in enumerate(parsed):
-                        if isinstance(item, dict):
-                            title = item.get("title") or item.get("text") or item.get("task") or item.get("name") or "Task"
-                            description = item.get("description") or item.get("details") or item.get("estimate")
-                            status = item.get("status", "pending")
-                        else:
-                            title = str(item)
-                            description = None
-                            status = "pending"
-                        normalized.append({"index": idx, "title": title, "description": description, "status": status})
-                    execution_ticket = {
-                        "id": ticket["id"],
-                        "ticket_id": ticket.get("ticket_id"),
-                        "title": ticket.get("title"),
-                    }
-                    execution_tasks = normalized
-                    break
+    execution_ticket = None
+    execution_tasks = []
+    for ticket in active_tickets:
+        raw_tasks = ticket["task_decomposition"] if "task_decomposition" in ticket.keys() else None
+        if raw_tasks:
+            try:
+                parsed = json.loads(raw_tasks) if isinstance(raw_tasks, str) else raw_tasks
+            except Exception:
+                parsed = []
+            if isinstance(parsed, list) and parsed:
+                normalized = []
+                for idx, item in enumerate(parsed):
+                    if isinstance(item, dict):
+                        title = item.get("title") or item.get("text") or item.get("task") or item.get("name") or "Task"
+                        description = item.get("description") or item.get("details") or item.get("estimate")
+                        status = item.get("status", "pending")
+                    else:
+                        title = str(item)
+                        description = None
+                        status = "pending"
+                    normalized.append({"index": idx, "title": title, "description": description, "status": status})
+                execution_ticket = {
+                    "id": ticket["id"],
+                    "ticket_id": ticket.get("ticket_id"),
+                    "title": ticket.get("title"),
+                }
+                execution_tasks = normalized
+                break
     
     return templates.TemplateResponse(
         "dashboard.html",
@@ -535,15 +517,6 @@ def dashboard(request: Request):
             "layout": "wide",  # Default to wide for 34" monitor
         },
     )
-
-
-def table_exists(conn, table_name):
-    """Check if a table exists in the database."""
-    result = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-        (table_name,)
-    ).fetchone()
-    return result is not None
 
 
 @app.get("/profile")
@@ -599,24 +572,17 @@ async def signal_feedback(request: Request):
     signal_text = data.get("signal_text")
     feedback = data.get("feedback")  # 'up', 'down', or None to remove
     
-    with connect() as conn:
-        if feedback is None:
-            # Remove feedback
-            conn.execute(
-                """DELETE FROM signal_feedback 
-                   WHERE meeting_id = ? AND signal_type = ? AND signal_text = ?""",
-                (meeting_id, signal_type, signal_text)
-            )
-        else:
-            # Upsert feedback
-            conn.execute(
-                """INSERT INTO signal_feedback (meeting_id, signal_type, signal_text, feedback)
-                   VALUES (?, ?, ?, ?)
-                   ON CONFLICT(meeting_id, signal_type, signal_text) 
-                   DO UPDATE SET feedback = ?, updated_at = CURRENT_TIMESTAMP""",
-                (meeting_id, signal_type, signal_text, feedback, feedback)
-            )
-        conn.commit()
+    if feedback is None:
+        # Remove feedback
+        supabase.table("signal_feedback").delete().eq("meeting_id", meeting_id).eq("signal_type", signal_type).eq("signal_text", signal_text).execute()
+    else:
+        # Upsert feedback
+        supabase.table("signal_feedback").upsert({
+            "meeting_id": meeting_id,
+            "signal_type": signal_type,
+            "signal_text": signal_text,
+            "feedback": feedback
+        }, on_conflict="meeting_id,signal_type,signal_text").execute()
     
     return JSONResponse({"status": "ok"})
 
@@ -693,67 +659,68 @@ async def get_highlights(request: Request):
                 "link_text": "Update Status"
             })
     
-    with connect() as conn:
-        # 3. Check sprint progress
-        sprint = conn.execute("SELECT * FROM sprint_settings WHERE id = 1").fetchone()
-        if sprint and sprint['sprint_start_date']:
-            try:
-                start = datetime.strptime(sprint['sprint_start_date'], '%Y-%m-%d')
-                length = sprint['sprint_length_days'] or 14
-                end = start + timedelta(days=length)
-                now = datetime.now()
-                progress = min(100, max(0, int((now - start).days / length * 100)))
-                days_left = (end - now).days
-                
-                # Sprint ending soon
-                if 0 < days_left <= 3 and f"sprint-ending" not in dismissed_ids:
-                    todo_count = tickets_supabase.get_tickets_count(statuses=["todo"])
-                    if todo_count > 0:
-                        highlights.append({
-                            "id": "sprint-ending",
-                            "type": "risk",
-                            "label": "⏳ Sprint Ending",
-                            "text": f"{days_left} day{'s' if days_left != 1 else ''} left with {todo_count} todo items",
-                            "action": "Review remaining work and prioritize",
-                            "link": "/tickets",
-                            "link_text": "View Tickets"
-                        })
-                
-                # Sprint just started - set it up
-                if progress < 10 and f"sprint-setup" not in dismissed_ids:
-                    ticket_count = tickets_supabase.get_tickets_count()
-                    if ticket_count == 0:
-                        highlights.append({
-                            "id": "sprint-setup",
-                            "type": "action",
-                            "label": "🚀 New Sprint",
-                            "text": "Your sprint has started but no tickets yet",
-                            "action": "Create tickets to track your work this sprint",
-                            "link": "/tickets",
-                            "link_text": "Add Tickets"
-                        })
-            except:
-                pass
-        
-        # 4. Check for unreviewed signals
-        unreviewed = conn.execute(
-            """SELECT COUNT(*) as c FROM signal_status 
-               WHERE status = 'pending' OR status IS NULL"""
-        ).fetchone()
-        if unreviewed and unreviewed['c'] > 5 and "review-signals" not in dismissed_ids:
+    # 3. Check sprint progress from Supabase
+    try:
+        sprint_result = supabase.table("sprint_settings").select("*").eq("id", 1).execute()
+        sprint = sprint_result.data[0] if sprint_result.data else None
+        if sprint and sprint.get('sprint_start_date'):
+            start = datetime.strptime(sprint['sprint_start_date'], '%Y-%m-%d')
+            length = sprint.get('sprint_length_days') or 14
+            end = start + timedelta(days=length)
+            now = datetime.now()
+            progress = min(100, max(0, int((now - start).days / length * 100)))
+            days_left = (end - now).days
+            
+            # Sprint ending soon
+            if 0 < days_left <= 3 and f"sprint-ending" not in dismissed_ids:
+                todo_count = tickets_supabase.get_tickets_count(statuses=["todo"])
+                if todo_count > 0:
+                    highlights.append({
+                        "id": "sprint-ending",
+                        "type": "risk",
+                        "label": "⏳ Sprint Ending",
+                        "text": f"{days_left} day{'s' if days_left != 1 else ''} left with {todo_count} todo items",
+                        "action": "Review remaining work and prioritize",
+                        "link": "/tickets",
+                        "link_text": "View Tickets"
+                    })
+            
+            # Sprint just started - set it up
+            if progress < 10 and f"sprint-setup" not in dismissed_ids:
+                ticket_count = tickets_supabase.get_tickets_count()
+                if ticket_count == 0:
+                    highlights.append({
+                        "id": "sprint-setup",
+                        "type": "action",
+                        "label": "🚀 New Sprint",
+                        "text": "Your sprint has started but no tickets yet",
+                        "action": "Create tickets to track your work this sprint",
+                        "link": "/tickets",
+                        "link_text": "Add Tickets"
+                    })
+    except:
+        pass
+    
+    # 4. Check for unreviewed signals from Supabase
+    try:
+        unreviewed_result = supabase.table("signal_status").select("id", count="exact").or_("status.eq.pending,status.is.null").execute()
+        unreviewed_count = unreviewed_result.count or 0
+        if unreviewed_count > 5 and "review-signals" not in dismissed_ids:
             highlights.append({
                 "id": "review-signals",
                 "type": "action",
                 "label": "📥 Unreviewed Signals",
-                "text": f"{unreviewed['c']} signals waiting for your review",
+                "text": f"{unreviewed_count} signals waiting for your review",
                 "action": "Validate signals to build your knowledge base",
                 "link": "/signals",
                 "link_text": "Review Signals"
             })
-        
-        # 5. Check workflow mode progress
-        # (suggest moving to next mode if current is complete)
-        
+    except:
+        pass
+    
+    # 5. Check workflow mode progress
+    # (suggest moving to next mode if current is complete)
+    
         # 6. Recent meeting with unprocessed signals (from Supabase)
         recent_meetings_for_highlights = meetings_supabase.get_meetings_with_signals(limit=1)
         if recent_meetings_for_highlights:
@@ -985,15 +952,13 @@ async def update_signal_status(request: Request):
     if not all([meeting_id, signal_type, signal_text, status]):
         return JSONResponse({"error": "Missing required fields"}, status_code=400)
     
-    with connect() as conn:
-        conn.execute(
-            """INSERT INTO signal_status (meeting_id, signal_type, signal_text, status, notes, updated_at)
-               VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-               ON CONFLICT(meeting_id, signal_type, signal_text) 
-               DO UPDATE SET status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP""",
-            (meeting_id, signal_type, signal_text, status, notes, status, notes)
-        )
-        conn.commit()
+    supabase.table("signal_status").upsert({
+        "meeting_id": meeting_id,
+        "signal_type": signal_type,
+        "signal_text": signal_text,
+        "status": status,
+        "notes": notes
+    }, on_conflict="meeting_id,signal_type,signal_text").execute()
     
     return JSONResponse({"status": "ok", "new_status": status})
 
@@ -1016,31 +981,31 @@ async def convert_signal_to_ticket(request: Request):
     next_num = tickets_supabase.get_next_ticket_number()
     ticket_id = f"SIG-{next_num}"
     
-    with connect() as conn:
-        # Determine priority based on signal type
-        priority_map = {"blocker": "high", "risk": "high", "action_item": "medium", "decision": "low", "idea": "low"}
-        priority = priority_map.get(signal_type, "medium")
-        
-        # Create ticket
-        conn.execute(
-            """INSERT INTO tickets (ticket_id, title, description, status, priority, ai_summary, created_at)
-               VALUES (?, ?, ?, 'backlog', ?, ?, CURRENT_TIMESTAMP)""",
-            (ticket_id, signal_text[:100], f"Signal from: {meeting_name}\n\nOriginal Signal ({signal_type}):\n{signal_text}", 
-             priority, f"Converted from {signal_type} signal: {signal_text[:150]}...")
-        )
-        
-        ticket_row = conn.execute("SELECT last_insert_rowid() as id").fetchone()
-        ticket_db_id = ticket_row["id"]
-        
-        # Update signal status
-        conn.execute(
-            """INSERT INTO signal_status (meeting_id, signal_type, signal_text, status, converted_to, converted_ref_id, updated_at)
-               VALUES (?, ?, ?, 'completed', 'ticket', ?, CURRENT_TIMESTAMP)
-               ON CONFLICT(meeting_id, signal_type, signal_text) 
-               DO UPDATE SET status = 'completed', converted_to = 'ticket', converted_ref_id = ?, updated_at = CURRENT_TIMESTAMP""",
-            (meeting_id, signal_type, signal_text, ticket_db_id, ticket_db_id)
-        )
-        conn.commit()
+    # Determine priority based on signal type
+    priority_map = {"blocker": "high", "risk": "high", "action_item": "medium", "decision": "low", "idea": "low"}
+    priority = priority_map.get(signal_type, "medium")
+    
+    # Create ticket in Supabase
+    ticket_result = supabase.table("tickets").insert({
+        "ticket_id": ticket_id,
+        "title": signal_text[:100],
+        "description": f"Signal from: {meeting_name}\n\nOriginal Signal ({signal_type}):\n{signal_text}",
+        "status": "backlog",
+        "priority": priority,
+        "ai_summary": f"Converted from {signal_type} signal: {signal_text[:150]}..."
+    }).execute()
+    
+    ticket_db_id = ticket_result.data[0]["id"] if ticket_result.data else None
+    
+    # Update signal status in Supabase
+    supabase.table("signal_status").upsert({
+        "meeting_id": meeting_id,
+        "signal_type": signal_type,
+        "signal_text": signal_text,
+        "status": "completed",
+        "converted_to": "ticket",
+        "converted_ref_id": ticket_db_id
+    }, on_conflict="meeting_id,signal_type,signal_text").execute()
     
     return JSONResponse({"status": "ok", "ticket_id": ticket_id, "ticket_db_id": ticket_db_id})
 
@@ -1125,14 +1090,16 @@ async def save_ai_memory(request: Request):
     if not content:
         return JSONResponse({"error": "Content is required"}, status_code=400)
     
-    with connect() as conn:
-        conn.execute(
-            """INSERT INTO ai_memory (source_type, source_query, content, status, tags, importance, created_at)
-               VALUES (?, ?, ?, 'approved', ?, ?, CURRENT_TIMESTAMP)""",
-            (source_type, source_query, content, tags, importance)
-        )
-        conn.commit()
-        memory_id = conn.execute("SELECT last_insert_rowid() as id").fetchone()["id"]
+    result = supabase.table("ai_memory").insert({
+        "source_type": source_type,
+        "source_query": source_query,
+        "content": content,
+        "status": "approved",
+        "tags": tags,
+        "importance": importance
+    }).execute()
+    
+    memory_id = result.data[0]["id"] if result.data else None
     
     return JSONResponse({"status": "ok", "memory_id": memory_id})
 
@@ -1145,13 +1112,13 @@ async def reject_ai_response(request: Request):
     content = data.get("content", "")
     
     # We can optionally log rejected responses for ML training
-    with connect() as conn:
-        conn.execute(
-            """INSERT INTO ai_memory (source_type, source_query, content, status, importance, created_at)
-               VALUES ('quick_ask', ?, ?, 'rejected', 0, CURRENT_TIMESTAMP)""",
-            (source_query, content[:500])  # Store truncated for training feedback
-        )
-        conn.commit()
+    supabase.table("ai_memory").insert({
+        "source_type": "quick_ask",
+        "source_query": source_query,
+        "content": content[:500],  # Store truncated for training feedback
+        "status": "rejected",
+        "importance": 0
+    }).execute()
     
     return JSONResponse({"status": "ok"})
 
@@ -1174,7 +1141,6 @@ def _get_supabase():
 @app.get("/api/notifications")
 async def get_notifications(limit: int = 10):
     """Get user notifications with optional limit."""
-    # Try Supabase first (primary data source in production)
     supabase = _get_supabase()
     
     if supabase:
@@ -1183,85 +1149,37 @@ async def get_notifications(limit: int = 10):
             # Filter for non-actioned notifications (actioned_at is null)
             result = supabase.table("notifications").select("*").is_("actioned_at", "null").order("created_at", desc=True).limit(limit).execute()
             
-            if result.data:
-                notifications = []
-                for row in result.data:
-                    # Map Supabase schema to API response format
-                    # Supabase: metadata, read_at, actioned_at
-                    # API: data, read (boolean), actioned (boolean)
-                    n_dict = {
-                        "id": row.get("id"),
-                        "type": row.get("type") or row.get("notification_type"),
-                        "title": row.get("title"),
-                        "message": row.get("body") or row.get("message"),
-                        "data": row.get("metadata"),  # metadata -> data
-                        "read": row.get("read_at") is not None,  # read_at -> read boolean
-                        "created_at": row.get("created_at"),
-                        "actioned": row.get("actioned_at") is not None,  # actioned_at -> actioned boolean
-                        "action_taken": row.get("action_taken"),
-                        "expires_at": row.get("expires_at"),
-                    }
-                    # Parse action_url from metadata JSON if available
-                    if n_dict.get('data'):
-                        try:
-                            data = n_dict['data'] if isinstance(n_dict['data'], dict) else json.loads(n_dict['data'])
-                            n_dict['action_url'] = data.get('action_url', '')
-                        except:
-                            pass
-                    notifications.append(n_dict)
-                return JSONResponse({"notifications": notifications})
+            notifications = []
+            for row in result.data or []:
+                # Map Supabase schema to API response format
+                # Supabase: metadata, read_at, actioned_at
+                # API: data, read (boolean), actioned (boolean)
+                n_dict = {
+                    "id": row.get("id"),
+                    "type": row.get("type") or row.get("notification_type"),
+                    "title": row.get("title"),
+                    "message": row.get("body") or row.get("message"),
+                    "data": row.get("metadata"),  # metadata -> data
+                    "read": row.get("read_at") is not None,  # read_at -> read boolean
+                    "created_at": row.get("created_at"),
+                    "actioned": row.get("actioned_at") is not None,  # actioned_at -> actioned boolean
+                    "action_taken": row.get("action_taken"),
+                    "expires_at": row.get("expires_at"),
+                }
+                # Parse action_url from metadata JSON if available
+                if n_dict.get('data'):
+                    try:
+                        data = n_dict['data'] if isinstance(n_dict['data'], dict) else json.loads(n_dict['data'])
+                        n_dict['action_url'] = data.get('action_url', '')
+                    except:
+                        pass
+                notifications.append(n_dict)
+            return JSONResponse({"notifications": notifications})
         except Exception as e:
-            logger.warning(f"Supabase notifications fetch failed, falling back to SQLite: {e}")
+            logger.warning(f"Supabase notifications fetch failed: {e}")
+            return JSONResponse({"notifications": [], "error": str(e)})
     
-    # SQLite fallback
-    with connect() as conn:
-        # Check if notifications table exists
-        table_check = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='notifications'"
-        ).fetchone()
-        
-        if not table_check:
-            return JSONResponse({"notifications": []})
-        
-        # Query using new schema (notification_type, body) with fallback for old schema
-        try:
-            notifications = conn.execute(
-                """SELECT id, notification_type as type, title, body as message, 
-                          data, read, created_at, actioned, action_taken, expires_at
-                   FROM notifications 
-                   WHERE actioned = 0 OR actioned IS NULL
-                   ORDER BY 
-                     CASE priority WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END,
-                     created_at DESC 
-                   LIMIT ?""",
-                (limit,)
-            ).fetchall()
-        except Exception:
-            # Fall back to old schema if new columns don't exist
-            notifications = conn.execute(
-                """SELECT id, type, title, message, link, read, created_at 
-                   FROM notifications 
-                   ORDER BY created_at DESC 
-                   LIMIT ?""",
-                (limit,)
-            ).fetchall()
-        
-        result = []
-        for n in notifications:
-            n_dict = dict(n)
-            # Parse action_url from data JSON if available
-            if 'data' in n_dict and n_dict['data']:
-                try:
-                    import json
-                    data = json.loads(n_dict['data']) if isinstance(n_dict['data'], str) else n_dict['data']
-                    n_dict['action_url'] = data.get('action_url', '')
-                    # Include read_at for frontend compatibility
-                    n_dict['read_at'] = n_dict['created_at'] if n_dict.get('read') else None
-                except:
-                    pass
-            result.append(n_dict)
-        
-        return JSONResponse({"notifications": result})
+    return JSONResponse({"notifications": [], "error": "Database unavailable"})
 
 
 @app.get("/api/notifications/count")
@@ -1283,35 +1201,13 @@ async def get_notification_count():
             return JSONResponse({"unread": unread, "total": total})
         except Exception as e:
             logger.warning(f"Supabase notification count failed: {e}")
-    
-    # SQLite fallback
-    with connect() as conn:
-        # Check if notifications table exists
-        table_check = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='notifications'"
-        ).fetchone()
-        
-        if not table_check:
             return JSONResponse({"unread": 0, "total": 0})
-        
-        result = conn.execute(
-            """SELECT 
-                COUNT(*) as total,
-                SUM(CASE WHEN read = 0 THEN 1 ELSE 0 END) as unread
-               FROM notifications"""
-        ).fetchone()
-        
-        return JSONResponse({
-            "unread": result["unread"] or 0,
-            "total": result["total"] or 0
-        })
 
 
 @app.post("/api/notifications/{notification_id}/read")
 async def mark_notification_read(notification_id: str):
     """Mark a notification as read."""
     from datetime import datetime, timezone
-    # Try Supabase first
     supabase = _get_supabase()
     
     if supabase:
@@ -1321,31 +1217,15 @@ async def mark_notification_read(notification_id: str):
             return JSONResponse({"status": "ok"})
         except Exception as e:
             logger.warning(f"Supabase mark read failed: {e}")
+            return JSONResponse({"error": str(e)}, status_code=500)
     
-    # SQLite fallback
-    with connect() as conn:
-        # Check if notifications table exists
-        table_check = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='notifications'"
-        ).fetchone()
-        
-        if not table_check:
-            return JSONResponse({"status": "ok"})
-        
-        conn.execute(
-            "UPDATE notifications SET read = 1 WHERE id = ?",
-            (notification_id,)
-        )
-        conn.commit()
-    
-    return JSONResponse({"status": "ok"})
+    return JSONResponse({"error": "Database unavailable"}, status_code=503)
 
 
 @app.post("/api/notifications/read-all")
 async def mark_all_notifications_read():
     """Mark all notifications as read."""
     from datetime import datetime, timezone
-    # Try Supabase first
     supabase = _get_supabase()
     
     if supabase:
@@ -1355,27 +1235,14 @@ async def mark_all_notifications_read():
             return JSONResponse({"status": "ok"})
         except Exception as e:
             logger.warning(f"Supabase mark all read failed: {e}")
+            return JSONResponse({"error": str(e)}, status_code=500)
     
-    # SQLite fallback
-    with connect() as conn:
-        # Check if notifications table exists
-        table_check = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='notifications'"
-        ).fetchone()
-        
-        if not table_check:
-            return JSONResponse({"status": "ok"})
-        
-        conn.execute("UPDATE notifications SET read = 1 WHERE read = 0")
-        conn.commit()
-    
-    return JSONResponse({"status": "ok"})
+    return JSONResponse({"error": "Database unavailable"}, status_code=503)
 
 
 @app.delete("/api/notifications/{notification_id}")
 async def delete_notification(notification_id: str):
     """Delete a notification."""
-    # Try Supabase first
     supabase = _get_supabase()
     
     if supabase:
@@ -1384,12 +1251,9 @@ async def delete_notification(notification_id: str):
             return JSONResponse({"status": "ok"})
         except Exception as e:
             logger.warning(f"Supabase delete failed: {e}")
+            return JSONResponse({"error": str(e)}, status_code=500)
     
-    # SQLite fallback
-    with connect() as conn:
-        conn.execute("DELETE FROM notifications WHERE id = ?", (notification_id,))
-        conn.commit()
-    return JSONResponse({"status": "ok"})
+    return JSONResponse({"error": "Database unavailable"}, status_code=503)
 
 
 @app.post("/api/ai-memory/to-action")
@@ -1411,15 +1275,17 @@ async def convert_ai_to_action(request: Request):
     if not title:
         title = query[:100] if query else "AI Generated Action Item"
     
-    with connect() as conn:
-        
-        conn.execute(
-            """INSERT INTO tickets (ticket_id, title, description, status, priority, ai_summary, created_at)
-               VALUES (?, ?, ?, 'backlog', 'medium', ?, CURRENT_TIMESTAMP)""",
-            (ticket_id, title, f"From AI Query: {query}\n\nAI Response:\n{content}", f"AI insight: {content[:150]}...")
-        )
-        conn.commit()
-        ticket_db_id = conn.execute("SELECT last_insert_rowid() as id").fetchone()["id"]
+    # Create ticket in Supabase
+    result = supabase.table("tickets").insert({
+        "ticket_id": ticket_id,
+        "title": title,
+        "description": f"From AI Query: {query}\n\nAI Response:\n{content}",
+        "status": "backlog",
+        "priority": "medium",
+        "ai_summary": f"AI insight: {content[:150]}..."
+    }).execute()
+    
+    ticket_db_id = result.data[0]["id"] if result.data else None
     
     return JSONResponse({"status": "ok", "ticket_id": ticket_id, "ticket_db_id": ticket_db_id})
 
@@ -1481,23 +1347,15 @@ async def get_expected_mode_duration():
     
     result = {}
     
-    with connect() as conn:
-        # Get historical averages from mode_sessions table
-        for mode, default_mins in defaults.items():
-            row = conn.execute("""
-                SELECT 
-                    COUNT(*) as session_count,
-                    AVG(duration_seconds) as avg_seconds,
-                    MIN(duration_seconds) as min_seconds,
-                    MAX(duration_seconds) as max_seconds
-                FROM mode_sessions
-                WHERE mode = ? AND duration_seconds IS NOT NULL AND duration_seconds > 0
-            """, (mode,)).fetchone()
-            
-            session_count = row["session_count"] if row else 0
+    # Get historical averages from Supabase mode_sessions table
+    for mode, default_mins in defaults.items():
+        try:
+            rows = supabase.table("mode_sessions").select("duration_seconds").eq("mode", mode).not_.is_("duration_seconds", "null").gt("duration_seconds", 0).execute().data
+            session_count = len(rows) if rows else 0
             
             if session_count >= 3:  # Need at least 3 data points to trust the average
-                avg_mins = int((row["avg_seconds"] or 0) / 60)
+                avg_seconds = sum(r["duration_seconds"] for r in rows) / session_count
+                avg_mins = int(avg_seconds / 60)
                 # Use a blend: 70% historical, 30% default (to avoid extreme values)
                 expected_mins = int(avg_mins * 0.7 + default_mins * 0.3)
             else:
@@ -1508,6 +1366,13 @@ async def get_expected_mode_duration():
                 "default_minutes": default_mins,
                 "historical_sessions": session_count,
                 "has_sufficient_data": session_count >= 3,
+            }
+        except:
+            result[mode] = {
+                "expected_minutes": default_mins,
+                "default_minutes": default_mins,
+                "historical_sessions": 0,
+                "has_sufficient_data": False,
             }
     
     return JSONResponse(result)
@@ -1797,56 +1662,77 @@ async def get_tracing_status():
 
 @app.post("/api/settings/mode")
 async def set_workflow_mode(request: Request):
-    """Save the current workflow mode to the database."""
+    """Save the current workflow mode to Supabase."""
     data = await request.json()
     mode = data.get("mode", "mode-a")
     
-    with connect() as conn:
-        conn.execute(
-            """INSERT INTO settings (key, value, updated_at) 
-               VALUES ('current_mode', ?, CURRENT_TIMESTAMP)
-               ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = CURRENT_TIMESTAMP""",
-            (mode, mode)
-        )
-        conn.commit()
+    # Try Supabase first
+    try:
+        from .infrastructure.supabase_client import get_supabase_client
+        sb = get_supabase_client()
+        if sb:
+            sb.table("settings").upsert({
+                "key": "current_mode",
+                "value": mode
+            }, on_conflict="key").execute()
+            return JSONResponse({"status": "ok", "mode": mode})
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Supabase settings save failed: {e}")
+        return JSONResponse({"status": "error", "error": str(e)}, status_code=500)
     
     return JSONResponse({"status": "ok", "mode": mode})
 
 
 @app.get("/api/settings/mode")
 async def get_workflow_mode():
-    """Get the current workflow mode from the database."""
-    with connect() as conn:
-        row = conn.execute("SELECT value FROM settings WHERE key = 'current_mode'").fetchone()
-        mode = row["value"] if row else "mode-a"
+    """Get the current workflow mode from Supabase."""
+    try:
+        from .infrastructure.supabase_client import get_supabase_client
+        sb = get_supabase_client()
+        if sb:
+            result = sb.table("settings").select("value").eq("key", "current_mode").single().execute()
+            if result.data:
+                return JSONResponse({"mode": result.data["value"]})
+    except Exception as e:
+        logging.getLogger(__name__).debug(f"Supabase settings read failed: {e}")
     
-    return JSONResponse({"mode": mode})
+    return JSONResponse({"mode": "mode-a"})
 
 
 @app.get("/api/settings/ai-model")
 async def get_ai_model():
-    """Get current AI model setting."""
-    with connect() as conn:
-        row = conn.execute("SELECT value FROM settings WHERE key = 'ai_model'").fetchone()
-        model = row["value"] if row else "gpt-4o-mini"
+    """Get current AI model setting from Supabase."""
+    try:
+        from .infrastructure.supabase_client import get_supabase_client
+        sb = get_supabase_client()
+        if sb:
+            result = sb.table("settings").select("value").eq("key", "ai_model").single().execute()
+            if result.data:
+                return JSONResponse({"model": result.data["value"]})
+    except Exception as e:
+        logging.getLogger(__name__).debug(f"Supabase AI model read failed: {e}")
     
-    return JSONResponse({"model": model})
+    return JSONResponse({"model": "gpt-4o-mini"})
 
 
 @app.post("/api/settings/ai-model")
 async def set_ai_model(request: Request):
-    """Set AI model to use."""
+    """Set AI model to use in Supabase."""
     data = await request.json()
     model = data.get("model", "gpt-4o-mini")
     
-    with connect() as conn:
-        conn.execute(
-            """INSERT INTO settings (key, value, updated_at) 
-               VALUES ('ai_model', ?, CURRENT_TIMESTAMP)
-               ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = CURRENT_TIMESTAMP""",
-            (model, model)
-        )
-        conn.commit()
+    try:
+        from .infrastructure.supabase_client import get_supabase_client
+        sb = get_supabase_client()
+        if sb:
+            sb.table("settings").upsert({
+                "key": "ai_model",
+                "value": model
+            }, on_conflict="key").execute()
+            return JSONResponse({"status": "ok", "model": model})
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Supabase AI model save failed: {e}")
+        return JSONResponse({"status": "error", "error": str(e)}, status_code=500)
     
     return JSONResponse({"status": "ok", "model": model})
 
@@ -1862,14 +1748,10 @@ async def save_workflow_progress(request: Request):
     progress_json = json.dumps(progress)
     key = f"workflow_progress_{mode}"
     
-    with connect() as conn:
-        conn.execute(
-            """INSERT INTO settings (key, value, updated_at) 
-               VALUES (?, ?, CURRENT_TIMESTAMP)
-               ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = CURRENT_TIMESTAMP""",
-            (key, progress_json, progress_json)
-        )
-        conn.commit()
+    supabase.table("settings").upsert({
+        "key": key,
+        "value": progress_json
+    }, on_conflict="key").execute()
     
     return JSONResponse({"status": "ok", "mode": mode, "progress": progress})
 
@@ -1880,14 +1762,12 @@ async def get_workflow_progress(mode: str):
     import json
     key = f"workflow_progress_{mode}"
     
-    with connect() as conn:
-        row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
-        if row:
-            try:
-                progress = json.loads(row["value"])
-            except:
-                progress = []
-        else:
+    result = supabase.table("settings").select("value").eq("key", key).execute()
+    progress = []
+    if result.data:
+        try:
+            progress = json.loads(result.data[0]["value"])
+        except:
             progress = []
     
     return JSONResponse({"mode": mode, "progress": progress})
@@ -1905,26 +1785,22 @@ async def start_mode_timer(request: Request):
     mode = data.get("mode", "implementation")
     
     today = datetime.now().strftime("%Y-%m-%d")
-    started_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    started_at = datetime.now().isoformat()
     
-    with connect() as conn:
-        # Check if there's an active session for this mode (no ended_at)
-        active = conn.execute(
-            "SELECT id FROM mode_sessions WHERE mode = ? AND ended_at IS NULL",
-            (mode,)
-        ).fetchone()
-        
-        if active:
-            # Already active, return existing session
-            return JSONResponse({"status": "already_active", "session_id": active["id"]})
-        
-        # Create new session
-        cur = conn.execute(
-            """INSERT INTO mode_sessions (mode, started_at, date) VALUES (?, ?, ?)""",
-            (mode, started_at, today)
-        )
-        session_id = cur.lastrowid
-        conn.commit()
+    # Check if there's an active session for this mode (no ended_at)
+    active_result = supabase.table("mode_sessions").select("id").eq("mode", mode).is_("ended_at", "null").execute()
+    
+    if active_result.data:
+        # Already active, return existing session
+        return JSONResponse({"status": "already_active", "session_id": active_result.data[0]["id"]})
+    
+    # Create new session
+    result = supabase.table("mode_sessions").insert({
+        "mode": mode,
+        "started_at": started_at,
+        "date": today
+    }).execute()
+    session_id = result.data[0]["id"] if result.data else None
     
     return JSONResponse({"status": "ok", "session_id": session_id, "started_at": started_at})
 
@@ -1935,29 +1811,26 @@ async def stop_mode_timer(request: Request):
     data = await request.json()
     mode = data.get("mode", "implementation")
     
-    ended_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ended_at = datetime.now().isoformat()
     
-    with connect() as conn:
-        # Find active session
-        active = conn.execute(
-            "SELECT id, started_at FROM mode_sessions WHERE mode = ? AND ended_at IS NULL",
-            (mode,)
-        ).fetchone()
-        
-        if not active:
-            return JSONResponse({"status": "no_active_session"})
-        
-        # Calculate duration
-        start_time = datetime.strptime(active["started_at"], "%Y-%m-%d %H:%M:%S")
-        end_time = datetime.strptime(ended_at, "%Y-%m-%d %H:%M:%S")
-        duration = int((end_time - start_time).total_seconds())
-        
-        # Update session
-        conn.execute(
-            """UPDATE mode_sessions SET ended_at = ?, duration_seconds = ? WHERE id = ?""",
-            (ended_at, duration, active["id"])
-        )
-        conn.commit()
+    # Find active session
+    active_result = supabase.table("mode_sessions").select("id, started_at").eq("mode", mode).is_("ended_at", "null").execute()
+    
+    if not active_result.data:
+        return JSONResponse({"status": "no_active_session"})
+    
+    active = active_result.data[0]
+    
+    # Calculate duration
+    start_time = datetime.fromisoformat(active["started_at"].replace("Z", "+00:00").replace("+00:00", ""))
+    end_time = datetime.now()
+    duration = int((end_time - start_time).total_seconds())
+    
+    # Update session
+    supabase.table("mode_sessions").update({
+        "ended_at": ended_at,
+        "duration_seconds": duration
+    }).eq("id", active["id"]).execute()
     
     return JSONResponse({
         "status": "ok", 
@@ -1970,21 +1843,21 @@ async def stop_mode_timer(request: Request):
 @app.get("/api/mode-timer/status")
 async def get_mode_timer_status():
     """Get current timer status for all modes."""
-    with connect() as conn:
-        # Get active sessions
-        active_sessions = conn.execute(
-            "SELECT mode, id, started_at FROM mode_sessions WHERE ended_at IS NULL"
-        ).fetchall()
-        
-        active = {}
-        for session in active_sessions:
-            start_time = datetime.strptime(session["started_at"], "%Y-%m-%d %H:%M:%S")
+    # Get active sessions from Supabase
+    active_result = supabase.table("mode_sessions").select("mode, id, started_at").is_("ended_at", "null").execute()
+    
+    active = {}
+    for session in active_result.data or []:
+        try:
+            start_time = datetime.fromisoformat(session["started_at"].replace("Z", "+00:00").replace("+00:00", ""))
             elapsed = int((datetime.now() - start_time).total_seconds())
             active[session["mode"]] = {
                 "session_id": session["id"],
                 "started_at": session["started_at"],
                 "elapsed_seconds": elapsed
             }
+        except:
+            pass
     
     return JSONResponse({"active_sessions": active})
 
@@ -1993,37 +1866,33 @@ async def get_mode_timer_status():
 async def get_mode_timer_stats(days: int = 7):
     """Get time statistics for all modes."""
     cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%Y-%m-%d")
     
-    with connect() as conn:
-        # Get totals and averages for each mode
-        stats = conn.execute(
-            """
-            SELECT 
-                mode,
-                COUNT(*) as session_count,
-                SUM(duration_seconds) as total_seconds,
-                AVG(duration_seconds) as avg_session_seconds
-            FROM mode_sessions
-            WHERE date >= ? AND duration_seconds IS NOT NULL
-            GROUP BY mode
-            """,
-            (cutoff,)
-        ).fetchall()
+    # Get all sessions with duration from Supabase
+    sessions_result = supabase.table("mode_sessions").select("mode, duration_seconds, date").gte("date", cutoff).not_.is_("duration_seconds", "null").execute()
+    
+    # Process into stats
+    mode_stats = {}
+    today_stats = {}
+    
+    for s in sessions_result.data or []:
+        mode = s["mode"]
+        duration = s["duration_seconds"] or 0
+        date = s["date"]
         
-        # Get today's totals
-        today = datetime.now().strftime("%Y-%m-%d")
-        today_stats = conn.execute(
-            """
-            SELECT 
-                mode,
-                SUM(duration_seconds) as total_seconds,
-                COUNT(*) as session_count
-            FROM mode_sessions
-            WHERE date = ? AND duration_seconds IS NOT NULL
-            GROUP BY mode
-            """,
-            (today,)
-        ).fetchall()
+        # Aggregate by mode
+        if mode not in mode_stats:
+            mode_stats[mode] = {"total_seconds": 0, "session_count": 0, "durations": []}
+        mode_stats[mode]["total_seconds"] += duration
+        mode_stats[mode]["session_count"] += 1
+        mode_stats[mode]["durations"].append(duration)
+        
+        # Today's stats
+        if date == today:
+            if mode not in today_stats:
+                today_stats[mode] = {"total_seconds": 0, "session_count": 0}
+            today_stats[mode]["total_seconds"] += duration
+            today_stats[mode]["session_count"] += 1
     
     result = {
         "period_days": days,
@@ -2031,20 +1900,21 @@ async def get_mode_timer_stats(days: int = 7):
         "today": {}
     }
     
-    for s in stats:
-        result["modes"][s["mode"]] = {
-            "session_count": s["session_count"],
-            "total_seconds": s["total_seconds"] or 0,
-            "avg_session_seconds": int(s["avg_session_seconds"]) if s["avg_session_seconds"] else 0,
-            "total_formatted": format_duration(s["total_seconds"] or 0),
-            "avg_formatted": format_duration(int(s["avg_session_seconds"]) if s["avg_session_seconds"] else 0)
+    for mode, data in mode_stats.items():
+        avg_seconds = int(sum(data["durations"]) / len(data["durations"])) if data["durations"] else 0
+        result["modes"][mode] = {
+            "session_count": data["session_count"],
+            "total_seconds": data["total_seconds"],
+            "avg_session_seconds": avg_seconds,
+            "total_formatted": format_duration(data["total_seconds"]),
+            "avg_formatted": format_duration(avg_seconds)
         }
     
-    for s in today_stats:
-        result["today"][s["mode"]] = {
-            "total_seconds": s["total_seconds"] or 0,
-            "session_count": s["session_count"],
-            "total_formatted": format_duration(s["total_seconds"] or 0)
+    for mode, data in today_stats.items():
+        result["today"][mode] = {
+            "total_seconds": data["total_seconds"],
+            "session_count": data["session_count"],
+            "total_formatted": format_duration(data["total_seconds"])
         }
     
     return JSONResponse(result)
@@ -2402,39 +2272,34 @@ async def get_workflow_progress_report():
     """Get workflow mode progress for reporting."""
     import json as json_module
     
-    with connect() as conn:
-        modes = conn.execute(
-            "SELECT * FROM workflow_modes WHERE is_active = 1 ORDER BY sort_order"
-        ).fetchall()
+    # Get active workflow modes from Supabase
+    modes_result = supabase.table("workflow_modes").select("*").eq("is_active", True).order("sort_order").execute()
+    
+    result = []
+    for mode in modes_result.data or []:
+        steps = json_module.loads(mode["steps_json"]) if mode.get("steps_json") else []
+        total_steps = len(steps)
         
-        result = []
-        for mode in modes:
-            steps = json_module.loads(mode["steps_json"]) if mode["steps_json"] else []
-            total_steps = len(steps)
-            
-            # Get progress from settings
-            progress_row = conn.execute(
-                "SELECT value FROM settings WHERE key = ?",
-                (f"workflow_progress_{mode['mode_key']}",)
-            ).fetchone()
-            
-            completed = 0
-            if progress_row:
-                try:
-                    progress = json_module.loads(progress_row["value"])
-                    completed = sum(1 for p in progress if p)
-                except:
-                    pass
-            
-            result.append({
-                "mode_key": mode["mode_key"],
-                "name": mode["name"],
-                "icon": mode["icon"],
-                "total_steps": total_steps,
-                "progress": completed
-            })
+        # Get progress from settings
+        progress_result = supabase.table("settings").select("value").eq("key", f"workflow_progress_{mode['mode_key']}").execute()
         
-        return JSONResponse({"modes": result})
+        completed = 0
+        if progress_result.data:
+            try:
+                progress = json_module.loads(progress_result.data[0]["value"])
+                completed = sum(1 for p in progress if p)
+            except:
+                pass
+        
+        result.append({
+            "mode_key": mode["mode_key"],
+            "name": mode["name"],
+            "icon": mode.get("icon"),
+            "total_steps": total_steps,
+            "progress": completed
+        })
+    
+    return JSONResponse({"modes": result})
 
 
 @app.get("/api/reports/daily")
@@ -2442,45 +2307,43 @@ async def get_daily_report(days: int = 14):
     """Get daily breakdown for reporting."""
     cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
     
-    with connect() as conn:
-        # Get daily time tracking
-        daily_time = conn.execute(
-            """
-            SELECT date, 
-                   SUM(duration_seconds) as total_seconds,
-                   COUNT(*) as sessions
-            FROM mode_sessions
-            WHERE date >= ? AND duration_seconds IS NOT NULL
-            GROUP BY date
-            ORDER BY date DESC
-            """,
-            (cutoff,)
-        ).fetchall()
-        
-        # Get daily signal counts from Supabase
-        daily_signals = {}
-        meetings = meetings_supabase.get_meetings_with_signals_in_range(days=days)
-        
-        for m in meetings:
-            date = m.get("meeting_date") or m.get("created_at", "")[:10]
-            if date:
-                try:
-                    signals = m.get("signals", {})
-                    count = sum(len(signals.get(k, [])) for k in ["decisions", "action_items", "blockers", "risks", "ideas"])
-                    daily_signals[date] = daily_signals.get(date, 0) + count
-                except:
-                    pass
-        
-        result = []
-        for row in daily_time:
-            result.append({
-                "date": row["date"],
-                "total_seconds": row["total_seconds"] or 0,
-                "sessions": row["sessions"],
-                "signals": daily_signals.get(row["date"], 0)
-            })
-        
-        return JSONResponse({"daily": result})
+    # Get daily time tracking from Supabase
+    time_result = supabase.table("mode_sessions").select("date, duration_seconds").gte("date", cutoff).not_.is_("duration_seconds", "null").execute()
+    
+    # Aggregate by date
+    daily_time_map = {}
+    for row in time_result.data or []:
+        date = row["date"]
+        if date not in daily_time_map:
+            daily_time_map[date] = {"total_seconds": 0, "sessions": 0}
+        daily_time_map[date]["total_seconds"] += row["duration_seconds"] or 0
+        daily_time_map[date]["sessions"] += 1
+    
+    # Get daily signal counts from Supabase
+    daily_signals = {}
+    meetings = meetings_supabase.get_meetings_with_signals_in_range(days=days)
+    
+    for m in meetings:
+        date = m.get("meeting_date") or m.get("created_at", "")[:10]
+        if date:
+            try:
+                signals = m.get("signals", {})
+                count = sum(len(signals.get(k, [])) for k in ["decisions", "action_items", "blockers", "risks", "ideas"])
+                daily_signals[date] = daily_signals.get(date, 0) + count
+            except:
+                pass
+    
+    result = []
+    for date in sorted(daily_time_map.keys(), reverse=True):
+        data = daily_time_map[date]
+        result.append({
+            "date": date,
+            "total_seconds": data["total_seconds"],
+            "sessions": data["sessions"],
+            "signals": daily_signals.get(date, 0)
+        })
+    
+    return JSONResponse({"daily": result})
 
 
 # Sprint burndown cache to avoid recomputing on rapid mode changes
@@ -2498,21 +2361,21 @@ async def get_sprint_burndown(force: bool = False):
     if not force and _sprint_burndown_cache["data"] and (now - _sprint_burndown_cache["timestamp"]) < SPRINT_BURNDOWN_CACHE_TTL:
         return JSONResponse(_sprint_burndown_cache["data"])
     
-    with connect() as conn:
-        # Get sprint settings for jeopardy calculation
-        sprint_settings = conn.execute("SELECT * FROM sprint_settings WHERE id = 1").fetchone()
-        working_days_remaining = None
-        sprint_total_days = 14
-        sprint_day = None
-        
-        if sprint_settings:
-            from datetime import datetime, timedelta
-            sprint_start = datetime.strptime(sprint_settings["sprint_start_date"], "%Y-%m-%d")
-            sprint_total_days = sprint_settings["sprint_length_days"] or 14
-            sprint_day = (datetime.now() - sprint_start).days + 1
-            days_remaining = sprint_total_days - sprint_day
-            # Estimate working days (exclude weekends roughly)
-            working_days_remaining = max(0, int(days_remaining * 5 / 7))
+    # Get sprint settings from Supabase
+    sprint_result = supabase.table("sprint_settings").select("*").eq("id", 1).execute()
+    sprint_settings = sprint_result.data[0] if sprint_result.data else None
+    working_days_remaining = None
+    sprint_total_days = 14
+    sprint_day = None
+    
+    if sprint_settings and sprint_settings.get("sprint_start_date"):
+        from datetime import datetime, timedelta
+        sprint_start = datetime.strptime(sprint_settings["sprint_start_date"], "%Y-%m-%d")
+        sprint_total_days = sprint_settings.get("sprint_length_days") or 14
+        sprint_day = (datetime.now() - sprint_start).days + 1
+        days_remaining = sprint_total_days - sprint_day
+        # Estimate working days (exclude weekends roughly)
+        working_days_remaining = max(0, int(days_remaining * 5 / 7))
     
     # Get all active tickets assigned to sprint from Supabase
     tickets = tickets_supabase.get_active_sprint_tickets()
@@ -2709,186 +2572,148 @@ async def get_weekly_intelligence():
         
         meetings_data.append(meeting_info)
     
-    with connect() as conn:
-        # =====================================================================
-        # DIKW PYRAMID ACTIVITY (using dikw_items table)
-        # =====================================================================
-        dikw_items = conn.execute(
-            """
-            SELECT level, COUNT(*) as count,
-                   SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) as new_this_week
-            FROM dikw_items
-            WHERE status = 'active'
-            GROUP BY level
-            ORDER BY 
-                CASE level 
-                    WHEN 'wisdom' THEN 1 
-                    WHEN 'knowledge' THEN 2 
-                    WHEN 'information' THEN 3 
-                    WHEN 'data' THEN 4 
-                END
-            """,
-            (week_start,)
-        ).fetchall()
-        
-        dikw_summary = {
-            row["level"]: {"total": row["count"], "new": row["new_this_week"] or 0}
-            for row in dikw_items
+    # =====================================================================
+    # DIKW PYRAMID ACTIVITY (using dikw_items table from Supabase)
+    # =====================================================================
+    dikw_result = supabase.table("dikw_items").select("level, created_at").eq("status", "active").execute()
+    
+    dikw_summary = {"wisdom": {"total": 0, "new": 0}, "knowledge": {"total": 0, "new": 0}, "information": {"total": 0, "new": 0}, "data": {"total": 0, "new": 0}}
+    for item in dikw_result.data or []:
+        level = item.get("level")
+        if level in dikw_summary:
+            dikw_summary[level]["total"] += 1
+            if item.get("created_at", "") >= week_start:
+                dikw_summary[level]["new"] += 1
+    
+    # Recent wisdom/knowledge items (high value)
+    high_value_result = supabase.table("dikw_items").select("id, level, content, summary, tags").in_("level", ["wisdom", "knowledge"]).eq("status", "active").order("created_at", desc=True).limit(5).execute()
+    high_value_dikw = high_value_result.data or []
+    
+    # =====================================================================
+    # TICKET/SPRINT PROGRESS (from Supabase)
+    # =====================================================================
+    sprint_overview = tickets_supabase.get_sprint_ticket_stats()
+    if not sprint_overview:
+        sprint_overview = {
+            "todo": {"count": 0, "points": 0},
+            "in_progress": {"count": 0, "points": 0},
+            "in_review": {"count": 0, "points": 0},
+            "blocked": {"count": 0, "points": 0},
+            "done": {"count": 0, "points": 0}
         }
-        
-        # Recent wisdom/knowledge items (high value)
-        high_value_dikw = conn.execute(
-            """
-            SELECT id, level, content, summary, tags
-            FROM dikw_items
-            WHERE level IN ('wisdom', 'knowledge') AND status = 'active'
-            ORDER BY created_at DESC
-            LIMIT 5
-            """
-        ).fetchall()
-        
-        # =====================================================================
-        # TICKET/SPRINT PROGRESS (from Supabase)
-        # =====================================================================
-        sprint_overview = tickets_supabase.get_sprint_ticket_stats()
-        if not sprint_overview:
-            sprint_overview = {
-                "todo": {"count": 0, "points": 0},
-                "in_progress": {"count": 0, "points": 0},
-                "in_review": {"count": 0, "points": 0},
-                "blocked": {"count": 0, "points": 0},
-                "done": {"count": 0, "points": 0}
-            }
-        
-        # Blocked tickets need attention
-        blocked_tickets = tickets_supabase.get_blocked_sprint_tickets(limit=5)
-        
-        # =====================================================================
-        # ACTION ITEMS DUE SOON (from accountability_items table)
-        # =====================================================================
-        recent_actions = conn.execute(
-            """
-            SELECT id, description as content, source_ref_id as meeting_id, status, created_at
-            FROM accountability_items
-            WHERE status != 'complete'
-            ORDER BY created_at DESC
-            LIMIT 10
-            """
-        ).fetchall()
-        
-        # =====================================================================
-        # CAREER STANDUPS (from standup_updates table)
-        # =====================================================================
-        standups = conn.execute(
-            """
-            SELECT id, standup_date, content, feedback, sentiment, key_themes, created_at
-            FROM standup_updates
-            WHERE standup_date >= ?
-            ORDER BY standup_date DESC
-            LIMIT 7
-            """,
-            (week_start,)
-        ).fetchall()
-        
-        standups_data = [
-            {
-                "id": s["id"],
-                "date": s["standup_date"],
-                "content": s["content"][:100] + "..." if s["content"] and len(s["content"]) > 100 else s["content"],
-                "sentiment": s["sentiment"],
-                "key_themes": s["key_themes"],
-                "has_feedback": bool(s["feedback"])
-            }
-            for s in standups
-        ]
-        
-        # =====================================================================
-        # TIME TRACKING SUMMARY
-        # =====================================================================
-        time_by_mode = conn.execute(
-            """
-            SELECT mode, SUM(duration_seconds) as total_seconds, COUNT(*) as sessions
-            FROM mode_sessions
-            WHERE date >= ? AND duration_seconds IS NOT NULL
-            GROUP BY mode
-            ORDER BY total_seconds DESC
-            """,
-            (week_start,)
-        ).fetchall()
-        
-        time_summary = [
-            {
-                "mode": row["mode"],
-                "total_hours": round(row["total_seconds"] / 3600, 1),
-                "sessions": row["sessions"]
-            }
-            for row in time_by_mode
-        ]
-        
-        # =====================================================================
-        # BUILD RESPONSE
-        # =====================================================================
-        return JSONResponse({
-            "period": {
-                "start": week_start,
-                "end": today
-            },
-            "meetings": {
-                "count": len(meetings_data),
-                "list": meetings_data[:10],
-                "total_signals": len(all_decisions) + len(all_actions) + len(all_blockers) + len(all_risks) + len(all_ideas)
-            },
-            "signals": {
-                "decisions": all_decisions[:5],
-                "decisions_count": len(all_decisions),
-                "action_items": all_actions[:5],
-                "action_items_count": len(all_actions),
-                "blockers": all_blockers[:5],
-                "blockers_count": len(all_blockers),
-                "risks": all_risks[:3],
-                "risks_count": len(all_risks),
-                "ideas": all_ideas[:3],
-                "ideas_count": len(all_ideas)
-            },
-            "dikw": {
-                "summary": dikw_summary,
-                "high_value_items": [
-                    {
-                        "id": item["id"],
-                        "level": item["level"],
-                        "content": item["content"][:200] + "..." if len(item["content"] or "") > 200 else item["content"],
-                        "summary": item["summary"],
-                        "tags": item["tags"]
-                    }
-                    for item in high_value_dikw
-                ]
-            },
-            "sprint": {
-                "overview": sprint_overview,
-                "blocked_tickets": [
-                    {
-                        "id": t["id"],
-                        "ticket_id": t["ticket_id"],
-                        "title": t["title"]
-                    }
-                    for t in blocked_tickets
-                ]
-            },
-            "action_items_pending": [
+    
+    # Blocked tickets need attention
+    blocked_tickets = tickets_supabase.get_blocked_sprint_tickets(limit=5)
+    
+    # =====================================================================
+    # ACTION ITEMS DUE SOON (from accountability_items table in Supabase)
+    # =====================================================================
+    actions_result = supabase.table("accountability_items").select("id, description, source_ref_id, status, created_at").neq("status", "complete").order("created_at", desc=True).limit(10).execute()
+    recent_actions = actions_result.data or []
+    
+    # =====================================================================
+    # CAREER STANDUPS (from standup_updates table in Supabase)
+    # =====================================================================
+    standups_result = supabase.table("standup_updates").select("id, standup_date, content, feedback, sentiment, key_themes, created_at").gte("standup_date", week_start).order("standup_date", desc=True).limit(7).execute()
+    
+    standups_data = [
+        {
+            "id": s["id"],
+            "date": s.get("standup_date"),
+            "content": s["content"][:100] + "..." if s.get("content") and len(s["content"]) > 100 else s.get("content"),
+            "sentiment": s.get("sentiment"),
+            "key_themes": s.get("key_themes"),
+            "has_feedback": bool(s.get("feedback"))
+        }
+        for s in standups_result.data or []
+    ]
+    
+    # =====================================================================
+    # TIME TRACKING SUMMARY (from Supabase)
+    # =====================================================================
+    time_result = supabase.table("mode_sessions").select("mode, duration_seconds").gte("date", week_start).not_.is_("duration_seconds", "null").execute()
+    
+    time_by_mode = {}
+    for row in time_result.data or []:
+        mode = row["mode"]
+        if mode not in time_by_mode:
+            time_by_mode[mode] = {"total_seconds": 0, "sessions": 0}
+        time_by_mode[mode]["total_seconds"] += row["duration_seconds"] or 0
+        time_by_mode[mode]["sessions"] += 1
+    
+    time_summary = [
+        {
+            "mode": mode,
+            "total_hours": round(data["total_seconds"] / 3600, 1),
+            "sessions": data["sessions"]
+        }
+        for mode, data in sorted(time_by_mode.items(), key=lambda x: x[1]["total_seconds"], reverse=True)
+    ]
+    
+    # =====================================================================
+    # BUILD RESPONSE
+    # =====================================================================
+    return JSONResponse({
+        "period": {
+            "start": week_start,
+            "end": today
+        },
+        "meetings": {
+            "count": len(meetings_data),
+            "list": meetings_data[:10],
+            "total_signals": len(all_decisions) + len(all_actions) + len(all_blockers) + len(all_risks) + len(all_ideas)
+        },
+        "signals": {
+            "decisions": all_decisions[:5],
+            "decisions_count": len(all_decisions),
+            "action_items": all_actions[:5],
+            "action_items_count": len(all_actions),
+            "blockers": all_blockers[:5],
+            "blockers_count": len(all_blockers),
+            "risks": all_risks[:3],
+            "risks_count": len(all_risks),
+            "ideas": all_ideas[:3],
+            "ideas_count": len(all_ideas)
+        },
+        "dikw": {
+            "summary": dikw_summary,
+            "high_value_items": [
                 {
-                    "id": a["id"],
-                    "content": a["content"][:150] + "..." if len(a["content"] or "") > 150 else a["content"],
-                    "meeting_id": a["meeting_id"],
-                    "created": a["created_at"]
+                    "id": item.get("id"),
+                    "level": item.get("level"),
+                    "content": item["content"][:200] + "..." if len(item.get("content") or "") > 200 else item.get("content"),
+                    "summary": item.get("summary"),
+                    "tags": item.get("tags")
                 }
-                for a in recent_actions
-            ],
-            "standups": {
-                "count": len(standups_data),
-                "list": standups_data
-            },
-            "time_tracking": time_summary
-        })
+                for item in high_value_dikw
+            ]
+        },
+        "sprint": {
+            "overview": sprint_overview,
+            "blocked_tickets": [
+                {
+                    "id": t["id"],
+                    "ticket_id": t.get("ticket_id"),
+                    "title": t.get("title")
+                }
+                for t in blocked_tickets
+            ]
+        },
+        "action_items_pending": [
+            {
+                "id": a.get("id"),
+                "content": a.get("description", "")[:150] + "..." if len(a.get("description") or "") > 150 else a.get("description"),
+                "meeting_id": a.get("source_ref_id"),
+                "created": a.get("created_at")
+            }
+            for a in recent_actions
+        ],
+        "standups": {
+            "count": len(standups_data),
+            "list": standups_data
+        },
+        "time_tracking": time_summary
+    })
 
 
 @app.post("/api/mode-timer/calculate-stats")
@@ -2897,55 +2722,41 @@ async def calculate_mode_statistics():
     today = datetime.now().strftime("%Y-%m-%d")
     week_start = (datetime.now() - timedelta(days=datetime.now().weekday())).strftime("%Y-%m-%d")
     
-    with connect() as conn:
-        # Calculate daily stats
-        for mode in ['grooming', 'planning', 'standup', 'implementation']:
-            daily = conn.execute(
-                """
-                SELECT 
-                    SUM(duration_seconds) as total,
-                    COUNT(*) as count,
-                    AVG(duration_seconds) as avg
-                FROM mode_sessions
-                WHERE mode = ? AND date = ? AND duration_seconds IS NOT NULL
-                """,
-                (mode, today)
-            ).fetchone()
-            
-            if daily["total"]:
-                conn.execute(
-                    """INSERT INTO mode_statistics (mode, stat_type, period, total_seconds, session_count, avg_session_seconds)
-                       VALUES (?, 'daily', ?, ?, ?, ?)
-                       ON CONFLICT(mode, stat_type, period) DO UPDATE SET
-                       total_seconds = ?, session_count = ?, avg_session_seconds = ?, calculated_at = CURRENT_TIMESTAMP""",
-                    (mode, today, daily["total"], daily["count"], int(daily["avg"] or 0),
-                     daily["total"], daily["count"], int(daily["avg"] or 0))
-                )
-            
-            # Calculate weekly stats
-            weekly = conn.execute(
-                """
-                SELECT 
-                    SUM(duration_seconds) as total,
-                    COUNT(*) as count,
-                    AVG(duration_seconds) as avg
-                FROM mode_sessions
-                WHERE mode = ? AND date >= ? AND duration_seconds IS NOT NULL
-                """,
-                (mode, week_start)
-            ).fetchone()
-            
-            if weekly["total"]:
-                conn.execute(
-                    """INSERT INTO mode_statistics (mode, stat_type, period, total_seconds, session_count, avg_session_seconds)
-                       VALUES (?, 'weekly', ?, ?, ?, ?)
-                       ON CONFLICT(mode, stat_type, period) DO UPDATE SET
-                       total_seconds = ?, session_count = ?, avg_session_seconds = ?, calculated_at = CURRENT_TIMESTAMP""",
-                    (mode, week_start, weekly["total"], weekly["count"], int(weekly["avg"] or 0),
-                     weekly["total"], weekly["count"], int(weekly["avg"] or 0))
-                )
+    # Calculate daily and weekly stats for each mode
+    for mode in ['grooming', 'planning', 'standup', 'implementation']:
+        # Get daily sessions from Supabase
+        daily_result = supabase.table("mode_sessions").select("duration_seconds").eq("mode", mode).eq("date", today).not_.is_("duration_seconds", "null").execute()
         
-        conn.commit()
+        if daily_result.data:
+            daily_total = sum(s["duration_seconds"] for s in daily_result.data)
+            daily_count = len(daily_result.data)
+            daily_avg = int(daily_total / daily_count) if daily_count > 0 else 0
+            
+            supabase.table("mode_statistics").upsert({
+                "mode": mode,
+                "stat_type": "daily",
+                "period": today,
+                "total_seconds": daily_total,
+                "session_count": daily_count,
+                "avg_session_seconds": daily_avg
+            }, on_conflict="mode,stat_type,period").execute()
+        
+        # Get weekly sessions from Supabase
+        weekly_result = supabase.table("mode_sessions").select("duration_seconds").eq("mode", mode).gte("date", week_start).not_.is_("duration_seconds", "null").execute()
+        
+        if weekly_result.data:
+            weekly_total = sum(s["duration_seconds"] for s in weekly_result.data)
+            weekly_count = len(weekly_result.data)
+            weekly_avg = int(weekly_total / weekly_count) if weekly_count > 0 else 0
+            
+            supabase.table("mode_statistics").upsert({
+                "mode": mode,
+                "stat_type": "weekly",
+                "period": week_start,
+                "total_seconds": weekly_total,
+                "session_count": weekly_count,
+                "avg_session_seconds": weekly_avg
+            }, on_conflict="mode,stat_type,period").execute()
     
     return JSONResponse({"status": "ok", "calculated_at": datetime.now().isoformat()})
 
@@ -2977,47 +2788,45 @@ async def update_user_status(request: Request):
     activity = interpreted.get("activity", status_text)
     context_str = interpreted.get("context", "")
     
-    # Save status
-    with connect() as conn:
-        # Mark all previous statuses as not current
-        conn.execute("UPDATE user_status SET is_current = 0")
-        
-        # Insert new status
-        conn.execute("""
-            INSERT INTO user_status (status_text, interpreted_mode, interpreted_activity, interpreted_context)
-            VALUES (?, ?, ?, ?)
-        """, (status_text, mode, activity, context_str))
-        conn.commit()
+    # Save status to Supabase
+    # Mark all previous statuses as not current
+    supabase.table("user_status").update({"is_current": False}).eq("is_current", True).execute()
+    
+    # Insert new status
+    supabase.table("user_status").insert({
+        "status_text": status_text,
+        "interpreted_mode": mode,
+        "interpreted_activity": activity,
+        "interpreted_context": context_str,
+        "is_current": True
+    }).execute()
     
     # Auto-start timer for the interpreted mode
     # First stop any active timers
-    with connect() as conn:
-        active = conn.execute(
-            "SELECT mode FROM mode_sessions WHERE ended_at IS NULL"
-        ).fetchall()
-        
-        for session in active:
-            # Stop the active session
-            ended_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            conn.execute("""
-                UPDATE mode_sessions 
-                SET ended_at = ?, 
-                    duration_seconds = CAST((julianday(?) - julianday(started_at)) * 86400 AS INTEGER)
-                WHERE mode = ? AND ended_at IS NULL
-            """, (ended_at, ended_at, session["mode"]))
-        
-        conn.commit()
+    active_sessions = supabase.table("mode_sessions").select("id, mode, started_at").is_("ended_at", "null").execute()
+    
+    ended_at = datetime.now().isoformat()
+    for session in active_sessions.data or []:
+        try:
+            start_time = datetime.fromisoformat(session["started_at"].replace("Z", "+00:00").replace("+00:00", ""))
+            duration = int((datetime.now() - start_time).total_seconds())
+            supabase.table("mode_sessions").update({
+                "ended_at": ended_at,
+                "duration_seconds": duration
+            }).eq("id", session["id"]).execute()
+        except:
+            pass
     
     # Start new timer
     today = datetime.now().strftime("%Y-%m-%d")
-    started_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    started_at = datetime.now().isoformat()
     
-    with connect() as conn:
-        conn.execute(
-            """INSERT INTO mode_sessions (mode, started_at, date, notes) VALUES (?, ?, ?, ?)""",
-            (mode, started_at, today, activity)
-        )
-        conn.commit()
+    supabase.table("mode_sessions").insert({
+        "mode": mode,
+        "started_at": started_at,
+        "date": today,
+        "notes": activity
+    }).execute()
     
     return JSONResponse({
         "status": "ok",
@@ -3032,21 +2841,19 @@ async def update_user_status(request: Request):
 @app.get("/api/user-status/current")
 async def get_current_status():
     """Get current user status."""
-    with connect() as conn:
-        status = conn.execute(
-            "SELECT * FROM user_status WHERE is_current = 1 ORDER BY created_at DESC LIMIT 1"
-        ).fetchone()
+    result = supabase.table("user_status").select("*").eq("is_current", True).order("created_at", desc=True).limit(1).execute()
     
-    if not status:
+    if not result.data:
         return JSONResponse({"status": None})
     
+    status = result.data[0]
     return JSONResponse({
         "status": {
-            "text": status["status_text"],
-            "mode": status["interpreted_mode"],
-            "activity": status["interpreted_activity"],
-            "context": status["interpreted_context"],
-            "created_at": status["created_at"]
+            "text": status.get("status_text"),
+            "mode": status.get("interpreted_mode"),
+            "activity": status.get("interpreted_activity"),
+            "context": status.get("interpreted_context"),
+            "created_at": status.get("created_at")
         }
     })
 
@@ -3064,30 +2871,29 @@ DIKW_NEXT_LEVEL = {'data': 'information', 'information': 'knowledge', 'knowledge
 @app.get("/api/dikw")
 async def get_dikw_items(level: str = None, status: str = "active"):
     """Get DIKW items, optionally filtered by level."""
-    with connect() as conn:
-        if level:
-            items = conn.execute(
-                """SELECT d.*, m.meeting_name, m.meeting_date 
-                   FROM dikw_items d 
-                   LEFT JOIN meeting_summaries m ON d.meeting_id = m.id
-                   WHERE d.level = ? AND d.status = ? 
-                   ORDER BY d.created_at DESC""",
-                (level, status)
-            ).fetchall()
-        else:
-            items = conn.execute(
-                """SELECT d.*, m.meeting_name, m.meeting_date 
-                   FROM dikw_items d 
-                   LEFT JOIN meeting_summaries m ON d.meeting_id = m.id
-                   WHERE d.status = ? 
-                   ORDER BY d.level, d.created_at DESC""",
-                (status,)
-            ).fetchall()
+    # Get dikw items from Supabase
+    query = supabase.table("dikw_items").select("*").eq("status", status)
+    if level:
+        query = query.eq("level", level)
+    
+    result = query.order("created_at", desc=True).execute()
+    items = result.data or []
+    
+    # Get meeting names for items with meeting_id
+    meeting_ids = [i["meeting_id"] for i in items if i.get("meeting_id")]
+    meetings_map = {}
+    if meeting_ids:
+        meetings_result = supabase.table("meetings").select("id, meeting_name, meeting_date").in_("id", meeting_ids).execute()
+        meetings_map = {m["id"]: m for m in meetings_result.data or []}
     
     # Group by level for pyramid view
-    pyramid = {level: [] for level in DIKW_LEVELS}
+    pyramid = {lvl: [] for lvl in DIKW_LEVELS}
     for item in items:
         item_dict = dict(item)
+        # Add meeting info if available
+        if item.get("meeting_id") and item["meeting_id"] in meetings_map:
+            item_dict["meeting_name"] = meetings_map[item["meeting_id"]].get("meeting_name")
+            item_dict["meeting_date"] = meetings_map[item["meeting_id"]].get("meeting_date")
         # Normalize signal type
         if item_dict.get('original_signal_type'):
             item_dict['original_signal_type'] = normalize_signal_type(item_dict['original_signal_type'])
@@ -3095,7 +2901,7 @@ async def get_dikw_items(level: str = None, status: str = "active"):
     
     return JSONResponse({
         "pyramid": pyramid,
-        "counts": {level: len(pyramid[level]) for level in DIKW_LEVELS}
+        "counts": {lvl: len(pyramid[lvl]) for lvl in DIKW_LEVELS}
     })
 
 
@@ -3128,25 +2934,30 @@ async def promote_signal_to_dikw(request: Request):
     # Auto-generate tags based on content and signal type
     tags = generate_dikw_tags(signal_text, target_level, signal_type)
     
-    with connect() as conn:
-        conn.execute(
-            """INSERT INTO dikw_items 
-               (level, content, summary, source_type, original_signal_type, meeting_id, validation_count, tags)
-               VALUES (?, ?, ?, 'signal', ?, ?, 1, ?)""",
-            (target_level, signal_text, summary, signal_type, meeting_id, tags)
-        )
-        conn.commit()
-        item_id = conn.execute("SELECT last_insert_rowid() as id").fetchone()["id"]
-        
-        # Also update signal_status to mark as promoted
-        conn.execute(
-            """INSERT INTO signal_status (meeting_id, signal_type, signal_text, status, converted_to, converted_ref_id)
-               VALUES (?, ?, ?, 'approved', 'dikw', ?)
-               ON CONFLICT(meeting_id, signal_type, signal_text) 
-               DO UPDATE SET status = 'approved', converted_to = 'dikw', converted_ref_id = ?, updated_at = CURRENT_TIMESTAMP""",
-            (meeting_id, signal_type, signal_text, item_id, item_id)
-        )
-        conn.commit()
+    # Insert into Supabase
+    result = supabase.table("dikw_items").insert({
+        "level": target_level,
+        "content": signal_text,
+        "summary": summary,
+        "source_type": "signal",
+        "original_signal_type": signal_type,
+        "meeting_id": meeting_id,
+        "validation_count": 1,
+        "tags": tags
+    }).execute()
+    
+    item_id = result.data[0]["id"] if result.data else None
+    
+    # Also update signal_status to mark as promoted
+    if meeting_id and signal_type and signal_text:
+        supabase.table("signal_status").upsert({
+            "meeting_id": meeting_id,
+            "signal_type": signal_type,
+            "signal_text": signal_text,
+            "status": "approved",
+            "converted_to": "dikw",
+            "converted_ref_id": item_id
+        }, on_conflict="meeting_id,signal_type,signal_text").execute()
     
     return JSONResponse({"status": "ok", "id": item_id, "level": target_level, "tags": tags})
 
@@ -3171,75 +2982,76 @@ async def promote_dikw_item(request: Request):
     if not item_id:
         return JSONResponse({"error": "Item ID is required"}, status_code=400)
     
-    with connect() as conn:
-        item = conn.execute("SELECT * FROM dikw_items WHERE id = ?", (item_id,)).fetchone()
-        
-        if not item:
-            return JSONResponse({"error": "Item not found"}, status_code=404)
-        
-        current_level = item['level']
-        if current_level == 'wisdom' and not to_level:
-            return JSONResponse({"error": "Already at highest level"}, status_code=400)
-        
-        # Use provided target level or default to next level
-        next_level = to_level if to_level else DIKW_NEXT_LEVEL.get(current_level, 'wisdom')
-        
-        # Use provided content or keep original
-        new_content = promoted_content if promoted_content else item['content']
-        
-        # Generate AI synthesis for summary if not provided
-        if provided_summary:
-            new_summary = provided_summary
-        else:
-            # Use DIKWSynthesizerAgent adapter for AI promotion
-            try:
-                result = await ai_promote_dikw_adapter(new_content, current_level, next_level)
-                new_summary = result.get('summary', f"Promoted from {current_level}: {item['summary'] or ''}")
-            except Exception:
-                new_summary = f"Promoted from {current_level}: {item['summary'] or ''}"
-        
-        # Normalize confidence (handle both 0-1 and 0-100 ranges)
-        current_confidence = item['confidence'] or 70
-        if current_confidence <= 1:
-            current_confidence = current_confidence * 100
-        new_confidence = min(95, current_confidence + 5)  # Slight boost on promotion
-        
-        # Auto-generate tags for the promoted content
-        existing_tags = item['tags'] or ''
-        new_tags = generate_dikw_tags(new_content, next_level, existing_tags)
-        
-        # Create new item at higher level with the refined content
-        conn.execute(
-            """INSERT INTO dikw_items 
-               (level, content, summary, source_type, source_ref_ids, original_signal_type, meeting_id, confidence, validation_count, tags)
-               VALUES (?, ?, ?, 'synthesis', ?, ?, ?, ?, ?, ?)""",
-            (next_level, new_content, new_summary, json.dumps([item_id]), 
-             item['original_signal_type'], item['meeting_id'],
-             new_confidence, (item['validation_count'] or 0) + 1, new_tags)
-        )
-        conn.commit()
-        new_id = conn.execute("SELECT last_insert_rowid() as id").fetchone()["id"]
-        
-        # Record evolution history for the promotion
-        conn.execute("""
-            INSERT INTO dikw_evolution 
-            (item_id, event_type, from_level, to_level, source_item_ids, content_snapshot, created_at)
-            VALUES (?, 'promoted', ?, ?, ?, ?, datetime('now'))
-        """, (
-            new_id,
-            current_level,
-            next_level,
-            json.dumps([item_id]),
-            item['content']  # Snapshot of original content
-        ))
-        
-        # Update original item to show it was promoted
-        conn.execute(
-            """UPDATE dikw_items SET promoted_to = ?, promoted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
-               WHERE id = ?""",
-            (new_id, item_id)
-        )
-        conn.commit()
+    # Get item from Supabase
+    item_result = supabase.table("dikw_items").select("*").eq("id", item_id).execute()
+    
+    if not item_result.data:
+        return JSONResponse({"error": "Item not found"}, status_code=404)
+    
+    item = item_result.data[0]
+    
+    current_level = item['level']
+    if current_level == 'wisdom' and not to_level:
+        return JSONResponse({"error": "Already at highest level"}, status_code=400)
+    
+    # Use provided target level or default to next level
+    next_level = to_level if to_level else DIKW_NEXT_LEVEL.get(current_level, 'wisdom')
+    
+    # Use provided content or keep original
+    new_content = promoted_content if promoted_content else item['content']
+    
+    # Generate AI synthesis for summary if not provided
+    if provided_summary:
+        new_summary = provided_summary
+    else:
+        # Use DIKWSynthesizerAgent adapter for AI promotion
+        try:
+            result = await ai_promote_dikw_adapter(new_content, current_level, next_level)
+            new_summary = result.get('summary', f"Promoted from {current_level}: {item.get('summary') or ''}")
+        except Exception:
+            new_summary = f"Promoted from {current_level}: {item.get('summary') or ''}"
+    
+    # Normalize confidence (handle both 0-1 and 0-100 ranges)
+    current_confidence = item.get('confidence') or 70
+    if current_confidence <= 1:
+        current_confidence = current_confidence * 100
+    new_confidence = min(95, current_confidence + 5)  # Slight boost on promotion
+    
+    # Auto-generate tags for the promoted content
+    existing_tags = item.get('tags') or ''
+    new_tags = generate_dikw_tags(new_content, next_level, existing_tags)
+    
+    # Create new item at higher level with the refined content
+    new_item_result = supabase.table("dikw_items").insert({
+        "level": next_level,
+        "content": new_content,
+        "summary": new_summary,
+        "source_type": "synthesis",
+        "source_ref_ids": json.dumps([item_id]),
+        "original_signal_type": item.get('original_signal_type'),
+        "meeting_id": item.get('meeting_id'),
+        "confidence": new_confidence,
+        "validation_count": (item.get('validation_count') or 0) + 1,
+        "tags": new_tags
+    }).execute()
+    
+    new_id = new_item_result.data[0]["id"] if new_item_result.data else None
+    
+    # Record evolution history for the promotion
+    supabase.table("dikw_evolution").insert({
+        "item_id": new_id,
+        "event_type": "promoted",
+        "from_level": current_level,
+        "to_level": next_level,
+        "source_item_ids": json.dumps([item_id]),
+        "content_snapshot": item['content']
+    }).execute()
+    
+    # Update original item to show it was promoted
+    supabase.table("dikw_items").update({
+        "promoted_to": new_id,
+        "promoted_at": datetime.now().isoformat()
+    }).eq("id", item_id).execute()
     
     return JSONResponse({
         "status": "ok", 
@@ -3269,62 +3081,61 @@ async def merge_dikw_items(request: Request):
     if len(item_ids) < 2:
         return JSONResponse({"error": "Need at least 2 items to merge"}, status_code=400)
     
-    with connect() as conn:
-        items = conn.execute(
-            f"SELECT * FROM dikw_items WHERE id IN ({','.join('?' * len(item_ids))})",
-            item_ids
-        ).fetchall()
-        
-        if len(items) < 2:
-            return JSONResponse({"error": "Items not found"}, status_code=404)
-        
-        # All items must be at same level
-        levels = set(item['level'] for item in items)
-        if len(levels) > 1:
-            return JSONResponse({"error": "All items must be at the same level"}, status_code=400)
-        
-        current_level = items[0]['level']
-        if current_level == 'wisdom':
-            # Merge wisdom items into a mega-wisdom
-            next_level = 'wisdom'
-        else:
-            next_level = DIKW_NEXT_LEVEL[current_level]
-        
-        # Combine content for AI synthesis
-        combined_content = "\n\n".join([f"- {item['content']}" for item in items])
-        
-        # Use DIKWSynthesizerAgent adapter for merge synthesis
-        try:
-            items_for_adapter = [dict(item) for item in items]
-            result = await merge_dikw_items_adapter(items_for_adapter)
-            merged_summary = result.get('merged_content', '') or result.get('summary', '')
-            if not merged_summary:
-                merged_summary = f"Merged {len(items)} items: " + "; ".join([i['summary'][:50] for i in items if i['summary']])
-        except Exception:
-            merged_summary = f"Merged {len(items)} items: " + "; ".join([i['summary'][:50] for i in items if i['summary']])
-        
-        # Create merged item
-        avg_confidence = sum(item['confidence'] or 0.5 for item in items) / len(items)
-        total_validations = sum(item['validation_count'] or 0 for item in items)
-        
-        conn.execute(
-            """INSERT INTO dikw_items 
-               (level, content, summary, source_type, source_ref_ids, confidence, validation_count)
-               VALUES (?, ?, ?, 'synthesis', ?, ?, ?)""",
-            (next_level, combined_content, merged_summary, json.dumps(item_ids),
-             min(1.0, avg_confidence + 0.15), total_validations)
-        )
-        conn.commit()
-        new_id = conn.execute("SELECT last_insert_rowid() as id").fetchone()["id"]
-        
-        # Mark source items as merged
-        for item_id in item_ids:
-            conn.execute(
-                """UPDATE dikw_items SET status = 'merged', promoted_to = ?, promoted_at = CURRENT_TIMESTAMP
-                   WHERE id = ?""",
-                (new_id, item_id)
-            )
-        conn.commit()
+    # Get items from Supabase
+    items_result = supabase.table("dikw_items").select("*").in_("id", item_ids).execute()
+    items = items_result.data or []
+    
+    if len(items) < 2:
+        return JSONResponse({"error": "Items not found"}, status_code=404)
+    
+    # All items must be at same level
+    levels = set(item['level'] for item in items)
+    if len(levels) > 1:
+        return JSONResponse({"error": "All items must be at the same level"}, status_code=400)
+    
+    current_level = items[0]['level']
+    if current_level == 'wisdom':
+        # Merge wisdom items into a mega-wisdom
+        next_level = 'wisdom'
+    else:
+        next_level = DIKW_NEXT_LEVEL[current_level]
+    
+    # Combine content for AI synthesis
+    combined_content = "\n\n".join([f"- {item['content']}" for item in items])
+    
+    # Use DIKWSynthesizerAgent adapter for merge synthesis
+    try:
+        items_for_adapter = [dict(item) for item in items]
+        result = await merge_dikw_items_adapter(items_for_adapter)
+        merged_summary = result.get('merged_content', '') or result.get('summary', '')
+        if not merged_summary:
+            merged_summary = f"Merged {len(items)} items: " + "; ".join([i.get('summary', '')[:50] for i in items if i.get('summary')])
+    except Exception:
+        merged_summary = f"Merged {len(items)} items: " + "; ".join([i.get('summary', '')[:50] for i in items if i.get('summary')])
+    
+    # Create merged item
+    avg_confidence = sum(item.get('confidence') or 0.5 for item in items) / len(items)
+    total_validations = sum(item.get('validation_count') or 0 for item in items)
+    
+    new_item_result = supabase.table("dikw_items").insert({
+        "level": next_level,
+        "content": combined_content,
+        "summary": merged_summary,
+        "source_type": "synthesis",
+        "source_ref_ids": json.dumps(item_ids),
+        "confidence": min(1.0, avg_confidence + 0.15),
+        "validation_count": total_validations
+    }).execute()
+    
+    new_id = new_item_result.data[0]["id"] if new_item_result.data else None
+    
+    # Mark source items as merged
+    for item_id in item_ids:
+        supabase.table("dikw_items").update({
+            "status": "merged",
+            "promoted_to": new_id,
+            "promoted_at": datetime.now().isoformat()
+        }).eq("id", item_id).execute()
     
     return JSONResponse({
         "status": "ok",
@@ -3345,31 +3156,25 @@ async def validate_dikw_item(request: Request):
     if not item_id:
         return JSONResponse({"error": "Item ID is required"}, status_code=400)
     
-    with connect() as conn:
-        if action == "validate":
-            conn.execute(
-                """UPDATE dikw_items 
-                   SET validation_count = validation_count + 1,
-                       confidence = MIN(1.0, confidence + 0.1),
-                       updated_at = CURRENT_TIMESTAMP
-                   WHERE id = ?""",
-                (item_id,)
-            )
-        elif action == "invalidate":
-            conn.execute(
-                """UPDATE dikw_items 
-                   SET validation_count = MAX(0, validation_count - 1),
-                       confidence = MAX(0.0, confidence - 0.1),
-                       updated_at = CURRENT_TIMESTAMP
-                   WHERE id = ?""",
-                (item_id,)
-            )
-        elif action == "archive":
-            conn.execute(
-                """UPDATE dikw_items SET status = 'archived', updated_at = CURRENT_TIMESTAMP WHERE id = ?""",
-                (item_id,)
-            )
-        conn.commit()
+    # Get current item first
+    item_result = supabase.table("dikw_items").select("validation_count, confidence").eq("id", item_id).execute()
+    
+    if action == "validate":
+        current = item_result.data[0] if item_result.data else {"validation_count": 0, "confidence": 0.5}
+        supabase.table("dikw_items").update({
+            "validation_count": (current.get("validation_count") or 0) + 1,
+            "confidence": min(1.0, (current.get("confidence") or 0.5) + 0.1)
+        }).eq("id", item_id).execute()
+    elif action == "invalidate":
+        current = item_result.data[0] if item_result.data else {"validation_count": 0, "confidence": 0.5}
+        supabase.table("dikw_items").update({
+            "validation_count": max(0, (current.get("validation_count") or 0) - 1),
+            "confidence": max(0.0, (current.get("confidence") or 0.5) - 0.1)
+        }).eq("id", item_id).execute()
+    elif action == "archive":
+        supabase.table("dikw_items").update({
+            "status": "archived"
+        }).eq("id", item_id).execute()
     
     return JSONResponse({"status": "ok", "action": action})
 
@@ -3410,14 +3215,15 @@ async def create_dikw_item(request: Request):
     if auto_tags and not tags:
         tags = generate_dikw_tags(content, level)
     
-    with connect() as conn:
-        conn.execute(
-            """INSERT INTO dikw_items (level, content, summary, tags, source_type)
-               VALUES (?, ?, ?, ?, 'manual')""",
-            (level, content, summary or None, tags or None)
-        )
-        conn.commit()
-        item_id = conn.execute("SELECT last_insert_rowid() as id").fetchone()["id"]
+    result = supabase.table("dikw_items").insert({
+        "level": level,
+        "content": content,
+        "summary": summary or None,
+        "tags": tags or None,
+        "source_type": "manual"
+    }).execute()
+    
+    item_id = result.data[0]["id"] if result.data else None
     
     return JSONResponse({"status": "ok", "id": item_id, "tags": tags})
 
@@ -3427,56 +3233,50 @@ async def update_dikw_item(item_id: int, request: Request):
     """Update an existing DIKW item."""
     data = await request.json()
     
-    with connect() as conn:
-        # Get current item to preserve unchanged fields
-        current = conn.execute("SELECT * FROM dikw_items WHERE id = ?", (item_id,)).fetchone()
-        if not current:
-            return JSONResponse({"error": "Item not found"}, status_code=404)
-        
-        # Extract fields with fallback to existing values
-        level = data.get("level", current['level'])
-        content = data.get("content", current['content'])
-        summary = data.get("summary", current['summary'])
-        tags = data.get("tags", current['tags'])
-        confidence = data.get("confidence")
-        
-        # Check if content or level changed to record evolution
-        content_changed = content != current['content']
-        level_changed = level != current['level']
-        
-        # Record evolution history if significant changes
-        if content_changed or level_changed:
-            # Snapshot the old state before updating
-            conn.execute("""
-                INSERT INTO dikw_evolution 
-                (item_id, event_type, from_level, to_level, content_snapshot, created_at)
-                VALUES (?, ?, ?, ?, ?, datetime('now'))
-            """, (
-                item_id,
-                'edited' if not level_changed else 'promoted',
-                current['level'],
-                level,
-                current['content']  # Snapshot of OLD content before change
-            ))
-        
-        # Handle confidence update (support both 0-1 and 0-100 ranges)
-        if confidence is not None:
-            if confidence <= 1:
-                confidence = confidence * 100
-            conn.execute(
-                """UPDATE dikw_items 
-                   SET level = ?, content = ?, summary = ?, tags = ?, confidence = ?, updated_at = CURRENT_TIMESTAMP
-                   WHERE id = ?""",
-                (level, content, summary, tags, confidence, item_id)
-            )
-        else:
-            conn.execute(
-                """UPDATE dikw_items 
-                   SET level = ?, content = ?, summary = ?, tags = ?, updated_at = CURRENT_TIMESTAMP
-                   WHERE id = ?""",
-                (level, content, summary, tags, item_id)
-            )
-        conn.commit()
+    # Get current item to preserve unchanged fields
+    current_result = supabase.table("dikw_items").select("*").eq("id", item_id).execute()
+    if not current_result.data:
+        return JSONResponse({"error": "Item not found"}, status_code=404)
+    
+    current = current_result.data[0]
+    
+    # Extract fields with fallback to existing values
+    level = data.get("level", current['level'])
+    content = data.get("content", current['content'])
+    summary = data.get("summary", current.get('summary'))
+    tags = data.get("tags", current.get('tags'))
+    confidence = data.get("confidence")
+    
+    # Check if content or level changed to record evolution
+    content_changed = content != current['content']
+    level_changed = level != current['level']
+    
+    # Record evolution history if significant changes
+    if content_changed or level_changed:
+        # Snapshot the old state before updating
+        supabase.table("dikw_evolution").insert({
+            "item_id": item_id,
+            "event_type": "edited" if not level_changed else "promoted",
+            "from_level": current['level'],
+            "to_level": level,
+            "content_snapshot": current['content']
+        }).execute()
+    
+    # Build update data
+    update_data = {
+        "level": level,
+        "content": content,
+        "summary": summary,
+        "tags": tags
+    }
+    
+    # Handle confidence update (support both 0-1 and 0-100 ranges)
+    if confidence is not None:
+        if confidence <= 1:
+            confidence = confidence * 100
+        update_data["confidence"] = confidence
+    
+    supabase.table("dikw_items").update(update_data).eq("id", item_id).execute()
     
     return JSONResponse({"status": "ok"})
 
@@ -3484,13 +3284,12 @@ async def update_dikw_item(item_id: int, request: Request):
 @app.delete("/api/dikw/{item_id}")
 async def delete_dikw_item(item_id: int):
     """Delete a DIKW item."""
-    with connect() as conn:
-        item = conn.execute("SELECT * FROM dikw_items WHERE id = ?", (item_id,)).fetchone()
-        if not item:
-            return JSONResponse({"error": "Item not found"}, status_code=404)
-        
-        conn.execute("DELETE FROM dikw_items WHERE id = ?", (item_id,))
-        conn.commit()
+    # Verify item exists
+    item_result = supabase.table("dikw_items").select("id").eq("id", item_id).execute()
+    if not item_result.data:
+        return JSONResponse({"error": "Item not found"}, status_code=404)
+    
+    supabase.table("dikw_items").delete().eq("id", item_id).execute()
     
     return JSONResponse({"status": "ok"})
 
@@ -3647,18 +3446,13 @@ async def get_mindmap_data():
     
     Returns both DIKW pyramid structure and hierarchical mindmaps from conversations.
     """
-    with connect() as conn:
-        items = conn.execute(
-            """SELECT * FROM dikw_items WHERE status = 'active' 
-               ORDER BY level, created_at DESC"""
-        ).fetchall()
-        
-        # Get hierarchical mindmaps from conversations
-        mindmaps = conn.execute(
-            """SELECT id, conversation_id, mindmap_json, hierarchy_levels, 
-                      node_count, root_node_id FROM conversation_mindmaps
-               ORDER BY updated_at DESC LIMIT 5"""
-        ).fetchall()
+    # Get DIKW items from Supabase
+    items_result = supabase.table("dikw_items").select("*").eq("status", "active").order("created_at", desc=True).execute()
+    items = items_result.data or []
+    
+    # Get hierarchical mindmaps from conversations
+    mindmaps_result = supabase.table("conversation_mindmaps").select("id, conversation_id, mindmap_json, hierarchy_levels, node_count, root_node_id").order("updated_at", desc=True).limit(5).execute()
+    mindmaps = mindmaps_result.data or []
     
     # Build DIKW tree structure for mindmap
     tree = {
@@ -3776,13 +3570,9 @@ async def get_mindmap_data_hierarchical():
     """
     from .services.mindmap_synthesis import MindmapSynthesizer
     
-    with connect() as conn:
-        mindmaps = conn.execute(
-            """SELECT id, conversation_id, mindmap_json, hierarchy_levels,
-                      node_count, root_node_id, created_at, updated_at
-               FROM conversation_mindmaps
-               ORDER BY updated_at DESC"""
-        ).fetchall()
+    # Get mindmaps from Supabase
+    mindmaps_result = supabase.table("conversation_mindmaps").select("id, conversation_id, mindmap_json, hierarchy_levels, node_count, root_node_id, created_at, updated_at").order("updated_at", desc=True).execute()
+    mindmaps = mindmaps_result.data or []
     
     hierarchical_data = []
     for mindmap in mindmaps:
@@ -3862,29 +3652,33 @@ async def get_aggregated_conversation_mindmaps():
     """
     from .services.mindmap_synthesis import MindmapSynthesizer
     
-    with connect() as conn:
-        # Get conversations with their mindmaps
-        result = conn.execute("""
-            SELECT c.id as conversation_id, c.title, c.created_at,
-                   GROUP_CONCAT(cm.id) as mindmap_ids,
-                   COUNT(cm.id) as mindmap_count
-            FROM conversations c
-            LEFT JOIN conversation_mindmaps cm ON c.id = cm.conversation_id
-            GROUP BY c.id
-            ORDER BY c.created_at DESC
-        """).fetchall()
+    # Get conversations from Supabase
+    convs_result = supabase.table("conversations").select("id, title, created_at").order("created_at", desc=True).execute()
+    
+    # Get mindmaps grouped by conversation
+    mindmaps_result = supabase.table("conversation_mindmaps").select("id, conversation_id").execute()
+    
+    # Group mindmaps by conversation
+    conv_mindmaps = {}
+    for m in mindmaps_result.data or []:
+        cid = m["conversation_id"]
+        if cid not in conv_mindmaps:
+            conv_mindmaps[cid] = []
+        conv_mindmaps[cid].append(m["id"])
     
     conversation_data = []
-    for conv in result:
-        if conv['mindmap_ids']:
+    for conv in convs_result.data or []:
+        conv_id = conv["id"]
+        mindmap_ids = conv_mindmaps.get(conv_id, [])
+        if mindmap_ids:
             # Get hierarchy summary for each conversation
             summary = MindmapSynthesizer.get_hierarchy_summary()
             conversation_data.append({
-                "conversation_id": conv['conversation_id'],
-                "title": conv['title'],
-                "created_at": conv['created_at'],
-                "mindmap_count": conv['mindmap_count'],
-                "mindmap_ids": [int(m) for m in conv['mindmap_ids'].split(',')],
+                "conversation_id": conv_id,
+                "title": conv.get("title"),
+                "created_at": conv.get("created_at"),
+                "mindmap_count": len(mindmap_ids),
+                "mindmap_ids": mindmap_ids,
                 "statistics": {
                     "total_nodes": summary.get('total_nodes', 0),
                     "avg_depth": summary.get('avg_depth', 0),
@@ -4026,18 +3820,16 @@ async def generate_mindmap(request: Request):
     data = await request.json()
     full_regenerate = data.get("full", True)
     
-    with connect() as conn:
-        items = conn.execute(
-            """SELECT * FROM dikw_items WHERE status = 'active' 
-               ORDER BY created_at DESC"""
-        ).fetchall()
+    # Get active DIKW items from Supabase
+    items_result = supabase.table("dikw_items").select("*").eq("status", "active").order("created_at", desc=True).execute()
+    items = items_result.data or []
     
     new_items_count = 0
     
     if not full_regenerate:
         # Only count items newer than last generation
         if _mindmap_cache.get("last_generated"):
-            new_items_count = len([i for i in items if i not in _mindmap_cache.get("processed_ids", [])])
+            new_items_count = len([i for i in items if i["id"] not in _mindmap_cache.get("processed_ids", [])])
         else:
             new_items_count = len(items)
     else:
@@ -4059,14 +3851,12 @@ async def generate_mindmap(request: Request):
 @app.get("/api/mindmap/tags")
 async def get_mindmap_tags():
     """Get tag cloud data for mindmap."""
-    with connect() as conn:
-        items = conn.execute(
-            """SELECT tags FROM dikw_items WHERE status = 'active' AND tags IS NOT NULL AND tags != ''"""
-        ).fetchall()
+    items_result = supabase.table("dikw_items").select("tags").eq("status", "active").not_.is_("tags", "null").neq("tags", "").execute()
+    items = items_result.data or []
     
     tag_counts = {}
     for item in items:
-        tags = (item['tags'] or '').split(',')
+        tags = (item.get('tags') or '').split(',')
         for tag in tags:
             tag = tag.strip().lower()
             if tag:
@@ -4094,25 +3884,18 @@ async def get_mindmap_status():
 @app.post("/api/dikw/backfill-tags")
 async def backfill_dikw_tags():
     """Backfill tags for existing DIKW items that don't have tags."""
-    with connect() as conn:
-        items = conn.execute(
-            """SELECT id, content, level, tags FROM dikw_items 
-               WHERE status = 'active' AND (tags IS NULL OR tags = '')"""
-        ).fetchall()
+    # Get items without tags from Supabase
+    items_result = supabase.table("dikw_items").select("id, content, level, tags").eq("status", "active").or_("tags.is.null,tags.eq.").execute()
+    items = items_result.data or []
     
     updated_count = 0
     errors = []
     
     for item in items:
         try:
-            tags = generate_dikw_tags(item['content'] or '', item['level'], '')
+            tags = generate_dikw_tags(item.get('content') or '', item.get('level'), '')
             if tags:
-                with connect() as conn:
-                    conn.execute(
-                        "UPDATE dikw_items SET tags = ? WHERE id = ?",
-                        (tags, item['id'])
-                    )
-                    conn.commit()
+                supabase.table("dikw_items").update({"tags": tags}).eq("id", item["id"]).execute()
                 updated_count += 1
         except Exception as e:
             errors.append({"id": item['id'], "error": str(e)})
@@ -4149,29 +3932,21 @@ def normalize_signal_type(signal_type: str) -> str:
 @app.post("/api/dikw/compress-dedupe")
 async def compress_and_dedupe_dikw():
     """Compress similar items and remove duplicates using AI analysis."""
-    with connect() as conn:
-        items = conn.execute(
-            """SELECT id, level, content, summary, original_signal_type, tags, confidence
-               FROM dikw_items WHERE status = 'active' 
-               ORDER BY level, created_at DESC"""
-        ).fetchall()
+    # Get active items from Supabase
+    items_result = supabase.table("dikw_items").select("id, level, content, summary, original_signal_type, tags, confidence").eq("status", "active").order("level").order("created_at", desc=True).execute()
+    items = items_result.data or []
     
     if len(items) < 2:
         return JSONResponse({"status": "ok", "message": "Not enough items to compress", "merged": 0, "normalized": 0})
     
     # Normalize signal types first
     normalized_count = 0
-    with connect() as conn:
-        for item in items:
-            if item['original_signal_type']:
-                normalized = normalize_signal_type(item['original_signal_type'])
-                if normalized != item['original_signal_type']:
-                    conn.execute(
-                        "UPDATE dikw_items SET original_signal_type = ? WHERE id = ?",
-                        (normalized, item['id'])
-                    )
-                    normalized_count += 1
-        conn.commit()
+    for item in items:
+        if item.get('original_signal_type'):
+            normalized = normalize_signal_type(item['original_signal_type'])
+            if normalized != item['original_signal_type']:
+                supabase.table("dikw_items").update({"original_signal_type": normalized}).eq("id", item["id"]).execute()
+                normalized_count += 1
     
     # Group items by level for duplicate detection
     levels = {}
@@ -4221,18 +3996,20 @@ async def compress_and_dedupe_dikw():
                 all_tags.update(t.strip() for t in item['tags'].split(',') if t.strip())
         merged_tags = ','.join(sorted(all_tags)[:10])
         
-        # Archive the duplicate items
-        with connect() as conn:
-            conn.execute(
-                f"UPDATE dikw_items SET status = 'merged', updated_at = CURRENT_TIMESTAMP WHERE id IN ({','.join('?' * len(other_ids))})",
-                other_ids
-            )
-            # Update the kept item with merged tags
-            conn.execute(
-                "UPDATE dikw_items SET tags = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-                (merged_tags, best_item['id'])
-            )
-            conn.commit()
+        # Archive the duplicate items and update the kept one
+        # Archive duplicates
+        for oid in other_ids:
+            supabase.table("dikw_items").update({
+                "status": "merged",
+                "updated_at": datetime.now().isoformat()
+            }).eq("id", oid).execute()
+        
+        # Update the kept item with merged tags
+        supabase.table("dikw_items").update({
+            "tags": merged_tags,
+            "updated_at": datetime.now().isoformat()
+        }).eq("id", best_item["id"]).execute()
+        
         merged_count += len(other_ids)
     
     return JSONResponse({
@@ -4247,41 +4024,33 @@ async def compress_and_dedupe_dikw():
 @app.get("/api/dikw/{item_id}/history")
 async def get_dikw_item_history(item_id: int):
     """Get the evolution history of a DIKW item."""
-    with connect() as conn:
-        # Get the item itself
-        item = conn.execute("SELECT * FROM dikw_items WHERE id = ?", (item_id,)).fetchone()
-        if not item:
-            return JSONResponse({"error": "Item not found"}, status_code=404)
-        
-        # Get evolution history
-        history = conn.execute(
-            """SELECT * FROM dikw_evolution WHERE item_id = ? ORDER BY created_at ASC""",
-            (item_id,)
-        ).fetchall()
-        
-        # Get source meeting info if available
-        meeting_info = None
-        if item['meeting_id']:
-            meeting = conn.execute(
-                "SELECT id, meeting_name, meeting_date FROM meetings WHERE id = ?",
-                (item['meeting_id'],)
-            ).fetchone()
-            if meeting:
-                meeting_info = dict(meeting)
-        
-        # Get source items if this was promoted/merged
-        source_items = []
-        if item['source_ref_ids']:
-            try:
-                source_ids = json.loads(item['source_ref_ids'])
-                if source_ids:
-                    sources = conn.execute(
-                        f"SELECT id, level, content, created_at FROM dikw_items WHERE id IN ({','.join('?' * len(source_ids))})",
-                        source_ids
-                    ).fetchall()
-                    source_items = [dict(s) for s in sources]
-            except:
-                pass
+    # Get the item itself from Supabase
+    item_result = supabase.table("dikw_items").select("*").eq("id", item_id).execute()
+    if not item_result.data:
+        return JSONResponse({"error": "Item not found"}, status_code=404)
+    item = item_result.data[0]
+    
+    # Get evolution history
+    history_result = supabase.table("dikw_evolution").select("*").eq("item_id", item_id).order("created_at").execute()
+    history = history_result.data or []
+    
+    # Get source meeting info if available
+    meeting_info = None
+    if item.get('meeting_id'):
+        meeting_result = supabase.table("meetings").select("id, meeting_name, meeting_date").eq("id", item["meeting_id"]).execute()
+        if meeting_result.data:
+            meeting_info = meeting_result.data[0]
+    
+    # Get source items if this was promoted/merged
+    source_items = []
+    if item.get('source_ref_ids'):
+        try:
+            source_ids = json.loads(item['source_ref_ids'])
+            if source_ids:
+                sources_result = supabase.table("dikw_items").select("id, level, content, created_at").in_("id", source_ids).execute()
+                source_items = sources_result.data or []
+        except:
+            pass
         
         # Build evolution timeline
         timeline = []
@@ -4308,15 +4077,15 @@ async def get_dikw_item_history(item_id: int):
             })
         
         # If promoted, add that event
-        if item['promoted_to']:
+        if item.get('promoted_to'):
             timeline.append({
                 "event": "promoted",
                 "to_level": "next",
-                "date": item['promoted_at']
+                "date": item.get('promoted_at')
             })
         
         return JSONResponse({
-            "item": dict(item),
+            "item": item,
             "meeting": meeting_info,
             "source_items": source_items,
             "timeline": timeline
@@ -4326,30 +4095,23 @@ async def get_dikw_item_history(item_id: int):
 @app.post("/api/dikw/normalize-categories")
 async def normalize_dikw_categories():
     """Normalize all signal type categories to consistent format."""
-    with connect() as conn:
-        items = conn.execute(
-            """SELECT id, original_signal_type FROM dikw_items 
-               WHERE original_signal_type IS NOT NULL AND original_signal_type != ''"""
-        ).fetchall()
+    # Get items with signal types from Supabase
+    items_result = supabase.table("dikw_items").select("id, original_signal_type").not_.is_("original_signal_type", "null").neq("original_signal_type", "").execute()
+    items = items_result.data or []
     
     updated = 0
     changes = []
     
-    with connect() as conn:
-        for item in items:
-            normalized = normalize_signal_type(item['original_signal_type'])
-            if normalized != item['original_signal_type']:
-                conn.execute(
-                    "UPDATE dikw_items SET original_signal_type = ? WHERE id = ?",
-                    (normalized, item['id'])
-                )
-                changes.append({
-                    "id": item['id'],
-                    "from": item['original_signal_type'],
-                    "to": normalized
-                })
-                updated += 1
-        conn.commit()
+    for item in items:
+        normalized = normalize_signal_type(item.get('original_signal_type', ''))
+        if normalized != item.get('original_signal_type'):
+            supabase.table("dikw_items").update({"original_signal_type": normalized}).eq("id", item["id"]).execute()
+            changes.append({
+                "id": item['id'],
+                "from": item['original_signal_type'],
+                "to": normalized
+            })
+            updated += 1
     
     return JSONResponse({
         "status": "ok",
@@ -4508,18 +4270,14 @@ async def get_unprocessed_signals():
     # Get meetings with signals from Supabase
     meetings = meetings_supabase.get_meetings_with_signals(limit=20)
     
-    with connect() as conn:
-        # Get already processed signals from SQLite
-        processed = conn.execute(
-            """SELECT meeting_id, signal_type, signal_text 
-               FROM signal_status 
-               WHERE converted_to = 'dikw'"""
-        ).fetchall()
-        
-        processed_set = set(
-            (p['meeting_id'], p['signal_type'], p['signal_text']) 
-            for p in processed
-        )
+    # Get already processed signals from Supabase
+    processed_result = supabase.table("signal_status").select("meeting_id, signal_type, signal_text").eq("converted_to", "dikw").execute()
+    processed = processed_result.data or []
+    
+    processed_set = set(
+        (p['meeting_id'], p['signal_type'], p['signal_text']) 
+        for p in processed
+    )
     
     unprocessed = []
     for meeting in meetings:
@@ -4684,13 +4442,17 @@ async def load_meeting_bundle_ui(
                             f.write(content)
                         local_path = f"uploads/{unique_name}"
                     
-                    # Record in database (with Supabase URL if available)
-                    with connect() as conn:
-                        conn.execute("""
-                            INSERT INTO attachments (ref_type, ref_id, filename, file_path, mime_type, file_size, supabase_url, supabase_path)
-                            VALUES ('meeting', ?, ?, ?, ?, ?, ?, ?)
-                        """, (meeting_id, screenshot.filename, local_path or '', 
-                              mime_type, len(content), supabase_url, supabase_path))
+                    # Record in Supabase attachments table
+                    supabase.table("attachments").insert({
+                        "ref_type": "meeting",
+                        "ref_id": meeting_id,
+                        "filename": screenshot.filename,
+                        "file_path": local_path or "",
+                        "mime_type": mime_type,
+                        "file_size": len(content),
+                        "supabase_url": supabase_url,
+                        "supabase_path": supabase_path
+                    }).execute()
                 except Exception as e:
                     logger.warning(f"Failed to upload screenshot: {e}")
         

@@ -135,11 +135,15 @@ async def migrate_local_uploads_to_supabase(upload_dir: str = "uploads") -> dict
     Returns:
         Dict with migration results
     """
-    from ..db import connect
+    from ..infrastructure.supabase_client import get_supabase_client
     
     storage = get_storage_client()
     if not storage:
         return {"error": "Supabase Storage not available"}
+    
+    supabase = get_supabase_client()
+    if not supabase:
+        return {"error": "Supabase client not available"}
     
     results = {
         "total": 0,
@@ -149,15 +153,14 @@ async def migrate_local_uploads_to_supabase(upload_dir: str = "uploads") -> dict
         "details": []
     }
     
-    # Get all attachments from local database
-    with connect() as conn:
-        attachments = conn.execute("""
-            SELECT id, ref_type, ref_id, filename, file_path, mime_type, file_size
-            FROM attachments
-            WHERE file_path LIKE 'uploads/%'
-              AND (supabase_url IS NULL OR supabase_url = '')
-        """).fetchall()
+    # Get all attachments from Supabase
+    attachments_result = supabase.table("attachments")\
+        .select("id, ref_type, ref_id, filename, file_path, mime_type, file_size")\
+        .like("file_path", "uploads/%")\
+        .or_("supabase_url.is.null,supabase_url.eq.")\
+        .execute()
     
+    attachments = attachments_result.data or []
     results["total"] = len(attachments)
     
     for att in attachments:
@@ -189,12 +192,13 @@ async def migrate_local_uploads_to_supabase(upload_dir: str = "uploads") -> dict
             
             if public_url and storage_path:
                 # Update database with Supabase URL
-                with connect() as conn:
-                    conn.execute("""
-                        UPDATE attachments
-                        SET supabase_url = ?, supabase_path = ?
-                        WHERE id = ?
-                    """, (public_url, storage_path, att_id))
+                supabase.table("attachments")\
+                    .update({
+                        "supabase_url": public_url,
+                        "supabase_path": storage_path
+                    })\
+                    .eq("id", att_id)\
+                    .execute()
                 
                 results["migrated"] += 1
                 results["details"].append({

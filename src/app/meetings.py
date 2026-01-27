@@ -8,7 +8,7 @@ import json
 import base64
 import logging
 
-from .db import connect
+from .infrastructure.supabase_client import get_supabase_client
 from .memory.embed import embed_text, EMBED_MODEL
 from .memory.vector_store import upsert_embedding
 from .mcp.parser import parse_meeting_summary
@@ -39,6 +39,7 @@ def process_screenshots(meeting_id: int, screenshots: List[UploadFile]) -> List[
     from .agents.vision import analyze_image_adapter
     
     summaries = []
+    supabase = get_supabase_client()
     
     for screenshot in screenshots:
         if not screenshot.filename or screenshot.size == 0:
@@ -54,14 +55,12 @@ def process_screenshots(meeting_id: int, screenshots: List[UploadFile]) -> List[
             summaries.append(summary)
             
             # Store in database
-            with connect() as conn:
-                conn.execute(
-                    """
-                    INSERT INTO meeting_screenshots (meeting_id, filename, content_type, image_summary)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (meeting_id, screenshot.filename, screenshot.content_type, summary)
-                )
+            supabase.table("meeting_screenshots").insert({
+                "meeting_id": meeting_id,
+                "filename": screenshot.filename,
+                "content_type": screenshot.content_type,
+                "image_summary": summary
+            }).execute()
         except Exception as e:
             print(f"Error processing screenshot {screenshot.filename}: {e}")
             continue
@@ -71,17 +70,9 @@ def process_screenshots(meeting_id: int, screenshots: List[UploadFile]) -> List[
 
 def get_meeting_screenshots(meeting_id: int) -> List[dict]:
     """Get all screenshot summaries for a meeting."""
-    with connect() as conn:
-        rows = conn.execute(
-            """
-            SELECT id, filename, image_summary, created_at
-            FROM meeting_screenshots
-            WHERE meeting_id = ?
-            ORDER BY created_at
-            """,
-            (meeting_id,)
-        ).fetchall()
-    return [dict(row) for row in rows]
+    supabase = get_supabase_client()
+    result = supabase.table("meeting_screenshots").select("id, filename, image_summary, created_at").eq("meeting_id", meeting_id).order("created_at").execute()
+    return result.data or []
 
 
 @router.post("/meetings/synthesize")
@@ -576,34 +567,26 @@ def list_action_items(
     except Exception as e:
         logger.warning(f"Could not load from Supabase: {e}")
     
-    # Also load from SQLite as fallback/supplement
-    with connect() as conn:
-        # Get SQLite meetings for dropdown
-        sqlite_meetings = conn.execute(
-            "SELECT id, meeting_name FROM meeting_summaries ORDER BY meeting_date DESC LIMIT 50"
-        ).fetchall()
+    # Also load from Supabase meeting_summaries as fallback/supplement
+    supabase_client = get_supabase_client()
+    try:
+        # Get meetings for dropdown
+        meetings_result = supabase_client.table("meeting_summaries").select("id, meeting_name").order("meeting_date", desc=True).limit(50).execute()
         
         # Merge with Supabase meetings (avoiding duplicates)
         existing_names = {m['meeting_name'] for m in all_meetings}
-        for m in sqlite_meetings:
+        for m in meetings_result.data or []:
             if m['meeting_name'] not in existing_names:
-                all_meetings.append(dict(m))
+                all_meetings.append(m)
         
-        meetings = conn.execute(
-            """
-            SELECT id, meeting_name, meeting_date, signals_json
-            FROM meeting_summaries
-            WHERE signals_json IS NOT NULL AND signals_json != '{}'
-            ORDER BY COALESCE(meeting_date, created_at) DESC
-            """
-        ).fetchall()
+        meetings_with_signals = supabase_client.table("meeting_summaries").select("id, meeting_name, meeting_date, signals_json").neq("signals_json", None).neq("signals_json", "{}").order("meeting_date", desc=True).execute()
         
         # Track existing action item texts to avoid duplicates
         existing_texts = {item['text'] for item in all_action_items}
         
-        for meeting in meetings:
+        for meeting in meetings_with_signals.data or []:
             try:
-                signals = json.loads(meeting['signals_json'] or '{}')
+                signals = json.loads(meeting['signals_json'] or '{}') if isinstance(meeting['signals_json'], str) else (meeting['signals_json'] or {})
                 raw_items = signals.get('action_items', [])
                 
                 for idx, item in enumerate(raw_items):
@@ -624,10 +607,10 @@ def list_action_items(
                         action_item['priority'] = item.get('priority', 'medium')
                         action_item['due_date'] = item.get('dueDate') or item.get('due_date')
                         action_item['completed'] = item.get('completed', False)
-                        action_item['source'] = item.get('source', 'sqlite')
+                        action_item['source'] = item.get('source', 'supabase')
                     else:
                         action_item['text'] = str(item)
-                        action_item['source'] = 'sqlite'
+                        action_item['source'] = 'supabase'
                     
                     # Skip if duplicate from Supabase
                     if action_item['text'] in existing_texts:
@@ -644,6 +627,8 @@ def list_action_items(
                     all_action_items.append(action_item)
             except (json.JSONDecodeError, TypeError):
                 continue
+    except Exception as e:
+        logger.warning(f"Could not load from meeting_summaries: {e}")
     
     # Apply filters
     if filter_status == 'completed':
@@ -710,46 +695,42 @@ def list_action_items(
 @router.post("/api/action-items/{meeting_id}/{item_index}/toggle")
 def toggle_action_item(meeting_id: int, item_index: int):
     """Toggle completion status of an action item."""
-    
-    with connect() as conn:
-        meeting = conn.execute(
-            "SELECT signals_json FROM meeting_summaries WHERE id = ?",
-            (meeting_id,)
-        ).fetchone()
+    supabase = get_supabase_client()
+
+    result = supabase.table("meetings").select("signals").eq("id", meeting_id).execute()
+    meetings = result.data or []
+
+    if not meetings or not meetings[0].get('signals'):
+        return {"success": False, "error": "Meeting not found"}
+
+    meeting = meetings[0]
+    try:
+        signals = meeting['signals'] if isinstance(meeting['signals'], dict) else json.loads(meeting['signals'])
+        action_items = signals.get('action_items', [])
         
-        if not meeting or not meeting['signals_json']:
-            return {"success": False, "error": "Meeting not found"}
+        if item_index < 0 or item_index >= len(action_items):
+            return {"success": False, "error": "Invalid item index"}
         
-        try:
-            signals = json.loads(meeting['signals_json'])
-            action_items = signals.get('action_items', [])
-            
-            if item_index < 0 or item_index >= len(action_items):
-                return {"success": False, "error": "Invalid item index"}
-            
-            item = action_items[item_index]
-            
-            # Toggle completion
-            if isinstance(item, dict):
-                item['completed'] = not item.get('completed', False)
-            else:
-                # Convert string to dict
-                action_items[item_index] = {
-                    'text': item,
-                    'description': item,
-                    'completed': True
-                }
-            
-            signals['action_items'] = action_items
-            
-            conn.execute(
-                "UPDATE meeting_summaries SET signals_json = ? WHERE id = ?",
-                (json.dumps(signals), meeting_id)
-            )
-            
-            return {"success": True, "completed": action_items[item_index].get('completed', True) if isinstance(action_items[item_index], dict) else True}
-        except (json.JSONDecodeError, TypeError) as e:
-            return {"success": False, "error": str(e)}
+        item = action_items[item_index]
+        
+        # Toggle completion
+        if isinstance(item, dict):
+            item['completed'] = not item.get('completed', False)
+        else:
+            # Convert string to dict
+            action_items[item_index] = {
+                'text': item,
+                'description': item,
+                'completed': True
+            }
+        
+        signals['action_items'] = action_items
+        
+        supabase.table("meetings").update({"signals": signals}).eq("id", meeting_id).execute()
+        
+        return {"success": True, "completed": action_items[item_index].get('completed', True) if isinstance(action_items[item_index], dict) else True}
+    except (json.JSONDecodeError, TypeError) as e:
+        return {"success": False, "error": str(e)}
 
 
 @router.post("/api/action-items/{meeting_id}/{item_index}/priority")
@@ -762,45 +743,41 @@ async def update_action_item_priority(meeting_id: int, item_index: int, request:
     if new_priority not in ['low', 'medium', 'high']:
         return {"success": False, "error": "Invalid priority. Must be low, medium, or high"}
     
-    with connect() as conn:
-        meeting = conn.execute(
-            "SELECT signals_json FROM meeting_summaries WHERE id = ?",
-            (meeting_id,)
-        ).fetchone()
+    supabase = get_supabase_client()
+    result = supabase.table("meetings").select("signals").eq("id", meeting_id).execute()
+    meetings = result.data or []
+
+    if not meetings or not meetings[0].get('signals'):
+        return {"success": False, "error": "Meeting not found"}
+
+    meeting = meetings[0]
+    try:
+        signals = meeting['signals'] if isinstance(meeting['signals'], dict) else json.loads(meeting['signals'])
+        action_items = signals.get('action_items', [])
         
-        if not meeting or not meeting['signals_json']:
-            return {"success": False, "error": "Meeting not found"}
+        if item_index < 0 or item_index >= len(action_items):
+            return {"success": False, "error": "Invalid item index"}
         
-        try:
-            signals = json.loads(meeting['signals_json'])
-            action_items = signals.get('action_items', [])
-            
-            if item_index < 0 or item_index >= len(action_items):
-                return {"success": False, "error": "Invalid item index"}
-            
-            item = action_items[item_index]
-            
-            # Update priority
-            if isinstance(item, dict):
-                item['priority'] = new_priority
-            else:
-                # Convert string to dict
-                action_items[item_index] = {
-                    'text': item,
-                    'description': item,
-                    'priority': new_priority
-                }
-            
-            signals['action_items'] = action_items
-            
-            conn.execute(
-                "UPDATE meeting_summaries SET signals_json = ? WHERE id = ?",
-                (json.dumps(signals), meeting_id)
-            )
-            
-            return {"success": True, "priority": new_priority}
-        except (json.JSONDecodeError, TypeError) as e:
-            return {"success": False, "error": str(e)}
+        item = action_items[item_index]
+        
+        # Update priority
+        if isinstance(item, dict):
+            item['priority'] = new_priority
+        else:
+            # Convert string to dict
+            action_items[item_index] = {
+                'text': item,
+                'description': item,
+                'priority': new_priority
+            }
+        
+        signals['action_items'] = action_items
+
+        supabase.table("meetings").update({"signals": signals}).eq("id", meeting_id).execute()
+
+        return {"success": True, "priority": new_priority}
+    except (json.JSONDecodeError, TypeError) as e:
+        return {"success": False, "error": str(e)}
 
 
 @router.post("/api/action-items/add")
@@ -827,64 +804,59 @@ async def add_action_item(request: Request):
         'source': 'manual'
     }
     
-    with connect() as conn:
-        if meeting_id:
-            # Add to existing meeting
-            meeting = conn.execute(
-                "SELECT signals_json FROM meeting_summaries WHERE id = ?",
-                (meeting_id,)
-            ).fetchone()
-            
-            if not meeting:
-                return {"success": False, "error": "Meeting not found"}
-            
+    supabase = get_supabase_client()
+    if meeting_id:
+        # Add to existing meeting
+        result = supabase.table("meetings").select("signals").eq("id", meeting_id).execute()
+        meetings = result.data or []
+
+        if not meetings:
+            return {"success": False, "error": "Meeting not found"}
+
+        meeting = meetings[0]
+        try:
+            signals = meeting.get('signals') or {}
+            if isinstance(signals, str):
+                signals = json.loads(signals)
+        except:
+            signals = {}
+        
+        if 'action_items' not in signals:
+            signals['action_items'] = []
+        
+        signals['action_items'].append(new_item)
+
+        supabase.table("meetings").update({"signals": signals}).eq("id", meeting_id).execute()
+    else:
+        # Create a "Personal Tasks" meeting if it doesn't exist
+        result = supabase.table("meetings").select("id, signals").eq("meeting_name", "Personal Action Items").execute()
+        personal_meetings = result.data or []
+        
+        if personal_meetings:
+            personal_meeting = personal_meetings[0]
             try:
-                signals = json.loads(meeting['signals_json'] or '{}')
+                signals = personal_meeting.get('signals') or {}
+                if isinstance(signals, str):
+                    signals = json.loads(signals)
             except:
                 signals = {}
-            
+
             if 'action_items' not in signals:
                 signals['action_items'] = []
-            
+
             signals['action_items'].append(new_item)
-            
-            conn.execute(
-                "UPDATE meeting_summaries SET signals_json = ? WHERE id = ?",
-                (json.dumps(signals), meeting_id)
-            )
+
+            supabase.table("meetings").update({"signals": signals}).eq("id", personal_meeting['id']).execute()
         else:
-            # Create a "Personal Tasks" meeting if it doesn't exist
-            personal_meeting = conn.execute(
-                "SELECT id, signals_json FROM meeting_summaries WHERE meeting_name = 'Personal Action Items'"
-            ).fetchone()
-            
-            if personal_meeting:
-                try:
-                    signals = json.loads(personal_meeting['signals_json'] or '{}')
-                except:
-                    signals = {}
-                
-                if 'action_items' not in signals:
-                    signals['action_items'] = []
-                
-                signals['action_items'].append(new_item)
-                
-                conn.execute(
-                    "UPDATE meeting_summaries SET signals_json = ? WHERE id = ?",
-                    (json.dumps(signals), personal_meeting['id'])
-                )
-            else:
-                # Create new personal meeting
-                from datetime import datetime
-                signals = {'action_items': [new_item]}
-                
-                conn.execute(
-                    """INSERT INTO meeting_summaries 
-                       (meeting_name, meeting_date, signals_json, created_at)
-                       VALUES (?, ?, ?, ?)""",
-                    ('Personal Action Items', datetime.now().strftime('%Y-%m-%d'),
-                     json.dumps(signals), datetime.now().isoformat())
-                )
+            # Create new personal meeting
+            from datetime import datetime
+            signals = {'action_items': [new_item]}
+
+            supabase.table("meetings").insert({
+                "meeting_name": "Personal Action Items",
+                "meeting_date": datetime.now().strftime('%Y-%m-%d'),
+                "signals": signals
+            }).execute()
     
     return {"success": True}
 
@@ -901,154 +873,153 @@ async def create_ticket_from_action_item(request: Request):
     if not text:
         return {"success": False, "error": "Text is required"}
     
-    with connect() as conn:
-        # Create the ticket
-        from datetime import datetime
-        import uuid
-        
-        # Generate unique ticket_id
-        ticket_id = f"ACT-{uuid.uuid4().hex[:8].upper()}"
-        
-        # Map priority
-        priority_map = {'high': 1, 'medium': 2, 'low': 3}
-        
-        # Get action item details and meeting context
-        priority = 2  # Default medium
-        description_parts = []
-        meeting_name = None
-        meeting_date = None
-        assignee = None
-        
-        if meeting_id is not None:
-            meeting = conn.execute(
-                """SELECT signals_json, meeting_name, meeting_date, raw_transcript, ai_summary, synthesized_notes 
-                   FROM meeting_summaries WHERE id = ?""",
-                (meeting_id,)
-            ).fetchone()
-            
-            if meeting:
-                meeting_name = meeting['meeting_name']
-                meeting_date = meeting['meeting_date']
-                
-                try:
-                    signals = json.loads(meeting['signals_json'] or '{}')
-                    items = signals.get('action_items', [])
-                    if 0 <= item_index < len(items):
-                        item = items[item_index]
-                        if isinstance(item, dict):
-                            priority = priority_map.get(item.get('priority', 'medium').lower(), 2)
-                            assignee = item.get('owner') or item.get('assignee')
-                except:
-                    pass
-                
-                # Build rich description from meeting context
-                description_parts.append(f"## Source\n")
-                description_parts.append(f"**Meeting:** {meeting_name or f'Meeting #{meeting_id}'}")
-                if meeting_date:
-                    description_parts.append(f"**Date:** {meeting_date}")
-                if assignee:
-                    description_parts.append(f"**Assignee:** {assignee}")
-                description_parts.append("")
-                
-                # Add relevant decisions if available
-                try:
-                    signals = json.loads(meeting['signals_json'] or '{}')
-                    decisions = signals.get('decisions', [])
-                    if decisions:
-                        description_parts.append("## Related Decisions")
-                        for d in decisions[:3]:  # Limit to 3 most relevant
-                            if isinstance(d, dict):
-                                description_parts.append(f"- {d.get('text', d.get('description', str(d)))}")
-                            else:
-                                description_parts.append(f"- {d}")
-                        description_parts.append("")
-                except:
-                    pass
-                
-                # Add context from synthesized notes or AI summary
-                if meeting.get('synthesized_notes'):
-                    # Extract a relevant section (first 500 chars)
-                    notes = meeting['synthesized_notes'][:500]
-                    if len(meeting['synthesized_notes']) > 500:
-                        notes += "..."
-                    description_parts.append("## Meeting Context")
-                    description_parts.append(notes)
-                    description_parts.append("")
-                elif meeting.get('ai_summary'):
-                    summary = meeting['ai_summary'][:500]
-                    if len(meeting['ai_summary']) > 500:
-                        summary += "..."
-                    description_parts.append("## Meeting Summary")
-                    description_parts.append(summary)
-                    description_parts.append("")
-                
-                # Extract relevant transcript snippet if the action item text appears
-                if meeting.get('raw_transcript'):
-                    transcript = meeting['raw_transcript']
-                    # Find where the action item text or keywords appear in transcript
-                    keywords = text.lower().split()[:5]  # First 5 words
-                    for keyword in keywords:
-                        if len(keyword) > 4 and keyword in transcript.lower():
-                            # Find the position and extract surrounding context
-                            pos = transcript.lower().find(keyword)
-                            start = max(0, pos - 200)
-                            end = min(len(transcript), pos + 300)
-                            snippet = transcript[start:end]
-                            if start > 0:
-                                snippet = "..." + snippet
-                            if end < len(transcript):
-                                snippet = snippet + "..."
-                            description_parts.append("## Transcript Excerpt")
-                            description_parts.append(f"```\n{snippet}\n```")
-                            break
-        
-        # Fallback if no context was gathered
-        if not description_parts:
-            description_parts.append(f"Created from action item in meeting #{meeting_id}")
-        
-        description = "\n".join(description_parts)
-        
-        # Create ticket with rich description
-        conn.execute(
-            """INSERT INTO tickets 
-               (ticket_id, title, description, priority, status, created_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (ticket_id, text, description, 
-             priority, 'todo', datetime.now().isoformat())
-        )
-        
-        row_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-        
-        # Mark action item as converted to ticket AND completed
-        if meeting_id is not None and item_index is not None:
+    supabase = get_supabase_client()
+    # Create the ticket
+    from datetime import datetime
+    import uuid
+    
+    # Generate unique ticket_id
+    ticket_id = f"ACT-{uuid.uuid4().hex[:8].upper()}"
+    
+    # Map priority
+    priority_map = {'high': 1, 'medium': 2, 'low': 3}
+    
+    # Get action item details and meeting context
+    priority = 2  # Default medium
+    description_parts = []
+    meeting_name = None
+    meeting_date = None
+    assignee = None
+    
+    if meeting_id is not None:
+        result = supabase.table("meetings").select("signals, meeting_name, meeting_date, raw_text, pocket_ai_summary, synthesized_notes").eq("id", meeting_id).execute()
+        meetings = result.data or []
+
+        if meetings:
+            meeting = meetings[0]
+            meeting_name = meeting.get('meeting_name')
+            meeting_date = meeting.get('meeting_date')
+
             try:
-                meeting = conn.execute(
-                    "SELECT signals_json FROM meeting_summaries WHERE id = ?",
-                    (meeting_id,)
-                ).fetchone()
-                
-                if meeting:
-                    signals = json.loads(meeting['signals_json'] or '{}')
-                    items = signals.get('action_items', [])
-                    if 0 <= item_index < len(items):
-                        item = items[item_index]
-                        if isinstance(item, dict):
-                            item['converted_to_ticket'] = ticket_id
-                            item['completed'] = True  # Auto-check the action item
-                        else:
-                            items[item_index] = {
-                                'text': item,
-                                'description': item,
-                                'converted_to_ticket': ticket_id,
-                                'completed': True  # Auto-check the action item
-                            }
-                        signals['action_items'] = items
-                        conn.execute(
-                            "UPDATE meeting_summaries SET signals_json = ? WHERE id = ?",
-                            (json.dumps(signals), meeting_id)
-                        )
+                signals = meeting.get('signals') or {}
+                if isinstance(signals, str):
+                    signals = json.loads(signals)
+                items = signals.get('action_items', [])
+                if item_index is not None and 0 <= item_index < len(items):
+                    item = items[item_index]
+                    if isinstance(item, dict):
+                        priority = priority_map.get(item.get('priority', 'medium').lower(), 2)
+                        assignee = item.get('owner') or item.get('assignee')
             except:
-                pass  # Non-critical
+                pass
+            
+            # Build rich description from meeting context
+            description_parts.append(f"## Source\n")
+            description_parts.append(f"**Meeting:** {meeting_name or f'Meeting #{meeting_id}'}")
+            if meeting_date:
+                description_parts.append(f"**Date:** {meeting_date}")
+            if assignee:
+                description_parts.append(f"**Assignee:** {assignee}")
+            description_parts.append("")
+            
+            # Add relevant decisions if available
+            try:
+                signals = json.loads(meeting['signals_json'] or '{}') if isinstance(meeting.get('signals_json'), str) else (meeting.get('signals_json') or {})
+                decisions = signals.get('decisions', [])
+                if decisions:
+                    description_parts.append("## Related Decisions")
+                    for d in decisions[:3]:  # Limit to 3 most relevant
+                        if isinstance(d, dict):
+                            description_parts.append(f"- {d.get('text', d.get('description', str(d)))}")
+                        else:
+                            description_parts.append(f"- {d}")
+                    description_parts.append("")
+            except:
+                pass
+            
+            # Add context from synthesized notes or AI summary
+            if meeting.get('synthesized_notes'):
+                # Extract a relevant section (first 500 chars)
+                notes = meeting['synthesized_notes'][:500]
+                if len(meeting['synthesized_notes']) > 500:
+                    notes += "..."
+                description_parts.append("## Meeting Context")
+                description_parts.append(notes)
+                description_parts.append("")
+            elif meeting.get('ai_summary'):
+                summary = meeting['ai_summary'][:500]
+                if len(meeting['ai_summary']) > 500:
+                    summary += "..."
+                description_parts.append("## Meeting Summary")
+                description_parts.append(summary)
+                description_parts.append("")
+            
+            # Extract relevant transcript snippet if the action item text appears
+            if meeting.get('raw_transcript'):
+                transcript = meeting['raw_transcript']
+                # Find where the action item text or keywords appear in transcript
+                keywords = text.lower().split()[:5]  # First 5 words
+                for keyword in keywords:
+                    if len(keyword) > 4 and keyword in transcript.lower():
+                        # Find the position and extract surrounding context
+                        pos = transcript.lower().find(keyword)
+                        start = max(0, pos - 200)
+                        end = min(len(transcript), pos + 300)
+                        snippet = transcript[start:end]
+                        if start > 0:
+                            snippet = "..." + snippet
+                        if end < len(transcript):
+                            snippet = snippet + "..."
+                        description_parts.append("## Transcript Excerpt")
+                        description_parts.append(f"```\n{snippet}\n```")
+                        break
+    
+    # Fallback if no context was gathered
+    if not description_parts:
+        description_parts.append(f"Created from action item in meeting #{meeting_id}")
+    
+    description = "\n".join(description_parts)
+    
+    # Create ticket with rich description
+    ticket_result = supabase.table("tickets").insert({
+        "ticket_id": ticket_id,
+        "title": text,
+        "description": description,
+        "priority": priority,
+        "status": "todo",
+        "created_at": datetime.now().isoformat()
+    }).execute()
+    
+    row_id = ticket_result.data[0].get("id") if ticket_result.data else None
+    
+    # Mark action item as converted to ticket AND completed
+    if meeting_id is not None and item_index is not None:
+        try:
+            result = supabase.table("meetings").select("signals").eq("id", meeting_id).execute()
+            meetings = result.data or []
+            
+            if meetings:
+                meeting = meetings[0]
+                signals = meeting.get('signals') or {}
+                if isinstance(signals, str):
+                    signals = json.loads(signals)
+                items = signals.get('action_items', [])
+                if 0 <= item_index < len(items):
+                    item = items[item_index]
+                    if isinstance(item, dict):
+                        item['converted_to_ticket'] = ticket_id
+                        item['completed'] = True  # Auto-check the action item
+                    else:
+                        items[item_index] = {
+                            'text': item,
+                            'description': item,
+                            'converted_to_ticket': ticket_id,
+                            'completed': True  # Auto-check the action item
+                        }
+                    signals['action_items'] = items
+                    supabase.table("meetings").update({"signals": signals}).eq("id", meeting_id).execute()
+        except:
+            pass  # Non-critical
     
     return {"success": True, "ticket_id": ticket_id, "row_id": row_id}
 

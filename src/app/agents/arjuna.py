@@ -668,20 +668,22 @@ asking too many questions."""
             return {"success": False, "error": "No ticket ID provided"}
         
         try:
-            with connect() as conn:
-                # Get current sprint
-                sprint = conn.execute(
-                    "SELECT id, name FROM sprints WHERE status = 'active' ORDER BY created_at DESC LIMIT 1"
-                ).fetchone()
-                
-                if not sprint:
-                    return {"success": False, "error": "No active sprint found"}
-                
-                # Add ticket to sprint
-                conn.execute(
-                    "UPDATE tickets SET sprint_id = ?, updated_at = datetime('now') WHERE id = ?",
-                    (sprint["id"], ticket_id)
-                )
+            from ..infrastructure.supabase_client import get_supabase_client
+            supabase = get_supabase_client()
+            
+            # Get current sprint
+            sprint_result = supabase.table("sprints").select("id, name").eq("status", "active").order("created_at", desc=True).limit(1).execute()
+            
+            if not sprint_result.data:
+                return {"success": False, "error": "No active sprint found"}
+            
+            sprint = sprint_result.data[0]
+            
+            # Add ticket to sprint
+            supabase.table("tickets").update({
+                "sprint_id": sprint["id"],
+                "updated_at": "now()"
+            }).eq("id", ticket_id).execute()
             
             return {
                 "success": True,
@@ -698,13 +700,13 @@ asking too many questions."""
             return {"success": False, "error": "No ticket ID provided"}
         
         try:
-            # Use the ticket plan endpoint logic
-            with connect() as conn:
-                ticket = conn.execute(
-                    "SELECT * FROM tickets WHERE id = ?", (ticket_id,)
-                ).fetchone()
+            from ..infrastructure.supabase_client import get_supabase_client
+            supabase = get_supabase_client()
             
-            if not ticket:
+            # Use the ticket plan endpoint logic
+            ticket_result = supabase.table("tickets").select("*").eq("id", ticket_id).execute()
+            
+            if not ticket_result.data:
                 return {"success": False, "error": "Ticket not found"}
             
             return {
@@ -991,15 +993,24 @@ Analyze the user's intent and respond with JSON as specified."""
             return {"success": False, "error": str(e)}
     
     def _get_db_connection(self):
-        """Get database connection, with fallback to app.db module."""
+        """Get database connection.
+        
+        DEPRECATED: This method is kept for backward compatibility.
+        New code should use get_supabase_client() directly.
+        Returns a Supabase client wrapper that mimics connection interface.
+        """
         if self.db_connection:
             return self.db_connection
         
         try:
-            from ..db import connect
-            return connect()
+            from ..infrastructure.supabase_client import get_supabase_client
+            supabase = get_supabase_client()
+            if supabase:
+                return supabase
+            logger.warning("Supabase client not available")
+            return None
         except ImportError:
-            logger.error("Could not import database connection")
+            logger.error("Could not import Supabase client")
             return None
     
     def _create_ticket(self, conn, entities: Dict[str, Any]) -> Dict[str, Any]:
@@ -1587,59 +1598,71 @@ Analyze the user's intent and respond with JSON as specified."""
             search_names.append(name_parts[0])
         
         try:
-            from ..db import connect
+            from ..infrastructure.supabase_client import get_supabase_client
+            supabase = get_supabase_client()
             
-            with connect() as conn:
-                seen_meeting_ids = set()
+            if not supabase:
+                logger.warning("Supabase client not available for transcript search")
+                return f"No mentions of {user_name} found (database unavailable)."
+            
+            seen_meeting_ids = set()
+            
+            for search_name in search_names:
+                # Search meetings.raw_text for user mentions using ilike
+                result = supabase.table("meetings").select(
+                    "id, meeting_name, raw_text, meeting_date, created_at"
+                ).ilike("raw_text", f"%{search_name}%").order(
+                    "meeting_date", desc=True
+                ).limit(10).execute()
                 
-                for search_name in search_names:
-                    # Search meeting_summaries.raw_text for user mentions
-                    meetings_raw = conn.execute(
-                        """SELECT ms.id, ms.meeting_name, ms.raw_text, ms.meeting_date
-                           FROM meeting_summaries ms
-                           WHERE LOWER(ms.raw_text) LIKE ?
-                           ORDER BY COALESCE(ms.meeting_date, ms.created_at) DESC
-                           LIMIT 10""",
-                        (f"%{search_name.lower()}%",)
-                    ).fetchall()
+                meetings_raw = result.data if result.data else []
+                
+                for m in meetings_raw:
+                    if m["id"] in seen_meeting_ids:
+                        continue
+                    seen_meeting_ids.add(m["id"])
                     
-                    for m in meetings_raw:
-                        if m["id"] in seen_meeting_ids:
-                            continue
-                        seen_meeting_ids.add(m["id"])
-                        
-                        if m["raw_text"]:
-                            # Search for any of the name variations in the snippet
-                            snippet = self._extract_mention_snippet(m["raw_text"], search_name)
-                            if snippet:
-                                date_str = m["meeting_date"] or "Unknown date"
-                                context_parts.append(f"**{m['meeting_name']}** ({date_str}):\n{snippet}")
+                    if m.get("raw_text"):
+                        # Search for any of the name variations in the snippet
+                        snippet = self._extract_mention_snippet(m["raw_text"], search_name)
+                        if snippet:
+                            date_str = m.get("meeting_date") or "Unknown date"
+                            context_parts.append(f"**{m['meeting_name']}** ({date_str}):\n{snippet}")
+            
+            seen_doc_ids = set()
+            
+            for search_name in search_names:
+                # Search meeting_documents.content for user mentions
+                # Note: Supabase doesn't support JOINs in the same way, so we fetch docs first
+                doc_result = supabase.table("meeting_documents").select(
+                    "id, content, source, doc_type, meeting_id, created_at"
+                ).ilike("content", f"%{search_name}%").order(
+                    "created_at", desc=True
+                ).limit(10).execute()
                 
-                seen_doc_ids = set()
+                docs = doc_result.data if doc_result.data else []
                 
-                for search_name in search_names:
-                    # Search meeting_documents.content for user mentions
-                    docs = conn.execute(
-                        """SELECT md.id, md.content, md.source, md.doc_type, ms.meeting_name, ms.meeting_date
-                           FROM meeting_documents md
-                           JOIN meeting_summaries ms ON md.meeting_id = ms.id
-                           WHERE LOWER(md.content) LIKE ?
-                           ORDER BY COALESCE(ms.meeting_date, md.created_at) DESC
-                           LIMIT 10""",
-                        (f"%{search_name.lower()}%",)
-                    ).fetchall()
+                for d in docs:
+                    if d["id"] in seen_doc_ids:
+                        continue
+                    seen_doc_ids.add(d["id"])
                     
-                    for d in docs:
-                        if d["id"] in seen_doc_ids:
-                            continue
-                        seen_doc_ids.add(d["id"])
+                    if d.get("content"):
+                        # Fetch meeting info for this document
+                        meeting_info = None
+                        if d.get("meeting_id"):
+                            meeting_result = supabase.table("meetings").select(
+                                "meeting_name, meeting_date"
+                            ).eq("id", d["meeting_id"]).limit(1).execute()
+                            if meeting_result.data:
+                                meeting_info = meeting_result.data[0]
                         
-                        if d["content"]:
-                            snippet = self._extract_mention_snippet(d["content"], search_name)
-                            if snippet:
-                                date_str = d["meeting_date"] or "Unknown date"
-                                source = d["source"] or d["doc_type"] or "Transcript"
-                                context_parts.append(f"**{d['meeting_name']}** - {source} ({date_str}):\n{snippet}")
+                        snippet = self._extract_mention_snippet(d["content"], search_name)
+                        if snippet:
+                            date_str = (meeting_info.get("meeting_date") if meeting_info else None) or "Unknown date"
+                            meeting_name = (meeting_info.get("meeting_name") if meeting_info else None) or "Unknown Meeting"
+                            source = d.get("source") or d.get("doc_type") or "Transcript"
+                            context_parts.append(f"**{meeting_name}** - {source} ({date_str}):\n{snippet}")
                 
         except Exception as e:
             logger.error(f"Failed to search transcripts for user mentions: {e}")
@@ -1708,25 +1731,10 @@ Analyze the user's intent and respond with JSON as specified."""
         except Exception as e:
             logger.warning(f"Supabase meetings fetch failed: {e}")
         
-        # SQLite fallback
+        # No SQLite fallback - Supabase is now the primary database
         if not meetings:
-            try:
-                from ..db import connect
-                with connect() as conn:
-                    recent = conn.execute(
-                        """SELECT meeting_name, synthesized_notes, signals_json 
-                           FROM meeting_summaries 
-                           ORDER BY COALESCE(meeting_date, created_at) DESC 
-                           LIMIT 5"""
-                    ).fetchall()
-                    meetings = [dict(r) for r in recent]
-                    # Normalize column name
-                    for m in meetings:
-                        if 'signals_json' in m:
-                            m['signals'] = m.pop('signals_json')
-            except Exception as e:
-                logger.error(f"Failed to fetch meeting context from SQLite: {e}")
-                return ""
+            logger.info("No meetings found in Supabase for context")
+            return ""
         
         if not meetings:
             return ""

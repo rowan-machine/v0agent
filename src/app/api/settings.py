@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from ..db import connect
+from ..infrastructure.supabase_client import get_supabase_client
 
 router = APIRouter()
 
@@ -10,10 +10,10 @@ router = APIRouter()
 def get_auth_enabled() -> bool:
     """Check if authentication is enabled."""
     try:
-        with connect() as conn:
-            row = conn.execute("SELECT value FROM settings WHERE key = 'auth_enabled'").fetchone()
-            if row:
-                return row["value"].lower() in ('true', '1', 'yes')
+        supabase = get_supabase_client()
+        result = supabase.table("settings").select("value").eq("key", "auth_enabled").execute()
+        if result.data:
+            return result.data[0]["value"].lower() in ('true', '1', 'yes')
     except:
         pass
     return True  # Default: auth enabled
@@ -32,12 +32,8 @@ async def set_auth_setting(request: Request):
         data = await request.json()
         enabled = data.get("enabled", True)
         
-        with connect() as conn:
-            conn.execute("""
-                INSERT INTO settings (key, value) 
-                VALUES ('auth_enabled', ?)
-                ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = datetime('now')
-            """, (str(enabled), str(enabled)))
+        supabase = get_supabase_client()
+        supabase.table("settings").upsert({"key": "auth_enabled", "value": str(enabled)}).execute()
         
         return JSONResponse({"status": "ok", "enabled": enabled})
     except Exception as e:
@@ -48,11 +44,11 @@ async def set_auth_setting(request: Request):
 async def get_model_setting():
     """Get current AI model setting."""
     try:
-        with connect() as conn:
-            row = conn.execute("SELECT value FROM settings WHERE key = 'ai_model'").fetchone()
-            if row:
-                return JSONResponse({"model": row["value"]})
-            return JSONResponse({"model": "gpt-4o-mini"})
+        supabase = get_supabase_client()
+        result = supabase.table("settings").select("value").eq("key", "ai_model").execute()
+        if result.data:
+            return JSONResponse({"model": result.data[0]["value"]})
+        return JSONResponse({"model": "gpt-4o-mini"})
     except Exception as e:
         return JSONResponse({"model": "gpt-4o-mini"})
 
@@ -64,12 +60,8 @@ async def set_model_setting(request: Request):
         data = await request.json()
         model = data.get("model", "gpt-4o-mini")
         
-        with connect() as conn:
-            conn.execute("""
-                INSERT INTO settings (key, value) 
-                VALUES ('ai_model', ?)
-                ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = datetime('now')
-            """, (model, model))
+        supabase = get_supabase_client()
+        supabase.table("settings").upsert({"key": "ai_model", "value": model}).execute()
         
         return JSONResponse({"status": "ok", "model": model})
     except Exception as e:
@@ -88,12 +80,8 @@ async def save_workflow_progress(request: Request):
             return JSONResponse({"error": "mode required"}, status_code=400)
         
         import json
-        with connect() as conn:
-            conn.execute("""
-                INSERT INTO settings (key, value) 
-                VALUES (?, ?)
-                ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = datetime('now')
-            """, (f"workflow_progress_{mode}", json.dumps(progress), json.dumps(progress)))
+        supabase = get_supabase_client()
+        supabase.table("settings").upsert({"key": f"workflow_progress_{mode}", "value": json.dumps(progress)}).execute()
         
         return JSONResponse({"status": "ok"})
     except Exception as e:
@@ -106,12 +94,9 @@ async def reset_workflow_progress():
     try:
         modes = ['mode-a', 'mode-b', 'mode-c', 'mode-d', 'mode-e', 'mode-f', 'mode-g']
         
-        with connect() as conn:
-            for mode in modes:
-                conn.execute(
-                    "DELETE FROM settings WHERE key = ?",
-                    (f"workflow_progress_{mode}",)
-                )
+        supabase = get_supabase_client()
+        for mode in modes:
+            supabase.table("settings").delete().eq("key", f"workflow_progress_{mode}").execute()
         
         return JSONResponse({"status": "ok", "message": "All workflow progress reset"})
     except Exception as e:
@@ -216,30 +201,29 @@ async def get_workflow_modes():
     """Get all workflow modes configuration."""
     try:
         import json
-        with connect() as conn:
-            modes = conn.execute(
-                "SELECT * FROM workflow_modes WHERE is_active = 1 ORDER BY sort_order"
-            ).fetchall()
-            
-            if not modes:
-                # Return default modes if none exist
-                return JSONResponse({"modes": DEFAULT_MODES, "is_default": True})
-            
-            result = []
-            for m in modes:
-                result.append({
-                    "id": m["id"],
-                    "mode_key": m["mode_key"],
-                    "name": m["name"],
-                    "icon": m["icon"],
-                    "short_description": m["short_description"] if "short_description" in m.keys() else "",
-                    "description": m["description"],
-                    "steps_json": json.loads(m["steps_json"]) if m["steps_json"] else [],
-                    "sort_order": m["sort_order"],
-                    "is_active": bool(m["is_active"])
-                })
-            
-            return JSONResponse({"modes": result, "is_default": False})
+        supabase = get_supabase_client()
+        response = supabase.table("workflow_modes").select("*").eq("is_active", True).order("sort_order").execute()
+        modes = response.data
+        
+        if not modes:
+            # Return default modes if none exist
+            return JSONResponse({"modes": DEFAULT_MODES, "is_default": True})
+        
+        result = []
+        for m in modes:
+            result.append({
+                "id": m["id"],
+                "mode_key": m["mode_key"],
+                "name": m["name"],
+                "icon": m["icon"],
+                "short_description": m.get("short_description", ""),
+                "description": m["description"],
+                "steps_json": json.loads(m["steps_json"]) if m["steps_json"] else [],
+                "sort_order": m["sort_order"],
+                "is_active": bool(m["is_active"])
+            })
+        
+        return JSONResponse({"modes": result, "is_default": False})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
@@ -263,28 +247,28 @@ async def save_workflow_mode(request: Request):
         if not mode_key or not name:
             return JSONResponse({"error": "mode_key and name are required"}, status_code=400)
         
-        with connect() as conn:
-            if mode_id:
-                # Update existing
-                conn.execute("""
-                    UPDATE workflow_modes 
-                    SET name = ?, icon = ?, short_description = ?, description = ?, steps_json = ?, sort_order = ?, updated_at = datetime('now')
-                    WHERE id = ?
-                """, (name, icon, short_description, description, steps_json, sort_order, mode_id))
-            else:
-                # Insert new
-                conn.execute("""
-                    INSERT INTO workflow_modes (mode_key, name, icon, short_description, description, steps_json, sort_order)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(mode_key) DO UPDATE SET
-                        name = excluded.name,
-                        icon = excluded.icon,
-                        short_description = excluded.short_description,
-                        description = excluded.description,
-                        steps_json = excluded.steps_json,
-                        sort_order = excluded.sort_order,
-                        updated_at = datetime('now')
-                """, (mode_key, name, icon, short_description, description, steps_json, sort_order))
+        supabase = get_supabase_client()
+        if mode_id:
+            # Update existing
+            supabase.table("workflow_modes").update({
+                "name": name,
+                "icon": icon,
+                "short_description": short_description,
+                "description": description,
+                "steps_json": steps_json,
+                "sort_order": sort_order
+            }).eq("id", mode_id).execute()
+        else:
+            # Insert new (upsert on mode_key)
+            supabase.table("workflow_modes").upsert({
+                "mode_key": mode_key,
+                "name": name,
+                "icon": icon,
+                "short_description": short_description,
+                "description": description,
+                "steps_json": steps_json,
+                "sort_order": sort_order
+            }, on_conflict="mode_key").execute()
         
         return JSONResponse({"status": "ok"})
     except Exception as e:
@@ -295,11 +279,8 @@ async def save_workflow_mode(request: Request):
 async def delete_workflow_mode(mode_key: str):
     """Delete (deactivate) a workflow mode."""
     try:
-        with connect() as conn:
-            conn.execute(
-                "UPDATE workflow_modes SET is_active = 0, updated_at = datetime('now') WHERE mode_key = ?",
-                (mode_key,)
-            )
+        supabase = get_supabase_client()
+        supabase.table("workflow_modes").update({"is_active": False}).eq("mode_key", mode_key).execute()
         return JSONResponse({"status": "ok"})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -310,20 +291,16 @@ async def init_default_modes():
     """Initialize database with default workflow modes."""
     try:
         import json
-        with connect() as conn:
-            for mode in DEFAULT_MODES:
-                conn.execute("""
-                    INSERT INTO workflow_modes (mode_key, name, icon, description, steps_json, sort_order)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(mode_key) DO NOTHING
-                """, (
-                    mode["mode_key"],
-                    mode["name"],
-                    mode["icon"],
-                    mode["description"],
-                    json.dumps(mode["steps_json"]),
-                    mode["sort_order"]
-                ))
+        supabase = get_supabase_client()
+        for mode in DEFAULT_MODES:
+            supabase.table("workflow_modes").upsert({
+                "mode_key": mode["mode_key"],
+                "name": mode["name"],
+                "icon": mode["icon"],
+                "description": mode["description"],
+                "steps_json": json.dumps(mode["steps_json"]),
+                "sort_order": mode["sort_order"]
+            }, on_conflict="mode_key", ignore_duplicates=True).execute()
         return JSONResponse({"status": "ok", "message": "Default modes initialized"})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)

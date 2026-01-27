@@ -3,25 +3,16 @@ import os
 import logging
 from .embed import embed_text, EMBED_MODEL
 from .vector_store import fetch_all_embeddings, cosine
-from ..db import connect
+from ..infrastructure.supabase_client import get_supabase_client
 
 logger = logging.getLogger(__name__)
 
 USE_EMBEDDINGS = os.getenv("USE_EMBEDDINGS", "1") == "1"
 
 
-def _get_supabase():
-    """Get Supabase client if available."""
-    try:
-        from ..infrastructure.supabase_client import get_supabase_client
-        return get_supabase_client()
-    except Exception:
-        return None
-
-
 def _fetch_from_supabase(ref_type: str, ids: list) -> list:
     """Fetch documents/meetings from Supabase by IDs."""
-    supabase = _get_supabase()
+    supabase = get_supabase_client()
     if not supabase or not ids:
         return []
     
@@ -44,7 +35,7 @@ def _supabase_semantic_search(question: str, ref_type: str, k: int = 8) -> list:
     Semantic search using Supabase pgvector.
     Returns list of matching documents/meetings.
     """
-    supabase = _get_supabase()
+    supabase = get_supabase_client()
     if not supabase:
         return []
     
@@ -104,27 +95,28 @@ def semantic_search(question: str, ref_type: str, k: int = 8):
         logger.info(f"Semantic search via Supabase: {len(results)} {ref_type} results")
         return results
     
-    # SQLite fallback
+    # Local embedding fallback (still uses Supabase for data)
     qvec = embed_text(question)
     if not qvec:
         return []
 
     candidates = fetch_all_embeddings(ref_type, EMBED_MODEL)
     if not candidates:
-        # No embeddings in SQLite either, try direct fetch
+        # No embeddings found, try direct fetch from Supabase
         logger.warning(f"No embeddings found for {ref_type}, trying direct fetch")
-        with connect() as conn:
+        supabase = get_supabase_client()
+        if not supabase:
+            return []
+        
+        try:
             if ref_type == "doc":
-                rows = conn.execute(
-                    "SELECT id, source, content, document_date, created_at FROM docs ORDER BY created_at DESC LIMIT ?",
-                    (k,)
-                ).fetchall()
+                result = supabase.table("documents").select("id, source, content, document_date, created_at").order("created_at", desc=True).limit(k).execute()
             else:
-                rows = conn.execute(
-                    "SELECT id, meeting_name, synthesized_notes, meeting_date, created_at FROM meeting_summaries ORDER BY created_at DESC LIMIT ?",
-                    (k,)
-                ).fetchall()
-            return [dict(r) for r in rows]
+                result = supabase.table("meetings").select("id, meeting_name, synthesized_notes, meeting_date, created_at").order("created_at", desc=True).limit(k).execute()
+            return result.data if result.data else []
+        except Exception as e:
+            logger.error(f"Failed to fetch from Supabase: {e}")
+            return []
     
     scored = [(ref_id, cosine(qvec, vec)) for ref_id, vec in candidates]
     scored.sort(key=lambda x: x[1], reverse=True)
@@ -133,16 +125,16 @@ def semantic_search(question: str, ref_type: str, k: int = 8):
     if not top:
         return []
 
-    with connect() as conn:
+    supabase = get_supabase_client()
+    if not supabase:
+        return []
+    
+    try:
         if ref_type == "doc":
-            rows = conn.execute(
-                f"SELECT id, source, content, document_date, created_at FROM docs WHERE id IN ({','.join(['?']*len(top))})",
-                top,
-            ).fetchall()
-            return [dict(r) for r in rows]
+            result = supabase.table("documents").select("id, source, content, document_date, created_at").in_("id", top).execute()
         else:
-            rows = conn.execute(
-                f"SELECT id, meeting_name, synthesized_notes, meeting_date, created_at FROM meeting_summaries WHERE id IN ({','.join(['?']*len(top))})",
-                top,
-            ).fetchall()
-            return [dict(r) for r in rows]
+            result = supabase.table("meetings").select("id, meeting_name, synthesized_notes, meeting_date, created_at").in_("id", top).execute()
+        return result.data if result.data else []
+    except Exception as e:
+        logger.error(f"Failed to fetch by IDs from Supabase: {e}")
+        return []

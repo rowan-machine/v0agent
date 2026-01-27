@@ -10,25 +10,18 @@ from fastapi import APIRouter, HTTPException
 from .models import (
     DeviceRegister, DeviceResponse, DeviceListResponse
 )
-from ...db import connect
+from ...infrastructure.supabase_client import get_supabase_client
 
 router = APIRouter()
 
 
 def ensure_device_table():
-    """Ensure device_registry table exists."""
-    with connect() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS device_registry (
-                device_id TEXT PRIMARY KEY,
-                device_name TEXT NOT NULL,
-                device_type TEXT NOT NULL,
-                app_version TEXT,
-                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        conn.commit()
+    """Ensure device_registry table exists.
+    
+    Note: Tables are pre-created in Supabase via migrations.
+    This function is kept for backwards compatibility.
+    """
+    pass  # Table creation handled by Supabase migrations
 
 
 @router.post("/register", response_model=DeviceResponse)
@@ -40,22 +33,28 @@ async def register_device(device: DeviceRegister):
     """
     ensure_device_table()
     
-    with connect() as conn:
-        conn.execute("""
-            INSERT OR REPLACE INTO device_registry 
-            (device_id, device_name, device_type, app_version, last_seen, registered_at)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, 
-                    COALESCE((SELECT registered_at FROM device_registry WHERE device_id = ?), CURRENT_TIMESTAMP))
-        """, (device.device_id, device.device_name, device.device_type.value,
-              device.app_version, device.device_id))
-        conn.commit()
-        
-        row = conn.execute(
-            "SELECT * FROM device_registry WHERE device_id = ?",
-            (device.device_id,)
-        ).fetchone()
+    supabase = get_supabase_client()
     
-    d = dict(row)
+    # Check if device exists to preserve registered_at
+    existing = supabase.table("device_registry").select("registered_at").eq("device_id", device.device_id).execute()
+    registered_at = existing.data[0]["registered_at"] if existing.data else None
+    
+    # Upsert device
+    data = {
+        "device_id": device.device_id,
+        "device_name": device.device_name,
+        "device_type": device.device_type.value,
+        "app_version": device.app_version,
+    }
+    if registered_at:
+        data["registered_at"] = registered_at
+    
+    supabase.table("device_registry").upsert(data).execute()
+    
+    # Fetch the updated record
+    result = supabase.table("device_registry").select("*").eq("device_id", device.device_id).execute()
+    d = result.data[0]
+    
     return DeviceResponse(
         device_id=d["device_id"],
         device_name=d["device_name"],
@@ -73,19 +72,18 @@ async def list_devices():
     """
     ensure_device_table()
     
-    with connect() as conn:
-        rows = conn.execute(
-            "SELECT * FROM device_registry ORDER BY last_seen DESC"
-        ).fetchall()
+    supabase = get_supabase_client()
+    result = supabase.table("device_registry").select("*").order("last_seen", desc=True).execute()
+    rows = result.data or []
     
     devices = [
         DeviceResponse(
-            device_id=dict(row)["device_id"],
-            device_name=dict(row)["device_name"],
-            device_type=dict(row)["device_type"],
-            last_seen=dict(row).get("last_seen"),
-            registered_at=dict(row).get("registered_at"),
-            app_version=dict(row).get("app_version")
+            device_id=row["device_id"],
+            device_name=row["device_name"],
+            device_type=row["device_type"],
+            last_seen=row.get("last_seen"),
+            registered_at=row.get("registered_at"),
+            app_version=row.get("app_version")
         )
         for row in rows
     ]
@@ -102,16 +100,13 @@ async def get_device(device_id: str):
     """
     ensure_device_table()
     
-    with connect() as conn:
-        row = conn.execute(
-            "SELECT * FROM device_registry WHERE device_id = ?",
-            (device_id,)
-        ).fetchone()
+    supabase = get_supabase_client()
+    result = supabase.table("device_registry").select("*").eq("device_id", device_id).execute()
     
-    if not row:
+    if not result.data:
         raise HTTPException(status_code=404, detail="Device not found")
     
-    d = dict(row)
+    d = result.data[0]
     return DeviceResponse(
         device_id=d["device_id"],
         device_name=d["device_name"],
@@ -131,17 +126,15 @@ async def unregister_device(device_id: str):
     """
     ensure_device_table()
     
-    with connect() as conn:
-        existing = conn.execute(
-            "SELECT device_id FROM device_registry WHERE device_id = ?",
-            (device_id,)
-        ).fetchone()
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Device not found")
-        
-        conn.execute("DELETE FROM device_registry WHERE device_id = ?", (device_id,))
-        conn.commit()
+    supabase = get_supabase_client()
+    
+    # Check if device exists
+    existing = supabase.table("device_registry").select("device_id").eq("device_id", device_id).execute()
+    
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Device not found")
+    
+    supabase.table("device_registry").delete().eq("device_id", device_id).execute()
 
 
 @router.post("/{device_id}/heartbeat", response_model=DeviceResponse)
@@ -153,23 +146,22 @@ async def device_heartbeat(device_id: str):
     """
     ensure_device_table()
     
-    with connect() as conn:
-        result = conn.execute("""
-            UPDATE device_registry SET last_seen = CURRENT_TIMESTAMP
-            WHERE device_id = ?
-        """, (device_id,))
-        
-        if result.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Device not registered")
-        
-        conn.commit()
-        
-        row = conn.execute(
-            "SELECT * FROM device_registry WHERE device_id = ?",
-            (device_id,)
-        ).fetchone()
+    supabase = get_supabase_client()
     
-    d = dict(row)
+    # Check if device exists
+    existing = supabase.table("device_registry").select("device_id").eq("device_id", device_id).execute()
+    
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Device not registered")
+    
+    # Update last_seen
+    from datetime import datetime, timezone
+    supabase.table("device_registry").update({"last_seen": datetime.now(timezone.utc).isoformat()}).eq("device_id", device_id).execute()
+    
+    # Fetch updated record
+    result = supabase.table("device_registry").select("*").eq("device_id", device_id).execute()
+    d = result.data[0]
+    
     return DeviceResponse(
         device_id=d["device_id"],
         device_name=d["device_name"],

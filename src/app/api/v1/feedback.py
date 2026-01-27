@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
 from datetime import datetime
 
-from ...db import connect
+from ...infrastructure.supabase_client import get_supabase_client
 
 router = APIRouter()
 
@@ -74,53 +74,43 @@ async def create_feedback(feedback: FeedbackCreate):
     2. Boost confidence scores for similar future signals
     3. Improve signal extraction patterns
     """
-    with connect() as conn:
-        # Check if feedback already exists (upsert pattern)
-        existing = conn.execute(
-            """
-            SELECT id FROM signal_feedback 
-            WHERE meeting_id = ? AND signal_type = ? AND signal_text = ?
-            """,
-            (feedback.meeting_id, feedback.signal_type, feedback.signal_text)
-        ).fetchone()
-        
-        if existing:
-            # Update existing feedback
-            conn.execute(
-                """
-                UPDATE signal_feedback 
-                SET feedback = ?, include_in_chat = ?, notes = ?
-                WHERE id = ?
-                """,
-                (feedback.feedback, feedback.include_in_chat, feedback.notes, existing["id"])
-            )
-            feedback_id = existing["id"]
-        else:
-            # Insert new feedback
-            cursor = conn.execute(
-                """
-                INSERT INTO signal_feedback 
-                (meeting_id, signal_type, signal_text, feedback, include_in_chat, notes)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (feedback.meeting_id, feedback.signal_type, feedback.signal_text,
-                 feedback.feedback, feedback.include_in_chat, feedback.notes)
-            )
-            feedback_id = cursor.lastrowid
-        
-        # Update DIKW item confidence if this signal was promoted
-        _update_dikw_confidence(conn, feedback.signal_type, feedback.signal_text, feedback.feedback)
-        
-        # Fetch the created/updated record
-        row = conn.execute(
-            "SELECT * FROM signal_feedback WHERE id = ?",
-            (feedback_id,)
-        ).fetchone()
+    supabase = get_supabase_client()
     
-    return FeedbackResponse(**dict(row))
+    # Check if feedback already exists (upsert pattern)
+    existing = supabase.table("signal_feedback").select("id").eq(
+        "meeting_id", feedback.meeting_id
+    ).eq("signal_type", feedback.signal_type).eq("signal_text", feedback.signal_text).execute()
+    
+    if existing.data:
+        # Update existing feedback
+        feedback_id = existing.data[0]["id"]
+        supabase.table("signal_feedback").update({
+            "feedback": feedback.feedback,
+            "include_in_chat": feedback.include_in_chat,
+            "notes": feedback.notes
+        }).eq("id", feedback_id).execute()
+    else:
+        # Insert new feedback
+        result = supabase.table("signal_feedback").insert({
+            "meeting_id": feedback.meeting_id,
+            "signal_type": feedback.signal_type,
+            "signal_text": feedback.signal_text,
+            "feedback": feedback.feedback,
+            "include_in_chat": feedback.include_in_chat,
+            "notes": feedback.notes
+        }).execute()
+        feedback_id = result.data[0]["id"] if result.data else None
+    
+    # Update DIKW item confidence if this signal was promoted
+    _update_dikw_confidence(supabase, feedback.signal_type, feedback.signal_text, feedback.feedback)
+    
+    # Fetch the created/updated record
+    row = supabase.table("signal_feedback").select("*").eq("id", feedback_id).execute()
+    
+    return FeedbackResponse(**row.data[0])
 
 
-def _update_dikw_confidence(conn, signal_type: str, signal_text: str, feedback: str):
+def _update_dikw_confidence(supabase, signal_type: str, signal_text: str, feedback: str):
     """
     Update confidence score for DIKW items based on feedback.
     
@@ -128,17 +118,14 @@ def _update_dikw_confidence(conn, signal_type: str, signal_text: str, feedback: 
     Downvote: Decrease confidence by 10% (min 0.1)
     """
     # Find matching DIKW item
-    dikw_item = conn.execute(
-        """
-        SELECT id, confidence, validation_count FROM dikw_items
-        WHERE content LIKE ? AND original_signal_type = ?
-        """,
-        (f"%{signal_text}%", signal_type)
-    ).fetchone()
+    dikw_result = supabase.table("dikw_items").select(
+        "id, confidence, validation_count"
+    ).ilike("content", f"%{signal_text}%").eq("original_signal_type", signal_type).execute()
     
-    if dikw_item:
-        current_confidence = dikw_item["confidence"] or 0.5
-        current_validations = dikw_item["validation_count"] or 0
+    if dikw_result.data:
+        dikw_item = dikw_result.data[0]
+        current_confidence = dikw_item.get("confidence") or 0.5
+        current_validations = dikw_item.get("validation_count") or 0
         
         if feedback == "up":
             new_confidence = min(1.0, current_confidence + 0.1)
@@ -147,14 +134,10 @@ def _update_dikw_confidence(conn, signal_type: str, signal_text: str, feedback: 
             new_confidence = max(0.1, current_confidence - 0.1)
             new_validations = current_validations  # Don't count downvotes as validations
         
-        conn.execute(
-            """
-            UPDATE dikw_items 
-            SET confidence = ?, validation_count = ?, updated_at = datetime('now')
-            WHERE id = ?
-            """,
-            (new_confidence, new_validations, dikw_item["id"])
-        )
+        supabase.table("dikw_items").update({
+            "confidence": new_confidence,
+            "validation_count": new_validations
+        }).eq("id", dikw_item["id"]).execute()
 
 
 @router.get("/feedback", response_model=List[FeedbackResponse])
@@ -165,63 +148,50 @@ async def list_feedback(
     limit: int = Query(100, ge=1, le=500),
 ):
     """List all feedback with optional filtering."""
-    with connect() as conn:
-        query = "SELECT * FROM signal_feedback WHERE 1=1"
-        params = []
-        
-        if meeting_id:
-            query += " AND meeting_id = ?"
-            params.append(meeting_id)
-        if signal_type:
-            query += " AND signal_type = ?"
-            params.append(signal_type)
-        if feedback_type:
-            query += " AND feedback = ?"
-            params.append(feedback_type)
-        
-        query += " ORDER BY created_at DESC LIMIT ?"
-        params.append(limit)
-        
-        rows = conn.execute(query, tuple(params)).fetchall()
+    supabase = get_supabase_client()
     
-    return [FeedbackResponse(**dict(row)) for row in rows]
+    query = supabase.table("signal_feedback").select("*")
+    
+    if meeting_id:
+        query = query.eq("meeting_id", meeting_id)
+    if signal_type:
+        query = query.eq("signal_type", signal_type)
+    if feedback_type:
+        query = query.eq("feedback", feedback_type)
+    
+    result = query.order("created_at", desc=True).limit(limit).execute()
+    rows = result.data or []
+    
+    return [FeedbackResponse(**row) for row in rows]
 
 
 @router.get("/feedback/stats", response_model=FeedbackStats)
 async def get_feedback_stats():
     """Get aggregated statistics about all signal feedback."""
-    with connect() as conn:
-        # Total counts
-        totals = conn.execute(
-            """
-            SELECT 
-                COUNT(*) as total,
-                SUM(CASE WHEN feedback = 'up' THEN 1 ELSE 0 END) as upvotes,
-                SUM(CASE WHEN feedback = 'down' THEN 1 ELSE 0 END) as downvotes
-            FROM signal_feedback
-            """
-        ).fetchone()
-        
-        # By signal type
-        by_type = conn.execute(
-            """
-            SELECT signal_type, feedback, COUNT(*) as count
-            FROM signal_feedback
-            GROUP BY signal_type, feedback
-            """
-        ).fetchall()
+    supabase = get_supabase_client()
     
+    # Get all feedback for stats
+    all_feedback = supabase.table("signal_feedback").select("signal_type, feedback").execute()
+    rows = all_feedback.data or []
+    
+    total = len(rows)
+    upvotes = sum(1 for r in rows if r.get("feedback") == "up")
+    downvotes = sum(1 for r in rows if r.get("feedback") == "down")
+    
+    # Group by signal type
     type_stats = {}
-    for row in by_type:
-        sig_type = row["signal_type"]
+    for row in rows:
+        sig_type = row.get("signal_type")
+        fb = row.get("feedback")
         if sig_type not in type_stats:
             type_stats[sig_type] = {"up": 0, "down": 0}
-        type_stats[sig_type][row["feedback"]] = row["count"]
+        if fb in ["up", "down"]:
+            type_stats[sig_type][fb] += 1
     
     return FeedbackStats(
-        total_feedback=totals["total"] or 0,
-        upvotes=totals["upvotes"] or 0,
-        downvotes=totals["downvotes"] or 0,
+        total_feedback=total,
+        upvotes=upvotes,
+        downvotes=downvotes,
         by_signal_type=type_stats
     )
 
@@ -238,44 +208,37 @@ async def get_confidence_boosts():
     - Ratio of upvotes to total feedback
     - Number of distinct positive patterns
     """
-    with connect() as conn:
-        # Get upvoted signals with their text patterns
-        upvoted = conn.execute(
-            """
-            SELECT signal_type, signal_text, COUNT(*) as count
-            FROM signal_feedback
-            WHERE feedback = 'up'
-            GROUP BY signal_type, signal_text
-            ORDER BY count DESC
-            """
-        ).fetchall()
-        
-        # Get total feedback by type for ratio calculation
-        totals = conn.execute(
-            """
-            SELECT signal_type, 
-                   SUM(CASE WHEN feedback = 'up' THEN 1 ELSE 0 END) as ups,
-                   SUM(CASE WHEN feedback = 'down' THEN 1 ELSE 0 END) as downs
-            FROM signal_feedback
-            GROUP BY signal_type
-            """
-        ).fetchall()
+    supabase = get_supabase_client()
     
-    results = []
-    type_totals = {row["signal_type"]: row for row in totals}
+    # Get all feedback
+    all_feedback = supabase.table("signal_feedback").select("signal_type, signal_text, feedback").execute()
+    rows = all_feedback.data or []
     
-    # Group by signal type
+    # Process upvoted signals
     type_patterns = {}
-    for row in upvoted:
-        sig_type = row["signal_type"]
+    type_totals = {}
+    
+    for row in rows:
+        sig_type = row.get("signal_type")
+        fb = row.get("feedback")
+        signal_text = row.get("signal_text")
+        
+        if sig_type not in type_totals:
+            type_totals[sig_type] = {"ups": 0, "downs": 0}
         if sig_type not in type_patterns:
             type_patterns[sig_type] = []
-        type_patterns[sig_type].append(row["signal_text"])
+        
+        if fb == "up":
+            type_totals[sig_type]["ups"] += 1
+            type_patterns[sig_type].append(signal_text)
+        elif fb == "down":
+            type_totals[sig_type]["downs"] += 1
     
+    results = []
     for sig_type, patterns in type_patterns.items():
         total_row = type_totals.get(sig_type, {"ups": 0, "downs": 0})
-        ups = total_row["ups"] or 0
-        downs = total_row["downs"] or 0
+        ups = total_row["ups"]
+        downs = total_row["downs"]
         
         if ups + downs > 0:
             # Calculate boost factor: 0.5 (all negative) to 1.5 (all positive)
@@ -306,40 +269,55 @@ async def get_approved_signals(
     This is used by the chat system to provide relevant context from
     user-validated signals.
     """
-    with connect() as conn:
-        query = """
-            SELECT sf.signal_type, sf.signal_text, sf.notes, sf.meeting_id,
-                   ms.meeting_name, ms.meeting_date
-            FROM signal_feedback sf
-            LEFT JOIN meeting_summaries ms ON sf.meeting_id = ms.id
-            WHERE sf.feedback = 'up' AND sf.include_in_chat = 1
-        """
-        params = []
-        
-        if signal_type:
-            query += " AND sf.signal_type = ?"
-            params.append(signal_type)
-        
-        query += " ORDER BY sf.created_at DESC LIMIT ?"
-        params.append(limit)
-        
-        rows = conn.execute(query, tuple(params)).fetchall()
+    supabase = get_supabase_client()
     
-    return [dict(row) for row in rows]
+    # Get feedback with meeting info via join
+    query = supabase.table("signal_feedback").select(
+        "signal_type, signal_text, notes, meeting_id"
+    ).eq("feedback", "up").eq("include_in_chat", True)
+    
+    if signal_type:
+        query = query.eq("signal_type", signal_type)
+    
+    result = query.order("created_at", desc=True).limit(limit).execute()
+    rows = result.data or []
+    
+    # Fetch meeting names for the results
+    meeting_ids = list(set(r.get("meeting_id") for r in rows if r.get("meeting_id")))
+    meeting_info = {}
+    if meeting_ids:
+        meetings_result = supabase.table("meetings").select(
+            "id, meeting_name, meeting_date"
+        ).in_("id", meeting_ids).execute()
+        for m in meetings_result.data or []:
+            meeting_info[m["id"]] = m
+    
+    # Combine results
+    results = []
+    for row in rows:
+        meeting = meeting_info.get(row.get("meeting_id"), {})
+        results.append({
+            "signal_type": row.get("signal_type"),
+            "signal_text": row.get("signal_text"),
+            "notes": row.get("notes"),
+            "meeting_id": row.get("meeting_id"),
+            "meeting_name": meeting.get("meeting_name"),
+            "meeting_date": meeting.get("meeting_date")
+        })
+    
+    return results
 
 
 @router.delete("/feedback/{feedback_id}", status_code=204)
 async def delete_feedback(feedback_id: int):
     """Delete a feedback entry."""
-    with connect() as conn:
-        existing = conn.execute(
-            "SELECT id FROM signal_feedback WHERE id = ?",
-            (feedback_id,)
-        ).fetchone()
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Feedback not found")
-        
-        conn.execute("DELETE FROM signal_feedback WHERE id = ?", (feedback_id,))
+    supabase = get_supabase_client()
+    
+    existing = supabase.table("signal_feedback").select("id").eq("id", feedback_id).execute()
+    
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+    
+    supabase.table("signal_feedback").delete().eq("id", feedback_id).execute()
     
     return None

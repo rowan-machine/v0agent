@@ -1,14 +1,8 @@
 """
-Human-in-the-Loop Notification Queue Service
+Human-in-the-Loop Notification Queue Service - Supabase Only
 
 Provides a notification system for human review/approval workflows.
-Integrates with AgentBus for multi-agent communication.
-
-Features:
-- Pending review items queue (signals, AI suggestions, etc.)
-- Approval/rejection workflow
-- Priority-based notification ordering
-- Integration with AgentBus message types
+All data stored in Supabase.
 """
 
 import uuid
@@ -19,22 +13,28 @@ from datetime import datetime, timedelta
 from enum import Enum
 from typing import Dict, List, Optional, Any
 
-from ..db import connect
-from ..infrastructure.supabase_client import get_supabase_client as get_supabase
-
 logger = logging.getLogger(__name__)
+
+
+def _get_supabase():
+    """Get Supabase client."""
+    from ..infrastructure.supabase_client import get_supabase_client
+    client = get_supabase_client()
+    if not client:
+        raise RuntimeError("Supabase client not available")
+    return client
 
 
 class NotificationType(Enum):
     """Types of notifications for human review."""
-    SIGNAL_REVIEW = "signal_review"          # AI-extracted signal needs approval
-    ACTION_DUE = "action_due"                # Action item approaching deadline
-    TRANSCRIPT_MATCH = "transcript_match"    # Auto-suggested transcript-ticket pairing
-    MISSED_CRITERIA = "missed_criteria"      # Items in transcript not in ticket
-    MENTION = "mention"                      # User mentioned in transcript
-    COACH_RECOMMENDATION = "coach"           # Career coach suggestion
-    AI_SUGGESTION = "ai_suggestion"          # General AI recommendation
-    DIKW_SYNTHESIS = "dikw_synthesis"        # Knowledge synthesis needs review
+    SIGNAL_REVIEW = "signal_review"
+    ACTION_DUE = "action_due"
+    TRANSCRIPT_MATCH = "transcript_match"
+    MISSED_CRITERIA = "missed_criteria"
+    MENTION = "mention"
+    COACH_RECOMMENDATION = "coach"
+    AI_SUGGESTION = "ai_suggestion"
+    DIKW_SYNTHESIS = "dikw_synthesis"
 
 
 class NotificationPriority(Enum):
@@ -57,7 +57,7 @@ class Notification:
     created_at: datetime = field(default_factory=datetime.now)
     read: bool = False
     actioned: bool = False
-    action_taken: Optional[str] = None  # 'approved', 'rejected', 'dismissed'
+    action_taken: Optional[str] = None
     action_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
     
@@ -68,9 +68,9 @@ class Notification:
             "notification_type": self.notification_type.value,
             "title": self.title,
             "body": self.body,
-            "data": json.dumps(self.data),
+            "data": json.dumps(self.data) if isinstance(self.data, dict) else self.data,
             "priority": self.priority.value,
-            "created_at": self.created_at.isoformat(),
+            "created_at": self.created_at.isoformat() if isinstance(self.created_at, datetime) else self.created_at,
             "read": self.read,
             "actioned": self.actioned,
             "action_taken": self.action_taken,
@@ -81,122 +81,79 @@ class Notification:
     @classmethod
     def from_dict(cls, data: dict) -> "Notification":
         """Create from database row."""
+        notification_type = data.get("notification_type") or data.get("type", "ai_suggestion")
+        data_field = data.get("data") or "{}"
+        if isinstance(data_field, str):
+            try:
+                data_field = json.loads(data_field)
+            except:
+                data_field = {}
+        
+        created_at = data.get("created_at")
+        if isinstance(created_at, str):
+            try:
+                created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+            except:
+                created_at = datetime.now()
+        
+        action_at = data.get("action_at") or data.get("actioned_at")
+        if isinstance(action_at, str):
+            try:
+                action_at = datetime.fromisoformat(action_at.replace('Z', '+00:00'))
+            except:
+                action_at = None
+        
+        expires_at = data.get("expires_at")
+        if isinstance(expires_at, str):
+            try:
+                expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+            except:
+                expires_at = None
+        
         return cls(
-            id=data["id"],
-            notification_type=NotificationType(data["notification_type"]),
-            title=data["title"],
-            body=data.get("body") or "",
-            data=json.loads(data.get("data") or "{}"),
+            id=str(data.get("id", uuid.uuid4())),
+            notification_type=NotificationType(notification_type) if notification_type in [e.value for e in NotificationType] else NotificationType.AI_SUGGESTION,
+            title=data.get("title", ""),
+            body=data.get("body") or data.get("message") or "",
+            data=data_field,
             priority=NotificationPriority(data.get("priority", "normal")),
-            created_at=datetime.fromisoformat(data["created_at"]) if data.get("created_at") else datetime.now(),
-            read=data.get("read", False),
-            actioned=data.get("actioned", False),
+            created_at=created_at or datetime.now(),
+            read=bool(data.get("read", False)),
+            actioned=bool(data.get("actioned", False)),
             action_taken=data.get("action_taken"),
-            action_at=datetime.fromisoformat(data["action_at"]) if data.get("action_at") else None,
-            expires_at=datetime.fromisoformat(data["expires_at"]) if data.get("expires_at") else None,
+            action_at=action_at,
+            expires_at=expires_at,
         )
 
 
 class NotificationQueue:
-    """
-    Human-in-the-loop notification queue.
-    
-    Usage:
-        queue = NotificationQueue()
-        
-        # Create a notification for signal review
-        notification = queue.create_signal_review(
-            signal_type="action_item",
-            signal_text="Rowan: Update documentation by Friday",
-            meeting_id=123
-        )
-        
-        # Get pending notifications
-        pending = queue.get_pending(limit=10)
-        
-        # Process approval/rejection
-        queue.approve(notification.id, feedback="Good signal")
-        queue.reject(notification.id, reason="Too vague")
-    """
+    """Human-in-the-loop notification queue - Supabase only."""
     
     def __init__(self):
         """Initialize notification queue."""
-        self._initialize_tables()
-        logger.info("NotificationQueue initialized")
-    
-    def _initialize_tables(self):
-        """Create notification tables if not exists."""
-        with connect() as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS notifications (
-                    id TEXT PRIMARY KEY,
-                    notification_type TEXT NOT NULL,
-                    title TEXT NOT NULL,
-                    body TEXT,
-                    data TEXT DEFAULT '{}',
-                    priority TEXT DEFAULT 'normal',
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    read INTEGER DEFAULT 0,
-                    actioned INTEGER DEFAULT 0,
-                    action_taken TEXT,
-                    action_at TIMESTAMP,
-                    expires_at TIMESTAMP
-                )
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_notifications_pending 
-                ON notifications(actioned, priority, created_at DESC)
-                WHERE actioned = 0
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_notifications_type 
-                ON notifications(notification_type, created_at DESC)
-            """)
-            conn.commit()
+        logger.info("NotificationQueue initialized (Supabase-only)")
     
     def create(self, notification: Notification) -> str:
-        """Create a new notification.
+        """Create a new notification in Supabase."""
+        sb = _get_supabase()
         
-        Args:
-            notification: Notification to create
-            
-        Returns:
-            Notification ID
-        """
-        supabase = get_supabase()
+        result = sb.table("notifications").insert({
+            "id": notification.id,
+            "type": notification.notification_type.value,
+            "title": notification.title,
+            "body": notification.body,
+            "data": notification.data,
+            "priority": notification.priority.value,
+            "read": notification.read,
+            "created_at": notification.created_at.isoformat() if isinstance(notification.created_at, datetime) else notification.created_at,
+            "expires_at": notification.expires_at.isoformat() if notification.expires_at else None,
+        }).execute()
         
-        if supabase:
-            try:
-                result = supabase.table("notifications").insert({
-                    "id": notification.id,
-                    "type": notification.notification_type.value,
-                    "title": notification.title,
-                    "body": notification.body,
-                    "data": notification.data,
-                    "priority": notification.priority.value,
-                    "read": notification.read,
-                }).execute()
-                
-                if result.data:
-                    logger.info(f"Created notification in Supabase: {notification.id}")
-                    return notification.id
-            except Exception as e:
-                logger.warning(f"Supabase insert failed, falling back to SQLite: {e}")
+        if result.data:
+            logger.info(f"Created notification: {notification.id} ({notification.notification_type.value})")
+            return notification.id
         
-        # SQLite fallback
-        with connect() as conn:
-            data = notification.to_dict()
-            placeholders = ", ".join(["?"] * len(data))
-            columns = ", ".join(data.keys())
-            
-            conn.execute(f"""
-                INSERT INTO notifications ({columns})
-                VALUES ({placeholders})
-            """, tuple(data.values()))
-            conn.commit()
-        
-        logger.info(f"Created notification: {notification.id} ({notification.notification_type.value})")
-        return notification.id
+        raise RuntimeError("Failed to create notification")
     
     def create_signal_review(
         self,
@@ -206,18 +163,7 @@ class NotificationQueue:
         confidence: float = 0.8,
         priority: NotificationPriority = NotificationPriority.NORMAL
     ) -> Notification:
-        """Create a signal review notification.
-        
-        Args:
-            signal_type: Type of signal (action_item, decision, etc.)
-            signal_text: The extracted signal text
-            meeting_id: Related meeting ID
-            confidence: AI confidence score
-            priority: Notification priority
-            
-        Returns:
-            Created notification
-        """
+        """Create a signal review notification."""
         notification = Notification(
             notification_type=NotificationType.SIGNAL_REVIEW,
             title=f"Review {signal_type.replace('_', ' ').title()}",
@@ -240,17 +186,7 @@ class NotificationQueue:
         meeting_id: int,
         owner: Optional[str] = None
     ) -> Notification:
-        """Create an action item due notification.
-        
-        Args:
-            action_text: The action item text
-            due_date: When the action is due
-            meeting_id: Related meeting ID
-            owner: Person responsible
-            
-        Returns:
-            Created notification
-        """
+        """Create an action item due notification."""
         days_until = (due_date - datetime.now()).days
         
         if days_until < 0:
@@ -289,16 +225,7 @@ class NotificationQueue:
         category: str,
         related_data: Optional[Dict] = None
     ) -> Notification:
-        """Create a coach recommendation notification.
-        
-        Args:
-            recommendation: The coaching recommendation
-            category: Category (growth, skills, feedback, etc.)
-            related_data: Additional context
-            
-        Returns:
-            Created notification
-        """
+        """Create a coach recommendation notification."""
         notification = Notification(
             notification_type=NotificationType.COACH_RECOMMENDATION,
             title=f"💡 Coach: {category.title()}",
@@ -319,183 +246,86 @@ class NotificationQueue:
         notification_type: Optional[NotificationType] = None,
         limit: int = 20
     ) -> List[Notification]:
-        """Get pending (unactioned) notifications.
+        """Get pending (unactioned) notifications."""
+        sb = _get_supabase()
         
-        Args:
-            notification_type: Filter by type (optional)
-            limit: Maximum number to return
-            
-        Returns:
-            List of pending notifications
-        """
-        supabase = get_supabase()
+        # Build query - get unactioned notifications
+        query = sb.table("notifications").select("*").is_("actioned_at", "null")
         
-        if supabase:
+        if notification_type:
+            query = query.eq("type", notification_type.value)
+        
+        result = query.order("created_at", desc=True).limit(limit).execute()
+        
+        notifications = []
+        for row in result.data or []:
             try:
-                query = supabase.table("notifications").select("*").eq("actioned", False)
-                
-                if notification_type:
-                    query = query.eq("type", notification_type.value)
-                
-                result = query.order("created_at", desc=True).limit(limit).execute()
-                
-                if result.data:
-                    # Map Supabase column names to our model
-                    return [Notification.from_dict({
-                        **row,
-                        "notification_type": row.get("type"),
-                    }) for row in result.data]
+                notifications.append(Notification.from_dict(row))
             except Exception as e:
-                logger.warning(f"Supabase query failed, falling back to SQLite: {e}")
+                logger.warning(f"Error parsing notification: {e}")
         
-        # SQLite fallback
-        with connect() as conn:
-            query = """
-                SELECT * FROM notifications
-                WHERE actioned = 0
-            """
-            params = []
-            
-            if notification_type:
-                query += " AND notification_type = ?"
-                params.append(notification_type.value)
-            
-            query += " ORDER BY CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END, created_at DESC LIMIT ?"
-            params.append(limit)
-            
-            rows = conn.execute(query, params).fetchall()
-        
-        return [Notification.from_dict(dict(row)) for row in rows]
+        return notifications
     
     def get_unread_count(self) -> int:
         """Get count of unread notifications."""
-        supabase = get_supabase()
-        
-        if supabase:
-            try:
-                result = supabase.table("notifications").select("id", count="exact").eq("read", False).execute()
-                return result.count or 0
-            except Exception as e:
-                logger.warning(f"Supabase count failed: {e}")
-        
-        with connect() as conn:
-            result = conn.execute("SELECT COUNT(*) FROM notifications WHERE read = 0").fetchone()
-            return result[0] if result else 0
+        sb = _get_supabase()
+        result = sb.table("notifications").select("id", count="exact").eq("read", False).execute()
+        return result.count or 0
     
     def mark_read(self, notification_id: str):
-        """Mark a notification as read.
-        
-        Args:
-            notification_id: Notification ID
-        """
-        supabase = get_supabase()
-        
-        if supabase:
-            try:
-                supabase.table("notifications").update({"read": True}).eq("id", notification_id).execute()
-                return
-            except Exception as e:
-                logger.warning(f"Supabase update failed: {e}")
-        
-        with connect() as conn:
-            conn.execute("UPDATE notifications SET read = 1 WHERE id = ?", (notification_id,))
-            conn.commit()
+        """Mark a notification as read."""
+        sb = _get_supabase()
+        sb.table("notifications").update({"read": True}).eq("id", notification_id).execute()
     
     def approve(self, notification_id: str, feedback: Optional[str] = None) -> bool:
-        """Approve a pending notification (e.g., signal review).
-        
-        Args:
-            notification_id: Notification ID
-            feedback: Optional approval feedback
-            
-        Returns:
-            True if successful
-        """
+        """Approve a pending notification."""
         return self._action(notification_id, "approved", feedback)
     
     def reject(self, notification_id: str, reason: Optional[str] = None) -> bool:
-        """Reject a pending notification.
-        
-        Args:
-            notification_id: Notification ID
-            reason: Optional rejection reason
-            
-        Returns:
-            True if successful
-        """
+        """Reject a pending notification."""
         return self._action(notification_id, "rejected", reason)
     
     def dismiss(self, notification_id: str) -> bool:
-        """Dismiss a notification without approving/rejecting.
-        
-        Args:
-            notification_id: Notification ID
-            
-        Returns:
-            True if successful
-        """
+        """Dismiss a notification without approving/rejecting."""
         return self._action(notification_id, "dismissed", None)
     
     def _action(self, notification_id: str, action: str, notes: Optional[str]) -> bool:
-        """Process an action on a notification.
-        
-        Args:
-            notification_id: Notification ID
-            action: Action taken ('approved', 'rejected', 'dismissed')
-            notes: Optional notes about the action
-            
-        Returns:
-            True if successful
-        """
+        """Process an action on a notification."""
         now = datetime.now().isoformat()
+        sb = _get_supabase()
         
-        supabase = get_supabase()
+        # Get notification first
+        result = sb.table("notifications").select("*").eq("id", notification_id).execute()
         
-        if supabase:
+        if not result.data:
+            logger.warning(f"Notification {notification_id} not found")
+            return False
+        
+        notification_data = result.data[0]
+        data = notification_data.get("data", {})
+        if isinstance(data, str):
             try:
-                # Get notification first to record feedback
-                result = supabase.table("notifications").select("*").eq("id", notification_id).single().execute()
-                
-                if result.data:
-                    data = result.data.get("data", {})
-                    if isinstance(data, str):
-                        data = json.loads(data)
-                    data["action_notes"] = notes
-                    
-                    supabase.table("notifications").update({
-                        "actioned": True,
-                        "action_taken": action,
-                        "action_at": now,
-                        "read": True,
-                        "data": data,
-                    }).eq("id", notification_id).execute()
-                    
-                    # If this was a signal review, record feedback for learning
-                    if result.data.get("type") == NotificationType.SIGNAL_REVIEW.value:
-                        self._record_signal_feedback(result.data, action, notes)
-                    
-                    logger.info(f"Notification {notification_id} {action}")
-                    return True
-            except Exception as e:
-                logger.warning(f"Supabase action failed: {e}")
+                data = json.loads(data)
+            except:
+                data = {}
+        data["action_notes"] = notes
         
-        # SQLite fallback
-        with connect() as conn:
-            conn.execute("""
-                UPDATE notifications 
-                SET actioned = 1, action_taken = ?, action_at = ?, read = 1
-                WHERE id = ?
-            """, (action, now, notification_id))
-            conn.commit()
+        sb.table("notifications").update({
+            "actioned_at": now,
+            "action_taken": action,
+            "read": True,
+            "data": data,
+        }).eq("id", notification_id).execute()
+        
+        # Record signal feedback if applicable
+        if notification_data.get("type") == NotificationType.SIGNAL_REVIEW.value:
+            self._record_signal_feedback(notification_data, action, notes)
         
         logger.info(f"Notification {notification_id} {action}")
         return True
     
     def _record_signal_feedback(self, notification_data: dict, action: str, notes: Optional[str]):
-        """Record signal feedback for the learning loop.
-        
-        This feeds into SignalLearningService for AI improvement.
-        """
+        """Record signal feedback for learning loop."""
         try:
             data = notification_data.get("data", {})
             if isinstance(data, str):
@@ -510,145 +340,55 @@ class NotificationQueue:
             
             feedback = "up" if action == "approved" else "down"
             
-            supabase = get_supabase()
-            if supabase:
-                supabase.table("signal_feedback").insert({
-                    "meeting_id": meeting_id,
-                    "signal_type": signal_type,
-                    "signal_text": signal_text,
-                    "feedback": feedback,
-                    "rejection_reason": notes if action == "rejected" else None,
-                }).execute()
-            else:
-                with connect() as conn:
-                    conn.execute("""
-                        INSERT INTO signal_feedback 
-                        (meeting_id, signal_type, signal_text, feedback, rejection_reason)
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (meeting_id, signal_type, signal_text, feedback, 
-                          notes if action == "rejected" else None))
-                    conn.commit()
+            sb = _get_supabase()
+            sb.table("signal_feedback").insert({
+                "meeting_id": meeting_id,
+                "signal_type": signal_type,
+                "signal_text": signal_text,
+                "feedback": feedback,
+                "rejection_reason": notes if action == "rejected" else None,
+            }).execute()
             
             logger.info(f"Recorded signal feedback: {signal_type} → {feedback}")
         except Exception as e:
             logger.error(f"Failed to record signal feedback: {e}")
     
     def get_by_id(self, notification_id: str) -> Optional[Notification]:
-        """Get a notification by ID.
+        """Get a notification by ID."""
+        sb = _get_supabase()
+        result = sb.table("notifications").select("*").eq("id", notification_id).execute()
         
-        Args:
-            notification_id: Notification ID
-            
-        Returns:
-            Notification or None if not found
-        """
-        supabase = get_supabase()
-        
-        if supabase:
-            try:
-                result = supabase.table("notifications").select("*").eq("id", notification_id).single().execute()
-                if result.data:
-                    return Notification.from_dict({
-                        **result.data,
-                        "notification_type": result.data.get("type"),
-                    })
-            except Exception as e:
-                logger.warning(f"Supabase query failed: {e}")
-        
-        with connect() as conn:
-            row = conn.execute(
-                "SELECT * FROM notifications WHERE id = ?",
-                (notification_id,)
-            ).fetchone()
-        
-        if row:
-            return Notification.from_dict(dict(row))
+        if result.data:
+            return Notification.from_dict(result.data[0])
         return None
     
     def delete(self, notification_id: str) -> bool:
-        """Delete a notification.
-        
-        Args:
-            notification_id: Notification ID
-            
-        Returns:
-            True if deleted
-        """
-        supabase = get_supabase()
-        
-        if supabase:
-            try:
-                supabase.table("notifications").delete().eq("id", notification_id).execute()
-                logger.info(f"Deleted notification {notification_id}")
-                return True
-            except Exception as e:
-                logger.warning(f"Supabase delete failed: {e}")
-        
-        with connect() as conn:
-            conn.execute("DELETE FROM notifications WHERE id = ?", (notification_id,))
-            conn.commit()
-        
+        """Delete a notification."""
+        sb = _get_supabase()
+        sb.table("notifications").delete().eq("id", notification_id).execute()
         logger.info(f"Deleted notification {notification_id}")
         return True
     
     def mark_all_read(self) -> int:
-        """Mark all notifications as read.
-        
-        Returns:
-            Number of notifications marked read
-        """
-        supabase = get_supabase()
-        
-        if supabase:
-            try:
-                result = supabase.table("notifications").update({"read": True}).eq("read", False).execute()
-                count = len(result.data) if result.data else 0
-                logger.info(f"Marked {count} notifications as read (Supabase)")
-                return count
-            except Exception as e:
-                logger.warning(f"Supabase update failed: {e}")
-        
-        with connect() as conn:
-            cursor = conn.execute("UPDATE notifications SET read = 1 WHERE read = 0")
-            count = cursor.rowcount
-            conn.commit()
-        
+        """Mark all notifications as read."""
+        sb = _get_supabase()
+        result = sb.table("notifications").update({"read": True}).eq("read", False).execute()
+        count = len(result.data) if result.data else 0
         logger.info(f"Marked {count} notifications as read")
         return count
     
     def cleanup_expired(self) -> int:
-        """Remove expired notifications.
-        
-        Returns:
-            Number of notifications cleaned up
-        """
+        """Remove expired notifications."""
         now = datetime.now().isoformat()
-        
-        supabase = get_supabase()
-        
-        if supabase:
-            try:
-                result = supabase.table("notifications").delete().lt("expires_at", now).execute()
-                count = len(result.data) if result.data else 0
-                logger.info(f"Cleaned up {count} expired notifications (Supabase)")
-                return count
-            except Exception as e:
-                logger.warning(f"Supabase cleanup failed: {e}")
-        
-        with connect() as conn:
-            cursor = conn.execute("""
-                DELETE FROM notifications 
-                WHERE expires_at IS NOT NULL AND expires_at < ?
-            """, (now,))
-            count = cursor.rowcount
-            conn.commit()
-        
+        sb = _get_supabase()
+        result = sb.table("notifications").delete().lt("expires_at", now).execute()
+        count = len(result.data) if result.data else 0
         logger.info(f"Cleaned up {count} expired notifications")
         return count
 
 
 # =============================================================================
-# API FUNCTIONS
+# Singleton and API Functions
 # =============================================================================
 
 _notification_queue: Optional[NotificationQueue] = None

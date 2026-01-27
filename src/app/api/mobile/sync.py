@@ -12,49 +12,26 @@ import time
 from .models import (
     SyncRequest, SyncResponse, SyncStatusResponse, SyncChange, SyncConflict
 )
-from ...db import connect
+from ...infrastructure.supabase_client import get_supabase_client
 
 router = APIRouter()
 
 
 def ensure_sync_tables():
-    """Ensure sync-related tables exist."""
-    with connect() as conn:
-        # Sync log tracks all changes for delta sync
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS sync_log (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                entity_type TEXT NOT NULL,
-                entity_id INTEGER NOT NULL,
-                action TEXT NOT NULL,
-                device_id TEXT,
-                timestamp REAL NOT NULL,
-                data TEXT,
-                synced_to TEXT DEFAULT ''
-            )
-        """)
-        
-        # Device sync state tracks last sync per device
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS device_sync_state (
-                device_id TEXT PRIMARY KEY,
-                last_sync_timestamp REAL NOT NULL,
-                pending_count INTEGER DEFAULT 0
-            )
-        """)
-        conn.commit()
+    """Ensure sync-related tables exist.
+    
+    Note: Tables are pre-created in Supabase via migrations.
+    This function is kept for backwards compatibility.
+    """
+    pass  # Table creation handled by Supabase migrations
 
 
 def get_server_changes_since(device_id: str, since_timestamp: float) -> List[Dict[str, Any]]:
     """Get all changes on server since timestamp, excluding device's own changes."""
-    with connect() as conn:
-        rows = conn.execute("""
-            SELECT * FROM sync_log 
-            WHERE timestamp > ? AND (device_id IS NULL OR device_id != ?)
-            ORDER BY timestamp ASC
-        """, (since_timestamp, device_id)).fetchall()
+    supabase = get_supabase_client()
+    result = supabase.table("sync_log").select("*").gt("timestamp", since_timestamp).neq("device_id", device_id).order("timestamp").execute()
     
-    return [dict(row) for row in rows]
+    return result.data or []
 
 
 def apply_client_change(change: SyncChange, device_id: str) -> Optional[SyncConflict]:
@@ -63,68 +40,55 @@ def apply_client_change(change: SyncChange, device_id: str) -> Optional[SyncConf
     
     Returns SyncConflict if conflict detected, None otherwise.
     """
+    import json
     current_timestamp = time.time()
     
-    with connect() as conn:
-        # Check for conflict - is there a newer server change for same entity?
-        server_change = conn.execute("""
-            SELECT * FROM sync_log 
-            WHERE entity_type = ? AND entity_id = ? AND timestamp > ?
-            ORDER BY timestamp DESC LIMIT 1
-        """, (change.entity_type.value, change.entity_id, change.local_timestamp)).fetchone()
+    supabase = get_supabase_client()
+    
+    # Check for conflict - is there a newer server change for same entity?
+    result = supabase.table("sync_log").select("*").eq("entity_type", change.entity_type.value).eq("entity_id", change.entity_id).gt("timestamp", change.local_timestamp).order("timestamp", desc=True).limit(1).execute()
+    
+    if result.data:
+        # Conflict detected - server has newer change
+        server_change = result.data[0]
+        server_data = json.loads(server_change["data"]) if server_change["data"] else {}
         
-        if server_change:
-            # Conflict detected - server has newer change
-            import json
-            server_data = json.loads(server_change["data"]) if server_change["data"] else {}
-            
-            return SyncConflict(
-                entity_type=change.entity_type.value,
-                entity_id=change.entity_id,
-                server_data=server_data,
-                client_data=change.data or {},
-                server_timestamp=server_change["timestamp"],
-                client_timestamp=change.local_timestamp
-            )
-        
-        # No conflict - apply change
-        table_map = {
-            "meeting": "meeting",
-            "document": "document",
-            "signal": "signal",
-            "ticket": "ticket"
-        }
-        table = table_map.get(change.entity_type.value)
-        
-        if change.action == "create" and change.data:
-            # Insert new record
-            columns = list(change.data.keys())
-            placeholders = ", ".join(["?"] * len(columns))
-            values = list(change.data.values())
-            conn.execute(
-                f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({placeholders})",
-                tuple(values)
-            )
-        elif change.action == "update" and change.data:
-            # Update existing record
-            sets = ", ".join([f"{k} = ?" for k in change.data.keys()])
-            values = list(change.data.values()) + [change.entity_id]
-            conn.execute(
-                f"UPDATE {table} SET {sets} WHERE pk = ?",
-                tuple(values)
-            )
-        elif change.action == "delete":
-            conn.execute(f"DELETE FROM {table} WHERE pk = ?", (change.entity_id,))
-        
-        # Log the change
-        import json
-        conn.execute("""
-            INSERT INTO sync_log (entity_type, entity_id, action, device_id, timestamp, data)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (change.entity_type.value, change.entity_id, change.action, 
-              device_id, current_timestamp, json.dumps(change.data) if change.data else None))
-        
-        conn.commit()
+        return SyncConflict(
+            entity_type=change.entity_type.value,
+            entity_id=change.entity_id,
+            server_data=server_data,
+            client_data=change.data or {},
+            server_timestamp=server_change["timestamp"],
+            client_timestamp=change.local_timestamp
+        )
+    
+    # No conflict - apply change
+    table_map = {
+        "meeting": "meeting",
+        "document": "document",
+        "signal": "signal",
+        "ticket": "ticket"
+    }
+    table = table_map.get(change.entity_type.value)
+    
+    if change.action == "create" and change.data:
+        # Insert new record
+        supabase.table(table).insert(change.data).execute()
+    elif change.action == "update" and change.data:
+        # Update existing record
+        supabase.table(table).update(change.data).eq("pk", change.entity_id).execute()
+    elif change.action == "delete":
+        supabase.table(table).delete().eq("pk", change.entity_id).execute()
+    
+    # Log the change
+    supabase.table("sync_log").insert({
+        "entity_type": change.entity_type.value,
+        "entity_id": change.entity_id,
+        "action": change.action,
+        "device_id": device_id,
+        "timestamp": current_timestamp,
+        "data": json.dumps(change.data) if change.data else None
+    }).execute()
     
     return None
 
@@ -159,18 +123,16 @@ async def sync_changes(request: SyncRequest):
             applied_count += 1
     
     # Update device sync state
-    with connect() as conn:
-        conn.execute("""
-            INSERT OR REPLACE INTO device_sync_state (device_id, last_sync_timestamp, pending_count)
-            VALUES (?, ?, ?)
-        """, (device_id, current_time, len(conflicts)))
-        
-        # Update device last_seen
-        conn.execute("""
-            UPDATE device_registry SET last_seen = CURRENT_TIMESTAMP
-            WHERE device_id = ?
-        """, (device_id,))
-        conn.commit()
+    supabase = get_supabase_client()
+    supabase.table("device_sync_state").upsert({
+        "device_id": device_id,
+        "last_sync_timestamp": current_time,
+        "pending_count": len(conflicts)
+    }).execute()
+    
+    # Update device last_seen
+    from datetime import datetime, timezone
+    supabase.table("device_registry").update({"last_seen": datetime.now(timezone.utc).isoformat()}).eq("device_id", device_id).execute()
     
     return SyncResponse(
         success=True,
@@ -191,20 +153,17 @@ async def get_sync_status(device_id: str):
     """
     ensure_sync_tables()
     
-    with connect() as conn:
-        # Get device sync state
-        state = conn.execute("""
-            SELECT * FROM device_sync_state WHERE device_id = ?
-        """, (device_id,)).fetchone()
-        
-        if state:
-            state = dict(state)
-            pending = state.get("pending_count", 0)
-            last_sync = state.get("last_sync_timestamp")
-            last_sync_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last_sync)) if last_sync else None
-        else:
-            pending = 0
-            last_sync_str = None
+    supabase = get_supabase_client()
+    result = supabase.table("device_sync_state").select("*").eq("device_id", device_id).execute()
+    
+    if result.data:
+        state = result.data[0]
+        pending = state.get("pending_count", 0)
+        last_sync = state.get("last_sync_timestamp")
+        last_sync_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(last_sync)) if last_sync else None
+    else:
+        pending = 0
+        last_sync_str = None
     
     return SyncStatusResponse(
         device_id=device_id,
@@ -236,13 +195,15 @@ async def resolve_conflict(
     # apply the chosen version to the database
     current_time = time.time()
     
-    with connect() as conn:
-        conn.execute("""
-            INSERT INTO sync_log (entity_type, entity_id, action, device_id, timestamp, data)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (entity_type, entity_id, f"conflict_resolved_{resolution}", 
-              device_id, current_time, None))
-        conn.commit()
+    supabase = get_supabase_client()
+    supabase.table("sync_log").insert({
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "action": f"conflict_resolved_{resolution}",
+        "device_id": device_id,
+        "timestamp": current_time,
+        "data": None
+    }).execute()
     
     return SyncResponse(
         success=True,

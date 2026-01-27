@@ -11,7 +11,6 @@ from .models import add_message, get_recent_messages
 from ..memory.retrieve import retrieve
 from ..memory.semantic import semantic_search
 from ..memory.rank import rank_items
-from ..db import connect
 
 from ..llm import answer as llm_answer
 
@@ -33,9 +32,8 @@ def _get_supabase():
 def get_meeting_content_with_screenshots(meeting_id: int, base_content: str) -> str:
     """Append screenshot summaries to meeting content if available.
     
-    Tries Supabase first (for Railway), falls back to SQLite.
+    Uses Supabase only.
     """
-    # Try Supabase first
     sb = _get_supabase()
     if sb:
         try:
@@ -45,28 +43,9 @@ def get_meeting_content_with_screenshots(meeting_id: int, base_content: str) -> 
                     [f"- {s['image_summary']}" for s in result.data]
                 )
                 return base_content + screenshot_text
-            return base_content
         except Exception as e:
-            logger.debug(f"Supabase screenshots fetch failed: {e}")
+            logger.debug(f"Screenshots fetch failed: {e}")
     
-    # SQLite fallback
-    try:
-        with connect() as conn:
-            screenshots = conn.execute(
-                """
-                SELECT image_summary FROM meeting_screenshots
-                WHERE meeting_id = ? AND image_summary IS NOT NULL
-                """,
-                (meeting_id,)
-            ).fetchall()
-        
-        if screenshots:
-            screenshot_text = "\n\n[Meeting Screenshots]:\n" + "\n".join(
-                [f"- {s['image_summary']}" for s in screenshots]
-            )
-            return base_content + screenshot_text
-    except:
-        pass
     return base_content
 
 
@@ -315,43 +294,51 @@ def run_chat_turn_with_context(
 
     items: List[Dict] = []
     context_names = []
+    
+    sb = _get_supabase()
 
     # If specific meeting is selected, prioritize it
-    if meeting_id:
-        with connect() as conn:
-            m = conn.execute(
-                "SELECT id, meeting_name, synthesized_notes, created_at FROM meeting_summaries WHERE id = ?",
-                (meeting_id,)
-            ).fetchone()
-            if m:
-                content = get_meeting_content_with_screenshots(m["id"], m["synthesized_notes"])
+    if meeting_id and sb:
+        try:
+            result = sb.table("meetings").select(
+                "id, meeting_name, synthesized_notes, created_at"
+            ).eq("id", meeting_id).execute()
+            
+            if result.data:
+                m = result.data[0]
+                content = get_meeting_content_with_screenshots(m["id"], m.get("synthesized_notes", ""))
                 items.append({
                     "type": "meetings",
                     "id": m["id"],
                     "label": m["meeting_name"],
                     "content": content,
-                    "created_at": m["created_at"],
+                    "created_at": m.get("created_at"),
                     "priority": True,
                 })
                 context_names.append(f"Meeting: {m['meeting_name']}")
+        except Exception as e:
+            logger.warning(f"Error fetching meeting {meeting_id}: {e}")
 
     # If specific document is selected, prioritize it
-    if document_id:
-        with connect() as conn:
-            d = conn.execute(
-                "SELECT id, source, content, created_at FROM documents WHERE id = ?",
-                (document_id,)
-            ).fetchone()
-            if d:
+    if document_id and sb:
+        try:
+            result = sb.table("documents").select(
+                "id, source, content, created_at"
+            ).eq("id", document_id).execute()
+            
+            if result.data:
+                d = result.data[0]
                 items.append({
                     "type": "docs",
                     "id": d["id"],
                     "label": d["source"],
-                    "content": d["content"],
-                    "created_at": d["created_at"],
+                    "content": d.get("content", ""),
+                    "created_at": d.get("created_at"),
                     "priority": True,
                 })
                 context_names.append(f"Document: {d['source']}")
+        except Exception as e:
+            logger.warning(f"Error fetching document {document_id}: {e}")
 
     # Build memory blocks - priority items first with focus instruction
     memory_blocks = []

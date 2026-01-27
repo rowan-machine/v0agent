@@ -2,16 +2,11 @@
 """
 Repository Layer - Ports and Adapters Pattern
 
-This module provides a clean abstraction over data access, allowing:
-- Easy switching between SQLite and Supabase backends
-- Consistent interface across all data sources
-- Better testability with mock repositories
-- Future-proofing for additional backends
+This module provides a clean abstraction over data access using Supabase.
 
 Usage:
     from src.app.repositories import get_meeting_repository, get_ticket_repository
     
-    # Get the configured repository (defaults to Supabase)
     meetings_repo = get_meeting_repository()
     tickets_repo = get_ticket_repository()
     
@@ -22,44 +17,23 @@ Usage:
 """
 
 from .base import BaseRepository
-from .meetings import MeetingRepository, SupabaseMeetingRepository, SQLiteMeetingRepository
-from .documents import DocumentRepository, SupabaseDocumentRepository, SQLiteDocumentRepository
-from .tickets import TicketRepository, SupabaseTicketRepository, SQLiteTicketRepository
+from .meetings import MeetingRepository, SupabaseMeetingRepository
+from .documents import DocumentRepository, SupabaseDocumentRepository
+from .tickets import TicketRepository, SupabaseTicketRepository
 
-# Configuration: Which backend to use
-_DEFAULT_BACKEND = "supabase"  # "supabase" | "sqlite"
-
-
-def get_meeting_repository(backend: str = None) -> MeetingRepository:
-    """Get meeting repository for the specified backend."""
-    backend = backend or _DEFAULT_BACKEND
-    if backend == "sqlite":
-        return SQLiteMeetingRepository()
+def get_meeting_repository() -> MeetingRepository:
+    """Get meeting repository (Supabase)."""
     return SupabaseMeetingRepository()
 
 
-def get_document_repository(backend: str = None) -> DocumentRepository:
-    """Get document repository for the specified backend."""
-    backend = backend or _DEFAULT_BACKEND
-    if backend == "sqlite":
-        return SQLiteDocumentRepository()
+def get_document_repository() -> DocumentRepository:
+    """Get document repository (Supabase)."""
     return SupabaseDocumentRepository()
 
 
-def get_ticket_repository(backend: str = None) -> TicketRepository:
-    """Get ticket repository for the specified backend."""
-    backend = backend or _DEFAULT_BACKEND
-    if backend == "sqlite":
-        return SQLiteTicketRepository()
+def get_ticket_repository() -> TicketRepository:
+    """Get ticket repository (Supabase)."""
     return SupabaseTicketRepository()
-
-
-def set_default_backend(backend: str):
-    """Set the default backend for all repositories."""
-    global _DEFAULT_BACKEND
-    if backend not in ("supabase", "sqlite"):
-        raise ValueError(f"Invalid backend: {backend}. Use 'supabase' or 'sqlite'")
-    _DEFAULT_BACKEND = backend
 
 
 __all__ = [
@@ -68,18 +42,13 @@ __all__ = [
     # Meetings
     "MeetingRepository",
     "SupabaseMeetingRepository",
-    "SQLiteMeetingRepository",
     "get_meeting_repository",
     # Documents
     "DocumentRepository",
     "SupabaseDocumentRepository",
-    "SQLiteDocumentRepository",
     "get_document_repository",
     # Tickets
     "TicketRepository",
     "SupabaseTicketRepository",
-    "SQLiteTicketRepository",
     "get_ticket_repository",
-    # Config
-    "set_default_backend",
 ]

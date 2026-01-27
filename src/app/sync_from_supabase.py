@@ -1,23 +1,33 @@
 """
 Sync data from Supabase to SQLite on startup.
 
-This module handles pulling data from Supabase into the local SQLite database
-for production deployments where Supabase is the source of truth.
+DEPRECATED: This module is deprecated as part of the SQLite-to-Supabase migration.
+Since we're moving to Supabase-only, syncing data to SQLite is no longer needed.
+All functions in this module now return early with warnings.
 
-Uses direct HTTP requests to avoid supabase-py library version conflicts.
+This module was originally used to pull data from Supabase into the local SQLite 
+database for production deployments where Supabase was the source of truth.
 """
 
 import hashlib
 import json
 import logging
 import os
+import warnings
 from typing import Dict, List, Optional
 
 import httpx
 
-from .db import connect, table_exists
+# DEPRECATED: SQLite imports no longer used
+# from .db import connect, table_exists
 
 logger = logging.getLogger(__name__)
+
+# Deprecation warning message
+_DEPRECATION_MSG = (
+    "sync_from_supabase is deprecated. The application now uses Supabase directly. "
+    "This sync functionality is no longer needed."
+)
 
 
 def _uuid_to_int(uuid_str: str) -> int:
@@ -101,11 +111,19 @@ def _fetch_from_supabase(table: str, order_by: str = "created_at", limit: int = 
 
 def sync_meetings_from_supabase() -> int:
     """
-    Pull meetings from Supabase and insert into local SQLite.
+    DEPRECATED: Pull meetings from Supabase and insert into local SQLite.
+    
+    This function is deprecated as part of the SQLite-to-Supabase migration.
+    Returns 0 immediately with a deprecation warning.
     
     Returns:
-        Number of meetings synced
+        Number of meetings synced (always 0)
     """
+    warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
+    logger.warning("⚠️ sync_meetings_from_supabase is deprecated - returning early")
+    return 0
+    
+    # DEPRECATED CODE BELOW - kept for reference
     meetings = _fetch_from_supabase("meetings", "created_at", 100)
     
     if not meetings:
@@ -113,7 +131,7 @@ def sync_meetings_from_supabase() -> int:
         return 0
     
     synced = 0
-    with connect() as conn:
+    if False:  # Disabled - was: with connect() as conn:
         for meeting in meetings:
             # Convert UUID to integer for SQLite PRIMARY KEY
             meeting_id = _uuid_to_int(meeting["id"])
@@ -158,11 +176,19 @@ def sync_meetings_from_supabase() -> int:
 
 def sync_documents_from_supabase() -> int:
     """
-    Pull documents from Supabase and insert into local SQLite.
+    DEPRECATED: Pull documents from Supabase and insert into local SQLite.
+    
+    This function is deprecated as part of the SQLite-to-Supabase migration.
+    Returns 0 immediately with a deprecation warning.
     
     Returns:
-        Number of documents synced
+        Number of documents synced (always 0)
     """
+    warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
+    logger.warning("⚠️ sync_documents_from_supabase is deprecated - returning early")
+    return 0
+    
+    # DEPRECATED CODE BELOW - kept for reference
     documents = _fetch_from_supabase("documents", "created_at", 100)
     
     if not documents:
@@ -170,7 +196,7 @@ def sync_documents_from_supabase() -> int:
         return 0
     
     synced = 0
-    with connect() as conn:
+    if False:  # Disabled - was: with connect() as conn:
         for doc in documents:
             # Convert UUID to integer for SQLite PRIMARY KEY
             doc_id = _uuid_to_int(doc["id"])
@@ -209,18 +235,26 @@ def sync_documents_from_supabase() -> int:
 
 def sync_tickets_from_supabase() -> int:
     """
-    Pull tickets from Supabase and insert into local SQLite.
+    DEPRECATED: Pull tickets from Supabase and insert into local SQLite.
+    
+    This function is deprecated as part of the SQLite-to-Supabase migration.
+    Returns 0 immediately with a deprecation warning.
     
     Returns:
-        Number of tickets synced
+        Number of tickets synced (always 0)
     """
+    warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
+    logger.warning("⚠️ sync_tickets_from_supabase is deprecated - returning early")
+    return 0
+    
+    # DEPRECATED CODE BELOW - kept for reference
     tickets = _fetch_from_supabase("tickets", "created_at", 100)
     
     if not tickets:
         return 0
     
     synced = 0
-    with connect() as conn:
+    if False:  # Disabled - was: with connect() as conn:
         for ticket in tickets:
             existing = conn.execute(
                 "SELECT id FROM tickets WHERE ticket_id = ?",
@@ -261,18 +295,26 @@ def sync_tickets_from_supabase() -> int:
 
 def sync_dikw_from_supabase() -> int:
     """
-    Pull DIKW items from Supabase and insert into local SQLite.
+    DEPRECATED: Pull DIKW items from Supabase and insert into local SQLite.
+    
+    This function is deprecated as part of the SQLite-to-Supabase migration.
+    Returns 0 immediately with a deprecation warning.
     
     Returns:
-        Number of items synced
+        Number of items synced (always 0)
     """
+    warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
+    logger.warning("⚠️ sync_dikw_from_supabase is deprecated - returning early")
+    return 0
+    
+    # DEPRECATED CODE BELOW - kept for reference
     items = _fetch_from_supabase("dikw_items", "created_at", 200)
     
     if not items:
         return 0
     
     synced = 0
-    with connect() as conn:
+    if False:  # Disabled - was: with connect() as conn:
         # Ensure table exists
         if not table_exists(conn, "dikw_items"):
             logger.warning("dikw_items table not found in SQLite")
@@ -324,18 +366,26 @@ def sync_dikw_from_supabase() -> int:
 
 def sync_signal_status_from_supabase() -> int:
     """
-    Pull signal status from Supabase and insert into local SQLite.
+    DEPRECATED: Pull signal status from Supabase and insert into local SQLite.
+    
+    This function is deprecated as part of the SQLite-to-Supabase migration.
+    Returns 0 immediately with a deprecation warning.
     
     Returns:
-        Number of items synced
+        Number of items synced (always 0)
     """
+    warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
+    logger.warning("⚠️ sync_signal_status_from_supabase is deprecated - returning early")
+    return 0
+    
+    # DEPRECATED CODE BELOW - kept for reference
     items = _fetch_from_supabase("signal_status", "created_at", 200)
     
     if not items:
         return 0
     
     synced = 0
-    with connect() as conn:
+    if False:  # Disabled - was: with connect() as conn:
         if not table_exists(conn, "signal_status"):
             logger.warning("signal_status table not found in SQLite")
             return 0
@@ -381,11 +431,19 @@ def sync_signal_status_from_supabase() -> int:
 
 def sync_conversations_from_supabase() -> int:
     """
-    Sync conversations and messages from Supabase to SQLite.
+    DEPRECATED: Sync conversations and messages from Supabase to SQLite.
+    
+    This function is deprecated as part of the SQLite-to-Supabase migration.
+    Returns 0 immediately with a deprecation warning.
     
     Returns:
-        Number of conversations synced
+        Number of conversations synced (always 0)
     """
+    warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
+    logger.warning("⚠️ sync_conversations_from_supabase is deprecated - returning early")
+    return 0
+    
+    # DEPRECATED CODE BELOW - kept for reference
     # Fetch conversations
     conversations = _fetch_from_supabase("conversations", order_by="updated_at", limit=200)
     
@@ -395,7 +453,7 @@ def sync_conversations_from_supabase() -> int:
     
     synced = 0
     
-    with connect() as conn:
+    if False:  # Disabled - was: with connect() as conn:
         # Ensure tables exist
         conn.executescript("""
         CREATE TABLE IF NOT EXISTS conversations (
@@ -496,11 +554,18 @@ def sync_conversations_from_supabase() -> int:
 
 def _sync_messages_from_supabase() -> int:
     """
-    Sync messages for all conversations from Supabase.
+    DEPRECATED: Sync messages for all conversations from Supabase.
+    
+    This function is deprecated as part of the SQLite-to-Supabase migration.
+    Returns 0 immediately.
     
     Returns:
-        Number of messages synced
+        Number of messages synced (always 0)
     """
+    logger.warning("⚠️ _sync_messages_from_supabase is deprecated - returning early")
+    return 0
+    
+    # DEPRECATED CODE BELOW - kept for reference
     # Fetch recent messages (limit 1000 for recent conversations)
     messages = _fetch_from_supabase("messages", order_by="created_at", limit=1000)
     
@@ -509,7 +574,7 @@ def _sync_messages_from_supabase() -> int:
     
     synced = 0
     
-    with connect() as conn:
+    if False:  # Disabled - was: with connect() as conn:
         # Build mapping of supabase_id to local conversation_id
         conv_mapping = {}
         rows = conn.execute("SELECT id, supabase_id FROM conversations WHERE supabase_id IS NOT NULL").fetchall()
@@ -556,9 +621,15 @@ def _sync_messages_from_supabase() -> int:
 
 def _clear_sqlite_tables_for_sync():
     """
-    Clear SQLite tables before full sync to ensure deletions in Supabase are reflected.
-    This ensures SQLite is a true mirror of Supabase.
+    DEPRECATED: Clear SQLite tables before full sync.
+    
+    This function is deprecated as part of the SQLite-to-Supabase migration.
+    Does nothing and returns immediately.
     """
+    logger.warning("⚠️ _clear_sqlite_tables_for_sync is deprecated - returning early")
+    return
+    
+    # DEPRECATED CODE BELOW - kept for reference
     tables_to_clear = [
         "meeting_summaries",
         "docs", 
@@ -568,7 +639,7 @@ def _clear_sqlite_tables_for_sync():
         "conversations",
     ]
     
-    with connect() as conn:
+    if False:  # Disabled - was: with connect() as conn:
         for table in tables_to_clear:
             if table_exists(conn, table):
                 conn.execute(f"DELETE FROM {table}")
@@ -578,15 +649,23 @@ def _clear_sqlite_tables_for_sync():
 
 def sync_all_from_supabase(full_sync: bool = True) -> Dict[str, int]:
     """
-    Sync all data from Supabase to SQLite.
+    DEPRECATED: Sync all data from Supabase to SQLite.
+    
+    This function is deprecated as part of the SQLite-to-Supabase migration.
+    Returns an empty dict with a deprecation warning.
     
     Args:
-        full_sync: If True, clears SQLite tables first to ensure deletions 
-                   in Supabase are reflected. Default True for production.
+        full_sync: Ignored (deprecated)
     
     Returns:
-        Dict of table names to number of items synced
+        Empty dict (always)
     """
+    warnings.warn(_DEPRECATION_MSG, DeprecationWarning, stacklevel=2)
+    logger.warning("⚠️ sync_all_from_supabase is deprecated - Supabase is now the primary database")
+    logger.info("ℹ️ No sync needed - application uses Supabase directly")
+    return {}
+    
+    # DEPRECATED CODE BELOW - kept for reference
     results = {}
     
     # Only sync in production or if explicitly enabled
@@ -597,7 +676,8 @@ def sync_all_from_supabase(full_sync: bool = True) -> Dict[str, int]:
         logger.info("Skipping Supabase→SQLite sync (not in production)")
         return results
     
-    logger.info("🔄 Starting Supabase → SQLite sync...")
+    if False:  # Disabled
+        logger.info("🔄 Starting Supabase → SQLite sync...")
     
     # Clear SQLite tables first if full_sync is enabled
     # This ensures deletions in Supabase are reflected in SQLite

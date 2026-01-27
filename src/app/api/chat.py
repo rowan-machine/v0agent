@@ -1,4 +1,7 @@
 # src/app/api/chat.py
+"""
+Chat API - Supabase-only implementation.
+"""
 
 from fastapi import APIRouter, Request, Form
 from fastapi.responses import RedirectResponse, JSONResponse
@@ -6,25 +9,11 @@ from fastapi.templating import Jinja2Templates
 from datetime import datetime, timedelta
 import json
 import os
+import logging
 from urllib.parse import urlencode
-from ..db import connect
 
+logger = logging.getLogger(__name__)
 
-def preserve_auth_redirect(url: str, request: Request, extra_params: dict = None) -> str:
-    """Build redirect URL preserving auth token if present."""
-    params = {}
-    # Preserve token from query params
-    token = request.query_params.get("token")
-    if token:
-        params["token"] = token
-    # Add any extra params
-    if extra_params:
-        params.update(extra_params)
-    # Build URL with params
-    if params:
-        separator = "&" if "?" in url else "?"
-        return f"{url}{separator}{urlencode(params)}"
-    return url
 from ..chat.models import (
     create_conversation,
     get_recent_messages,
@@ -37,133 +26,158 @@ from ..chat.models import (
     update_conversation_context,
 )
 from ..chat.turn import run_chat_turn, run_chat_turn_with_context
-# llm.ask removed - use lazy imports inside functions for backward compatibility
 
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
 templates.env.globals['env'] = os.environ
 
 
+def _get_supabase():
+    """Get Supabase client."""
+    from ..infrastructure.supabase_client import get_supabase_client
+    return get_supabase_client()
+
+
+def preserve_auth_redirect(url: str, request: Request, extra_params: dict = None) -> str:
+    """Build redirect URL preserving auth token if present."""
+    params = {}
+    token = request.query_params.get("token")
+    if token:
+        params["token"] = token
+    if extra_params:
+        params.update(extra_params)
+    if params:
+        separator = "&" if "?" in url else "?"
+        return f"{url}{separator}{urlencode(params)}"
+    return url
+
+
 def get_meetings_for_selector(limit: int = 50):
-    """Get recent meetings for the context selector."""
-    with connect() as conn:
-        meetings = conn.execute(
-            """
-            SELECT id, meeting_name, meeting_date, 
-                   (SELECT id FROM docs WHERE source LIKE '%' || meeting_summaries.meeting_name || '%' LIMIT 1) as linked_doc_id
-            FROM meeting_summaries
-            ORDER BY COALESCE(meeting_date, created_at) DESC
-            LIMIT ?
-            """,
-            (limit,)
-        ).fetchall()
-    return [dict(m) for m in meetings]
+    """Get recent meetings for the context selector from Supabase."""
+    try:
+        sb = _get_supabase()
+        result = sb.table("meetings").select(
+            "id, meeting_name, meeting_date"
+        ).order("meeting_date", desc=True).limit(limit).execute()
+        
+        meetings = []
+        for m in result.data or []:
+            meetings.append({
+                "id": m["id"],
+                "meeting_name": m["meeting_name"],
+                "meeting_date": m.get("meeting_date"),
+                "linked_doc_id": None  # Can be looked up separately if needed
+            })
+        return meetings
+    except Exception as e:
+        logger.error(f"Error fetching meetings: {e}")
+        return []
 
 
 def get_documents_for_selector(limit: int = 50):
-    """Get recent documents for the context selector."""
-    with connect() as conn:
-        docs = conn.execute(
-            """
-            SELECT id, source, created_at
-            FROM documents
-            ORDER BY created_at DESC
-            LIMIT ?
-            """,
-            (limit,)
-        ).fetchall()
-    return [dict(d) for d in docs]
+    """Get recent documents for the context selector from Supabase."""
+    try:
+        sb = _get_supabase()
+        result = sb.table("documents").select(
+            "id, source, created_at"
+        ).order("created_at", desc=True).limit(limit).execute()
+        
+        return [dict(d) for d in result.data or []]
+    except Exception as e:
+        logger.error(f"Error fetching documents: {e}")
+        return []
 
 
 def get_recent_signals_for_context(days: int = 14, limit: int = 8):
-    """Get recent signals for the context panel."""
-    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    """Get recent signals for the context panel from Supabase."""
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
     
-    with connect() as conn:
-        meetings = conn.execute(
-            """
-            SELECT meeting_name, signals_json, meeting_date
-            FROM meeting_summaries
-            WHERE signals_json IS NOT NULL
-            AND (meeting_date >= ? OR (meeting_date IS NULL AND created_at >= ?))
-            ORDER BY COALESCE(meeting_date, created_at) DESC
-            LIMIT 10
-            """,
-            (cutoff, cutoff)
-        ).fetchall()
-    
-    signals = []
-    type_labels = {
-        "decisions": "Decision",
-        "action_items": "Action",
-        "blockers": "Blocker",
-        "risks": "Risk",
-        "ideas": "Idea"
-    }
-    type_classes = {
-        "decisions": "decision",
-        "action_items": "action",
-        "blockers": "blocker",
-        "risks": "risk",
-        "ideas": "idea"
-    }
-    
-    for m in meetings:
-        try:
-            data = json.loads(m["signals_json"])
-            for stype in ["blockers", "action_items", "decisions", "risks", "ideas"]:
-                items = data.get(stype, [])
-                if isinstance(items, list):
-                    for item in items[:2]:
-                        if item and len(signals) < limit:
-                            # Handle both string items and dict items with 'text' key
-                            if isinstance(item, dict):
-                                text = item.get("text") or item.get("description") or str(item)
-                            else:
-                                text = str(item)
-                            signals.append({
-                                "text": text,
-                                "type": type_classes.get(stype, ""),
-                                "type_label": type_labels.get(stype, stype),
-                                "source": m["meeting_name"]
-                            })
-        except:
-            pass
-    
-    return signals[:limit]
+    try:
+        sb = _get_supabase()
+        result = sb.table("meetings").select(
+            "meeting_name, signals, meeting_date"
+        ).not_.is_("signals", "null").gte(
+            "meeting_date", cutoff[:10]  # Date only
+        ).order("meeting_date", desc=True).limit(10).execute()
+        
+        signals = []
+        type_labels = {
+            "decisions": "Decision",
+            "action_items": "Action",
+            "blockers": "Blocker",
+            "risks": "Risk",
+            "ideas": "Idea"
+        }
+        type_classes = {
+            "decisions": "decision",
+            "action_items": "action",
+            "blockers": "blocker",
+            "risks": "risk",
+            "ideas": "idea"
+        }
+        
+        for m in result.data or []:
+            try:
+                data = m.get("signals") or {}
+                if isinstance(data, str):
+                    data = json.loads(data)
+                
+                for stype in ["blockers", "action_items", "decisions", "risks", "ideas"]:
+                    items = data.get(stype, [])
+                    if isinstance(items, list):
+                        for item in items[:2]:
+                            if item and len(signals) < limit:
+                                if isinstance(item, dict):
+                                    text = item.get("text") or item.get("description") or str(item)
+                                else:
+                                    text = str(item)
+                                signals.append({
+                                    "text": text,
+                                    "type": type_classes.get(stype, ""),
+                                    "type_label": type_labels.get(stype, stype),
+                                    "source": m["meeting_name"]
+                                })
+            except Exception as e:
+                logger.debug(f"Error parsing signals: {e}")
+        
+        return signals[:limit]
+    except Exception as e:
+        logger.error(f"Error fetching signals: {e}")
+        return []
 
 
 def get_sprint_stats(days: int = 14):
-    """Get signal counts for current sprint period."""
-    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    """Get signal counts for current sprint period from Supabase."""
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()[:10]
     
-    with connect() as conn:
-        meetings = conn.execute(
-            """
-            SELECT signals_json
-            FROM meeting_summaries
-            WHERE signals_json IS NOT NULL
-            AND (meeting_date >= ? OR (meeting_date IS NULL AND created_at >= ?))
-            """,
-            (cutoff, cutoff)
-        ).fetchall()
-    
-    blockers = 0
-    actions = 0
-    
-    for m in meetings:
-        try:
-            data = json.loads(m["signals_json"])
-            b = data.get("blockers", [])
-            a = data.get("action_items", [])
-            if isinstance(b, list):
-                blockers += len(b)
-            if isinstance(a, list):
-                actions += len(a)
-        except:
-            pass
-    
-    return {"blockers": blockers, "actions": actions}
+    try:
+        sb = _get_supabase()
+        result = sb.table("meetings").select(
+            "signals"
+        ).not_.is_("signals", "null").gte("meeting_date", cutoff).execute()
+        
+        blockers = 0
+        actions = 0
+        
+        for m in result.data or []:
+            try:
+                data = m.get("signals") or {}
+                if isinstance(data, str):
+                    data = json.loads(data)
+                
+                b = data.get("blockers", [])
+                a = data.get("action_items", [])
+                if isinstance(b, list):
+                    blockers += len(b)
+                if isinstance(a, list):
+                    actions += len(a)
+            except:
+                pass
+        
+        return {"blockers": blockers, "actions": actions}
+    except Exception as e:
+        logger.error(f"Error fetching sprint stats: {e}")
+        return {"blockers": 0, "actions": 0}
 
 
 def generate_chat_title(first_message: str) -> str:
@@ -175,14 +189,36 @@ def generate_chat_title(first_message: str) -> str:
 Return ONLY the title, no quotes, no explanation."""
     
     try:
-        # Lazy import for backward compatibility
         from ..llm import ask
         title = ask(prompt, model="gpt-4.1-mini")
-        return title.strip()[:100]  # Limit to 100 chars
+        return title.strip()[:100]
     except:
-        # Fallback to first few words
         words = first_message.split()[:5]
         return " ".join(words)[:50] + ("..." if len(words) > 5 else "")
+
+
+def _get_meeting_name(meeting_id: int) -> str:
+    """Get meeting name from Supabase."""
+    try:
+        sb = _get_supabase()
+        result = sb.table("meetings").select("meeting_name").eq("id", meeting_id).execute()
+        if result.data:
+            return result.data[0]["meeting_name"]
+    except:
+        pass
+    return None
+
+
+def _get_document_name(document_id: int) -> str:
+    """Get document name from Supabase."""
+    try:
+        sb = _get_supabase()
+        result = sb.table("documents").select("source").eq("id", document_id).execute()
+        if result.data:
+            return result.data[0]["source"]
+    except:
+        pass
+    return None
 
 
 @router.get("/chat")
@@ -227,24 +263,10 @@ def view_chat(request: Request, conversation_id: int, prompt: str = None):
     if not conversation:
         return RedirectResponse(url=preserve_auth_redirect("/chat", request), status_code=303)
     
-    # Get meeting/document context if set
-    meeting_id = conversation.get("meeting_id") if hasattr(conversation, "get") else (conversation["meeting_id"] if "meeting_id" in conversation.keys() else None)
-    document_id = conversation.get("document_id") if hasattr(conversation, "get") else (conversation["document_id"] if "document_id" in conversation.keys() else None)
+    meeting_id = conversation.get("meeting_id")
+    document_id = conversation.get("document_id")
     
-    # Get messages, filtering by meeting_id if present
-    if meeting_id:
-        with connect() as conn:
-            messages = conn.execute(
-                """
-                SELECT * FROM messages
-                WHERE meeting_id = ?
-                ORDER BY created_at DESC
-                LIMIT 50
-                """,
-                (meeting_id,)
-            ).fetchall()
-    else:
-        messages = get_recent_messages(conversation_id, limit=50)
+    messages = get_recent_messages(conversation_id, limit=50)
     
     recent_signals = get_recent_signals_for_context()
     sprint_stats = get_sprint_stats()
@@ -255,16 +277,14 @@ def view_chat(request: Request, conversation_id: int, prompt: str = None):
     selected_meeting = None
     selected_document = None
     if meeting_id:
-        with connect() as conn:
-            m = conn.execute("SELECT meeting_name FROM meeting_summaries WHERE id = ?", (meeting_id,)).fetchone()
-            if m:
-                selected_meeting = {"id": meeting_id, "name": m["meeting_name"]}
+        name = _get_meeting_name(meeting_id)
+        if name:
+            selected_meeting = {"id": meeting_id, "name": name}
     
     if document_id:
-        with connect() as conn:
-            d = conn.execute("SELECT source FROM documents WHERE id = ?", (document_id,)).fetchone()
-            if d:
-                selected_document = {"id": document_id, "name": d["source"]}
+        name = _get_document_name(document_id)
+        if name:
+            selected_document = {"id": document_id, "name": name}
     
     return templates.TemplateResponse(
         "chat_history.html",
@@ -293,57 +313,48 @@ def chat_turn(
     message: str = Form(...),
 ):
     """Process a chat turn and return the updated view."""
-    # Get conversation to check if it needs a title and get context
     conversation = get_conversation(conversation_id)
     
-    # Get meeting/document context if set
     meeting_id = None
     document_id = None
     if conversation:
-        meeting_id = conversation.get("meeting_id") if hasattr(conversation, "get") else (conversation["meeting_id"] if "meeting_id" in conversation.keys() else None)
-        document_id = conversation.get("document_id") if hasattr(conversation, "get") else (conversation["document_id"] if "document_id" in conversation.keys() else None)
+        meeting_id = conversation.get("meeting_id")
+        document_id = conversation.get("document_id")
     
     # Run the chat turn with context if available
-    run_id = None
     if meeting_id or document_id:
         answer, run_id = run_chat_turn_with_context(conversation_id, message, meeting_id, document_id)
     else:
         answer, run_id = run_chat_turn(conversation_id, message)
     
     # Generate title if this is the first message
-    if conversation and not conversation["title"]:
+    if conversation and not conversation.get("title"):
         title = generate_chat_title(message)
         update_conversation_title(conversation_id, title)
     
     # Get updated data
     conversations = get_all_conversations(limit=50)
     messages = get_recent_messages(conversation_id, limit=50)
-    conversation = get_conversation(conversation_id)  # Refresh after title update
+    conversation = get_conversation(conversation_id)
     recent_signals = get_recent_signals_for_context()
     sprint_stats = get_sprint_stats()
     meetings_list = get_meetings_for_selector()
     documents_list = get_documents_for_selector()
     
-    # Re-fetch meeting/document context from refreshed conversation
-    meeting_id = None
-    document_id = None
-    if conversation:
-        meeting_id = conversation.get("meeting_id") if hasattr(conversation, "get") else (conversation["meeting_id"] if "meeting_id" in conversation.keys() else None)
-        document_id = conversation.get("document_id") if hasattr(conversation, "get") else (conversation["document_id"] if "document_id" in conversation.keys() else None)
+    # Re-fetch context
+    meeting_id = conversation.get("meeting_id") if conversation else None
+    document_id = conversation.get("document_id") if conversation else None
     
-    # Get linked meeting/document names for display
     selected_meeting = None
     selected_document = None
     if meeting_id:
-        with connect() as conn:
-            m = conn.execute("SELECT meeting_name FROM meeting_summaries WHERE id = ?", (meeting_id,)).fetchone()
-            if m:
-                selected_meeting = {"id": meeting_id, "name": m["meeting_name"]}
+        name = _get_meeting_name(meeting_id)
+        if name:
+            selected_meeting = {"id": meeting_id, "name": name}
     if document_id:
-        with connect() as conn:
-            d = conn.execute("SELECT source FROM documents WHERE id = ?", (document_id,)).fetchone()
-            if d:
-                selected_document = {"id": document_id, "name": d["source"]}
+        name = _get_document_name(document_id)
+        if name:
+            selected_document = {"id": document_id, "name": name}
     
     return templates.TemplateResponse(
         "chat_history.html",
@@ -367,10 +378,7 @@ def chat_turn(
 
 @router.post("/api/chat/{conversation_id}/send")
 async def send_chat_message(conversation_id: int, request: Request):
-    """
-    Send a message via AJAX and get the response without page reload.
-    Returns the assistant response and run_id for feedback.
-    """
+    """Send a message via AJAX and get the response without page reload."""
     try:
         data = await request.json()
         message = data.get("message", "").strip()
@@ -378,26 +386,19 @@ async def send_chat_message(conversation_id: int, request: Request):
         if not message:
             return JSONResponse({"error": "Message is required"}, status_code=400)
         
-        # Get conversation to check context
         conversation = get_conversation(conversation_id)
         if not conversation:
             return JSONResponse({"error": "Conversation not found"}, status_code=404)
         
-        # Convert sqlite3.Row to dict for safe attribute access
-        conv_dict = dict(conversation) if conversation else {}
+        meeting_id = conversation.get("meeting_id")
+        document_id = conversation.get("document_id")
         
-        # Get meeting/document context if set
-        meeting_id = conv_dict.get("meeting_id")
-        document_id = conv_dict.get("document_id")
-        
-        # Run the chat turn with context if available
         if meeting_id or document_id:
             answer, run_id = run_chat_turn_with_context(conversation_id, message, meeting_id, document_id)
         else:
             answer, run_id = run_chat_turn(conversation_id, message)
         
-        # Generate title if this is the first message
-        if conv_dict and not conv_dict.get("title"):
+        if not conversation.get("title"):
             title = generate_chat_title(message)
             update_conversation_title(conversation_id, title)
         
@@ -450,7 +451,6 @@ async def update_chat_context(conversation_id: int, request: Request):
         meeting_id = data.get("meeting_id")
         document_id = data.get("document_id")
         
-        # Convert empty strings to None
         meeting_id = int(meeting_id) if meeting_id else None
         document_id = int(document_id) if document_id else None
         
@@ -459,18 +459,21 @@ async def update_chat_context(conversation_id: int, request: Request):
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
+
 @router.get("/api/sprint-stats")
 def api_sprint_stats():
     """API endpoint for sprint stats."""
     stats = get_sprint_stats()
     return JSONResponse(stats)
 
-# Cache for sprint signals to improve loading speed
+
+# Cache for sprint signals
 _sprint_signals_cache = {
     "blockers": {"data": None, "timestamp": 0},
     "action_items": {"data": None, "timestamp": 0}
 }
-_SIGNALS_CACHE_TTL = 120  # 2 minutes cache
+_SIGNALS_CACHE_TTL = 120  # 2 minutes
+
 
 @router.get("/api/sprint-signals/{signal_type}")
 def api_sprint_signals(signal_type: str, days: int = 14, force: bool = False):
@@ -480,58 +483,55 @@ def api_sprint_signals(signal_type: str, days: int = 14, force: bool = False):
     if signal_type not in ["blockers", "action_items"]:
         return JSONResponse({"error": "Invalid signal type"}, status_code=400)
     
-    # Check cache unless forced
     now = time.time()
     cache_entry = _sprint_signals_cache.get(signal_type, {"data": None, "timestamp": 0})
     if not force and cache_entry["data"] is not None and (now - cache_entry["timestamp"]) < _SIGNALS_CACHE_TTL:
         return JSONResponse(cache_entry["data"])
     
-    cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()[:10]
     
-    with connect() as conn:
-        meetings = conn.execute(
-            """
-            SELECT id, meeting_name, meeting_date, signals_json
-            FROM meeting_summaries
-            WHERE signals_json IS NOT NULL
-            AND (meeting_date >= ? OR (meeting_date IS NULL AND created_at >= ?))
-            ORDER BY meeting_date DESC, created_at DESC
-            """,
-            (cutoff, cutoff)
-        ).fetchall()
-    
-    signals = []
-    for m in meetings:
-        try:
-            data = json.loads(m["signals_json"])
-            items = data.get(signal_type, [])
-            if isinstance(items, list):
-                for item in items:
-                    text = item if isinstance(item, str) else item.get("text", str(item))
-                    signals.append({
-                        "id": f"{m['id']}_{len(signals)}",
-                        "meeting_id": m["id"],
-                        "meeting_name": m["meeting_name"],
-                        "meeting_date": m["meeting_date"],
-                        "text": text,
-                        "type": signal_type
-                    })
-        except:
-            pass
-    
-    result = {"signals": signals, "count": len(signals)}
-    
-    # Update cache with per-type timestamp
-    _sprint_signals_cache[signal_type] = {"data": result, "timestamp": time.time()}
-    
-    return JSONResponse(result)
+    try:
+        sb = _get_supabase()
+        result = sb.table("meetings").select(
+            "id, meeting_name, meeting_date, signals"
+        ).not_.is_("signals", "null").gte(
+            "meeting_date", cutoff
+        ).order("meeting_date", desc=True).execute()
+        
+        signals = []
+        for m in result.data or []:
+            try:
+                data = m.get("signals") or {}
+                if isinstance(data, str):
+                    data = json.loads(data)
+                
+                items = data.get(signal_type, [])
+                if isinstance(items, list):
+                    for item in items:
+                        text = item if isinstance(item, str) else item.get("text", str(item))
+                        signals.append({
+                            "id": f"{m['id']}_{len(signals)}",
+                            "meeting_id": m["id"],
+                            "meeting_name": m["meeting_name"],
+                            "meeting_date": m.get("meeting_date"),
+                            "text": text,
+                            "type": signal_type
+                        })
+            except:
+                pass
+        
+        result_data = {"signals": signals, "count": len(signals)}
+        _sprint_signals_cache[signal_type] = {"data": result_data, "timestamp": time.time()}
+        
+        return JSONResponse(result_data)
+    except Exception as e:
+        logger.error(f"Error fetching sprint signals: {e}")
+        return JSONResponse({"signals": [], "count": 0})
 
 
 @router.post("/api/signal-action")
 def api_signal_action(request: Request, signal_id: str = Form(...), action: str = Form(...)):
     """Handle approve/reject/archive actions on signals."""
-    # For now, just log the action - you could store this in DB
-    # action can be: approve, reject, archive
     return JSONResponse({"status": "ok", "signal_id": signal_id, "action": action})
 
 

@@ -20,7 +20,6 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 import logging
 
-from ..db import connect
 from ..infrastructure.supabase_client import get_supabase_client
 
 logger = logging.getLogger(__name__)

@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
 from datetime import datetime
 
-from ...db import connect
+from ...infrastructure.supabase_client import get_supabase_client
 from ...memory.embed import embed_text, EMBED_MODEL
 from ...memory.vector_store import upsert_embedding
 from ...memory.semantic import semantic_search
@@ -87,29 +87,27 @@ async def create_memory(memory: MemoryCreate):
     Memories are automatically embedded for semantic search.
     High-importance memories (7+) are prioritized in context retrieval.
     """
-    with connect() as conn:
-        cursor = conn.execute(
-            """
-            INSERT INTO ai_memory (source_type, source_query, content, tags, importance)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (memory.source_type, memory.source_query, memory.content,
-             memory.tags, memory.importance)
-        )
-        memory_id = cursor.lastrowid
-        
-        # Create embedding for semantic search
-        text_for_embedding = f"{memory.source_query or ''}\n{memory.content}"
-        vector = embed_text(text_for_embedding)
-        upsert_embedding("ai_memory", memory_id, EMBED_MODEL, vector)
-        
-        # Fetch the created record
-        row = conn.execute(
-            "SELECT * FROM ai_memory WHERE id = ?",
-            (memory_id,)
-        ).fetchone()
+    supabase = get_supabase_client()
     
-    return MemoryResponse(**dict(row))
+    result = supabase.table("ai_memory").insert({
+        "source_type": memory.source_type,
+        "source_query": memory.source_query,
+        "content": memory.content,
+        "tags": memory.tags,
+        "importance": memory.importance
+    }).execute()
+    
+    memory_id = result.data[0]["id"] if result.data else None
+    
+    # Create embedding for semantic search
+    text_for_embedding = f"{memory.source_query or ''}\n{memory.content}"
+    vector = embed_text(text_for_embedding)
+    upsert_embedding("ai_memory", memory_id, EMBED_MODEL, vector)
+    
+    # Fetch the created record
+    row = supabase.table("ai_memory").select("*").eq("id", memory_id).execute()
+    
+    return MemoryResponse(**row.data[0])
 
 
 @router.get("/memories", response_model=List[MemoryResponse])
@@ -120,38 +118,31 @@ async def list_memories(
     limit: int = Query(50, ge=1, le=200),
 ):
     """List memories with optional filtering."""
-    with connect() as conn:
-        query = "SELECT * FROM ai_memory WHERE importance >= ?"
-        params = [min_importance]
-        
-        if status:
-            query += " AND status = ?"
-            params.append(status)
-        if source_type:
-            query += " AND source_type = ?"
-            params.append(source_type)
-        
-        query += " ORDER BY importance DESC, created_at DESC LIMIT ?"
-        params.append(limit)
-        
-        rows = conn.execute(query, tuple(params)).fetchall()
+    supabase = get_supabase_client()
     
-    return [MemoryResponse(**dict(row)) for row in rows]
+    query = supabase.table("ai_memory").select("*").gte("importance", min_importance)
+    
+    if status:
+        query = query.eq("status", status)
+    if source_type:
+        query = query.eq("source_type", source_type)
+    
+    result = query.order("importance", desc=True).order("created_at", desc=True).limit(limit).execute()
+    rows = result.data or []
+    
+    return [MemoryResponse(**row) for row in rows]
 
 
 @router.get("/memories/{memory_id}", response_model=MemoryResponse)
 async def get_memory(memory_id: int):
     """Get a specific memory by ID."""
-    with connect() as conn:
-        row = conn.execute(
-            "SELECT * FROM ai_memory WHERE id = ?",
-            (memory_id,)
-        ).fetchone()
+    supabase = get_supabase_client()
+    result = supabase.table("ai_memory").select("*").eq("id", memory_id).execute()
     
-    if not row:
+    if not result.data:
         raise HTTPException(status_code=404, detail="Memory not found")
     
-    return MemoryResponse(**dict(row))
+    return MemoryResponse(**result.data[0])
 
 
 @router.put("/memories/{memory_id}", response_model=MemoryResponse)
@@ -164,72 +155,53 @@ async def update_memory(memory_id: int, memory: MemoryUpdate):
     - Archive old memories
     - Update content or importance
     """
-    with connect() as conn:
-        # Check if memory exists
-        existing = conn.execute(
-            "SELECT id FROM ai_memory WHERE id = ?",
-            (memory_id,)
-        ).fetchone()
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Memory not found")
-        
-        # Build dynamic update
-        updates = ["updated_at = datetime('now')"]
-        params = []
-        
-        if memory.content is not None:
-            updates.append("content = ?")
-            params.append(memory.content)
-        if memory.status is not None:
-            updates.append("status = ?")
-            params.append(memory.status)
-        if memory.tags is not None:
-            updates.append("tags = ?")
-            params.append(memory.tags)
-        if memory.importance is not None:
-            updates.append("importance = ?")
-            params.append(memory.importance)
-        
-        query = f"UPDATE ai_memory SET {', '.join(updates)} WHERE id = ?"
-        params.append(memory_id)
-        conn.execute(query, tuple(params))
-        
-        # Re-embed if content changed
-        if memory.content:
-            row = conn.execute(
-                "SELECT source_query, content FROM ai_memory WHERE id = ?",
-                (memory_id,)
-            ).fetchone()
-            text_for_embedding = f"{row['source_query'] or ''}\n{row['content']}"
+    supabase = get_supabase_client()
+    
+    # Check if memory exists
+    existing = supabase.table("ai_memory").select("id").eq("id", memory_id).execute()
+    
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Memory not found")
+    
+    # Build update dict
+    updates = {}
+    if memory.content is not None:
+        updates["content"] = memory.content
+    if memory.status is not None:
+        updates["status"] = memory.status
+    if memory.tags is not None:
+        updates["tags"] = memory.tags
+    if memory.importance is not None:
+        updates["importance"] = memory.importance
+    
+    if updates:
+        supabase.table("ai_memory").update(updates).eq("id", memory_id).execute()
+    
+    # Re-embed if content changed
+    if memory.content:
+        row = supabase.table("ai_memory").select("source_query, content").eq("id", memory_id).execute()
+        if row.data:
+            text_for_embedding = f"{row.data[0].get('source_query') or ''}\n{row.data[0]['content']}"
             vector = embed_text(text_for_embedding)
             upsert_embedding("ai_memory", memory_id, EMBED_MODEL, vector)
-        
-        # Fetch updated record
-        row = conn.execute(
-            "SELECT * FROM ai_memory WHERE id = ?",
-            (memory_id,)
-        ).fetchone()
     
-    return MemoryResponse(**dict(row))
+    # Fetch updated record
+    row = supabase.table("ai_memory").select("*").eq("id", memory_id).execute()
+    
+    return MemoryResponse(**row.data[0])
 
 
 @router.delete("/memories/{memory_id}", status_code=204)
 async def delete_memory(memory_id: int):
     """Delete a memory (soft delete by setting status to 'rejected')."""
-    with connect() as conn:
-        existing = conn.execute(
-            "SELECT id FROM ai_memory WHERE id = ?",
-            (memory_id,)
-        ).fetchone()
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Memory not found")
-        
-        conn.execute(
-            "UPDATE ai_memory SET status = 'rejected', updated_at = datetime('now') WHERE id = ?",
-            (memory_id,)
-        )
+    supabase = get_supabase_client()
+    
+    existing = supabase.table("ai_memory").select("id").eq("id", memory_id).execute()
+    
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Memory not found")
+    
+    supabase.table("ai_memory").update({"status": "rejected"}).eq("id", memory_id).execute()
     
     return None
 
@@ -261,20 +233,13 @@ async def search_memories(
     if not results:
         return []
     
-    with connect() as conn:
-        memory_ids = [r["ref_id"] for r in results]
-        placeholders = ",".join("?" * len(memory_ids))
-        
-        rows = conn.execute(
-            f"""
-            SELECT * FROM ai_memory 
-            WHERE id IN ({placeholders}) AND status = 'approved'
-            """,
-            tuple(memory_ids)
-        ).fetchall()
+    supabase = get_supabase_client()
+    memory_ids = [r["ref_id"] for r in results]
+    
+    rows = supabase.table("ai_memory").select("*").in_("id", memory_ids).eq("status", "approved").execute()
     
     # Merge with similarity scores
-    memory_map = {row["id"]: dict(row) for row in rows}
+    memory_map = {row["id"]: row for row in (rows.data or [])}
     search_results = []
     
     for r in results:
@@ -314,26 +279,23 @@ async def get_memory_context(
     memories_to_include = []
     tokens_used = 0
     
-    with connect() as conn:
-        # First, always include high-importance memories (8+)
-        if include_high_importance:
-            high_importance = conn.execute(
-                """
-                SELECT * FROM ai_memory 
-                WHERE status = 'approved' AND importance >= 8
-                ORDER BY importance DESC, created_at DESC
-                LIMIT ?
-                """,
-                (max_memories,)
-            ).fetchall()
+    supabase = get_supabase_client()
+    
+    # First, always include high-importance memories (8+)
+    if include_high_importance:
+        high_importance = supabase.table("ai_memory").select("*").eq(
+            "status", "approved"
+        ).gte("importance", 8).order(
+            "importance", desc=True
+        ).order("created_at", desc=True).limit(max_memories).execute()
+        
+        for row in (high_importance.data or []):
+            content = row["content"]
+            estimated_tokens = len(content) // 4  # Rough estimate
             
-            for row in high_importance:
-                content = row["content"]
-                estimated_tokens = len(content) // 4  # Rough estimate
-                
-                if tokens_used + estimated_tokens <= max_tokens:
-                    memories_to_include.append(dict(row))
-                    tokens_used += estimated_tokens
+            if tokens_used + estimated_tokens <= max_tokens:
+                memories_to_include.append(row)
+                tokens_used += estimated_tokens
     
     # Then, add semantically relevant memories
     remaining_slots = max_memories - len(memories_to_include)
@@ -411,35 +373,35 @@ async def save_chat_as_memory(
 @router.get("/memories/stats")
 async def get_memory_stats():
     """Get statistics about stored memories."""
-    with connect() as conn:
-        stats = conn.execute(
-            """
-            SELECT 
-                COUNT(*) as total,
-                SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-                SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
-                SUM(CASE WHEN status = 'archived' THEN 1 ELSE 0 END) as archived,
-                AVG(importance) as avg_importance
-            FROM ai_memory
-            """
-        ).fetchone()
-        
-        by_source = conn.execute(
-            """
-            SELECT source_type, COUNT(*) as count
-            FROM ai_memory
-            WHERE status = 'approved'
-            GROUP BY source_type
-            """
-        ).fetchall()
+    supabase = get_supabase_client()
+    
+    # Get all memories for stats
+    all_memories = supabase.table("ai_memory").select("status, source_type, importance").execute()
+    rows = all_memories.data or []
+    
+    total = len(rows)
+    approved = sum(1 for r in rows if r.get("status") == "approved")
+    rejected = sum(1 for r in rows if r.get("status") == "rejected")
+    archived = sum(1 for r in rows if r.get("status") == "archived")
+    
+    # Calculate average importance
+    importances = [r.get("importance", 0) for r in rows if r.get("importance")]
+    avg_importance = sum(importances) / len(importances) if importances else 0
+    
+    # Group by source for approved
+    by_source = {}
+    for row in rows:
+        if row.get("status") == "approved":
+            src = row.get("source_type")
+            by_source[src] = by_source.get(src, 0) + 1
     
     return {
-        "total": stats["total"] or 0,
+        "total": total,
         "by_status": {
-            "approved": stats["approved"] or 0,
-            "rejected": stats["rejected"] or 0,
-            "archived": stats["archived"] or 0
+            "approved": approved,
+            "rejected": rejected,
+            "archived": archived
         },
-        "avg_importance": round(stats["avg_importance"] or 0, 2),
-        "by_source": {row["source_type"]: row["count"] for row in by_source}
+        "avg_importance": round(avg_importance, 2),
+        "by_source": by_source
     }

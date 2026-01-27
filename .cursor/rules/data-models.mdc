@@ -1,63 +1,55 @@
 ---
-description: Defines the core data models for meetings and documents with their relationships and business rules
+description: Documentation for core data models and relationships in meeting intelligence and document management system
 ---
 
 
 # data-models
 
-## Core Data Models
+Core Data Models:
 
-### 1. Meeting Model
+## Meetings Model
+- Unique identifier and metadata (title, date, duration)
+- Linked transcript content with source tracking (Teams/Pocket)
+- Signal collections (decisions, action items, blockers, risks) 
+- Mind map relationships and hierarchies
+- Screenshot collections with vision analysis results
+- DIKW level classification and promotion tracking
 Importance Score: 90/100
 
-Primary attributes:
-- Thread ID for LangSmith tracing/analytics
-- Signal mappings for extracted insights
-- Knowledge relationships to DIKW items 
-- Parent/child meeting relationships
-- Meeting bundle associations
-
-Business Rules:
-- 24-hour conversation retention policy
-- Command frequency-based suggestion prioritization
-- Context preservation through thread IDs
-- Structured feedback collection
-
-### 2. Document Model  
+## Documents Model
+- Document metadata and versioning
+- Semantic chunking for knowledge extraction
+- Bidirectional relationships to meetings and signals
+- Tag-based categorization system
+- Knowledge graph position tracking
+- Cross-reference mapping to related content
 Importance Score: 85/100
 
-Primary attributes:
-- Document type classification
-- Semantic embeddings for search
-- Knowledge graph relationships
-- Version history tracking
-- Synthesis status flags
-
-Business Rules:
-- Automatic DIKW level assignment
-- Bidirectional meeting linkages
-- Template-based signal extraction
-- Knowledge synthesis triggers
-
-## Relationship Structure
-
-### 1. Meeting-Document Relationships
-- One-to-many mapping of meetings to related documents
-- Bidirectional reference tracking
+## Model Relationships
+1. Meeting-Document Links
+- Many-to-many relationships via junction table
 - Semantic similarity scoring for auto-linking
-- Version-aware relationship management
+- Contextual relationship types and strengths
+- Bidirectional navigation capabilities
 
-### 2. Knowledge Graph Integration
-- DIKW hierarchy relationships
-- Cross-entity semantic links
-- Signal-based relationship mapping
-- Evidence tracking for relationships
+2. Signal Relationships
+- Parent-child hierarchies for nested signals
+- Cross-meeting signal threading
+- Signal-to-document reference mapping
+- Confidence scoring for relationship strength
 
-### 3. Thread Management
-- Conversation context preservation
-- Meeting bundle associations
-- Signal extraction linkages
-- Feedback collection references
+3. Mind Map Integration
+- Hierarchical node structure
+- Cross-entity relationship mapping
+- Visual position preservation
+- Knowledge graph integration points
+
+Key Implementation Features:
+- DIKW pyramid progression tracking
+- Signal extraction and categorization
+- Semantic relationship scoring
+- Knowledge hierarchy management
+- Cross-entity reference system
 
 $END$
 

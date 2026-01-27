@@ -1,29 +1,51 @@
 # src/app/memory/vector_store.py
 import json
+import logging
+from datetime import datetime, timezone
 from .embed import vec_to_json, vec_from_json
-from ..db import connect
+from ..infrastructure.supabase_client import get_supabase_client
+
+logger = logging.getLogger(__name__)
+
 
 def upsert_embedding(ref_type: str, ref_id: int, model: str, vector: list[float]) -> None:
     if not vector:
         return
-    with connect() as conn:
-        conn.execute(
-            """
-            INSERT INTO embeddings (ref_type, ref_id, model, vector, updated_at)
-            VALUES (?, ?, ?, ?, datetime('now'))
-            ON CONFLICT(ref_type, ref_id, model)
-            DO UPDATE SET vector=excluded.vector, updated_at=datetime('now')
-            """,
-            (ref_type, ref_id, model, vec_to_json(vector)),
-        )
+    supabase = get_supabase_client()
+    if not supabase:
+        logger.warning("Supabase client not available for upsert_embedding")
+        return
+    
+    try:
+        # Supabase upsert with onConflict
+        supabase.table("embeddings").upsert(
+            {
+                "ref_type": ref_type,
+                "ref_id": ref_id,
+                "model": model,
+                "vector": vec_to_json(vector),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            },
+            on_conflict="ref_type,ref_id,model"
+        ).execute()
+    except Exception as e:
+        logger.error(f"Failed to upsert embedding: {e}")
+
 
 def fetch_all_embeddings(ref_type: str, model: str):
-    with connect() as conn:
-        rows = conn.execute(
-            "SELECT ref_id, vector FROM embeddings WHERE ref_type=? AND model=?",
-            (ref_type, model),
-        ).fetchall()
-    return [(r["ref_id"], vec_from_json(r["vector"])) for r in rows]
+    supabase = get_supabase_client()
+    if not supabase:
+        logger.warning("Supabase client not available for fetch_all_embeddings")
+        return []
+    
+    try:
+        result = supabase.table("embeddings").select("ref_id, vector").eq("ref_type", ref_type).eq("model", model).execute()
+        if result.data:
+            return [(r["ref_id"], vec_from_json(r["vector"])) for r in result.data]
+    except Exception as e:
+        logger.error(f"Failed to fetch embeddings: {e}")
+    
+    return []
 
 def cosine(a: list[float], b: list[float]) -> float:
     # pure python cosine

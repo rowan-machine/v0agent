@@ -14,7 +14,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from datetime import datetime, date, timedelta
 import json
-from ..db import connect
+from ..infrastructure.supabase_client import get_supabase_client
 # llm.ask removed - use lazy imports inside functions for backward compatibility
 
 # Import from new Arjuna agent (Checkpoint 2.2)
@@ -260,156 +260,125 @@ def get_focus_recommendations() -> dict:
     """
     recommendations = []
     
-    with connect() as conn:
-        # 1. BLOCKED TICKETS (Highest Priority)
-        blocked = conn.execute(
-            """SELECT ticket_id, title, description FROM tickets 
-               WHERE status = 'blocked' 
-               ORDER BY priority DESC, updated_at DESC LIMIT 3"""
-        ).fetchall()
-        if blocked:
-            for t in blocked:
-                recommendations.append({
-                    "priority": 1,
-                    "type": "blocker",
-                    "title": f"🚧 Unblock: {t['ticket_id']}",
-                    "text": t['title'],
-                    "reason": "Blocked tickets prevent all downstream work",
-                    "action": f"Review and unblock {t['ticket_id']}"
-                })
-        
-        # 2. HIGH PRIORITY IN-PROGRESS (Get things done)
-        in_progress = conn.execute(
-            """SELECT ticket_id, title FROM tickets 
-               WHERE status = 'in_progress' 
-               ORDER BY priority DESC, updated_at ASC LIMIT 2"""
-        ).fetchall()
-        if in_progress:
-            for t in in_progress:
-                recommendations.append({
-                    "priority": 2,
-                    "type": "active",
-                    "title": f"🏃 Complete: {t['ticket_id']}",
-                    "text": t['title'],
-                    "reason": "Finishing in-progress work reduces context switching",
-                    "action": "Continue working on this ticket"
-                })
-        
-        # 3. SPRINT DEADLINE CHECK
-        sprint = conn.execute(
-            "SELECT * FROM sprint_settings WHERE id = 1"
-        ).fetchone()
-        if sprint and sprint['start_date']:
-            try:
-                start = datetime.strptime(sprint['start_date'], '%Y-%m-%d')
-                length = sprint['length_days'] or 14
-                end = start + timedelta(days=length)
-                days_left = (end - datetime.now()).days
-                
-                if days_left <= 3 and days_left > 0:
-                    todo_count = conn.execute(
-                        "SELECT COUNT(*) as c FROM tickets WHERE status = 'todo'"
-                    ).fetchone()['c']
-                    if todo_count > 0:
-                        recommendations.append({
-                            "priority": 2,
-                            "type": "deadline",
-                            "title": f"⏰ Sprint ends in {days_left} day{'s' if days_left != 1 else ''}",
-                            "text": f"{todo_count} items still in todo",
-                            "reason": "Time is running out - consider scope reduction",
-                            "action": "Review remaining work and prioritize ruthlessly"
-                        })
-            except:
-                pass
-        
-        # 4. STALE WORK (Tickets stuck for a while)
-        stale = conn.execute(
-            """SELECT ticket_id, title, updated_at FROM tickets 
-               WHERE status = 'in_progress' 
-               AND date(updated_at) < date('now', '-2 days')
-               ORDER BY updated_at ASC LIMIT 1"""
-        ).fetchall()
-        for t in stale:
+    supabase = get_supabase_client()
+    if not supabase:
+        return {"recommendations": [], "total_count": 0}
+    
+    # 1. BLOCKED TICKETS (Highest Priority)
+    blocked_result = supabase.table("tickets").select("ticket_id, title, description").eq("status", "blocked").order("priority", desc=True).order("updated_at", desc=True).limit(3).execute()
+    blocked = blocked_result.data or []
+    if blocked:
+        for t in blocked:
             recommendations.append({
-                "priority": 3,
-                "type": "stale",
-                "title": f"⏳ Stale: {t['ticket_id']}",
-                "text": t['title'],
-                "reason": "This has been in progress for days - is it blocked?",
-                "action": "Either complete it or mark it blocked"
+                "priority": 1,
+                "type": "blocker",
+                "title": f"🚧 Unblock: {t.get('ticket_id')}",
+                "text": t.get('title', ''),
+                "reason": "Blocked tickets prevent all downstream work",
+                "action": f"Review and unblock {t.get('ticket_id')}"
             })
-        
-        # 5. WAITING-FOR ITEMS (Follow up on dependencies)
-        waiting = conn.execute(
-            """SELECT description, responsible_party FROM accountability_items
-               WHERE status = 'waiting'
-               ORDER BY created_at ASC LIMIT 2"""
-        ).fetchall()
-        for w in waiting:
+    
+    # 2. HIGH PRIORITY IN-PROGRESS (Get things done)
+    in_progress_result = supabase.table("tickets").select("ticket_id, title").eq("status", "in_progress").order("priority", desc=True).order("updated_at").limit(2).execute()
+    in_progress = in_progress_result.data or []
+    if in_progress:
+        for t in in_progress:
             recommendations.append({
-                "priority": 4,
-                "type": "waiting",
-                "title": f"⏳ Follow up: {w['responsible_party']}",
-                "text": w['description'][:60],
-                "reason": "Dependencies on others can become blockers",
-                "action": f"Check in with {w['responsible_party']}"
+                "priority": 2,
+                "type": "active",
+                "title": f"🏃 Complete: {t.get('ticket_id')}",
+                "text": t.get('title', ''),
+                "reason": "Finishing in-progress work reduces context switching",
+                "action": "Continue working on this ticket"
             })
-        
-        # 6. ACTION ITEMS FROM RECENT MEETINGS
-        recent_meeting = conn.execute(
-            """SELECT meeting_name, signals_json FROM meeting_summaries 
-               WHERE signals_json IS NOT NULL
-               ORDER BY meeting_date DESC LIMIT 1"""
-        ).fetchone()
-        if recent_meeting and recent_meeting['signals_json']:
-            try:
-                import json
-                signals = json.loads(recent_meeting['signals_json'])
-                actions = signals.get('action_items', [])
-                for action in actions[:2]:
-                    if action:
-                        recommendations.append({
-                            "priority": 5,
-                            "type": "meeting_action",
-                            "title": f"📋 From {recent_meeting['meeting_name']}",
-                            "text": action[:60],
-                            "reason": "Meeting action items often have implicit deadlines",
-                            "action": "Create a ticket or complete this action"
-                        })
-            except:
-                pass
-        
-        # 7. HIGH PRIORITY TODO (Only if nothing more urgent)
-        if len(recommendations) < 3:
-            high_priority_todo = conn.execute(
-                """SELECT ticket_id, title FROM tickets 
-                   WHERE status = 'todo' AND priority = 'high'
-                   ORDER BY created_at ASC LIMIT 2"""
-            ).fetchall()
-            for t in high_priority_todo:
-                recommendations.append({
-                    "priority": 6,
-                    "type": "todo",
-                    "title": f"⭐ High Priority: {t['ticket_id']}",
-                    "text": t['title'],
-                    "reason": "High priority work should be started soon",
-                    "action": "Start working on this ticket"
-                })
-        
-        # 8. KNOWLEDGE GAP - Unreviewed signals
-        unreviewed = conn.execute(
-            """SELECT COUNT(*) as c FROM signal_status 
-               WHERE status = 'pending' OR status IS NULL"""
-        ).fetchone()
-        if unreviewed and unreviewed['c'] > 10:
+    
+    # 3. SPRINT DEADLINE CHECK
+    sprint_result = supabase.table("sprint_settings").select("*").eq("id", 1).execute()
+    sprints = sprint_result.data or []
+    if sprints and sprints[0].get('start_date'):
+        sprint = sprints[0]
+        try:
+            start = datetime.strptime(sprint['start_date'], '%Y-%m-%d')
+            length = sprint.get('length_days') or 14
+            end = start + timedelta(days=length)
+            days_left = (end - datetime.now()).days
+            
+            if days_left <= 3 and days_left > 0:
+                todo_result = supabase.table("tickets").select("id", count="exact").eq("status", "todo").execute()
+                todo_count = todo_result.count or 0
+                if todo_count > 0:
+                    recommendations.append({
+                        "priority": 2,
+                        "type": "deadline",
+                        "title": f"⏰ Sprint ends in {days_left} day{'s' if days_left != 1 else ''}",
+                        "text": f"{todo_count} items still in todo",
+                        "reason": "Time is running out - consider scope reduction",
+                        "action": "Review remaining work and prioritize ruthlessly"
+                    })
+        except:
+            pass
+    
+    # 4. WAITING-FOR ITEMS (Follow up on dependencies)
+    waiting_result = supabase.table("accountability_items").select("description, responsible_party").eq("status", "waiting").order("created_at").limit(2).execute()
+    waiting = waiting_result.data or []
+    for w in waiting:
+        recommendations.append({
+            "priority": 4,
+            "type": "waiting",
+            "title": f"⏳ Follow up: {w.get('responsible_party', 'Unknown')}",
+            "text": (w.get('description') or '')[:60],
+            "reason": "Dependencies on others can become blockers",
+            "action": f"Check in with {w.get('responsible_party', 'Unknown')}"
+        })
+    
+    # 5. ACTION ITEMS FROM RECENT MEETINGS
+    recent_meeting_result = supabase.table("meetings").select("meeting_name, signals").not_.is_("signals", "null").order("meeting_date", desc=True).limit(1).execute()
+    recent_meetings = recent_meeting_result.data or []
+    if recent_meetings and recent_meetings[0].get('signals'):
+        recent_meeting = recent_meetings[0]
+        try:
+            import json
+            signals = json.loads(recent_meeting['signals']) if isinstance(recent_meeting['signals'], str) else recent_meeting['signals']
+            actions = signals.get('action_items', [])
+            for action in actions[:2]:
+                if action:
+                    recommendations.append({
+                        "priority": 5,
+                        "type": "meeting_action",
+                        "title": f"📋 From {recent_meeting.get('meeting_name', 'Meeting')}",
+                        "text": (action if isinstance(action, str) else str(action))[:60],
+                        "reason": "Meeting action items often have implicit deadlines",
+                        "action": "Create a ticket or complete this action"
+                    })
+        except:
+            pass
+    
+    # 6. HIGH PRIORITY TODO (Only if nothing more urgent)
+    if len(recommendations) < 3:
+        high_priority_result = supabase.table("tickets").select("ticket_id, title").eq("status", "todo").eq("priority", "high").order("created_at").limit(2).execute()
+        high_priority_todo = high_priority_result.data or []
+        for t in high_priority_todo:
             recommendations.append({
-                "priority": 7,
-                "type": "knowledge",
-                "title": "📥 Review Signals",
-                "text": f"{unreviewed['c']} unreviewed signals",
-                "reason": "Processing signals builds your knowledge base",
-                "action": "Spend 10 mins reviewing and validating signals"
+                "priority": 6,
+                "type": "todo",
+                "title": f"⭐ High Priority: {t.get('ticket_id')}",
+                "text": t.get('title', ''),
+                "reason": "High priority work should be started soon",
+                "action": "Start working on this ticket"
             })
+    
+    # 7. KNOWLEDGE GAP - Unreviewed signals
+    unreviewed_result = supabase.table("signal_status").select("id", count="exact").or_("status.eq.pending,status.is.null").execute()
+    unreviewed_count = unreviewed_result.count or 0
+    if unreviewed_count > 10:
+        recommendations.append({
+            "priority": 7,
+            "type": "knowledge",
+            "title": "📥 Review Signals",
+            "text": f"{unreviewed_count} unreviewed signals",
+            "reason": "Processing signals builds your knowledge base",
+            "action": "Spend 10 mins reviewing and validating signals"
+        })
     
     # Sort by priority and return top recommendations
     recommendations.sort(key=lambda r: r['priority'])
@@ -421,86 +390,71 @@ def get_focus_recommendations() -> dict:
 
 def get_system_context() -> dict:
     """Get current system state for assistant context."""
-    with connect() as conn:
-        # Get sprint info
-        sprint = conn.execute(
-            "SELECT * FROM sprint_settings WHERE id = 1"
-        ).fetchone()
-        
-        # Get current AI model
-        model_row = conn.execute(
-            "SELECT value FROM settings WHERE key = 'ai_model'"
-        ).fetchone()
-        current_model = model_row["value"] if model_row else "gpt-4o-mini"
-        
-        # Get ticket counts by status
-        ticket_stats = conn.execute(
-            """
-            SELECT status, COUNT(*) as count 
-            FROM tickets 
-            GROUP BY status
-            """
-        ).fetchall()
-        
-        # Get recent tickets
-        tickets = conn.execute(
-            """
-            SELECT ticket_id, title, status, priority 
-            FROM tickets 
-            ORDER BY created_at DESC 
-            LIMIT 10
-            """
-        ).fetchall()
-        
-        # Get recent signals
-        recent_meetings = conn.execute(
-            """
-            SELECT meeting_name, signals_json, meeting_date
-            FROM meeting_summaries
-            WHERE signals_json IS NOT NULL
-            ORDER BY meeting_date DESC
-            LIMIT 3
-            """
-        ).fetchall()
-        
-        # Get accountability items
-        accountability = conn.execute(
-            """
-            SELECT description, responsible_party, status
-            FROM accountability_items
-            WHERE status = 'waiting'
-            LIMIT 5
-            """
-        ).fetchall()
-        
-        # Get today's standups for context (from standup_updates)
-        today = date.today().isoformat()
-        standups = conn.execute(
-            """
-            SELECT standup_date, content, feedback, sentiment, created_at
-            FROM standup_updates
-            WHERE standup_date = ?
-            ORDER BY created_at DESC
-            LIMIT 3
-            """,
-            (today,)
-        ).fetchall()
-        
-        # Get career profile
-        profile = conn.execute(
-            "SELECT current_role, target_role FROM career_profile WHERE id = 1"
-        ).fetchone()
+    supabase = get_supabase_client()
+    if not supabase:
+        return {
+            "sprint": None,
+            "current_ai_model": "gpt-4o-mini",
+            "available_models": AVAILABLE_MODELS,
+            "ticket_stats": {},
+            "recent_tickets": [],
+            "recent_meetings": [],
+            "waiting_for": [],
+            "todays_standups": [],
+            "career_profile": None,
+            "available_pages": SYSTEM_PAGES
+        }
+    
+    # Get sprint info
+    sprint_result = supabase.table("sprint_settings").select("*").eq("id", 1).execute()
+    sprints = sprint_result.data or []
+    sprint = sprints[0] if sprints else None
+    
+    # Get current AI model
+    model_result = supabase.table("settings").select("value").eq("key", "ai_model").execute()
+    models = model_result.data or []
+    current_model = models[0]["value"] if models else "gpt-4o-mini"
+    
+    # Get ticket counts by status - need to do manual grouping
+    tickets_result = supabase.table("tickets").select("status").execute()
+    tickets_all = tickets_result.data or []
+    ticket_stats = {}
+    for t in tickets_all:
+        status = t.get("status", "unknown")
+        ticket_stats[status] = ticket_stats.get(status, 0) + 1
+    
+    # Get recent tickets
+    recent_result = supabase.table("tickets").select("ticket_id, title, status, priority").order("created_at", desc=True).limit(10).execute()
+    recent_tickets = recent_result.data or []
+    
+    # Get recent signals
+    meetings_result = supabase.table("meetings").select("meeting_name, signals, meeting_date").not_.is_("signals", "null").order("meeting_date", desc=True).limit(3).execute()
+    recent_meetings = meetings_result.data or []
+
+    # Get accountability items
+    accountability_result = supabase.table("accountability_items").select("description, responsible_party, status").eq("status", "waiting").limit(5).execute()
+    waiting_for = accountability_result.data or []
+    
+    # Get today's standups for context
+    today = date.today().isoformat()
+    standups_result = supabase.table("standup_updates").select("standup_date, content, feedback, sentiment, created_at").eq("standup_date", today).order("created_at", desc=True).limit(3).execute()
+    todays_standups = standups_result.data or []
+    
+    # Get career profile
+    profile_result = supabase.table("career_profile").select("current_role, target_role").eq("id", 1).execute()
+    profiles = profile_result.data or []
+    career_profile = profiles[0] if profiles else None
     
     return {
-        "sprint": dict(sprint) if sprint else None,
+        "sprint": sprint,
         "current_ai_model": current_model,
         "available_models": AVAILABLE_MODELS,
-        "ticket_stats": {row['status']: row['count'] for row in ticket_stats},
-        "recent_tickets": [dict(t) for t in tickets],
-        "recent_meetings": [dict(m) for m in recent_meetings],
-        "waiting_for": [dict(a) for a in accountability],
-        "todays_standups": [dict(s) for s in standups],
-        "career_profile": dict(profile) if profile else None,
+        "ticket_stats": ticket_stats,
+        "recent_tickets": recent_tickets,
+        "recent_meetings": recent_meetings,
+        "waiting_for": waiting_for,
+        "todays_standups": todays_standups,
+        "career_profile": career_profile,
         "available_pages": SYSTEM_PAGES
     }
 
@@ -680,78 +634,65 @@ def execute_intent(intent_data: dict) -> dict:
             }
         
         if intent == "create_ticket":
-            with connect() as conn:
-                ticket_id = f"AJ-{datetime.now().strftime('%y%m%d-%H%M')}"
-                conn.execute(
-                    """
-                    INSERT INTO tickets (ticket_id, title, description, status, priority)
-                    VALUES (?, ?, ?, ?, ?)
-                    """,
-                    (
-                        ticket_id,
-                        entities.get("title", "Untitled Task"),
-                        entities.get("description", ""),
-                        entities.get("status", "backlog"),
-                        entities.get("priority", "medium")
-                    )
-                )
-                return {"success": True, "ticket_id": ticket_id, "action": "create_ticket"}
+            supabase = get_supabase_client()
+            if not supabase:
+                return {"success": False, "error": "Database not configured"}
+            ticket_id = f"AJ-{datetime.now().strftime('%y%m%d-%H%M')}"
+            supabase.table("tickets").insert({
+                "ticket_id": ticket_id,
+                "title": entities.get("title", "Untitled Task"),
+                "description": entities.get("description", ""),
+                "status": entities.get("status", "backlog"),
+                "priority": entities.get("priority", "medium")
+            }).execute()
+            return {"success": True, "ticket_id": ticket_id, "action": "create_ticket"}
         
         elif intent == "update_ticket":
-            with connect() as conn:
-                ticket_id = entities.get("ticket_id")
-                if not ticket_id:
-                    return {"success": False, "error": "No ticket ID provided"}
-                
-                updates = []
-                params = []
-                
-                if "status" in entities:
-                    updates.append("status = ?")
-                    params.append(entities["status"])
-                if "priority" in entities:
-                    updates.append("priority = ?")
-                    params.append(entities["priority"])
-                
-                if updates:
-                    params.append(ticket_id)
-                    conn.execute(
-                        f"UPDATE tickets SET {', '.join(updates)} WHERE ticket_id = ?",
-                        params
-                    )
-                return {"success": True, "action": "update_ticket"}
+            supabase = get_supabase_client()
+            if not supabase:
+                return {"success": False, "error": "Database not configured"}
+            ticket_id = entities.get("ticket_id")
+            if not ticket_id:
+                return {"success": False, "error": "No ticket ID provided"}
+            
+            update_data = {}
+            if "status" in entities:
+                update_data["status"] = entities["status"]
+            if "priority" in entities:
+                update_data["priority"] = entities["priority"]
+            
+            if update_data:
+                supabase.table("tickets").update(update_data).eq("ticket_id", ticket_id).execute()
+            return {"success": True, "action": "update_ticket"}
         
         elif intent == "list_tickets":
-            with connect() as conn:
-                status_filter = entities.get("status")
-                if status_filter:
-                    tickets = conn.execute(
-                        "SELECT ticket_id, title, status, priority FROM tickets WHERE status = ? ORDER BY created_at DESC LIMIT 10",
-                        (status_filter,)
-                    ).fetchall()
-                else:
-                    tickets = conn.execute(
-                        "SELECT ticket_id, title, status, priority FROM tickets ORDER BY created_at DESC LIMIT 10"
-                    ).fetchall()
-                return {"success": True, "tickets": [dict(t) for t in tickets], "action": "list_tickets"}
+            supabase = get_supabase_client()
+            if not supabase:
+                return {"success": False, "error": "Database not configured"}
+            status_filter = entities.get("status")
+            query = supabase.table("tickets").select("ticket_id, title, status, priority")
+            if status_filter:
+                query = query.eq("status", status_filter)
+            result = query.order("created_at", desc=True).limit(10).execute()
+            tickets = result.data or []
+            return {"success": True, "tickets": tickets, "action": "list_tickets"}
         
         elif intent == "create_accountability":
-            with connect() as conn:
-                conn.execute(
-                    """
-                    INSERT INTO accountability_items (description, responsible_party, context, source_type)
-                    VALUES (?, ?, ?, 'assistant')
-                    """,
-                    (
-                        entities.get("description", ""),
-                        entities.get("responsible_party", "Unknown"),
-                        entities.get("context", "")
-                    )
-                )
-                return {"success": True, "action": "create_accountability"}
+            supabase = get_supabase_client()
+            if not supabase:
+                return {"success": False, "error": "Database not configured"}
+            supabase.table("accountability_items").insert({
+                "description": entities.get("description", ""),
+                "responsible_party": entities.get("responsible_party", "Unknown"),
+                "context": entities.get("context", ""),
+                "source_type": "assistant"
+            }).execute()
+            return {"success": True, "action": "create_accountability"}
         
         elif intent == "create_standup":
-            # Store standup entries in the shared standup_updates table used by the Career hub
+            supabase = get_supabase_client()
+            if not supabase:
+                return {"success": False, "error": "Database not configured"}
             from datetime import date as _date
             standup_date = _date.today().isoformat()
             content_parts = []
@@ -763,15 +704,14 @@ def execute_intent(intent_data: dict) -> dict:
                 content_parts.append(f"Blockers: {entities['blockers']}")
             content = "\n".join(content_parts) or intent_data.get("response_text") or "Standup update"
 
-            with connect() as conn:
-                cur = conn.execute(
-                    """
-                    INSERT INTO standup_updates (standup_date, content, feedback, sentiment, key_themes)
-                    VALUES (?, ?, NULL, 'neutral', '')
-                    """,
-                    (standup_date, content)
-                )
-                standup_id = cur.lastrowid
+            result = supabase.table("standup_updates").insert({
+                "standup_date": standup_date,
+                "content": content,
+                "feedback": None,
+                "sentiment": "neutral",
+                "key_themes": ""
+            }).execute()
+            standup_id = result.data[0]["id"] if result.data else None
             return {"success": True, "action": "create_standup", "standup_id": standup_id}
         
         elif intent == "navigate":
@@ -820,12 +760,10 @@ def execute_intent(intent_data: dict) -> dict:
             if normalized not in AVAILABLE_MODELS:
                 return {"success": False, "error": f"Unknown model: {model}. Available: {', '.join(AVAILABLE_MODELS)}"}
             
-            with connect() as conn:
-                conn.execute("""
-                    INSERT INTO settings (key, value) 
-                    VALUES ('ai_model', ?)
-                    ON CONFLICT(key) DO UPDATE SET value = ?, updated_at = datetime('now')
-                """, (normalized, normalized))
+            supabase = get_supabase_client()
+            if not supabase:
+                return {"success": False, "error": "Database not configured"}
+            supabase.table("settings").upsert({"key": "ai_model", "value": normalized}, on_conflict="key").execute()
             
             return {"success": True, "action": "change_model", "model": normalized}
         
@@ -836,49 +774,38 @@ def execute_intent(intent_data: dict) -> dict:
             if not sprint_name and not sprint_goal:
                 return {"success": False, "error": "No sprint name or goal provided"}
             
-            with connect() as conn:
-                updates = []
-                params = []
-                if sprint_name:
-                    updates.append("sprint_name = ?")
-                    params.append(sprint_name)
-                if sprint_goal:
-                    updates.append("sprint_goal = ?")
-                    params.append(sprint_goal)
-                
-                if updates:
-                    params.append(1)  # id = 1
-                    conn.execute(
-                        f"UPDATE sprint_settings SET {', '.join(updates)} WHERE id = ?",
-                        params
-                    )
+            supabase = get_supabase_client()
+            if not supabase:
+                return {"success": False, "error": "Database not configured"}
+            
+            update_data = {}
+            if sprint_name:
+                update_data["sprint_name"] = sprint_name
+            if sprint_goal:
+                update_data["sprint_goal"] = sprint_goal
+            
+            if update_data:
+                supabase.table("sprint_settings").update(update_data).eq("id", 1).execute()
             
             return {"success": True, "action": "update_sprint", "sprint_name": sprint_name, "sprint_goal": sprint_goal}
         
         elif intent == "reset_workflow":
+            supabase = get_supabase_client()
+            if not supabase:
+                return {"success": False, "error": "Database not configured"}
             modes = ['mode-a', 'mode-b', 'mode-c', 'mode-d', 'mode-e', 'mode-f', 'mode-g']
-            with connect() as conn:
-                for mode in modes:
-                    conn.execute(
-                        "DELETE FROM settings WHERE key = ?",
-                        (f"workflow_progress_{mode}",)
-                    )
+            for mode in modes:
+                supabase.table("settings").delete().eq("key", f"workflow_progress_{mode}").execute()
             return {"success": True, "action": "reset_workflow"}
         
         elif intent == "search_meetings":
-            query = entities.get("query", "")
-            with connect() as conn:
-                meetings = conn.execute(
-                    """
-                    SELECT meeting_name, meeting_date, signals_json
-                    FROM meeting_summaries
-                    WHERE meeting_name LIKE ? OR raw_text LIKE ? OR signals_json LIKE ?
-                    ORDER BY meeting_date DESC
-                    LIMIT 5
-                    """,
-                    (f"%{query}%", f"%{query}%", f"%{query}%")
-                ).fetchall()
-            return {"success": True, "action": "search_meetings", "meetings": [dict(m) for m in meetings]}
+            supabase = get_supabase_client()
+            if not supabase:
+                return {"success": False, "error": "Database not configured"}
+            query_text = entities.get("query", "")
+            result = supabase.table("meetings").select("meeting_name, meeting_date, signals").or_(f"meeting_name.ilike.%{query_text}%,raw_text.ilike.%{query_text}%,synthesized_notes.ilike.%{query_text}%").order("meeting_date", desc=True).limit(5).execute()
+            meetings = result.data or []
+            return {"success": True, "action": "search_meetings", "meetings": meetings}
         
         elif intent in ("ask_question", "greeting", "needs_clarification"):
             return {"success": True, "action": intent}

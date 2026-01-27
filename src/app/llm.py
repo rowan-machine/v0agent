@@ -54,12 +54,13 @@ Be concise and factual. If asked what blocked by, return the blocked items and r
 
 def get_current_model() -> str:
     """Get currently selected AI model from settings database."""
-    from .db import connect
+    from .infrastructure.supabase_client import get_supabase_client
     try:
-        with connect() as conn:
-            row = conn.execute("SELECT value FROM settings WHERE key = 'ai_model'").fetchone()
-            if row:
-                return row["value"]
+        supabase = get_supabase_client()
+        result = supabase.table("settings").select("value").eq("key", "ai_model").execute()
+        rows = result.data or []
+        if rows:
+            return rows[0]["value"]
     except Exception:
         pass
     return "gpt-4o-mini"  # Default fallback
@@ -199,16 +200,16 @@ Return the analysis as structured text that can be stored and searched."""
 
 def get_user_status_context() -> str:
     """Get current user status for chat context."""
-    from .db import connect
+    from .infrastructure.supabase_client import get_supabase_client
     try:
-        with connect() as conn:
-            status = conn.execute(
-                "SELECT * FROM user_status WHERE is_current = 1 ORDER BY created_at DESC LIMIT 1"
-            ).fetchone()
+        supabase = get_supabase_client()
+        result = supabase.table("user_status").select("*").eq("is_current", True).order("created_at", desc=True).limit(1).execute()
+        rows = result.data or []
         
-        if not status:
+        if not rows:
             return ""
         
+        status = rows[0]
         return f"[Current User Status: {status['status_text']} (Mode: {status['interpreted_mode']}, Activity: {status['interpreted_activity']})]"
     except Exception:
         return ""

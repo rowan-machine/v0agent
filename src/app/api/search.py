@@ -30,25 +30,11 @@ from .models import (
     APIResponse,
     ErrorResponse,
 )
-from ..db import connect
+from ..infrastructure.supabase_client import get_supabase_client
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/search", tags=["search"])
-
-
-def get_supabase_client():
-    """Get Supabase client for semantic search."""
-    try:
-        from supabase import create_client
-        url = os.getenv("SUPABASE_URL")
-        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
-        if not url or not key:
-            return None
-        return create_client(url, key)
-    except Exception as e:
-        logger.warning(f"Failed to create Supabase client: {e}")
-        return None
 
 
 def get_embedding(text: str) -> Optional[List[float]]:
@@ -89,74 +75,62 @@ async def keyword_search(
         )
     
     results: List[SearchResultItem] = []
-    like = f"%{q.lower()}%"
+    supabase = get_supabase_client()
     
-    with connect() as conn:
-        # Search documents
-        if source_type in ("docs", "both"):
-            date_clauses = []
-            params = [like, like]
-            
-            if start_date:
-                date_clauses.append("document_date >= ?")
-                params.append(start_date)
-            if end_date:
-                date_clauses.append("document_date <= ?")
-                params.append(end_date)
-            
-            where = "(LOWER(content) LIKE ? OR LOWER(source) LIKE ?)"
-            if date_clauses:
-                where += " AND " + " AND ".join(date_clauses)
-            
-            docs = conn.execute(f"""
-                SELECT id, source AS title, content, document_date, created_at
-                FROM docs
-                WHERE {where}
-                ORDER BY document_date DESC
-                LIMIT ?
-            """, (*params, limit)).fetchall()
-            
-            for d in docs:
-                results.append(SearchResultItem(
-                    id=d["id"],
-                    type="document",
-                    title=d["title"] or "Untitled",
-                    snippet=(d["content"] or "")[:300],
-                    date=d["document_date"] or d["created_at"],
-                ))
+    if not supabase:
+        logger.warning("Supabase not configured for keyword search")
+        return SearchResponse(
+            results=[],
+            query=q,
+            total_results=0,
+            search_type="keyword"
+        )
+    
+    # Search documents
+    if source_type in ("docs", "both"):
+        query = supabase.table("documents").select("id, source, content, document_date, created_at")
+        query = query.or_(f"content.ilike.%{q}%,source.ilike.%{q}%")
         
-        # Search meetings
-        if source_type in ("meetings", "both"):
-            date_clauses = []
-            params = [like, like]
-            
-            if start_date:
-                date_clauses.append("meeting_date >= ?")
-                params.append(start_date)
-            if end_date:
-                date_clauses.append("meeting_date <= ?")
-                params.append(end_date)
-            
-            where = "(LOWER(synthesized_notes) LIKE ? OR LOWER(meeting_name) LIKE ?)"
-            if date_clauses:
-                where += " AND " + " AND ".join(date_clauses)
-            
-            meetings = conn.execute(f"""
-                SELECT id, meeting_name AS title, synthesized_notes, meeting_date, created_at
-                FROM meeting_summaries
-                WHERE {where}
-                ORDER BY meeting_date DESC
-                LIMIT ?
-            """, (*params, limit)).fetchall()
-            
-            for m in meetings:
-                results.append(SearchResultItem(
-                    id=m["id"],
-                    type="meeting",
-                    title=m["title"] or "Untitled Meeting",
-                    snippet=(m["synthesized_notes"] or "")[:300],
-                    date=m["meeting_date"] or m["created_at"],
-                ))
+        if start_date:
+            query = query.gte("document_date", start_date)
+        if end_date:
+            query = query.lte("document_date", end_date)
+        
+        query = query.order("document_date", desc=True).limit(limit)
+        result = query.execute()
+        docs = result.data or []
+        
+        for d in docs:
+            results.append(SearchResultItem(
+                id=d["id"],
+                type="document",
+                title=d.get("source") or "Untitled",
+                snippet=(d.get("content") or "")[:300],
+                date=d.get("document_date") or d.get("created_at"),
+            ))
+    
+    # Search meetings
+    if source_type in ("meetings", "both"):
+        query = supabase.table("meetings").select("id, meeting_name, synthesized_notes, meeting_date, created_at")
+        query = query.or_(f"synthesized_notes.ilike.%{q}%,meeting_name.ilike.%{q}%")
+        
+        if start_date:
+            query = query.gte("meeting_date", start_date)
+        if end_date:
+            query = query.lte("meeting_date", end_date)
+        
+        query = query.order("meeting_date", desc=True).limit(limit)
+        result = query.execute()
+        meetings = result.data or []
+        
+        for m in meetings:
+            results.append(SearchResultItem(
+                id=m["id"],
+                type="meeting",
+                title=m.get("meeting_name") or "Untitled Meeting",
+                snippet=(m.get("synthesized_notes") or "")[:300],
+                date=m.get("meeting_date") or m.get("created_at"),
+            ))
     
     # Sort by date
     results.sort(key=lambda r: r.date or "", reverse=True)
@@ -338,7 +312,6 @@ async def search_mindmaps(request: SemanticSearchRequest):
     """
     try:
         from ..services.mindmap_synthesis import MindmapSynthesizer
-        from ..db import connect
         
         query = request.query.lower()
         limit = request.match_count
@@ -719,84 +692,79 @@ async def search_entity_keyword(
         except Exception as e:
             logger.warning(f"Supabase keyword search failed for {entity_type}, falling back to SQLite: {e}")
     
-    # Fallback to SQLite
-    like = f"%{query.lower()}%"
+    # Fallback to Supabase query
+    search_term = query.lower()
     
     try:
-        with connect() as conn:
-            # Build query
-            title_field = config["title_field"]
-            content_field = config["content_field"]
-            date_field = config["date_field"]
+        supabase = get_supabase_client()
+        # Build query
+        title_field = config["title_field"]
+        content_field = config["content_field"]
+        date_field = config["date_field"]
+        
+        # Build select fields
+        select_fields = f"{config['id_field']}, {title_field}, {content_field}, {date_field}"
+        if "extra_fields" in config:
+            select_fields += ", " + ", ".join(config["extra_fields"])
+        
+        # Execute Supabase query with text search
+        query_builder = supabase.table(config['table']).select(select_fields)
+        
+        # Apply text search filter (using ilike for case-insensitive search)
+        query_builder = query_builder.or_(f"{content_field}.ilike.%{search_term}%,{title_field}.ilike.%{search_term}%")
+        
+        # My mentions filter
+        if my_mentions_only and content_field:
+            query_builder = query_builder.ilike(content_field, "%@rowan%")
+        
+        # Order and limit
+        query_builder = query_builder.order(date_field, desc=True, nullsfirst=False).limit(limit)
+        
+        result = query_builder.execute()
+        rows = result.data or []
+        
+        for row in rows:
+            row_dict = dict(row) if not isinstance(row, dict) else row
             
-            # Base where clause
-            where_parts = [f"(LOWER({content_field}) LIKE ? OR LOWER({title_field}) LIKE ?)"]
-            params = [like, like]
+            # Build title - map from Supabase field names
+            title = row_dict.get(title_field) or row_dict.get("title") or "Untitled"
+            if entity_type == "dikw":
+                level = row_dict.get("level", "")
+                title = f"{level}: {title[:50]}" if level else title[:50]
+            elif entity_type == "tickets" and row_dict.get("ticket_id"):
+                title = f"{row_dict['ticket_id']}: {title}"
             
-            # My mentions filter
-            if my_mentions_only and content_field:
-                where_parts.append(f"LOWER({content_field}) LIKE '%@rowan%'")
+            # Calculate score (keyword matches get base score)
+            content = row_dict.get(content_field) or row_dict.get("content") or ""
+            score = 0.5  # Base score for keyword match
+            query_lower = query.lower()
+            content_lower = content.lower()
+            title_lower = title.lower()
             
-            where_clause = " AND ".join(where_parts)
+            # Boost for title match
+            if query_lower in title_lower:
+                score += 0.3
             
-            # Execute query
-            extra_select = ""
-            if "extra_fields" in config:
-                extra_select = ", " + ", ".join(config["extra_fields"])
+            # Boost for multiple content matches
+            match_count = content_lower.count(query_lower)
+            if match_count > 1:
+                score += min(0.2, match_count * 0.05)
             
-            sql = f"""
-                SELECT {config['id_field']} as id, 
-                       {title_field} as title,
-                       {content_field} as content,
-                       {date_field} as date
-                       {extra_select}
-                FROM {config['table']}
-                WHERE {where_clause}
-                ORDER BY {date_field} DESC NULLS LAST
-                LIMIT ?
-            """
+            # Get the ID field value
+            item_id = row_dict.get(config['id_field']) or row_dict.get("id")
             
-            rows = conn.execute(sql, (*params, limit)).fetchall()
-            
-            for row in rows:
-                row_dict = dict(row)
-                
-                # Build title
-                title = row_dict.get("title") or "Untitled"
-                if entity_type == "dikw":
-                    level = row_dict.get("level", "")
-                    title = f"{level}: {title[:50]}" if level else title[:50]
-                elif entity_type == "tickets" and row_dict.get("ticket_id"):
-                    title = f"{row_dict['ticket_id']}: {title}"
-                
-                # Calculate score (keyword matches get base score)
-                content = row_dict.get("content") or ""
-                score = 0.5  # Base score for keyword match
-                query_lower = query.lower()
-                content_lower = content.lower()
-                title_lower = title.lower()
-                
-                # Boost for title match
-                if query_lower in title_lower:
-                    score += 0.3
-                
-                # Boost for multiple content matches
-                match_count = content_lower.count(query_lower)
-                if match_count > 1:
-                    score += min(0.2, match_count * 0.05)
-                
-                results.append(UnifiedSearchResultItem(
-                    id=row_dict["id"],
-                    entity_type=entity_type,
-                    title=title,
-                    snippet=highlight_snippet(content, query),
-                    date=str(row_dict.get("date") or ""),
-                    score=round(score, 3),
-                    match_type="keyword",
-                    icon=config["icon"],
-                    url=config["url_template"].format(id=row_dict["id"]),
-                    metadata={k: row_dict.get(k) for k in config.get("extra_fields", []) if row_dict.get(k)},
-                ))
+            results.append(UnifiedSearchResultItem(
+                id=item_id,
+                entity_type=entity_type,
+                title=title,
+                snippet=highlight_snippet(content, query),
+                date=str(row_dict.get(date_field) or row_dict.get("date") or ""),
+                score=round(score, 3),
+                match_type="keyword",
+                icon=config["icon"],
+                url=config["url_template"].format(id=item_id),
+                metadata={k: row_dict.get(k) for k in config.get("extra_fields", []) if row_dict.get(k)},
+            ))
     
     except Exception as e:
         logger.error(f"Keyword search failed for {entity_type}: {e}")
@@ -839,59 +807,51 @@ async def search_entity_semantic(
             "match_count": limit,
         }).execute()
         
-        with connect() as conn:
-            for item in response.data or []:
-                if item.get("ref_type") != ref_type:
-                    continue
-                
-                ref_id = item.get("ref_id")
-                similarity = item.get("similarity", 0)
-                
-                # Fetch actual content from SQLite
-                title_field = config["title_field"]
-                content_field = config["content_field"]
-                date_field = config["date_field"]
-                
-                extra_select = ""
-                if "extra_fields" in config:
-                    extra_select = ", " + ", ".join(config["extra_fields"])
-                
-                sql = f"""
-                    SELECT {config['id_field']} as id,
-                           {title_field} as title,
-                           {content_field} as content,
-                           {date_field} as date
-                           {extra_select}
-                    FROM {config['table']}
-                    WHERE {config['id_field']} = ?
-                """
-                
-                row = conn.execute(sql, (ref_id,)).fetchone()
-                if not row:
-                    continue
-                
-                row_dict = dict(row)
-                
-                # Build title
-                title = row_dict.get("title") or "Untitled"
-                if entity_type == "dikw":
-                    level = row_dict.get("level", "")
-                    title = f"{level}: {title[:50]}" if level else title[:50]
-                elif entity_type == "tickets" and row_dict.get("ticket_id"):
-                    title = f"{row_dict['ticket_id']}: {title}"
-                
-                results.append(UnifiedSearchResultItem(
-                    id=row_dict["id"],
-                    entity_type=entity_type,
-                    title=title,
-                    snippet=highlight_snippet(row_dict.get("content", ""), ""),
-                    date=str(row_dict.get("date") or ""),
-                    score=round(similarity, 3),
-                    match_type="semantic",
-                    icon=config["icon"],
-                    url=config["url_template"].format(id=row_dict["id"]),
-                    metadata={k: row_dict.get(k) for k in config.get("extra_fields", []) if row_dict.get(k)},
-                ))
+        # Fetch actual content from Supabase for each result
+        for item in response.data or []:
+            if item.get("ref_type") != ref_type:
+                continue
+            
+            ref_id = item.get("ref_id")
+            similarity = item.get("similarity", 0)
+            
+            # Fetch actual content from Supabase
+            title_field = config["title_field"]
+            content_field = config["content_field"]
+            date_field = config["date_field"]
+            
+            select_fields = f"{config['id_field']}, {title_field}, {content_field}, {date_field}"
+            if "extra_fields" in config:
+                select_fields += ", " + ", ".join(config["extra_fields"])
+            
+            row_result = sb.table(config['table']).select(select_fields).eq(config['id_field'], ref_id).execute()
+            if not row_result.data:
+                continue
+            
+            row_dict = row_result.data[0]
+            
+            # Build title
+            title = row_dict.get(title_field) or "Untitled"
+            if entity_type == "dikw":
+                level = row_dict.get("level", "")
+                title = f"{level}: {title[:50]}" if level else title[:50]
+            elif entity_type == "tickets" and row_dict.get("ticket_id"):
+                title = f"{row_dict['ticket_id']}: {title}"
+            
+            item_id = row_dict.get(config['id_field'])
+            
+            results.append(UnifiedSearchResultItem(
+                id=item_id,
+                entity_type=entity_type,
+                title=title,
+                snippet=highlight_snippet(row_dict.get(content_field, ""), ""),
+                date=str(row_dict.get(date_field) or ""),
+                score=round(similarity, 3),
+                match_type="semantic",
+                icon=config["icon"],
+                url=config["url_template"].format(id=item_id),
+                metadata={k: row_dict.get(k) for k in config.get("extra_fields", []) if row_dict.get(k)},
+            ))
     
     except Exception as e:
         logger.error(f"Semantic search failed for {entity_type}: {e}")
@@ -1016,45 +976,71 @@ async def unified_search_post(request: UnifiedSearchRequest) -> UnifiedSearchRes
 # Smart Suggestions (P5.9)
 # -------------------------
 
-def get_source_content(ref_type: str, ref_id, conn) -> Optional[dict]:
+def get_source_content(ref_type: str, ref_id, supabase) -> Optional[dict]:
     """Fetch the source item content for embedding lookup."""
     try:
         if ref_type == "meeting":
-            row = conn.execute(
-                """SELECT id, meeting_name as title, synthesized_notes as content, meeting_date as date
-                   FROM meeting_summaries WHERE id = ?""",
-                (ref_id,)
-            ).fetchone()
+            result = supabase.table("meetings").select(
+                "id, meeting_name, synthesized_notes, meeting_date"
+            ).eq("id", ref_id).execute()
+            if result.data:
+                row = result.data[0]
+                return {
+                    "id": row["id"],
+                    "title": row.get("meeting_name"),
+                    "content": row.get("synthesized_notes"),
+                    "date": row.get("meeting_date")
+                }
         elif ref_type == "document":
-            row = conn.execute(
-                """SELECT id, source as title, content, document_date as date
-                   FROM docs WHERE id = ?""",
-                (ref_id,)
-            ).fetchone()
+            result = supabase.table("documents").select(
+                "id, source, content, document_date"
+            ).eq("id", ref_id).execute()
+            if result.data:
+                row = result.data[0]
+                return {
+                    "id": row["id"],
+                    "title": row.get("source"),
+                    "content": row.get("content"),
+                    "date": row.get("document_date")
+                }
         elif ref_type == "ticket":
-            row = conn.execute(
-                """SELECT id, ticket_id as title, description as content, created_at as date
-                   FROM tickets WHERE id = ?""",
-                (ref_id,)
-            ).fetchone()
+            result = supabase.table("tickets").select(
+                "id, ticket_id, description, created_at"
+            ).eq("id", ref_id).execute()
+            if result.data:
+                row = result.data[0]
+                return {
+                    "id": row["id"],
+                    "title": row.get("ticket_id"),
+                    "content": row.get("description"),
+                    "date": row.get("created_at")
+                }
         elif ref_type == "dikw":
-            row = conn.execute(
-                """SELECT id, level || ': ' || SUBSTR(content, 1, 50) as title, 
-                   content, created_at as date
-                   FROM dikw_items WHERE id = ?""",
-                (ref_id,)
-            ).fetchone()
+            result = supabase.table("dikw_items").select(
+                "id, level, content, created_at"
+            ).eq("id", ref_id).execute()
+            if result.data:
+                row = result.data[0]
+                level = row.get("level", "")
+                content = row.get("content", "")
+                return {
+                    "id": row["id"],
+                    "title": f"{level}: {content[:50]}" if level else content[:50],
+                    "content": content,
+                    "date": row.get("created_at")
+                }
         elif ref_type == "signal":
-            row = conn.execute(
-                """SELECT id, signal_type as title, signal_text as content, created_at as date
-                   FROM signal_status WHERE id = ?""",
-                (ref_id,)
-            ).fetchone()
-        else:
-            return None
-        
-        if row:
-            return dict(row)
+            result = supabase.table("signal_status").select(
+                "id, signal_type, signal_text, created_at"
+            ).eq("id", ref_id).execute()
+            if result.data:
+                row = result.data[0]
+                return {
+                    "id": row["id"],
+                    "title": row.get("signal_type"),
+                    "content": row.get("signal_text"),
+                    "date": row.get("created_at")
+                }
         return None
     except Exception as e:
         logger.warning(f"Failed to fetch source content: {e}")
@@ -1094,168 +1080,185 @@ async def smart_suggestions(
     """
     sb = get_supabase_client()
     
-    with connect() as conn:
-        # 1. Fetch the source item content
-        source = get_source_content(request.ref_type, request.ref_id, conn)
-        if not source:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Source item {request.ref_type}/{request.ref_id} not found"
-            )
-        
-        source_item = SmartSuggestionItem(
-            id=source.get("id", request.ref_id),
-            type=request.ref_type,
-            title=source.get("title", "Untitled"),
-            snippet=(source.get("content", "") or "")[:300],
-            similarity=1.0,
-            relationship="source",
-            date=source.get("date"),
+    # 1. Fetch the source item content
+    source = get_source_content(request.ref_type, request.ref_id, sb)
+    if not source:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Source item {request.ref_type}/{request.ref_id} not found"
         )
-        
-        # 2. Try to find embedding or generate one
-        embedding = None
-        source_text = source.get("content") or source.get("title") or ""
-        
-        if sb:
-            # Try to get existing embedding from Supabase
-            # Note: We need UUID mapping - for now, use text-based similarity
-            pass
-        
-        # Generate embedding from content
-        if not embedding and source_text:
-            embedding = get_embedding(source_text[:8000])  # Limit to model context
-        
-        if not embedding:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Failed to generate embedding for source content"
-            )
-        
-        # 3. Search for similar items
-        suggestions: List[SmartSuggestionItem] = []
-        
-        if sb:
-            try:
-                # Call semantic search RPC
-                result = sb.rpc("semantic_search", {
-                    "query_embedding": embedding,
-                    "match_threshold": request.min_similarity,
-                    "match_count": request.max_results * 2,  # Fetch more to filter
-                }).execute()
+    
+    source_item = SmartSuggestionItem(
+        id=source.get("id", request.ref_id),
+        type=request.ref_type,
+        title=source.get("title", "Untitled"),
+        snippet=(source.get("content", "") or "")[:300],
+        similarity=1.0,
+        relationship="source",
+        date=source.get("date"),
+    )
+    
+    # 2. Try to find embedding or generate one
+    embedding = None
+    source_text = source.get("content") or source.get("title") or ""
+    
+    if sb:
+        # Try to get existing embedding from Supabase
+        # Note: We need UUID mapping - for now, use text-based similarity
+        pass
+    
+    # Generate embedding from content
+    if not embedding and source_text:
+        embedding = get_embedding(source_text[:8000])  # Limit to model context
+    
+    if not embedding:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to generate embedding for source content"
+        )
+    
+    # 3. Search for similar items
+    suggestions: List[SmartSuggestionItem] = []
+    
+    if sb:
+        try:
+            # Call semantic search RPC
+            result = sb.rpc("semantic_search", {
+                "query_embedding": embedding,
+                "match_threshold": request.min_similarity,
+                "match_count": request.max_results * 2,  # Fetch more to filter
+            }).execute()
+            
+            for item in result.data or []:
+                item_type = item.get("ref_type")
+                item_id = item.get("ref_id")
+                similarity = item.get("similarity", 0)
                 
-                for item in result.data or []:
-                    item_type = item.get("ref_type")
-                    item_id = item.get("ref_id")
-                    similarity = item.get("similarity", 0)
+                # Skip the source item itself
+                if item_type == request.ref_type and str(item_id) == str(request.ref_id):
+                    continue
+                
+                # Filter by include_types if specified
+                if request.include_types and item_type not in request.include_types:
+                    continue
+                
+                # Fetch content for each result
+                content = get_source_content(item_type, item_id, sb) if item_type else None
+                
+                if content:
+                    suggestions.append(SmartSuggestionItem(
+                        id=content.get("id", item_id),
+                        type=item_type,
+                        title=content.get("title", "Untitled"),
+                        snippet=(content.get("content", "") or "")[:200],
+                        similarity=round(similarity, 3),
+                        relationship="semantically_similar" if similarity > 0.85 else "same_topic" if similarity > 0.75 else "related_context",
+                        date=content.get("date"),
+                    ))
+                
+                if len(suggestions) >= request.max_results:
+                    break
                     
-                    # Skip the source item itself
-                    if item_type == request.ref_type and str(item_id) == str(request.ref_id):
-                        continue
-                    
-                    # Filter by include_types if specified
-                    if request.include_types and item_type not in request.include_types:
-                        continue
-                    
-                    # Fetch content for each result
-                    content = get_source_content(item_type, item_id, conn) if item_type else None
-                    
-                    if content:
-                        suggestions.append(SmartSuggestionItem(
-                            id=content.get("id", item_id),
-                            type=item_type,
-                            title=content.get("title", "Untitled"),
-                            snippet=(content.get("content", "") or "")[:200],
-                            similarity=round(similarity, 3),
-                            relationship="semantically_similar" if similarity > 0.85 else "same_topic" if similarity > 0.75 else "related_context",
-                            date=content.get("date"),
-                        ))
-                    
-                    if len(suggestions) >= request.max_results:
-                        break
-                        
-            except Exception as e:
-                logger.error(f"Supabase semantic search failed: {e}")
-                # Fall through to local fallback
+        except Exception as e:
+            logger.error(f"Supabase semantic search failed: {e}")
+            # Fall through to local fallback
+    
+    # 4. Fallback: Simple keyword matching if no results
+    if not suggestions and sb:
+        keywords = source_text.lower().split()[:10]  # Top 10 words
+        keyword_results = []
         
-        # 4. Fallback: Simple keyword matching if no Supabase or no results
-        if not suggestions:
-            keywords = source_text.lower().split()[:10]  # Top 10 words
-            keyword_results = []
-            
-            # Search meetings
-            if not request.include_types or "meeting" in request.include_types:
-                for kw in keywords[:5]:
-                    if len(kw) < 4:
-                        continue
-                    like = f"%{kw}%"
-                    meetings = conn.execute(
-                        """SELECT id, meeting_name as title, synthesized_notes as content, meeting_date as date
-                           FROM meeting_summaries
-                           WHERE id != ? AND (LOWER(synthesized_notes) LIKE ? OR LOWER(meeting_name) LIKE ?)
-                           LIMIT 3""",
-                        (request.ref_id if request.ref_type == "meeting" else -1, like, like)
-                    ).fetchall()
-                    for m in meetings:
+        # Search meetings
+        if not request.include_types or "meeting" in request.include_types:
+            for kw in keywords[:5]:
+                if len(kw) < 4:
+                    continue
+                try:
+                    meetings_result = sb.table("meetings").select(
+                        "id, meeting_name, synthesized_notes, meeting_date"
+                    ).neq("id", request.ref_id if request.ref_type == "meeting" else -1).or_(
+                        f"synthesized_notes.ilike.%{kw}%,meeting_name.ilike.%{kw}%"
+                    ).limit(3).execute()
+                    for m in meetings_result.data or []:
                         if m["id"] not in [r["id"] for r in keyword_results if r.get("type") == "meeting"]:
-                            keyword_results.append({**dict(m), "type": "meeting"})
-            
-            # Search documents
-            if not request.include_types or "document" in request.include_types:
-                for kw in keywords[:5]:
-                    if len(kw) < 4:
-                        continue
-                    like = f"%{kw}%"
-                    docs = conn.execute(
-                        """SELECT id, source as title, content, document_date as date
-                           FROM docs
-                           WHERE id != ? AND (LOWER(content) LIKE ? OR LOWER(source) LIKE ?)
-                           LIMIT 3""",
-                        (request.ref_id if request.ref_type == "document" else -1, like, like)
-                    ).fetchall()
-                    for d in docs:
+                            keyword_results.append({
+                                "id": m["id"],
+                                "title": m.get("meeting_name"),
+                                "content": m.get("synthesized_notes"),
+                                "date": m.get("meeting_date"),
+                                "type": "meeting"
+                            })
+                except Exception as e:
+                    logger.warning(f"Meeting keyword search failed: {e}")
+        
+        # Search documents
+        if not request.include_types or "document" in request.include_types:
+            for kw in keywords[:5]:
+                if len(kw) < 4:
+                    continue
+                try:
+                    docs_result = sb.table("docs").select(
+                        "id, source, content, document_date"
+                    ).neq("id", request.ref_id if request.ref_type == "document" else -1).or_(
+                        f"content.ilike.%{kw}%,source.ilike.%{kw}%"
+                    ).limit(3).execute()
+                    for d in docs_result.data or []:
                         if d["id"] not in [r["id"] for r in keyword_results if r.get("type") == "document"]:
-                            keyword_results.append({**dict(d), "type": "document"})
-            
-            # Search tickets
-            if not request.include_types or "ticket" in request.include_types:
-                for kw in keywords[:5]:
-                    if len(kw) < 4:
-                        continue
-                    like = f"%{kw}%"
-                    tickets = conn.execute(
-                        """SELECT id, ticket_id as title, description as content, created_at as date
-                           FROM tickets
-                           WHERE id != ? AND (LOWER(description) LIKE ? OR LOWER(title) LIKE ?)
-                           LIMIT 3""",
-                        (request.ref_id if request.ref_type == "ticket" else -1, like, like)
-                    ).fetchall()
-                    for t in tickets:
+                            keyword_results.append({
+                                "id": d["id"],
+                                "title": d.get("source"),
+                                "content": d.get("content"),
+                                "date": d.get("document_date"),
+                                "type": "document"
+                            })
+                except Exception as e:
+                    logger.warning(f"Document keyword search failed: {e}")
+        
+        # Search tickets
+        if not request.include_types or "ticket" in request.include_types:
+            for kw in keywords[:5]:
+                if len(kw) < 4:
+                    continue
+                try:
+                    tickets_result = sb.table("tickets").select(
+                        "id, ticket_id, description, created_at"
+                    ).neq("id", request.ref_id if request.ref_type == "ticket" else -1).or_(
+                        f"description.ilike.%{kw}%,title.ilike.%{kw}%"
+                    ).limit(3).execute()
+                    for t in tickets_result.data or []:
                         if t["id"] not in [r["id"] for r in keyword_results if r.get("type") == "ticket"]:
-                            keyword_results.append({**dict(t), "type": "ticket"})
-            
-            # Convert to suggestions (with estimated similarity based on match count)
-            for item in keyword_results[:request.max_results]:
-                suggestions.append(SmartSuggestionItem(
-                    id=item["id"],
-                    type=item["type"],
-                    title=item.get("title", "Untitled"),
-                    snippet=(item.get("content", "") or "")[:200],
-                    similarity=0.6,  # Estimated for keyword match
-                    relationship="keyword_match",
-                    date=item.get("date"),
-                ))
+                            keyword_results.append({
+                                "id": t["id"],
+                                "title": t.get("ticket_id"),
+                                "content": t.get("description"),
+                                "date": t.get("created_at"),
+                                "type": "ticket"
+                            })
+                except Exception as e:
+                    logger.warning(f"Ticket keyword search failed: {e}")
         
-        # 5. Sort by similarity and limit
-        suggestions.sort(key=lambda s: s.similarity, reverse=True)
-        suggestions = suggestions[:request.max_results]
-        
-        return SmartSuggestionsResponse(
-            source=source_item,
-            suggestions=suggestions,
-            total_found=len(suggestions),
-            search_type="semantic" if sb and suggestions else "keyword",
-        )
+        # Convert to suggestions (with estimated similarity based on match count)
+        for item in keyword_results[:request.max_results]:
+            suggestions.append(SmartSuggestionItem(
+                id=item["id"],
+                type=item["type"],
+                title=item.get("title", "Untitled"),
+                snippet=(item.get("content", "") or "")[:200],
+                similarity=0.6,  # Estimated for keyword match
+                relationship="keyword_match",
+                date=item.get("date"),
+            ))
+    
+    # 5. Sort by similarity and limit
+    suggestions.sort(key=lambda s: s.similarity, reverse=True)
+    suggestions = suggestions[:request.max_results]
+    
+    return SmartSuggestionsResponse(
+        source=source_item,
+        suggestions=suggestions,
+        total_found=len(suggestions),
+        search_type="semantic" if sb and suggestions else "keyword",
+    )
 
 
 @router.get("/suggestions/{ref_type}/{ref_id}")

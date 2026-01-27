@@ -13,7 +13,7 @@ from ..v1.models import (
     SignalCreate, SignalUpdate, SignalResponse,
     PaginatedResponse, APIResponse
 )
-from ...db import connect
+from ...infrastructure.supabase_client import get_supabase_client
 
 router = APIRouter()
 
@@ -32,30 +32,33 @@ async def list_signals(
     Signal types: decision, action_item, blocker, risk, idea
     Status: active, resolved, archived
     """
-    with connect() as conn:
-        query = "SELECT * FROM signal WHERE 1=1"
-        params = []
-        
-        if signal_type:
-            query += " AND signal_type = ?"
-            params.append(signal_type)
-        if status:
-            query += " AND status = ?"
-            params.append(status)
-        if meeting_id:
-            query += " AND source_meeting_id = ?"
-            params.append(meeting_id)
-        
-        # Get total count
-        count_query = query.replace("SELECT *", "SELECT COUNT(*) as count")
-        total = conn.execute(count_query, tuple(params)).fetchone()["count"]
-        
-        # Add pagination
-        query += " ORDER BY priority DESC, pk DESC LIMIT ? OFFSET ?"
-        params.extend([limit, skip])
-        
-        rows = conn.execute(query, tuple(params)).fetchall()
-        signals = [dict(row) for row in rows]
+    supabase = get_supabase_client()
+    
+    # Build query with filters
+    query = supabase.table("signal").select("*", count="exact")
+    
+    if signal_type:
+        query = query.eq("signal_type", signal_type)
+    if status:
+        query = query.eq("status", status)
+    if meeting_id:
+        query = query.eq("source_meeting_id", meeting_id)
+    
+    # Get total count
+    count_result = query.execute()
+    total = count_result.count if count_result.count is not None else len(count_result.data or [])
+    
+    # Get paginated results
+    query = supabase.table("signal").select("*")
+    if signal_type:
+        query = query.eq("signal_type", signal_type)
+    if status:
+        query = query.eq("status", status)
+    if meeting_id:
+        query = query.eq("source_meeting_id", meeting_id)
+    
+    result = query.order("priority", desc=True).order("pk", desc=True).range(skip, skip + limit - 1).execute()
+    signals = result.data or []
     
     return PaginatedResponse(
         items=signals,
@@ -72,16 +75,13 @@ async def get_signal(signal_id: int):
     
     Returns 404 if signal not found.
     """
-    with connect() as conn:
-        row = conn.execute(
-            "SELECT * FROM signal WHERE pk = ?",
-            (signal_id,)
-        ).fetchone()
+    supabase = get_supabase_client()
+    result = supabase.table("signal").select("*").eq("pk", signal_id).execute()
     
-    if not row:
+    if not result.data:
         raise HTTPException(status_code=404, detail="Signal not found")
     
-    sig = dict(row)
+    sig = result.data[0]
     return SignalResponse(
         id=sig.get("pk"),
         signal_type=sig.get("signal_type", ""),
@@ -100,15 +100,16 @@ async def create_signal(signal: SignalCreate):
     
     Returns the created signal ID.
     """
-    with connect() as conn:
-        cursor = conn.execute(
-            """INSERT INTO signal (signal_type, content, source_meeting_id, priority, status)
-               VALUES (?, ?, ?, ?, ?)""",
-            (signal.signal_type, signal.content, signal.source_meeting_id,
-             signal.priority, signal.status)
-        )
-        signal_id = cursor.lastrowid
-        conn.commit()
+    supabase = get_supabase_client()
+    result = supabase.table("signal").insert({
+        "signal_type": signal.signal_type,
+        "content": signal.content,
+        "source_meeting_id": signal.source_meeting_id,
+        "priority": signal.priority,
+        "status": signal.status
+    }).execute()
+    
+    signal_id = result.data[0]["pk"] if result.data else None
     
     return APIResponse(
         success=True,
@@ -125,35 +126,25 @@ async def update_signal(signal_id: int, signal: SignalUpdate):
     Only updates fields that are provided.
     Returns 404 if signal not found.
     """
-    with connect() as conn:
-        # Check if signal exists
-        existing = conn.execute(
-            "SELECT pk FROM signal WHERE pk = ?",
-            (signal_id,)
-        ).fetchone()
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Signal not found")
-        
-        # Build dynamic update query
-        updates = []
-        params = []
-        
-        if signal.content is not None:
-            updates.append("content = ?")
-            params.append(signal.content)
-        if signal.priority is not None:
-            updates.append("priority = ?")
-            params.append(signal.priority)
-        if signal.status is not None:
-            updates.append("status = ?")
-            params.append(signal.status)
-        
-        if updates:
-            query = f"UPDATE signal SET {', '.join(updates)} WHERE pk = ?"
-            params.append(signal_id)
-            conn.execute(query, tuple(params))
-            conn.commit()
+    supabase = get_supabase_client()
+    
+    # Check if signal exists
+    existing = supabase.table("signal").select("pk").eq("pk", signal_id).execute()
+    
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    
+    # Build update dict
+    updates = {}
+    if signal.content is not None:
+        updates["content"] = signal.content
+    if signal.priority is not None:
+        updates["priority"] = signal.priority
+    if signal.status is not None:
+        updates["status"] = signal.status
+    
+    if updates:
+        supabase.table("signal").update(updates).eq("pk", signal_id).execute()
     
     return APIResponse(
         success=True,
@@ -169,18 +160,15 @@ async def delete_signal(signal_id: int):
     
     Returns 204 No Content on success, 404 if signal not found.
     """
-    with connect() as conn:
-        # Check if signal exists
-        existing = conn.execute(
-            "SELECT pk FROM signal WHERE pk = ?",
-            (signal_id,)
-        ).fetchone()
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Signal not found")
-        
-        conn.execute("DELETE FROM signal WHERE pk = ?", (signal_id,))
-        conn.commit()
+    supabase = get_supabase_client()
+    
+    # Check if signal exists
+    existing = supabase.table("signal").select("pk").eq("pk", signal_id).execute()
+    
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    
+    supabase.table("signal").delete().eq("pk", signal_id).execute()
     
     return Response(status_code=204)
 

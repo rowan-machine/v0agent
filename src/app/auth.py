@@ -39,26 +39,19 @@ def create_session(user_agent: str = "") -> str:
         "last_active": created,
     }
     
-    # Persist to database for server restarts
+    # Persist to Supabase for server restarts
     try:
-        from .db import connect
-        with connect() as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS sessions (
-                    token TEXT PRIMARY KEY,
-                    created TEXT NOT NULL,
-                    user_agent TEXT,
-                    last_active TEXT
-                )
-            """)
-            conn.execute("""
-                INSERT OR REPLACE INTO sessions (token, created, user_agent, last_active)
-                VALUES (?, ?, ?, ?)
-            """, (token, created.isoformat(), user_agent, created.isoformat()))
-            conn.commit()
-            print(f"Session saved to DB: {token[:20]}...")
+        from .infrastructure.supabase_client import get_supabase_client
+        supabase = get_supabase_client()
+        supabase.table("sessions").upsert({
+            "token": token,
+            "created": created.isoformat(),
+            "user_agent": user_agent,
+            "last_active": created.isoformat()
+        }).execute()
+        print(f"Session saved to Supabase: {token[:20]}...")
     except Exception as e:
-        print(f"Failed to save session to DB: {e}")
+        print(f"Failed to save session to Supabase: {e}")
     
     return token
 
@@ -81,40 +74,30 @@ def validate_session(token: str) -> bool:
         session["last_active"] = datetime.now()
         return True
     
-    # Check database (for server restarts)
+    # Check Supabase (for server restarts)
     try:
-        from .db import connect
-        with connect() as conn:
-            # Ensure sessions table exists
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS sessions (
-                    token TEXT PRIMARY KEY,
-                    created TEXT NOT NULL,
-                    user_agent TEXT,
-                    last_active TEXT
-                )
-            """)
+        from .infrastructure.supabase_client import get_supabase_client
+        supabase = get_supabase_client()
+        
+        result = supabase.table("sessions").select("created, user_agent").eq("token", token).execute()
+        rows = result.data or []
+        
+        if rows:
+            row = rows[0]
+            created = datetime.fromisoformat(row["created"])
+            expiry = created + timedelta(hours=SESSION_DURATION_HOURS)
             
-            row = conn.execute(
-                "SELECT created, user_agent FROM sessions WHERE token = ?",
-                (token,)
-            ).fetchone()
+            if datetime.now() > expiry:
+                _delete_session_from_db(token)
+                return False
             
-            if row:
-                created = datetime.fromisoformat(row["created"])
-                expiry = created + timedelta(hours=SESSION_DURATION_HOURS)
-                
-                if datetime.now() > expiry:
-                    _delete_session_from_db(token)
-                    return False
-                
-                # Restore to memory cache
-                _sessions[token] = {
-                    "created": created,
-                    "user_agent": row["user_agent"] or "",
-                    "last_active": datetime.now(),
-                }
-                return True
+            # Restore to memory cache
+            _sessions[token] = {
+                "created": created,
+                "user_agent": row["user_agent"] or "",
+                "last_active": datetime.now(),
+            }
+            return True
     except Exception as e:
         print(f"Session validation error: {e}")
     
@@ -124,10 +107,9 @@ def validate_session(token: str) -> bool:
 def _delete_session_from_db(token: str):
     """Helper to remove session from database."""
     try:
-        from .db import connect
-        with connect() as conn:
-            conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
-            conn.commit()
+        from .infrastructure.supabase_client import get_supabase_client
+        supabase = get_supabase_client()
+        supabase.table("sessions").delete().eq("token", token).execute()
     except Exception:
         pass
 
@@ -168,14 +150,15 @@ class AuthMiddleware(BaseHTTPMiddleware):
             if path.startswith(route):
                 return await call_next(request)
         
-        # Check if auth is disabled
-        from .db import connect
+        # Check if auth is disabled in Supabase settings
         try:
-            with connect() as conn:
-                row = conn.execute("SELECT value FROM settings WHERE key = 'auth_enabled'").fetchone()
-                if row and row["value"].lower() in ('false', '0', 'no'):
-                    # Auth disabled - allow all requests
-                    return await call_next(request)
+            from .infrastructure.supabase_client import get_supabase_client
+            supabase = get_supabase_client()
+            result = supabase.table("settings").select("value").eq("key", "auth_enabled").execute()
+            rows = result.data or []
+            if rows and rows[0]["value"].lower() in ('false', '0', 'no'):
+                # Auth disabled - allow all requests
+                return await call_next(request)
         except:
             pass  # If settings table doesn't exist yet, continue with auth check
         

@@ -135,8 +135,8 @@ bower_components/
 # ==========================================
 # Project-Specific Exclusions
 # ==========================================
-# Migration scripts (rarely need full context)
-scripts/migrate_*.py
+#  scripts (rarely need full context)
+scripts/
 
 # Sandbox experiments
 sandbox/langchain_evaluation/

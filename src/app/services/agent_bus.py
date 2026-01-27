@@ -5,12 +5,13 @@ This service provides a message queue for agents to communicate with each other,
 similar to a pub/sub system but with directed messages and persistence.
 
 Architecture:
-- Messages are stored in SQLite for persistence
+- Messages are stored in Supabase for persistence
 - Agents poll their message queue periodically
 - Messages have priority, TTL, and retry logic
 - Supports both direct (agent-to-agent) and broadcast messages
 """
 
+import os
 import uuid
 import json
 import logging
@@ -20,6 +21,21 @@ from enum import Enum
 from typing import Dict, List, Optional, Any
 
 logger = logging.getLogger(__name__)
+
+# Supabase client - lazy initialization
+_supabase_client = None
+
+def get_supabase():
+    """Get Supabase client instance."""
+    global _supabase_client
+    if _supabase_client is None:
+        from supabase import create_client
+        url = os.getenv("SUPABASE_URL")
+        key = os.getenv("SUPABASE_KEY")
+        if not url or not key:
+            raise RuntimeError("SUPABASE_URL and SUPABASE_KEY must be set")
+        _supabase_client = create_client(url, key)
+    return _supabase_client
 
 
 class MessagePriority(Enum):
@@ -117,52 +133,22 @@ class AgentBus:
             bus.mark_completed(msg.id, result)
     """
     
-    def __init__(self, db_path: str = "agent.db"):
-        """Initialize agent bus with database.
-        
-        Args:
-            db_path: Path to SQLite database
-        """
-        self.db_path = db_path
-        self._initialize_tables()
-        logger.info(f"AgentBus initialized with database: {db_path}")
+    def __init__(self):
+        """Initialize agent bus with Supabase."""
+        self._supabase = None
+        logger.info("AgentBus initialized with Supabase")
+    
+    @property
+    def supabase(self):
+        """Lazy initialization of Supabase client."""
+        if self._supabase is None:
+            self._supabase = get_supabase()
+        return self._supabase
     
     def _initialize_tables(self):
-        """Create message queue table if not exists."""
-        # Import here to avoid circular imports
-        from src.app.db import connect
-        
-        with connect(self.db_path) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS agent_messages (
-                    id TEXT PRIMARY KEY,
-                    source_agent TEXT NOT NULL,
-                    target_agent TEXT,
-                    message_type TEXT NOT NULL,
-                    content TEXT NOT NULL,
-                    priority INTEGER DEFAULT 2,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    processed_at TIMESTAMP,
-                    status TEXT DEFAULT 'pending',
-                    retry_count INTEGER DEFAULT 0,
-                    max_retries INTEGER DEFAULT 3,
-                    ttl_seconds INTEGER DEFAULT 3600,
-                    error_message TEXT
-                )
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_agent_messages_status 
-                ON agent_messages(status, priority DESC, created_at ASC)
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_agent_messages_target 
-                ON agent_messages(target_agent, status)
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_agent_messages_created 
-                ON agent_messages(created_at DESC)
-            """)
-            conn.commit()
+        """Table creation is handled by Supabase migrations."""
+        # No-op: Tables are created via Supabase migrations
+        pass
     
     def send(self, msg: AgentMessage) -> str:
         """Send a message from one agent to another (or broadcast).
@@ -173,21 +159,11 @@ class AgentBus:
         Returns:
             Message ID
         """
-        from src.app.db import connect
-        
         if msg.created_at is None:
             msg.created_at = datetime.now()
         
-        with connect(self.db_path) as conn:
-            data = msg.to_dict()
-            placeholders = ", ".join(["?"] * len(data))
-            columns = ", ".join(data.keys())
-            
-            conn.execute(f"""
-                INSERT INTO agent_messages ({columns})
-                VALUES ({placeholders})
-            """, tuple(data.values()))
-            conn.commit()
+        data = msg.to_dict()
+        self.supabase.table("agent_messages").insert(data).execute()
         
         target = msg.target_agent or "broadcast"
         logger.info(
@@ -206,18 +182,17 @@ class AgentBus:
         Returns:
             List of AgentMessage objects
         """
-        from src.app.db import connect
+        # Get messages targeted to this agent or broadcasts (target_agent is null)
+        result = self.supabase.table("agent_messages")\
+            .select("*")\
+            .eq("status", "pending")\
+            .or_(f"target_agent.eq.{agent_name},target_agent.is.null")\
+            .order("priority", desc=True)\
+            .order("created_at", desc=False)\
+            .limit(limit)\
+            .execute()
         
-        with connect(self.db_path) as conn:
-            rows = conn.execute("""
-                SELECT * FROM agent_messages
-                WHERE (target_agent = ? OR target_agent IS NULL)
-                AND status = 'pending'
-                ORDER BY priority DESC, created_at ASC
-                LIMIT ?
-            """, (agent_name, limit)).fetchall()
-        
-        messages = [AgentMessage.from_dict(dict(row)) for row in rows]
+        messages = [AgentMessage.from_dict(row) for row in (result.data or [])]
         logger.debug(f"Agent {agent_name} received {len(messages)} messages")
         return messages
     
@@ -227,15 +202,10 @@ class AgentBus:
         Args:
             message_id: ID of message
         """
-        from src.app.db import connect
-        
-        with connect(self.db_path) as conn:
-            conn.execute("""
-                UPDATE agent_messages
-                SET status = 'processing'
-                WHERE id = ?
-            """, (message_id,))
-            conn.commit()
+        self.supabase.table("agent_messages")\
+            .update({"status": "processing"})\
+            .eq("id", message_id)\
+            .execute()
         
         logger.debug(f"Message {message_id} marked as processing")
     
@@ -246,15 +216,13 @@ class AgentBus:
             message_id: ID of message
             result: Optional result data to store
         """
-        from src.app.db import connect
-        
-        with connect(self.db_path) as conn:
-            conn.execute("""
-                UPDATE agent_messages
-                SET status = 'completed', processed_at = CURRENT_TIMESTAMP
-                WHERE id = ?
-            """, (message_id,))
-            conn.commit()
+        self.supabase.table("agent_messages")\
+            .update({
+                "status": "completed",
+                "processed_at": datetime.now().isoformat()
+            })\
+            .eq("id", message_id)\
+            .execute()
         
         logger.info(f"Message {message_id} completed")
     
@@ -265,43 +233,45 @@ class AgentBus:
             message_id: ID of message
             error: Error message
         """
-        from src.app.db import connect
+        # Get current message state
+        result = self.supabase.table("agent_messages")\
+            .select("*")\
+            .eq("id", message_id)\
+            .execute()
         
-        with connect(self.db_path) as conn:
-            msg = conn.execute(
-                "SELECT * FROM agent_messages WHERE id = ?",
-                (message_id,)
-            ).fetchone()
-            
-            if msg is None:
-                logger.warning(f"Message {message_id} not found")
-                return
-            
-            if msg["retry_count"] < msg["max_retries"]:
-                # Retry: reset to pending
-                conn.execute("""
-                    UPDATE agent_messages
-                    SET status = 'pending', retry_count = retry_count + 1, 
-                        error_message = ?
-                    WHERE id = ?
-                """, (error, message_id))
-                logger.warning(
-                    f"Message retry: {message_id} "
-                    f"(attempt {msg['retry_count'] + 1}/{msg['max_retries']})"
-                )
-            else:
-                # Max retries exceeded
-                conn.execute("""
-                    UPDATE agent_messages
-                    SET status = 'failed', error_message = ?
-                    WHERE id = ?
-                """, (error, message_id))
-                logger.error(
-                    f"Message failed after {msg['max_retries']} retries: "
-                    f"{message_id} - {error}"
-                )
-            
-            conn.commit()
+        if not result.data:
+            logger.warning(f"Message {message_id} not found")
+            return
+        
+        msg = result.data[0]
+        
+        if msg["retry_count"] < msg["max_retries"]:
+            # Retry: reset to pending
+            self.supabase.table("agent_messages")\
+                .update({
+                    "status": "pending",
+                    "retry_count": msg["retry_count"] + 1,
+                    "error_message": error
+                })\
+                .eq("id", message_id)\
+                .execute()
+            logger.warning(
+                f"Message retry: {message_id} "
+                f"(attempt {msg['retry_count'] + 1}/{msg['max_retries']})"
+            )
+        else:
+            # Max retries exceeded
+            self.supabase.table("agent_messages")\
+                .update({
+                    "status": "failed",
+                    "error_message": error
+                })\
+                .eq("id", message_id)\
+                .execute()
+            logger.error(
+                f"Message failed after {msg['max_retries']} retries: "
+                f"{message_id} - {error}"
+            )
     
     def archive_old_messages(self, days: int = 7):
         """Archive/delete messages older than specified days.
@@ -309,18 +279,13 @@ class AgentBus:
         Args:
             days: Age in days to consider "old"
         """
-        from src.app.db import connect
+        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
         
-        cutoff = datetime.now() - timedelta(days=days)
-        
-        with connect(self.db_path) as conn:
-            conn.execute("""
-                UPDATE agent_messages
-                SET status = 'archived'
-                WHERE status IN ('completed', 'failed')
-                AND created_at < ?
-            """, (cutoff.isoformat(),))
-            conn.commit()
+        self.supabase.table("agent_messages")\
+            .update({"status": "archived"})\
+            .in_("status", ["completed", "failed"])\
+            .lt("created_at", cutoff)\
+            .execute()
         
         logger.info(f"Archived messages older than {days} days")
     
@@ -330,28 +295,19 @@ class AgentBus:
         Returns:
             Dictionary with message statistics
         """
-        from src.app.db import connect
+        stats = {}
         
-        with connect(self.db_path) as conn:
-            stats = {}
-            
-            # Count by status
-            for status in ["pending", "processing", "completed", "failed", "archived"]:
-                count = conn.execute(
-                    "SELECT COUNT(*) as count FROM agent_messages WHERE status = ?",
-                    (status,)
-                ).fetchone()
-                stats[f"{status}_count"] = count["count"]
-            
-            # Average processing time
-            avg_time = conn.execute("""
-                SELECT AVG(
-                    CAST((julianday(processed_at) - julianday(created_at)) * 24 * 60 * 60 AS INT)
-                ) as avg_seconds
-                FROM agent_messages
-                WHERE processed_at IS NOT NULL
-            """).fetchone()
-            stats["avg_processing_seconds"] = avg_time["avg_seconds"]
+        # Count by status
+        for status in ["pending", "processing", "completed", "failed", "archived"]:
+            result = self.supabase.table("agent_messages")\
+                .select("id", count="exact")\
+                .eq("status", status)\
+                .execute()
+            stats[f"{status}_count"] = result.count or 0
+        
+        # Note: Supabase doesn't have julianday, average is computed differently
+        # For now, just return basic counts
+        stats["avg_processing_seconds"] = None
         
         return stats
 
@@ -372,15 +328,12 @@ def get_agent_bus() -> AgentBus:
     return _bus
 
 
-def initialize_agent_bus(db_path: str = "agent.db") -> AgentBus:
-    """Initialize agent bus with specific database path.
+def initialize_agent_bus() -> AgentBus:
+    """Initialize agent bus.
     
-    Args:
-        db_path: Path to SQLite database
-        
     Returns:
         AgentBus instance
     """
     global _bus
-    _bus = AgentBus(db_path=db_path)
+    _bus = AgentBus()
     return _bus

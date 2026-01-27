@@ -8,16 +8,20 @@ maintaining backward compatibility through adapter functions.
 Migration Status:
 - CareerCoachAgent: src/app/agents/career_coach.py (new agent implementation)
 - This file: Adapters + FastAPI routes (will be slimmed down over time)
+- FULLY MIGRATED TO SUPABASE (January 2026)
 """
 
 # Imports and router definition moved to top
 from fastapi import APIRouter, Request, Query
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
-from ..db import connect
+from ..infrastructure.supabase_client import get_supabase_client
 from ..services import tickets_supabase
 # llm.ask removed - use lazy imports inside functions for backward compatibility
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Import from new CareerCoach agent (Checkpoint 2.3)
 from ..agents.career_coach import (
@@ -57,64 +61,67 @@ async def update_signal_status(request: Request):
     if not (meeting_id and signal_type and signal_text and status):
         return JSONResponse({"error": "Missing required fields"}, status_code=400)
 
-    with connect() as conn:
-        # Update or insert signal status
-        conn.execute("""
-            INSERT INTO signal_status (meeting_id, signal_type, signal_text, status, updated_at)
-            VALUES (?, ?, ?, ?, datetime('now'))
-            ON CONFLICT(meeting_id, signal_type, signal_text)
-            DO UPDATE SET status = excluded.status, updated_at = datetime('now')
-        """, (meeting_id, signal_type, signal_text, status))
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    # Update or insert signal status using upsert
+    supabase.table("signal_status").upsert({
+        "meeting_id": meeting_id,
+        "signal_type": signal_type,
+        "signal_text": signal_text,
+        "status": status,
+        "updated_at": "now()"
+    }, on_conflict="meeting_id,signal_type,signal_text").execute()
 
-        # Log feedback (up for approved, down for rejected, etc.)
-        feedback = None
-        if status == 'approved':
-            feedback = 'up'
-        elif status == 'rejected':
-            feedback = 'down'
-        elif status == 'archived':
-            feedback = 'archived'
-        elif status == 'completed':
-            feedback = 'completed'
-        if feedback:
-            conn.execute("""
-                INSERT INTO signal_feedback (meeting_id, signal_type, signal_text, feedback, created_at)
-                VALUES (?, ?, ?, ?, datetime('now'))
-                ON CONFLICT(meeting_id, signal_type, signal_text)
-                DO UPDATE SET feedback = excluded.feedback, created_at = datetime('now')
-            """, (meeting_id, signal_type, signal_text, feedback))
-        conn.commit()
+    # Log feedback (up for approved, down for rejected, etc.)
+    feedback = None
+    if status == 'approved':
+        feedback = 'up'
+    elif status == 'rejected':
+        feedback = 'down'
+    elif status == 'archived':
+        feedback = 'archived'
+    elif status == 'completed':
+        feedback = 'completed'
+    if feedback:
+        supabase.table("signal_feedback").upsert({
+            "meeting_id": meeting_id,
+            "signal_type": signal_type,
+            "signal_text": signal_text,
+            "feedback": feedback
+        }, on_conflict="meeting_id,signal_type,signal_text").execute()
 
     return JSONResponse({"status": "ok"})
 
-def get_code_locker_code_for_sprint_tickets(conn, tickets, max_lines=40, max_chars=2000):
-    """Return a dict: {ticket_id: {filename: code}} for latest code locker entries for each file in current sprint tickets."""
+def get_code_locker_code_for_sprint_tickets_supabase(supabase, tickets, max_lines=40, max_chars=2000):
+    """Return a dict: {ticket_id: {filename: code}} for latest code locker entries for each file in current sprint tickets (Supabase version)."""
     code_by_ticket = {}
     for t in tickets:
-        # Handle both dict and sqlite3.Row objects
-        tid = t['id'] if 'id' in t.keys() else None
-        ticket_code = t['ticket_id'] if 'ticket_id' in t.keys() else None
+        # Handle dict objects from Supabase
+        tid = t.get('id')
+        ticket_code = t.get('ticket_id')
         if not tid or not ticket_code:
             continue
         # Get all filenames for this ticket from ticket_files
-        files = conn.execute("SELECT filename FROM ticket_files WHERE ticket_id = ?", (tid,)).fetchall()
+        files_result = supabase.table("ticket_files").select("filename").eq("ticket_id", tid).execute()
+        files = files_result.data or []
         code_by_ticket[ticket_code] = {}
         for f in files:
-            fname = f['filename']
+            fname = f.get('filename')
+            if not fname:
+                continue
             # Get latest code locker entry for this file/ticket
-            row = conn.execute("""
-                SELECT content FROM code_locker
-                WHERE filename = ? AND ticket_id = ?
-                ORDER BY version DESC LIMIT 1
-            """, (fname, tid)).fetchone()
-            if row and row['content']:
-                code = row['content']
+            row_result = supabase.table("code_locker").select("content").eq("filename", fname).eq("ticket_id", tid).order("version", desc=True).limit(1).execute()
+            rows = row_result.data or []
+            if rows and rows[0].get('content'):
+                code = rows[0]['content']
                 # Truncate for brevity
                 lines = code.splitlines()
                 if len(lines) > max_lines:
                     code = '\n'.join(lines[:max_lines]) + f"\n... (truncated, {len(lines)} lines total)"
                 if len(code) > max_chars:
-                    code = code[:max_chars] + f"\n... (truncated, {len(row['content'])} chars total)"
+                    code = code[:max_chars] + f"\n... (truncated, {len(rows[0]['content'])} chars total)"
                 code_by_ticket[ticket_code][fname] = code
     return code_by_ticket
 
@@ -126,48 +133,33 @@ def get_code_locker_code_for_sprint_tickets(conn, tickets, max_lines=40, max_cha
 # Local function removed to avoid duplication.
 
 
-def _load_career_summary(conn):
-    row = conn.execute(
-        """SELECT summary FROM career_chat_updates
-           WHERE summary IS NOT NULL AND summary != ''
-           ORDER BY created_at DESC
-           LIMIT 1"""
-    ).fetchone()
-    return row["summary"] if row else None
+def _load_career_summary(supabase):
+    result = supabase.table("career_chat_updates").select("summary").neq("summary", "").not_.is_("summary", "null").order("created_at", desc=True).limit(1).execute()
+    rows = result.data or []
+    return rows[0]["summary"] if rows else None
 
 
-def _load_overlay_context(conn):
-    meetings = conn.execute(
-        """SELECT meeting_name, synthesized_notes
-           FROM meeting_summaries
-           ORDER BY COALESCE(meeting_date, created_at) DESC
-           LIMIT 3"""
-    ).fetchall()
-    docs = conn.execute(
-        """SELECT source, content
-           FROM docs
-           ORDER BY COALESCE(document_date, created_at) DESC
-           LIMIT 3"""
-    ).fetchall()
-    tickets = conn.execute(
-        """SELECT id, ticket_id, title, description, status
-           FROM tickets
-           WHERE status IN ('todo', 'in_progress', 'in_review', 'blocked')
-           ORDER BY created_at DESC
-           LIMIT 5"""
-    ).fetchall()
+def _load_overlay_context(supabase):
+    meetings_result = supabase.table("meetings").select("meeting_name, synthesized_notes").order("meeting_date", desc=True, nullsfirst=False).limit(3).execute()
+    meetings = meetings_result.data or []
+    
+    docs_result = supabase.table("documents").select("source, content").order("document_date", desc=True, nullsfirst=False).limit(3).execute()
+    docs = docs_result.data or []
+    
+    tickets_result = supabase.table("tickets").select("id, ticket_id, title, description, status").in_("status", ["todo", "in_progress", "in_review", "blocked"]).order("created_at", desc=True).limit(5).execute()
+    tickets = tickets_result.data or []
 
     # Get code locker code for these tickets
-    code_locker_context = get_code_locker_code_for_sprint_tickets(conn, tickets)
+    code_locker_context = get_code_locker_code_for_sprint_tickets_supabase(supabase, tickets)
 
     meeting_text = "\n".join([
-        f"- {m['meeting_name']}: {m['synthesized_notes'][:500]}" for m in meetings
+        f"- {m.get('meeting_name', 'Unknown')}: {(m.get('synthesized_notes') or '')[:500]}" for m in meetings
     ]) or "No recent meetings."
     doc_text = "\n".join([
-        f"- {d['source']}: {d['content'][:400]}" for d in docs
+        f"- {d.get('source', 'Unknown')}: {(d.get('content') or '')[:400]}" for d in docs
     ]) or "No recent documents."
     ticket_text = "\n".join([
-        f"- {t['ticket_id']} {t['title']} ({t['status']})" for t in tickets
+        f"- {t.get('ticket_id', 'Unknown')} {t.get('title', '')} ({t.get('status', 'unknown')})" for t in tickets
     ]) or "No active tickets."
 
     code_locker_text = "\n".join([
@@ -189,46 +181,51 @@ templates = Jinja2Templates(directory="src/app/templates")
 @router.delete("/api/career/standups/{standup_id}")
 async def delete_standup(standup_id: int):
     """Delete a standup update by ID."""
-    with connect() as conn:
-        conn.execute("DELETE FROM standup_updates WHERE id = ?", (standup_id,))
-        conn.commit()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    supabase.table("standup_updates").delete().eq("id", standup_id).execute()
     return JSONResponse({"status": "ok"})
 
 
 @router.get("/api/career/profile")
 async def get_career_profile(request: Request):
     """Get the current career profile."""
-    with connect() as conn:
-        profile = conn.execute("SELECT * FROM career_profile WHERE id = 1").fetchone()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
     
-    if profile:
-        keys = profile.keys()
+    result = supabase.table("career_profile").select("*").eq("id", 1).execute()
+    profiles = result.data or []
+    
+    if profiles:
+        profile = profiles[0]
         return JSONResponse({
-            "current_role": profile["current_role"],
-            "target_role": profile["target_role"],
-            "strengths": profile["strengths"],
-            "weaknesses": profile["weaknesses"],
-            "interests": profile["interests"],
-            "goals": profile["goals"],
-            "certifications": profile["certifications"] if "certifications" in keys else None,
-            "education": profile["education"] if "education" in keys else None,
-            "years_experience": profile["years_experience"] if "years_experience" in keys else None,
-            "preferred_work_style": profile["preferred_work_style"] if "preferred_work_style" in keys else None,
-            "industry_focus": profile["industry_focus"] if "industry_focus" in keys else None,
-            "leadership_experience": profile["leadership_experience"] if "leadership_experience" in keys else None,
-            "notable_projects": profile["notable_projects"] if "notable_projects" in keys else None,
-            "learning_priorities": profile["learning_priorities"] if "learning_priorities" in keys else None,
-            "career_timeline": profile["career_timeline"] if "career_timeline" in keys else None,
+            "current_role": profile.get("current_role"),
+            "target_role": profile.get("target_role"),
+            "strengths": profile.get("strengths"),
+            "weaknesses": profile.get("weaknesses"),
+            "interests": profile.get("interests"),
+            "goals": profile.get("goals"),
+            "certifications": profile.get("certifications"),
+            "education": profile.get("education"),
+            "years_experience": profile.get("years_experience"),
+            "preferred_work_style": profile.get("preferred_work_style"),
+            "industry_focus": profile.get("industry_focus"),
+            "leadership_experience": profile.get("leadership_experience"),
+            "notable_projects": profile.get("notable_projects"),
+            "learning_priorities": profile.get("learning_priorities"),
+            "career_timeline": profile.get("career_timeline"),
             # New fields
-            "technical_specializations": profile["technical_specializations"] if "technical_specializations" in keys else None,
-            "soft_skills": profile["soft_skills"] if "soft_skills" in keys else None,
-            "work_achievements": profile["work_achievements"] if "work_achievements" in keys else None,
-            "career_values": profile["career_values"] if "career_values" in keys else None,
-            "short_term_goals": profile["short_term_goals"] if "short_term_goals" in keys else None,
-            "long_term_goals": profile["long_term_goals"] if "long_term_goals" in keys else None,
-            "mentorship": profile["mentorship"] if "mentorship" in keys else None,
-            "networking": profile["networking"] if "networking" in keys else None,
-            "languages": profile["languages"] if "languages" in keys else None,
+            "technical_specializations": profile.get("technical_specializations"),
+            "soft_skills": profile.get("soft_skills"),
+            "work_achievements": profile.get("work_achievements"),
+            "career_values": profile.get("career_values"),
+            "short_term_goals": profile.get("short_term_goals"),
+            "long_term_goals": profile.get("long_term_goals"),
+            "mentorship": profile.get("mentorship"),
+            "networking": profile.get("networking"),
+            "languages": profile.get("languages"),
         })
     return JSONResponse({}, status_code=404)
 
@@ -238,66 +235,39 @@ async def update_career_profile(request: Request):
     """Update the career profile."""
     data = await request.json()
     
-    with connect() as conn:
-        conn.execute("""
-            INSERT INTO career_profile (id, current_role, target_role, strengths, weaknesses, interests, goals,
-                certifications, education, years_experience, preferred_work_style, industry_focus,
-                leadership_experience, notable_projects, learning_priorities, career_timeline,
-                technical_specializations, soft_skills, work_achievements, career_values,
-                short_term_goals, long_term_goals, mentorship, networking, languages)
-            VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                current_role = excluded.current_role,
-                target_role = excluded.target_role,
-                strengths = excluded.strengths,
-                weaknesses = excluded.weaknesses,
-                interests = excluded.interests,
-                goals = excluded.goals,
-                certifications = excluded.certifications,
-                education = excluded.education,
-                years_experience = excluded.years_experience,
-                preferred_work_style = excluded.preferred_work_style,
-                industry_focus = excluded.industry_focus,
-                leadership_experience = excluded.leadership_experience,
-                notable_projects = excluded.notable_projects,
-                learning_priorities = excluded.learning_priorities,
-                career_timeline = excluded.career_timeline,
-                technical_specializations = excluded.technical_specializations,
-                soft_skills = excluded.soft_skills,
-                work_achievements = excluded.work_achievements,
-                career_values = excluded.career_values,
-                short_term_goals = excluded.short_term_goals,
-                long_term_goals = excluded.long_term_goals,
-                mentorship = excluded.mentorship,
-                networking = excluded.networking,
-                languages = excluded.languages,
-                updated_at = datetime('now')
-        """, (
-            data.get("current_role"),
-            data.get("target_role"),
-            data.get("strengths"),
-            data.get("weaknesses"),
-            data.get("interests"),
-            data.get("goals"),
-            data.get("certifications"),
-            data.get("education"),
-            data.get("years_experience"),
-            data.get("preferred_work_style"),
-            data.get("industry_focus"),
-            data.get("leadership_experience"),
-            data.get("notable_projects"),
-            data.get("learning_priorities"),
-            data.get("career_timeline"),
-            data.get("technical_specializations"),
-            data.get("soft_skills"),
-            data.get("work_achievements"),
-            data.get("career_values"),
-            data.get("short_term_goals"),
-            data.get("long_term_goals"),
-            data.get("mentorship"),
-            data.get("networking"),
-            data.get("languages")
-        ))
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    profile_data = {
+        "id": 1,
+        "current_role": data.get("current_role"),
+        "target_role": data.get("target_role"),
+        "strengths": data.get("strengths"),
+        "weaknesses": data.get("weaknesses"),
+        "interests": data.get("interests"),
+        "goals": data.get("goals"),
+        "certifications": data.get("certifications"),
+        "education": data.get("education"),
+        "years_experience": data.get("years_experience"),
+        "preferred_work_style": data.get("preferred_work_style"),
+        "industry_focus": data.get("industry_focus"),
+        "leadership_experience": data.get("leadership_experience"),
+        "notable_projects": data.get("notable_projects"),
+        "learning_priorities": data.get("learning_priorities"),
+        "career_timeline": data.get("career_timeline"),
+        "technical_specializations": data.get("technical_specializations"),
+        "soft_skills": data.get("soft_skills"),
+        "work_achievements": data.get("work_achievements"),
+        "career_values": data.get("career_values"),
+        "short_term_goals": data.get("short_term_goals"),
+        "long_term_goals": data.get("long_term_goals"),
+        "mentorship": data.get("mentorship"),
+        "networking": data.get("networking"),
+        "languages": data.get("languages"),
+    }
+    
+    supabase.table("career_profile").upsert(profile_data, on_conflict="id").execute()
     
     return JSONResponse({"status": "ok"})
 
@@ -305,23 +275,20 @@ async def update_career_profile(request: Request):
 @router.get("/api/career/suggestions")
 async def get_career_suggestions(request: Request, limit: int = Query(10, ge=1, le=50)):
     """Get career development suggestions."""
-    with connect() as conn:
-        suggestions = conn.execute("""
-            SELECT * FROM career_suggestions 
-            WHERE status IN ('suggested', 'accepted', 'in_progress', 'dismissed', 'completed')
-            ORDER BY 
-                CASE status 
-                    WHEN 'in_progress' THEN 1
-                    WHEN 'accepted' THEN 2
-                    WHEN 'suggested' THEN 3
-                    WHEN 'dismissed' THEN 4
-                    WHEN 'completed' THEN 5
-                END,
-                created_at DESC
-            LIMIT ?
-        """, (limit,)).fetchall()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse([], status_code=200)
     
-    return JSONResponse([dict(s) for s in suggestions])
+    result = supabase.table("career_suggestions").select("*").in_(
+        "status", ["suggested", "accepted", "in_progress", "dismissed", "completed"]
+    ).order("created_at", desc=True).limit(limit).execute()
+    
+    suggestions = result.data or []
+    # Sort by status priority in Python
+    status_order = {"in_progress": 1, "accepted": 2, "suggested": 3, "dismissed": 4, "completed": 5}
+    suggestions.sort(key=lambda s: status_order.get(s.get("status", "suggested"), 3))
+    
+    return JSONResponse(suggestions)
 
 
 @router.post("/api/career/generate-suggestions")
@@ -337,52 +304,55 @@ async def generate_career_suggestions(request: Request):
             data = {}
         include_context = bool(data.get("include_context", True))
 
-        with connect() as conn:
-            # Get career profile
-            profile = conn.execute("SELECT * FROM career_profile WHERE id = 1").fetchone()
-            if not profile:
-                return JSONResponse({"error": "No career profile found"}, status_code=404)
+        supabase = get_supabase_client()
+        if not supabase:
+            return JSONResponse({"error": "Database not configured"}, status_code=500)
+        
+        # Get career profile
+        profile_result = supabase.table("career_profile").select("*").eq("id", 1).execute()
+        profiles = profile_result.data or []
+        if not profiles:
+            return JSONResponse({"error": "No career profile found"}, status_code=404)
+        profile = profiles[0]
+        
+        overlay_context = _load_overlay_context(supabase) if include_context else None
+        
+        # Delegate to CareerCoachAgent adapter
+        result = await generate_suggestions_adapter(
+            profile=profile,
+            context=overlay_context,
+            include_context=include_context,
+            db_connection=None,  # Using Supabase now
+        )
+        
+        if result.get("status") == "error":
+            return JSONResponse({"error": result.get("error", "Unknown error")}, status_code=500)
+        
+        # Insert suggestions into database for persistence
+        suggestions_data = result.get("suggestions", [])
+        created_ids = []
+        for sugg in suggestions_data:
+            insert_data = {
+                "suggestion_type": sugg.get('suggestion_type', 'skill_building'),
+                "title": sugg.get('title', 'Growth Opportunity'),
+                "description": sugg.get('description', ''),
+                "rationale": sugg.get('rationale', ''),
+                "difficulty": sugg.get('difficulty', 'intermediate'),
+                "time_estimate": sugg.get('time_estimate', 'varies'),
+                "related_goal": sugg.get('related_goal', '')
+            }
+            insert_result = supabase.table("career_suggestions").insert(insert_data).execute()
+            if insert_result.data:
+                created_ids.append(insert_result.data[0].get("id"))
             
-            overlay_context = _load_overlay_context(conn) if include_context else None
-            
-            # Delegate to CareerCoachAgent adapter
-            result = await generate_suggestions_adapter(
-                profile=dict(profile),
-                context=overlay_context,
-                include_context=include_context,
-                db_connection=conn,
-            )
-            
-            if result.get("status") == "error":
-                return JSONResponse({"error": result.get("error", "Unknown error")}, status_code=500)
-            
-            # Insert suggestions into database for persistence
-            suggestions_data = result.get("suggestions", [])
-            created_ids = []
-            for sugg in suggestions_data:
-                cur = conn.execute("""
-                    INSERT INTO career_suggestions 
-                    (suggestion_type, title, description, rationale, difficulty, time_estimate, related_goal)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    sugg.get('suggestion_type', 'skill_building'),
-                    sugg.get('title', 'Growth Opportunity'),
-                    sugg.get('description', ''),
-                    sugg.get('rationale', ''),
-                    sugg.get('difficulty', 'intermediate'),
-                    sugg.get('time_estimate', 'varies'),
-                    sugg.get('related_goal', '')
-                ))
-                created_ids.append(cur.lastrowid)
-                
-                # Sync to Supabase (fire-and-forget)
-                sync_suggestion_to_supabase(sugg)
-            
-            return JSONResponse({
-                "status": "ok",
-                "count": len(created_ids),
-                "ids": created_ids
-            })
+            # Sync to Supabase (fire-and-forget) - now redundant but kept for compatibility
+            sync_suggestion_to_supabase(sugg)
+        
+        return JSONResponse({
+            "status": "ok",
+            "count": len(created_ids),
+            "ids": created_ids
+        })
     
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -391,22 +361,26 @@ async def generate_career_suggestions(request: Request):
 @router.get("/api/career/chat/history")
 async def get_career_chat_history(request: Request, limit: int = Query(20, ge=1, le=100)):
     """Return recent career chat messages."""
-    with connect() as conn:
-        rows = conn.execute(
-            """SELECT message, response, summary, created_at
-               FROM career_chat_updates
-               ORDER BY created_at DESC
-               LIMIT ?""",
-            (limit,)
-        ).fetchall()
-    return JSONResponse([dict(r) for r in rows][::-1])
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse([])
+    
+    result = supabase.table("career_chat_updates").select(
+        "message, response, summary, created_at"
+    ).order("created_at", desc=True).limit(limit).execute()
+    
+    rows = result.data or []
+    return JSONResponse(rows[::-1])
 
 
 @router.get("/api/career/chat/summary")
 async def get_career_chat_summary(request: Request):
     """Return the latest career status summary."""
-    with connect() as conn:
-        summary = _load_career_summary(conn) or ""
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"summary": ""})
+    
+    summary = _load_career_summary(supabase) or ""
     return JSONResponse({"summary": summary})
 
 
@@ -431,41 +405,45 @@ async def career_chat(request: Request):
     if not message:
         return JSONResponse({"error": "Message is required"}, status_code=400)
 
-    with connect() as conn:
-        profile = conn.execute("SELECT * FROM career_profile WHERE id = 1").fetchone()
-        if not profile:
-            return JSONResponse({"error": "No career profile found"}, status_code=404)
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    profile_result = supabase.table("career_profile").select("*").eq("id", 1).execute()
+    profiles = profile_result.data or []
+    if not profiles:
+        return JSONResponse({"error": "No career profile found"}, status_code=404)
+    profile = profiles[0]
 
-        overlay_context = _load_overlay_context(conn) if include_context else None
+    overlay_context = _load_overlay_context(supabase) if include_context else None
 
-        # Delegate to CareerCoachAgent adapter
-        try:
-            result = await career_chat_adapter(
-                message=message,
-                profile=dict(profile),
-                context=overlay_context,
-                include_context=include_context,
-                db_connection=conn,
-            )
-            
-            # Store in chat history for persistence
-            conn.execute(
-                """INSERT INTO career_chat_updates (message, response, summary)
-                   VALUES (?, ?, ?)""",
-                (message, result.get("response", ""), result.get("summary", ""))
-            )
-            conn.commit()
-            
-            # Sync to Supabase (fire-and-forget)
-            sync_chat_to_supabase(
-                message=message,
-                response=result.get("response", ""),
-                summary=result.get("summary", "")
-            )
-            
-            return JSONResponse(result)
-        except Exception as e:
-            return JSONResponse({"error": f"AI Error: {str(e)}"}, status_code=500)
+    # Delegate to CareerCoachAgent adapter
+    try:
+        result = await career_chat_adapter(
+            message=message,
+            profile=profile,
+            context=overlay_context,
+            include_context=include_context,
+            db_connection=None,  # Using Supabase now
+        )
+        
+        # Store in chat history for persistence
+        supabase.table("career_chat_updates").insert({
+            "message": message,
+            "response": result.get("response", ""),
+            "summary": result.get("summary", "")
+        }).execute()
+        
+        # Sync to Supabase (fire-and-forget) - now redundant but kept for compatibility
+        sync_chat_to_supabase(
+            message=message,
+            response=result.get("response", ""),
+            summary=result.get("summary", "")
+        )
+        
+        return JSONResponse(result)
+    except Exception as e:
+        return JSONResponse({"error": f"AI Error: {str(e)}"}, status_code=500)
 
 
 # ----------------------
@@ -475,58 +453,53 @@ async def career_chat(request: Request):
 @router.post("/api/career/generate-insights")
 async def generate_career_insights(request: Request):
     """Generate AI insights based on skills, projects, and profile."""
-    # Use ask_llm from module-level import
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
     
-    with connect() as conn:
-        # Gather context - handle missing tables gracefully
-        profile = conn.execute("SELECT * FROM career_profile WHERE id = 1").fetchone()
-        
-        try:
-            skills = conn.execute("""
-                SELECT skill_name, category, proficiency_level 
-                FROM skill_tracker 
-                WHERE proficiency_level > 0 
-                ORDER BY proficiency_level DESC 
-                LIMIT 15
-            """).fetchall()
-        except:
-            skills = []
-        
-        # Check if completed_projects_bank table exists
-        try:
-            projects = conn.execute("""
-                SELECT title, description, technologies, impact 
-                FROM completed_projects_bank 
-                ORDER BY completed_date DESC 
-                LIMIT 10
-            """).fetchall()
-        except:
-            projects = []
-        
-        # Check if ai_implementation_memories table exists
-        try:
-            ai_memories = conn.execute("""
-                SELECT title, description, technologies 
-                FROM ai_implementation_memories 
-                ORDER BY created_at DESC 
-                LIMIT 5
-            """).fetchall()
-        except:
-            ai_memories = []
-        
-        # Format context
-        profile_ctx = f"""
-Current Role: {profile['current_role'] if profile else 'Not set'}
-Target Role: {profile['target_role'] if profile else 'Not set'}
-Strengths: {profile['strengths'] if profile else 'Not set'}
-Goals: {profile['goals'] if profile else 'Not set'}
+    # Gather context - handle missing tables gracefully
+    profile_result = supabase.table("career_profile").select("*").eq("id", 1).execute()
+    profile = profile_result.data[0] if profile_result.data else None
+    
+    try:
+        skills_result = supabase.table("skill_tracker").select(
+            "skill_name, category, proficiency_level"
+        ).gt("proficiency_level", 0).order("proficiency_level", desc=True).limit(15).execute()
+        skills = skills_result.data or []
+    except:
+        skills = []
+    
+    # Check if completed_projects_bank table exists
+    try:
+        projects_result = supabase.table("completed_projects_bank").select(
+            "title, description, technologies, impact"
+        ).order("completed_date", desc=True).limit(10).execute()
+        projects = projects_result.data or []
+    except:
+        projects = []
+    
+    # Check if ai_implementation_memories table exists
+    try:
+        ai_mem_result = supabase.table("ai_implementation_memories").select(
+            "title, description, technologies"
+        ).order("created_at", desc=True).limit(5).execute()
+        ai_memories = ai_mem_result.data or []
+    except:
+        ai_memories = []
+    
+    # Format context
+    profile_ctx = f"""
+Current Role: {profile.get('current_role', 'Not set') if profile else 'Not set'}
+Target Role: {profile.get('target_role', 'Not set') if profile else 'Not set'}
+Strengths: {profile.get('strengths', 'Not set') if profile else 'Not set'}
+Goals: {profile.get('goals', 'Not set') if profile else 'Not set'}
 """ if profile else "No profile set"
-        
-        skills_ctx = "\n".join([f"- {s['skill_name']} ({s['category']}): {s['proficiency_level']}%" for s in skills]) if skills else "No skills tracked"
-        projects_ctx = "\n".join([f"- {p['title']}: {p['description'][:100]}..." for p in projects]) if projects else "No projects"
-        ai_ctx = "\n".join([f"- {m['title']}: {m['technologies']}" for m in ai_memories]) if ai_memories else "No AI implementations"
-        
-        prompt = f"""Based on this career profile and tracked data, generate a concise career insight summary (3-5 bullet points max).
+    
+    skills_ctx = "\n".join([f"- {s.get('skill_name')} ({s.get('category')}): {s.get('proficiency_level')}%" for s in skills]) if skills else "No skills tracked"
+    projects_ctx = "\n".join([f"- {p.get('title')}: {(p.get('description') or '')[:100]}..." for p in projects]) if projects else "No projects"
+    ai_ctx = "\n".join([f"- {m.get('title')}: {m.get('technologies')}" for m in ai_memories]) if ai_memories else "No AI implementations"
+    
+    prompt = f"""Based on this career profile and tracked data, generate a concise career insight summary (3-5 bullet points max).
 
 PROFILE:
 {profile_ctx}
@@ -548,54 +521,43 @@ Generate actionable insights in this format:
 
 Keep it brief, actionable, and encouraging. Use markdown formatting."""
 
-        # Use CareerCoach agent for proper tracing
-        from ..agents.career_coach import get_career_coach_agent
-        agent = get_career_coach_agent(db_connection=conn)
-        insights = await agent.ask_llm(
-            prompt=prompt,
-            task_type="career_insights",
-        )
-        
-        # Persist insights to career_profile for reload
-        try:
-            # Add column if it doesn't exist
-            conn.execute("ALTER TABLE career_profile ADD COLUMN last_insights TEXT")
-        except:
-            pass  # Column already exists
-        
-        try:
-            conn.execute(
-                "UPDATE career_profile SET last_insights = ?, updated_at = datetime('now') WHERE id = 1",
-                (insights,)
-            )
-            conn.commit()
-        except Exception as e:
-            logger.warning(f"Could not persist insights: {e}")
-        
-        return JSONResponse({
-            "status": "ok", 
-            "insights": insights, 
-            "run_id": agent.last_run_id
-        })
+    # Use CareerCoach agent for proper tracing
+    from ..agents.career_coach import get_career_coach_agent
+    agent = get_career_coach_agent(db_connection=None)
+    insights = await agent.ask_llm(
+        prompt=prompt,
+        task_type="career_insights",
+    )
+    
+    # Persist insights to career_profile for reload
+    try:
+        supabase.table("career_profile").update({
+            "last_insights": insights
+        }).eq("id", 1).execute()
+    except Exception as e:
+        logger.warning(f"Could not persist insights: {e}")
+    
+    return JSONResponse({
+        "status": "ok", 
+        "insights": insights, 
+        "run_id": agent.last_run_id
+    })
 
 
 @router.get("/api/career/insights")
 async def get_career_insights():
     """Get the last saved career insights."""
-    with connect() as conn:
-        # Add column if doesn't exist
-        try:
-            conn.execute("ALTER TABLE career_profile ADD COLUMN last_insights TEXT")
-        except:
-            pass
-        
-        result = conn.execute("SELECT last_insights, updated_at FROM career_profile WHERE id = 1").fetchone()
-        if result and result["last_insights"]:
-            return JSONResponse({
-                "insights": result["last_insights"],
-                "generated_at": result["updated_at"]
-            })
+    supabase = get_supabase_client()
+    if not supabase:
         return JSONResponse({"insights": None})
+    
+    result = supabase.table("career_profile").select("last_insights, updated_at").eq("id", 1).execute()
+    if result.data and result.data[0].get("last_insights"):
+        return JSONResponse({
+            "insights": result.data[0]["last_insights"],
+            "generated_at": result.data[0].get("updated_at")
+        })
+    return JSONResponse({"insights": None})
 
 
 # ----------------------
@@ -605,17 +567,12 @@ async def get_career_insights():
 @router.get("/api/career/tweaks")
 async def get_career_tweaks(request: Request):
     """Get saved career tweaks."""
-    with connect() as conn:
-        # Ensure table exists
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS career_tweaks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                content TEXT NOT NULL,
-                created_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
-        tweaks = conn.execute("SELECT * FROM career_tweaks ORDER BY created_at DESC").fetchall()
-    return JSONResponse({"tweaks": [dict(t) for t in tweaks]})
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"tweaks": []})
+    
+    result = supabase.table("career_tweaks").select("*").order("created_at", desc=True).execute()
+    return JSONResponse({"tweaks": result.data or []})
 
 
 @router.post("/api/career/tweaks")
@@ -626,25 +583,22 @@ async def save_career_tweak(request: Request):
     if not content:
         return JSONResponse({"error": "Content required"}, status_code=400)
     
-    with connect() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS career_tweaks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                content TEXT NOT NULL,
-                created_at TEXT DEFAULT (datetime('now'))
-            )
-        """)
-        conn.execute("INSERT INTO career_tweaks (content) VALUES (?)", (content,))
-        conn.commit()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    supabase.table("career_tweaks").insert({"content": content}).execute()
     return JSONResponse({"status": "ok"})
 
 
 @router.delete("/api/career/tweaks/{tweak_id}")
 async def delete_career_tweak(tweak_id: int):
     """Delete a career tweak."""
-    with connect() as conn:
-        conn.execute("DELETE FROM career_tweaks WHERE id = ?", (tweak_id,))
-        conn.commit()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    supabase.table("career_tweaks").delete().eq("id", tweak_id).execute()
     return JSONResponse({"status": "ok"})
 
 
@@ -654,12 +608,13 @@ async def update_suggestion_status(suggestion_id: int, request: Request):
     data = await request.json()
     status = data.get("status")
     
-    with connect() as conn:
-        conn.execute("""
-            UPDATE career_suggestions 
-            SET status = ?, updated_at = datetime('now')
-            WHERE id = ?
-        """, (status, suggestion_id))
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    supabase.table("career_suggestions").update({
+        "status": status
+    }).eq("id", suggestion_id).execute()
     
     return JSONResponse({"status": "ok"})
 
@@ -668,36 +623,35 @@ async def update_suggestion_status(suggestion_id: int, request: Request):
 async def convert_suggestion_to_ticket(suggestion_id: int, request: Request):
     """Convert a career suggestion to a ticket."""
     try:
-        with connect() as conn:
-            suggestion = conn.execute(
-                "SELECT * FROM career_suggestions WHERE id = ?",
-                (suggestion_id,)
-            ).fetchone()
-            
-            if not suggestion:
-                return JSONResponse({"error": "Suggestion not found"}, status_code=404)
-            
-            # Create ticket
-            ticket_id = f"CAREER-{suggestion_id}"
-            cur = conn.execute("""
-                INSERT INTO tickets (ticket_id, title, description, status, priority, tags)
-                VALUES (?, ?, ?, 'backlog', 'medium', 'career,growth')
-            """, (
-                ticket_id,
-                suggestion["title"],
-                f"{suggestion['description']}\n\n**Rationale:** {suggestion['rationale']}\n**Difficulty:** {suggestion['difficulty']}\n**Time:** {suggestion['time_estimate']}"
-            ))
-            
-            ticket_db_id = cur.lastrowid
-            
-            # Update suggestion
-            conn.execute("""
-                UPDATE career_suggestions 
-                SET status = 'accepted', 
-                    converted_to_ticket = ?,
-                    updated_at = datetime('now')
-                WHERE id = ?
-            """, (ticket_db_id, suggestion_id))
+        supabase = get_supabase_client()
+        if not supabase:
+            return JSONResponse({"error": "Database not configured"}, status_code=500)
+        
+        suggestion_result = supabase.table("career_suggestions").select("*").eq("id", suggestion_id).execute()
+        suggestions = suggestion_result.data or []
+        
+        if not suggestions:
+            return JSONResponse({"error": "Suggestion not found"}, status_code=404)
+        suggestion = suggestions[0]
+        
+        # Create ticket
+        ticket_id = f"CAREER-{suggestion_id}"
+        ticket_result = supabase.table("tickets").insert({
+            "ticket_id": ticket_id,
+            "title": suggestion.get("title"),
+            "description": f"{suggestion.get('description', '')}\n\n**Rationale:** {suggestion.get('rationale', '')}\n**Difficulty:** {suggestion.get('difficulty', '')}\n**Time:** {suggestion.get('time_estimate', '')}",
+            "status": "backlog",
+            "priority": "medium",
+            "tags": "career,growth"
+        }).execute()
+        
+        ticket_db_id = ticket_result.data[0].get("id") if ticket_result.data else None
+        
+        # Update suggestion
+        supabase.table("career_suggestions").update({
+            "status": "accepted",
+            "converted_to_ticket": ticket_db_id
+        }).eq("id", suggestion_id).execute()
         
         return JSONResponse({
             "status": "ok",
@@ -712,28 +666,27 @@ async def convert_suggestion_to_ticket(suggestion_id: int, request: Request):
 @router.post("/api/career/suggestions/compress")
 async def compress_suggestions(request: Request):
     """Compress/deduplicate AI suggestions using LLM analysis."""
-    # Use ask_llm from module-level import (from ..llm import ask as ask_llm)
-    
     try:
-        with connect() as conn:
-            # Get all active suggestions (status is 'suggested' not 'pending')
-            rows = conn.execute("""
-                SELECT id, title, description, suggestion_type, rationale
-                FROM career_suggestions 
-                WHERE status = 'suggested'
-                ORDER BY created_at DESC
-            """).fetchall()
-            
-            if len(rows) < 2:
-                return JSONResponse({"status": "ok", "merged": 0, "removed": 0, "message": "Not enough suggestions to compress"})
-            
-            # Prepare for LLM analysis
-            suggestions_text = "\n".join([
-                f"[ID:{r['id']}] {r['title']}: {r['description'][:200]}"
-                for r in rows
-            ])
-            
-            prompt = f"""Analyze these career suggestions and identify duplicates or very similar items.
+        supabase = get_supabase_client()
+        if not supabase:
+            return JSONResponse({"error": "Database not configured"}, status_code=500)
+        
+        # Get all active suggestions (status is 'suggested' not 'pending')
+        result = supabase.table("career_suggestions").select(
+            "id, title, description, suggestion_type, rationale"
+        ).eq("status", "suggested").order("created_at", desc=True).execute()
+        rows = result.data or []
+        
+        if len(rows) < 2:
+            return JSONResponse({"status": "ok", "merged": 0, "removed": 0, "message": "Not enough suggestions to compress"})
+        
+        # Prepare for LLM analysis
+        suggestions_text = "\n".join([
+            f"[ID:{r.get('id')}] {r.get('title')}: {(r.get('description') or '')[:200]}"
+            for r in rows
+        ])
+        
+        prompt = f"""Analyze these career suggestions and identify duplicates or very similar items.
 Return a JSON object with:
 - "groups": array of arrays, each containing IDs that should be merged (keep first, remove rest)
 - "remove": array of IDs to remove entirely (low quality or superseded)
@@ -747,47 +700,45 @@ Rules:
 3. Only group items that are truly about the same thing
 4. Return valid JSON only, no markdown"""
 
-            # Lazy import for backward compatibility
-            from ..llm import ask as ask_llm
-            response = ask_llm(prompt, model="gpt-4o-mini")
-            
-            # Parse response
-            try:
-                import json
-                # Clean response
-                response = response.strip()
-                if response.startswith("```"):
-                    response = response.split("```")[1]
-                    if response.startswith("json"):
-                        response = response[4:]
-                result = json.loads(response)
-            except:
-                return JSONResponse({"status": "ok", "merged": 0, "removed": 0, "message": "Could not parse LLM response"})
-            
-            merged = 0
-            removed = 0
-            
-            # Process groups - keep first, remove rest
-            for group in result.get("groups", []):
-                if len(group) > 1:
-                    # Keep first ID, remove rest
-                    to_remove = group[1:]
-                    for rid in to_remove:
-                        conn.execute("UPDATE career_suggestions SET status = 'dismissed' WHERE id = ?", (rid,))
-                        merged += 1
-            
-            # Process removals
-            for rid in result.get("remove", []):
-                conn.execute("UPDATE career_suggestions SET status = 'dismissed' WHERE id = ?", (rid,))
-                removed += 1
-            
-            conn.commit()
-            
-            return JSONResponse({
-                "status": "ok", 
-                "merged": merged, 
-                "removed": removed
-            })
+        # Lazy import for backward compatibility
+        from ..llm import ask as ask_llm
+        response = ask_llm(prompt, model="gpt-4o-mini")
+        
+        # Parse response
+        try:
+            import json as json_module
+            # Clean response
+            response = response.strip()
+            if response.startswith("```"):
+                response = response.split("```")[1]
+                if response.startswith("json"):
+                    response = response[4:]
+            llm_result = json_module.loads(response)
+        except:
+            return JSONResponse({"status": "ok", "merged": 0, "removed": 0, "message": "Could not parse LLM response"})
+        
+        merged = 0
+        removed = 0
+        
+        # Process groups - keep first, remove rest
+        for group in llm_result.get("groups", []):
+            if len(group) > 1:
+                # Keep first ID, remove rest
+                to_remove = group[1:]
+                for rid in to_remove:
+                    supabase.table("career_suggestions").update({"status": "dismissed"}).eq("id", rid).execute()
+                    merged += 1
+        
+        # Process removals
+        for rid in llm_result.get("remove", []):
+            supabase.table("career_suggestions").update({"status": "dismissed"}).eq("id", rid).execute()
+            removed += 1
+        
+        return JSONResponse({
+            "status": "ok", 
+            "merged": merged, 
+            "removed": removed
+        })
     
     except Exception as e:
         import traceback
@@ -804,13 +755,14 @@ Rules:
 @router.get("/api/career/standups")
 async def get_standups(request: Request, limit: int = Query(30, ge=1, le=100)):
     """Get recent standup updates with feedback."""
-    with connect() as conn:
-        standups = conn.execute("""
-            SELECT * FROM standup_updates 
-            ORDER BY standup_date DESC, created_at DESC
-            LIMIT ?
-        """, (limit,)).fetchall()
-    return JSONResponse([dict(s) for s in standups])
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse([])
+    
+    result = supabase.table("standup_updates").select("*").order(
+        "standup_date", desc=True
+    ).order("created_at", desc=True).limit(limit).execute()
+    return JSONResponse(result.data or [])
 
 
 @router.get("/career/standups")
@@ -825,16 +777,16 @@ async def get_today_standup(request: Request):
     from datetime import date
     today = date.today().isoformat()
     
-    with connect() as conn:
-        standup = conn.execute("""
-            SELECT * FROM standup_updates 
-            WHERE standup_date = ?
-            ORDER BY created_at DESC
-            LIMIT 1
-        """, (today,)).fetchone()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse(None)
     
-    if standup:
-        return JSONResponse(dict(standup))
+    result = supabase.table("standup_updates").select("*").eq(
+        "standup_date", today
+    ).order("created_at", desc=True).limit(1).execute()
+    
+    if result.data:
+        return JSONResponse(result.data[0])
     return JSONResponse(None)
 
 
@@ -924,74 +876,75 @@ async def create_standup(request: Request):
     if not standup_date:
         standup_date = date.today().isoformat()
     
-    with connect() as conn:
-        # If skip_feedback, just save without AI processing
-        if skip_feedback:
-            cur = conn.execute("""
-                INSERT INTO standup_updates (standup_date, content, feedback, sentiment, key_themes)
-                VALUES (?, ?, NULL, 'neutral', '')
-            """, (standup_date, content))
-            standup_id = cur.lastrowid
-            conn.commit()
-            return JSONResponse({
-                "status": "ok",
-                "id": standup_id,
-                "feedback": None,
-                "sentiment": "neutral",
-                "key_themes": ""
-            })
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    # If skip_feedback, just save without AI processing
+    if skip_feedback:
+        result = supabase.table("standup_updates").insert({
+            "standup_date": standup_date,
+            "content": content,
+            "feedback": None,
+            "sentiment": "neutral",
+            "key_themes": ""
+        }).execute()
+        standup_id = result.data[0].get("id") if result.data else None
+        return JSONResponse({
+            "status": "ok",
+            "id": standup_id,
+            "feedback": None,
+            "sentiment": "neutral",
+            "key_themes": ""
+        })
+    
+    # Get career profile for context
+    profile_result = supabase.table("career_profile").select("*").eq("id", 1).execute()
+    profile_dict = profile_result.data[0] if profile_result.data else {}
+    
+    # Get recent standups for pattern analysis
+    recent_result = supabase.table("standup_updates").select(
+        "content, feedback, sentiment"
+    ).order("standup_date", desc=True).limit(5).execute()
+    recent_standups_list = recent_result.data or []
+    
+    # Get active tickets for context
+    tickets_result = supabase.table("tickets").select(
+        "ticket_id, title, status"
+    ).in_("status", ["todo", "in_progress", "in_review", "blocked"]).eq(
+        "in_sprint", True
+    ).order("created_at", desc=True).limit(10).execute()
+    tickets_list = tickets_result.data or []
+    
+    # Delegate to CareerCoachAgent for AI feedback
+    try:
+        result = await analyze_standup_adapter(
+            content=content,
+            profile=profile_dict,
+            tickets=tickets_list,
+            recent_standups=recent_standups_list,
+            db_connection=None,  # Using Supabase now
+        )
         
-        # Get career profile for context
-        profile = conn.execute("SELECT * FROM career_profile WHERE id = 1").fetchone()
-        profile_dict = dict(profile) if profile else {}
-        
-        # Get recent standups for pattern analysis
-        recent_standups = conn.execute("""
-            SELECT content, feedback, sentiment 
-            FROM standup_updates 
-            ORDER BY standup_date DESC 
-            LIMIT 5
-        """).fetchall()
-        recent_standups_list = [dict(s) for s in recent_standups]
-        
-        # Get active tickets for context
-        tickets = conn.execute("""
-            SELECT ticket_id, title, status 
-            FROM tickets 
-            WHERE status IN ('todo', 'in_progress', 'in_review', 'blocked')
-            AND in_sprint = 1
-            ORDER BY created_at DESC
-            LIMIT 10
-        """).fetchall()
-        tickets_list = [dict(t) for t in tickets]
-        
-        # Delegate to CareerCoachAgent for AI feedback
-        try:
-            result = await analyze_standup_adapter(
-                content=content,
-                profile=profile_dict,
-                tickets=tickets_list,
-                recent_standups=recent_standups_list,
-                db_connection=conn,
-            )
+        feedback = result.get("feedback", "")
+        sentiment = result.get("sentiment", "neutral")
+        key_themes = result.get("key_themes", "")
             
-            feedback = result.get("feedback", "")
-            sentiment = result.get("sentiment", "neutral")
-            key_themes = result.get("key_themes", "")
-                
-        except Exception as e:
-            feedback = f"Could not generate feedback: {str(e)}"
-            sentiment = 'neutral'
-            key_themes = ''
-        
-        # Insert standup
-        cur = conn.execute("""
-            INSERT INTO standup_updates (standup_date, content, feedback, sentiment, key_themes)
-            VALUES (?, ?, ?, ?, ?)
-        """, (standup_date, content, feedback, sentiment, key_themes))
-        
-        standup_id = cur.lastrowid
-        conn.commit()
+    except Exception as e:
+        feedback = f"Could not generate feedback: {str(e)}"
+        sentiment = 'neutral'
+        key_themes = ''
+    
+    # Insert standup
+    insert_result = supabase.table("standup_updates").insert({
+        "standup_date": standup_date,
+        "content": content,
+        "feedback": feedback,
+        "sentiment": sentiment,
+        "key_themes": key_themes
+    }).execute()
+    
+    standup_id = insert_result.data[0].get("id") if insert_result.data else None
     
     return JSONResponse({
         "status": "ok",
@@ -1011,84 +964,89 @@ async def suggest_standup(request: Request):
     """
     from ..agents.career_coach import suggest_standup_adapter
     
-    with connect() as conn:
-        # Get active sprint tickets
-        tickets = conn.execute("""
-            SELECT t.id, t.ticket_id, t.title, t.status, t.description
-            FROM tickets t
-            WHERE t.status IN ('todo', 'in_progress', 'in_review', 'blocked')
-            AND t.in_sprint = 1
-            ORDER BY 
-                CASE t.status 
-                    WHEN 'in_progress' THEN 1
-                    WHEN 'blocked' THEN 2
-                    WHEN 'in_review' THEN 3
-                    WHEN 'todo' THEN 4
-                END
-        """).fetchall()
-        tickets_list = [dict(t) for t in tickets]
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    # Get active sprint tickets
+    tickets_result = supabase.table("tickets").select(
+        "id, ticket_id, title, status, description"
+    ).in_("status", ["todo", "in_progress", "in_review", "blocked"]).eq(
+        "in_sprint", True
+    ).execute()
+    tickets = tickets_result.data or []
+    
+    # Sort by status priority in Python
+    status_order = {"in_progress": 1, "blocked": 2, "in_review": 3, "todo": 4}
+    tickets.sort(key=lambda t: status_order.get(t.get("status", "todo"), 5))
+    
+    tickets_list = tickets
+    
+    # Get ticket files for each active ticket
+    ticket_files_map = {}
+    for t in tickets:
+        files_result = supabase.table("ticket_files").select(
+            "filename, file_type, description, base_content"
+        ).eq("ticket_id", t.get("id")).execute()
+        files = files_result.data or []
+        if files:
+            # Get latest version for each file
+            for f in files:
+                version_result = supabase.table("code_locker").select("version").eq(
+                    "filename", f.get("filename")
+                ).eq("ticket_id", t.get("id")).order("version", desc=True).limit(1).execute()
+                f["latest_version"] = version_result.data[0].get("version") if version_result.data else None
+            ticket_files_map[t.get("ticket_id")] = files
+    
+    # Get recent code locker changes (last 24-48 hours)
+    from datetime import datetime, timedelta
+    two_days_ago = (datetime.now() - timedelta(days=2)).isoformat()
+    code_result = supabase.table("code_locker").select(
+        "filename, ticket_id, version, notes, is_initial, created_at"
+    ).gte("created_at", two_days_ago).order("created_at", desc=True).limit(20).execute()
+    code_changes_list = code_result.data or []
+    
+    # Enrich with ticket info
+    for c in code_changes_list:
+        if c.get("ticket_id"):
+            ticket_info = supabase.table("tickets").select("ticket_id, title").eq("id", c["ticket_id"]).execute()
+            if ticket_info.data:
+                c["ticket_code"] = ticket_info.data[0].get("ticket_id")
+                c["ticket_title"] = ticket_info.data[0].get("title")
+    
+    # Get yesterday's standup for continuity
+    from datetime import date
+    today = date.today().isoformat()
+    yesterday_result = supabase.table("standup_updates").select(
+        "content, feedback"
+    ).lt("standup_date", today).order("standup_date", desc=True).limit(1).execute()
+    yesterday_standup_dict = yesterday_result.data[0] if yesterday_result.data else None
+    
+    # Add code locker code context for current sprint tickets
+    code_locker_code = get_code_locker_code_for_sprint_tickets_supabase(supabase, tickets)
+    
+    # Delegate to CareerCoachAgent for AI suggestion
+    try:
+        result = await suggest_standup_adapter(
+            tickets=tickets_list,
+            ticket_files_map=ticket_files_map,
+            code_changes=code_changes_list,
+            code_locker_code=code_locker_code,
+            yesterday_standup=yesterday_standup_dict,
+            db_connection=None,  # Using Supabase now
+        )
         
-        # Get ticket files for each active ticket
-        ticket_files_map = {}
-        for t in tickets:
-            files = conn.execute("""
-                SELECT tf.filename, tf.file_type, tf.description, tf.base_content,
-                       (SELECT MAX(version) FROM code_locker cl 
-                        WHERE cl.filename = tf.filename AND cl.ticket_id = tf.ticket_id) as latest_version
-                FROM ticket_files tf
-                WHERE tf.ticket_id = ?
-            """, (t['id'],)).fetchall()
-            if files:
-                ticket_files_map[t['ticket_id']] = [dict(f) for f in files]
-        
-        # Get recent code locker changes (last 24-48 hours)
-        code_changes = conn.execute("""
-            SELECT cl.filename, cl.ticket_id, cl.version, cl.notes, cl.is_initial,
-                   t.ticket_id as ticket_code, t.title as ticket_title,
-                   cl.created_at
-            FROM code_locker cl
-            LEFT JOIN tickets t ON cl.ticket_id = t.id
-            WHERE cl.created_at >= datetime('now', '-2 days')
-            ORDER BY cl.created_at DESC
-            LIMIT 20
-        """).fetchall()
-        code_changes_list = [dict(c) for c in code_changes]
-        
-        # Get yesterday's standup for continuity
-        yesterday_standup = conn.execute("""
-            SELECT content, feedback 
-            FROM standup_updates 
-            WHERE standup_date < date('now')
-            ORDER BY standup_date DESC 
-            LIMIT 1
-        """).fetchone()
-        yesterday_standup_dict = dict(yesterday_standup) if yesterday_standup else None
-        
-        # Add code locker code context for current sprint tickets
-        code_locker_code = get_code_locker_code_for_sprint_tickets(conn, tickets)
-        
-        # Delegate to CareerCoachAgent for AI suggestion
-        try:
-            result = await suggest_standup_adapter(
-                tickets=tickets_list,
-                ticket_files_map=ticket_files_map,
-                code_changes=code_changes_list,
-                code_locker_code=code_locker_code,
-                yesterday_standup=yesterday_standup_dict,
-                db_connection=conn,
-            )
-            
-            suggestion = result.get("suggestion", "")
-            if result.get("error"):
-                suggestion = f"Could not generate suggestion: {result['error']}"
-        except Exception as e:
-            suggestion = f"Could not generate suggestion: {str(e)}"
+        suggestion = result.get("suggestion", "")
+        if result.get("error"):
+            suggestion = f"Could not generate suggestion: {result['error']}"
+    except Exception as e:
+        suggestion = f"Could not generate suggestion: {str(e)}"
     
     return JSONResponse({
         "status": "ok",
         "suggestion": suggestion,
         "tickets_count": len(tickets),
-        "code_changes_count": len(code_changes),
+        "code_changes_count": len(code_changes_list),
         "files_tracked": sum(len(f) for f in ticket_files_map.values())
     })
 
@@ -1100,45 +1058,65 @@ async def suggest_standup(request: Request):
 @router.get("/api/career/code-locker")
 async def get_code_locker(request: Request, ticket_id: int = None, filename: str = None):
     """Get code locker entries, optionally filtered by ticket or filename."""
-    with connect() as conn:
-        query = """
-            SELECT cl.*, t.ticket_id as ticket_code, t.title as ticket_title
-            FROM code_locker cl
-            LEFT JOIN tickets t ON cl.ticket_id = t.id
-            WHERE 1=1
-        """
-        params = []
-        
-        if ticket_id:
-            query += " AND cl.ticket_id = ?"
-            params.append(ticket_id)
-        if filename:
-            query += " AND cl.filename LIKE ?"
-            params.append(f"%{filename}%")
-        
-        query += " ORDER BY cl.filename, cl.version DESC"
-        
-        entries = conn.execute(query, params).fetchall()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse([])
     
-    return JSONResponse([dict(e) for e in entries])
+    query = supabase.table("code_locker").select("*")
+    
+    if ticket_id:
+        query = query.eq("ticket_id", ticket_id)
+    if filename:
+        query = query.ilike("filename", f"%{filename}%")
+    
+    query = query.order("filename").order("version", desc=True)
+    result = query.execute()
+    entries = result.data or []
+    
+    # Enrich with ticket info
+    for e in entries:
+        if e.get("ticket_id"):
+            ticket_result = supabase.table("tickets").select("ticket_id, title").eq("id", e["ticket_id"]).execute()
+            if ticket_result.data:
+                e["ticket_code"] = ticket_result.data[0].get("ticket_id")
+                e["ticket_title"] = ticket_result.data[0].get("title")
+    
+    return JSONResponse(entries)
 
 
 @router.get("/api/career/code-locker/files")
 async def get_code_locker_files(request: Request):
     """Get unique filenames in code locker with latest version info."""
-    with connect() as conn:
-        files = conn.execute("""
-            SELECT filename, 
-                   ticket_id,
-                   MAX(version) as latest_version,
-                   COUNT(*) as version_count,
-                   MAX(created_at) as last_updated
-            FROM code_locker
-            GROUP BY filename, ticket_id
-            ORDER BY last_updated DESC
-        """).fetchall()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse([])
     
-    return JSONResponse([dict(f) for f in files])
+    # Get all entries and aggregate in Python
+    result = supabase.table("code_locker").select(
+        "filename, ticket_id, version, created_at"
+    ).order("created_at", desc=True).execute()
+    
+    # Aggregate by filename, ticket_id
+    files_map = {}
+    for row in (result.data or []):
+        key = (row.get("filename"), row.get("ticket_id"))
+        if key not in files_map:
+            files_map[key] = {
+                "filename": row.get("filename"),
+                "ticket_id": row.get("ticket_id"),
+                "latest_version": row.get("version"),
+                "version_count": 1,
+                "last_updated": row.get("created_at")
+            }
+        else:
+            files_map[key]["version_count"] += 1
+            if row.get("version", 0) > files_map[key].get("latest_version", 0):
+                files_map[key]["latest_version"] = row.get("version")
+    
+    files = list(files_map.values())
+    files.sort(key=lambda f: f.get("last_updated") or "", reverse=True)
+    
+    return JSONResponse(files)
 
 
 @router.post("/api/career/code-locker")
@@ -1154,31 +1132,36 @@ async def add_to_code_locker(request: Request):
     if not filename:
         return JSONResponse({"error": "Filename is required"}, status_code=400)
     
-    with connect() as conn:
-        # Get current version for this file
-        existing = conn.execute("""
-            SELECT MAX(version) as max_version 
-            FROM code_locker 
-            WHERE filename = ?
-        """, (filename,)).fetchone()
-        
-        next_version = (existing['max_version'] or 0) + 1
-        
-        # If this is marked as initial but versions exist, warn
-        if is_initial and existing['max_version']:
-            is_initial = False  # Can't be initial if versions exist
-        
-        # If no versions exist, this is initial
-        if not existing['max_version']:
-            is_initial = True
-        
-        cur = conn.execute("""
-            INSERT INTO code_locker (filename, content, ticket_id, version, notes, is_initial)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (filename, content, ticket_id, next_version, notes, 1 if is_initial else 0))
-        
-        entry_id = cur.lastrowid
-        conn.commit()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    # Get current version for this file
+    existing_result = supabase.table("code_locker").select("version").eq(
+        "filename", filename
+    ).order("version", desc=True).limit(1).execute()
+    
+    max_version = existing_result.data[0].get("version") if existing_result.data else 0
+    next_version = (max_version or 0) + 1
+    
+    # If this is marked as initial but versions exist, warn
+    if is_initial and max_version:
+        is_initial = False  # Can't be initial if versions exist
+    
+    # If no versions exist, this is initial
+    if not max_version:
+        is_initial = True
+    
+    insert_result = supabase.table("code_locker").insert({
+        "filename": filename,
+        "content": content,
+        "ticket_id": ticket_id,
+        "version": next_version,
+        "notes": notes,
+        "is_initial": is_initial
+    }).execute()
+    
+    entry_id = insert_result.data[0].get("id") if insert_result.data else None
     
     return JSONResponse({
         "status": "ok",
@@ -1191,18 +1174,25 @@ async def add_to_code_locker(request: Request):
 @router.get("/api/career/code-locker/{entry_id}")
 async def get_code_locker_entry(entry_id: int):
     """Get a specific code locker entry."""
-    with connect() as conn:
-        entry = conn.execute("""
-            SELECT cl.*, t.ticket_id as ticket_code, t.title as ticket_title
-            FROM code_locker cl
-            LEFT JOIN tickets t ON cl.ticket_id = t.id
-            WHERE cl.id = ?
-        """, (entry_id,)).fetchone()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
     
-    if not entry:
+    result = supabase.table("code_locker").select("*").eq("id", entry_id).execute()
+    
+    if not result.data:
         return JSONResponse({"error": "Entry not found"}, status_code=404)
     
-    return JSONResponse(dict(entry))
+    entry = result.data[0]
+    
+    # Enrich with ticket info if available
+    if entry.get("ticket_id"):
+        ticket_result = supabase.table("tickets").select("ticket_id, title").eq("id", entry["ticket_id"]).execute()
+        if ticket_result.data:
+            entry["ticket_code"] = ticket_result.data[0].get("ticket_id")
+            entry["ticket_title"] = ticket_result.data[0].get("title")
+    
+    return JSONResponse(entry)
 
 
 @router.get("/api/career/code-locker/diff/{filename}")
@@ -1210,24 +1200,28 @@ async def get_code_diff(filename: str, v1: int = Query(...), v2: int = Query(...
     """Get diff between two versions of a file."""
     import difflib
     
-    with connect() as conn:
-        version1 = conn.execute("""
-            SELECT content FROM code_locker 
-            WHERE filename = ? AND version = ?
-        """, (filename, v1)).fetchone()
-        
-        version2 = conn.execute("""
-            SELECT content FROM code_locker 
-            WHERE filename = ? AND version = ?
-        """, (filename, v2)).fetchone()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
     
-    if not version1 or not version2:
+    v1_result = supabase.table("code_locker").select("content").eq(
+        "filename", filename
+    ).eq("version", v1).execute()
+    
+    v2_result = supabase.table("code_locker").select("content").eq(
+        "filename", filename
+    ).eq("version", v2).execute()
+    
+    if not v1_result.data or not v2_result.data:
         return JSONResponse({"error": "One or both versions not found"}, status_code=404)
+    
+    version1_content = v1_result.data[0].get("content", "")
+    version2_content = v2_result.data[0].get("content", "")
     
     # Generate unified diff
     diff = list(difflib.unified_diff(
-        version1['content'].splitlines(keepends=True),
-        version2['content'].splitlines(keepends=True),
+        version1_content.splitlines(keepends=True),
+        version2_content.splitlines(keepends=True),
         fromfile=f"{filename} (v{v1})",
         tofile=f"{filename} (v{v2})"
     ))
@@ -1245,9 +1239,11 @@ async def get_code_diff(filename: str, v1: int = Query(...), v2: int = Query(...
 @router.delete("/api/career/code-locker/{entry_id}")
 async def delete_code_locker_entry(entry_id: int):
     """Delete a code locker entry."""
-    with connect() as conn:
-        conn.execute("DELETE FROM code_locker WHERE id = ?", (entry_id,))
-        conn.commit()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    supabase.table("code_locker").delete().eq("id", entry_id).execute()
     
     return JSONResponse({"status": "ok"})
 
@@ -1259,19 +1255,30 @@ async def delete_code_locker_entry(entry_id: int):
 @router.get("/api/career/ticket-files/{ticket_id}")
 async def get_ticket_files(ticket_id: int):
     """Get files associated with a ticket."""
-    with connect() as conn:
-        files = conn.execute("""
-            SELECT tf.*, 
-                   (SELECT MAX(version) FROM code_locker cl 
-                    WHERE cl.filename = tf.filename AND cl.ticket_id = tf.ticket_id) as locker_version,
-                   (SELECT COUNT(*) FROM code_locker cl 
-                    WHERE cl.filename = tf.filename AND cl.ticket_id = tf.ticket_id) as locker_count
-            FROM ticket_files tf
-            WHERE tf.ticket_id = ?
-            ORDER BY tf.file_type, tf.filename
-        """, (ticket_id,)).fetchall()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse([])
     
-    return JSONResponse([dict(f) for f in files])
+    result = supabase.table("ticket_files").select("*").eq(
+        "ticket_id", ticket_id
+    ).order("file_type").order("filename").execute()
+    
+    files = result.data or []
+    
+    # Add locker version and count for each file
+    for f in files:
+        version_result = supabase.table("code_locker").select("version").eq(
+            "filename", f.get("filename")
+        ).eq("ticket_id", f.get("ticket_id")).order("version", desc=True).limit(1).execute()
+        
+        count_result = supabase.table("code_locker").select("id").eq(
+            "filename", f.get("filename")
+        ).eq("ticket_id", f.get("ticket_id")).execute()
+        
+        f["locker_version"] = version_result.data[0].get("version") if version_result.data else None
+        f["locker_count"] = len(count_result.data) if count_result.data else 0
+    
+    return JSONResponse(files)
 
 
 @router.post("/api/career/ticket-files/{ticket_id}")
@@ -1286,32 +1293,40 @@ async def add_ticket_file(ticket_id: int, request: Request):
     if not filename:
         return JSONResponse({"error": "Filename is required"}, status_code=400)
     
-    with connect() as conn:
-        try:
-            cur = conn.execute("""
-                INSERT INTO ticket_files (ticket_id, filename, file_type, base_content, description)
-                VALUES (?, ?, ?, ?, ?)
-            """, (ticket_id, filename, file_type, base_content, description))
-            
-            file_id = cur.lastrowid
-            
-            # If this is an 'update' file with base_content, add it to code locker as v1
-            if file_type == 'update' and base_content:
-                conn.execute("""
-                    INSERT INTO code_locker (ticket_id, filename, content, version, notes, is_initial)
-                    VALUES (?, ?, ?, 1, 'Initial/baseline version from ticket', 1)
-                """, (ticket_id, filename, base_content))
-            
-            conn.commit()
-            
-            return JSONResponse({
-                "status": "ok",
-                "id": file_id
-            })
-        except Exception as e:
-            if "UNIQUE constraint" in str(e):
-                return JSONResponse({"error": "File already exists for this ticket"}, status_code=400)
-            raise
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    try:
+        insert_result = supabase.table("ticket_files").insert({
+            "ticket_id": ticket_id,
+            "filename": filename,
+            "file_type": file_type,
+            "base_content": base_content,
+            "description": description
+        }).execute()
+        
+        file_id = insert_result.data[0].get("id") if insert_result.data else None
+        
+        # If this is an 'update' file with base_content, add it to code locker as v1
+        if file_type == 'update' and base_content:
+            supabase.table("code_locker").insert({
+                "ticket_id": ticket_id,
+                "filename": filename,
+                "content": base_content,
+                "version": 1,
+                "notes": "Initial/baseline version from ticket",
+                "is_initial": True
+            }).execute()
+        
+        return JSONResponse({
+            "status": "ok",
+            "id": file_id
+        })
+    except Exception as e:
+        if "duplicate" in str(e).lower() or "unique" in str(e).lower():
+            return JSONResponse({"error": "File already exists for this ticket"}, status_code=400)
+        raise
 
 
 @router.put("/api/career/ticket-files/{file_id}")
@@ -1319,26 +1334,20 @@ async def update_ticket_file(file_id: int, request: Request):
     """Update a ticket file's details."""
     data = await request.json()
     
-    with connect() as conn:
-        updates = []
-        params = []
-        
-        if "description" in data:
-            updates.append("description = ?")
-            params.append(data["description"])
-        if "base_content" in data:
-            updates.append("base_content = ?")
-            params.append(data["base_content"])
-        if "file_type" in data:
-            updates.append("file_type = ?")
-            params.append(data["file_type"])
-        
-        if updates:
-            params.append(file_id)
-            conn.execute(f"""
-                UPDATE ticket_files SET {', '.join(updates)} WHERE id = ?
-            """, params)
-            conn.commit()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    update_data = {}
+    if "description" in data:
+        update_data["description"] = data["description"]
+    if "base_content" in data:
+        update_data["base_content"] = data["base_content"]
+    if "file_type" in data:
+        update_data["file_type"] = data["file_type"]
+    
+    if update_data:
+        supabase.table("ticket_files").update(update_data).eq("id", file_id).execute()
     
     return JSONResponse({"status": "ok"})
 
@@ -1346,9 +1355,11 @@ async def update_ticket_file(file_id: int, request: Request):
 @router.delete("/api/career/ticket-files/{file_id}")
 async def delete_ticket_file(file_id: int):
     """Delete a ticket file."""
-    with connect() as conn:
-        conn.execute("DELETE FROM ticket_files WHERE id = ?", (file_id,))
-        conn.commit()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    supabase.table("ticket_files").delete().eq("id", file_id).execute()
     
     return JSONResponse({"status": "ok"})
 
@@ -1356,116 +1367,90 @@ async def delete_ticket_file(file_id: int):
 @router.get("/api/career/tickets-with-files")
 async def get_tickets_with_files():
     """Get all active tickets with their associated files for code locker selection."""
-    # Try Supabase first for tickets
-    try:
-        from ..infrastructure.supabase_client import get_supabase_client
-        supabase = get_supabase_client()
-        
-        if supabase:
-            # Get active tickets from Supabase
-            result = supabase.table("tickets").select("*").in_(
-                "status", ["todo", "in_progress", "in_review", "blocked"]
-            ).eq("in_sprint", True).execute()
-            
-            tickets = result.data or []
-            
-            # Sort by status priority
-            status_order = {"in_progress": 1, "blocked": 2, "in_review": 3, "todo": 4}
-            tickets.sort(key=lambda t: status_order.get(t.get("status", "todo"), 5))
-            
-            # Get files from SQLite (ticket_files table is still local)
-            with connect() as conn:
-                result_list = []
-                for ticket in tickets:
-                    files = conn.execute("""
-                        SELECT tf.id, tf.filename, tf.file_type, tf.description,
-                               (SELECT MAX(version) FROM code_locker cl 
-                                WHERE cl.filename = tf.filename AND cl.ticket_id = tf.ticket_id) as latest_version
-                        FROM ticket_files tf
-                        WHERE tf.ticket_id = ?
-                        ORDER BY tf.file_type, tf.filename
-                    """, (ticket.get('id'),)).fetchall()
-                    
-                    result_list.append({
-                        "id": ticket.get("id"),
-                        "ticket_id": ticket.get("ticket_id"),
-                        "title": ticket.get("title", ""),
-                        "status": ticket.get("status"),
-                        "files": [dict(f) for f in files]
-                    })
-                
-                return JSONResponse(result_list)
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning(f"Supabase tickets-with-files failed, falling back to SQLite: {e}")
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse([])
     
-    # Fallback to SQLite
-    with connect() as conn:
-        tickets = conn.execute("""
-            SELECT t.id, t.ticket_id, t.title, t.status
-            FROM tickets t
-            WHERE t.status IN ('todo', 'in_progress', 'in_review', 'blocked')
-            AND t.in_sprint = 1
-            ORDER BY 
-                CASE t.status 
-                    WHEN 'in_progress' THEN 1
-                    WHEN 'blocked' THEN 2
-                    WHEN 'in_review' THEN 3
-                    WHEN 'todo' THEN 4
-                END
-        """).fetchall()
-        
-        result = []
-        for ticket in tickets:
-            # Get files for this ticket
-            files = conn.execute("""
-                SELECT tf.id, tf.filename, tf.file_type, tf.description,
-                       (SELECT MAX(version) FROM code_locker cl 
-                        WHERE cl.filename = tf.filename AND cl.ticket_id = tf.ticket_id) as latest_version
-                FROM ticket_files tf
-                WHERE tf.ticket_id = ?
-                ORDER BY tf.file_type, tf.filename
-            """, (ticket['id'],)).fetchall()
-            
-            result.append({
-                **dict(ticket),
-                "files": [dict(f) for f in files]
-            })
+    # Get active tickets from Supabase
+    result = supabase.table("tickets").select("*").in_(
+        "status", ["todo", "in_progress", "in_review", "blocked"]
+    ).eq("in_sprint", True).execute()
     
-    return JSONResponse(result)
+    tickets = result.data or []
+    
+    # Sort by status priority
+    status_order = {"in_progress": 1, "blocked": 2, "in_review": 3, "todo": 4}
+    tickets.sort(key=lambda t: status_order.get(t.get("status", "todo"), 5))
+    
+    # Get files from Supabase for each ticket
+    result_list = []
+    for ticket in tickets:
+        ticket_id = ticket.get('id')
+        
+        # Get files for this ticket
+        files_result = supabase.table("ticket_files").select(
+            "id,filename,file_type,description"
+        ).eq("ticket_id", ticket_id).order("file_type").order("filename").execute()
+        
+        files = files_result.data or []
+        
+        # Add latest_version for each file
+        for f in files:
+            version_result = supabase.table("code_locker").select("version").eq(
+                "filename", f.get("filename")
+            ).eq("ticket_id", ticket_id).order("version", desc=True).limit(1).execute()
+            f["latest_version"] = version_result.data[0].get("version") if version_result.data else None
+        
+        result_list.append({
+            "id": ticket.get("id"),
+            "ticket_id": ticket.get("ticket_id"),
+            "title": ticket.get("title", ""),
+            "status": ticket.get("status"),
+            "files": files
+        })
+    
+    return JSONResponse(result_list)
 
 
 @router.get("/api/career/code-locker/next-version")
 async def get_next_version(filename: str = Query(...), ticket_id: int = Query(None)):
     """Get the next version number for a file in the locker."""
-    with connect() as conn:
-        # Check for existing versions
-        query = "SELECT MAX(version) as max_version FROM code_locker WHERE filename = ?"
-        params = [filename]
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    # Check for existing versions
+    query = supabase.table("code_locker").select("version").eq("filename", filename)
+    if ticket_id:
+        query = query.eq("ticket_id", ticket_id)
+    
+    result = query.order("version", desc=True).limit(1).execute()
+    max_version = result.data[0].get("version") if result.data else 0
+    next_version = (max_version or 0) + 1
+    
+    # Check if this file is linked to a ticket
+    ticket_file = None
+    if ticket_id:
+        tf_result = supabase.table("ticket_files").select("*").eq(
+            "filename", filename
+        ).eq("ticket_id", ticket_id).execute()
         
-        if ticket_id:
-            query += " AND ticket_id = ?"
-            params.append(ticket_id)
-        
-        existing = conn.execute(query, params).fetchone()
-        next_version = (existing['max_version'] or 0) + 1
-        
-        # Check if this file is linked to a ticket
-        ticket_file = None
-        if ticket_id:
-            ticket_file = conn.execute("""
-                SELECT tf.*, t.ticket_id as ticket_code
-                FROM ticket_files tf
-                JOIN tickets t ON tf.ticket_id = t.id
-                WHERE tf.filename = ? AND tf.ticket_id = ?
-            """, (filename, ticket_id)).fetchone()
-        
-        return JSONResponse({
-            "filename": filename,
-            "next_version": next_version,
-            "is_new_file": existing['max_version'] is None,
-            "ticket_file": dict(ticket_file) if ticket_file else None
-        })
+        if tf_result.data:
+            tf = tf_result.data[0]
+            # Get ticket code
+            ticket_result = supabase.table("tickets").select("ticket_id").eq(
+                "id", ticket_id
+            ).execute()
+            ticket_code = ticket_result.data[0].get("ticket_id") if ticket_result.data else None
+            tf["ticket_code"] = ticket_code
+            ticket_file = tf
+    
+    return JSONResponse({
+        "filename": filename,
+        "next_version": next_version,
+        "is_new_file": max_version is None or max_version == 0,
+        "ticket_file": ticket_file
+    })
 
 
 # ----------------------
@@ -1482,109 +1467,110 @@ async def career_chat(request: Request):
     if not message:
         return JSONResponse({"error": "Message is required"}, status_code=400)
     
-    with connect() as conn:
-        # Gather context
-        
-        # Career profile
-        profile = conn.execute("SELECT * FROM career_profile WHERE id = 1").fetchone()
-        
-        # Active sprint tickets
-        tickets = conn.execute("""
-            SELECT t.ticket_id, t.title, t.status, t.description, t.sprint_points
-            FROM tickets t
-            WHERE t.status IN ('todo', 'in_progress', 'in_review', 'blocked')
-            AND t.in_sprint = 1
-            ORDER BY 
-                CASE t.status 
-                    WHEN 'in_progress' THEN 1
-                    WHEN 'blocked' THEN 2
-                    WHEN 'in_review' THEN 3
-                    WHEN 'todo' THEN 4
-                END
-        """).fetchall()
-        
-        # Recent standups
-        standups = conn.execute("""
-            SELECT standup_date, content, feedback, sentiment, key_themes
-            FROM standup_updates 
-            ORDER BY standup_date DESC
-            LIMIT 7
-        """).fetchall()
-        
-        # Sprint settings
-        sprint = conn.execute("SELECT * FROM sprint_settings ORDER BY id DESC LIMIT 1").fetchone()
-        
-        # Recent code locker activity
-        code_activity = conn.execute("""
-            SELECT cl.filename, cl.version, cl.notes, cl.created_at,
-                   t.ticket_id as ticket_code
-            FROM code_locker cl
-            LEFT JOIN tickets t ON cl.ticket_id = t.id
-            WHERE cl.created_at >= datetime('now', '-7 days')
-            ORDER BY cl.created_at DESC
-            LIMIT 10
-        """).fetchall()
-        
-        # Build context string
-        profile_ctx = ""
-        if profile:
-            profile_ctx = f"""Career Profile:
-    - Current Role: {profile['current_role'] or 'Not set'}
-    - Target Role: {profile['target_role'] or 'Not set'}
-    - Strengths: {profile['strengths'] or 'Not specified'}
-    - Areas to Develop: {profile['weaknesses'] or 'Not specified'}
-    - Goals: {profile['goals'] or 'Not specified'}
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    # Gather context
+    
+    # Career profile
+    profile_result = supabase.table("career_profile").select("*").eq("id", 1).execute()
+    profile = profile_result.data[0] if profile_result.data else None
+    
+    # Active sprint tickets
+    tickets_result = supabase.table("tickets").select(
+        "ticket_id,title,status,description,sprint_points"
+    ).in_("status", ["todo", "in_progress", "in_review", "blocked"]).eq("in_sprint", True).execute()
+    tickets = tickets_result.data or []
+    status_order = {"in_progress": 1, "blocked": 2, "in_review": 3, "todo": 4}
+    tickets.sort(key=lambda t: status_order.get(t.get("status", "todo"), 5))
+    
+    # Recent standups
+    standups_result = supabase.table("standup_updates").select(
+        "standup_date,content,feedback,sentiment,key_themes"
+    ).order("standup_date", desc=True).limit(7).execute()
+    standups = standups_result.data or []
+    
+    # Sprint settings
+    sprint_result = supabase.table("sprint_settings").select("*").order("id", desc=True).limit(1).execute()
+    sprint = sprint_result.data[0] if sprint_result.data else None
+    
+    # Recent code locker activity - get from last 7 days
+    from datetime import datetime, timedelta
+    seven_days_ago = (datetime.now() - timedelta(days=7)).isoformat()
+    code_result = supabase.table("code_locker").select(
+        "filename,version,notes,created_at,ticket_id"
+    ).gte("created_at", seven_days_ago).order("created_at", desc=True).limit(10).execute()
+    code_activity = code_result.data or []
+    
+    # Enrich code activity with ticket codes
+    for c in code_activity:
+        c["ticket_code"] = None
+        if c.get("ticket_id"):
+            ticket_lookup = supabase.table("tickets").select("ticket_id").eq("id", c["ticket_id"]).execute()
+            if ticket_lookup.data:
+                c["ticket_code"] = ticket_lookup.data[0].get("ticket_id")
+    
+    # Build context string
+    profile_ctx = ""
+    if profile:
+        profile_ctx = f"""Career Profile:
+- Current Role: {profile.get('current_role') or 'Not set'}
+- Target Role: {profile.get('target_role') or 'Not set'}
+- Strengths: {profile.get('strengths') or 'Not specified'}
+- Areas to Develop: {profile.get('weaknesses') or 'Not specified'}
+- Goals: {profile.get('goals') or 'Not specified'}
 """
 
-        tickets_ctx = "Sprint Tickets:\n"
-        if tickets:
-            for t in tickets:
-                tickets_ctx += f"- [{t['status'].upper()}] {t['ticket_id']}: {t['title']}"
-                if t['sprint_points']:
-                    tickets_ctx += f" ({t['sprint_points']} pts)"
-                tickets_ctx += "\n"
-        else:
-            tickets_ctx += "No active sprint tickets.\n"
+    tickets_ctx = "Sprint Tickets:\n"
+    if tickets:
+        for t in tickets:
+            tickets_ctx += f"- [{t.get('status', 'unknown').upper()}] {t.get('ticket_id')}: {t.get('title')}"
+            if t.get('sprint_points'):
+                tickets_ctx += f" ({t['sprint_points']} pts)"
+            tickets_ctx += "\n"
+    else:
+        tickets_ctx += "No active sprint tickets.\n"
 
-        # Add code locker code context for current sprint tickets
-        code_locker_code = get_code_locker_code_for_sprint_tickets(conn, tickets)
-        code_locker_context = ""
-        for ticket_code, files in code_locker_code.items():
-            if files:
-                code_locker_context += f"\nCode for {ticket_code}:\n"
-                for fname, code in files.items():
-                    code_locker_context += f"- {fname} (latest):\n" + code + "\n"
+    # Add code locker code context for current sprint tickets
+    code_locker_code = get_code_locker_code_for_sprint_tickets_supabase(tickets)
+    code_locker_context = ""
+    for ticket_code, files in code_locker_code.items():
+        if files:
+            code_locker_context += f"\nCode for {ticket_code}:\n"
+            for fname, code in files.items():
+                code_locker_context += f"- {fname} (latest):\n" + code + "\n"
 
-        standups_ctx = "Recent Standups:\n"
-        if standups:
-            for s in standups:
-                standups_ctx += f"- {s['standup_date']} ({s['sentiment'] or 'neutral'}): {s['content'][:150]}...\n"
-        else:
-            standups_ctx += "No recent standups.\n"
+    standups_ctx = "Recent Standups:\n"
+    if standups:
+        for s in standups:
+            standups_ctx += f"- {s.get('standup_date')} ({s.get('sentiment') or 'neutral'}): {(s.get('content') or '')[:150]}...\n"
+    else:
+        standups_ctx += "No recent standups.\n"
 
-        sprint_ctx = ""
-        if sprint:
-            sprint_ctx = f"""Sprint Info:
-    - Sprint #{sprint['sprint_number'] or 'N/A'}
-    - Dates: {sprint['start_date'] or 'Not set'} to {sprint['end_date'] or 'Not set'}
-    - Velocity: {sprint['velocity'] or 'Not set'} points
+    sprint_ctx = ""
+    if sprint:
+        sprint_ctx = f"""Sprint Info:
+- Sprint #{sprint.get('sprint_number') or 'N/A'}
+- Dates: {sprint.get('start_date') or 'Not set'} to {sprint.get('end_date') or 'Not set'}
+- Velocity: {sprint.get('velocity') or 'Not set'} points
 """
 
-        code_ctx = ""
-        if code_activity:
-            code_ctx = "Recent Code Activity:\n"
-            for c in code_activity:
-                code_ctx += f"- {c['filename']} v{c['version']} ({c['ticket_code'] or 'no ticket'}): {c['notes'] or 'no notes'}\n"
+    code_ctx = ""
+    if code_activity:
+        code_ctx = "Recent Code Activity:\n"
+        for c in code_activity:
+            code_ctx += f"- {c.get('filename')} v{c.get('version')} ({c.get('ticket_code') or 'no ticket'}): {c.get('notes') or 'no notes'}\n"
 
-        # Format chat history
-        history_ctx = ""
-        if history:
-            history_ctx = "Recent Conversation:\n"
-            for h in history[-6:]:  # Last 6 messages
-                role = "User" if h['role'] == 'user' else "Assistant"
-                history_ctx += f"{role}: {h['content'][:200]}\n"
+    # Format chat history
+    history_ctx = ""
+    if history:
+        history_ctx = "Recent Conversation:\n"
+        for h in history[-6:]:  # Last 6 messages
+            role = "User" if h['role'] == 'user' else "Assistant"
+            history_ctx += f"{role}: {h['content'][:200]}\n"
 
-        prompt = f"""You are a supportive and insightful career coach AI assistant. You have access to the user's work context and can provide personalized advice.
+    prompt = f"""You are a supportive and insightful career coach AI assistant. You have access to the user's work context and can provide personalized advice.
 
 {profile_ctx}
 {sprint_ctx}
@@ -1607,12 +1593,12 @@ Provide a helpful, encouraging response that:
 
 Keep the response conversational and not too long (2-4 paragraphs typically). Be specific and practical."""
 
-        try:
-            # Lazy import for backward compatibility
-            from ..llm import ask as ask_llm
-            response = ask_llm(prompt, model="gpt-4o-mini")
-        except Exception as e:
-            response = f"I'm sorry, I encountered an error processing your request. Please try again. (Error: {str(e)})"
+    try:
+        # Lazy import for backward compatibility
+        from ..llm import ask as ask_llm
+        response = ask_llm(prompt, model="gpt-4o-mini")
+    except Exception as e:
+        response = f"I'm sorry, I encountered an error processing your request. Please try again. (Error: {str(e)})"
     
     return JSONResponse({
         "status": "ok",
@@ -1627,26 +1613,19 @@ Keep the response conversational and not too long (2-4 paragraphs typically). Be
 @router.get("/api/career/memories")
 async def get_career_memories(memory_type: str = None, include_unpinned: bool = True):
     """Get career memories, optionally filtered by type."""
-    with connect() as conn:
-        if memory_type:
-            if include_unpinned:
-                rows = conn.execute("""
-                    SELECT * FROM career_memories 
-                    WHERE memory_type = ?
-                    ORDER BY is_pinned DESC, created_at DESC
-                """, (memory_type,)).fetchall()
-            else:
-                rows = conn.execute("""
-                    SELECT * FROM career_memories 
-                    WHERE memory_type = ? AND is_pinned = 1
-                    ORDER BY created_at DESC
-                """, (memory_type,)).fetchall()
-        else:
-            rows = conn.execute("""
-                SELECT * FROM career_memories 
-                ORDER BY is_pinned DESC, created_at DESC
-            """).fetchall()
-    return JSONResponse([dict(r) for r in rows])
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse([])
+    
+    query = supabase.table("career_memories").select("*")
+    
+    if memory_type:
+        query = query.eq("memory_type", memory_type)
+        if not include_unpinned:
+            query = query.eq("is_pinned", True)
+    
+    result = query.order("is_pinned", desc=True).order("created_at", desc=True).execute()
+    return JSONResponse(result.data or [])
 
 
 @router.post("/api/career/memories")
@@ -1659,20 +1638,30 @@ async def create_career_memory(request: Request):
     source_type = data.get("source_type")
     source_id = data.get("source_id")
     skills = data.get("skills", "")
-    is_pinned = 1 if data.get("is_pinned") else 0
-    is_ai_work = 1 if data.get("is_ai_work") else 0
+    is_pinned = data.get("is_pinned", False)
+    is_ai_work = data.get("is_ai_work", False)
     metadata = json.dumps(data.get("metadata", {}))
     
     if not title:
         return JSONResponse({"error": "Title is required"}, status_code=400)
     
-    with connect() as conn:
-        cur = conn.execute("""
-            INSERT INTO career_memories (memory_type, title, description, source_type, source_id, skills, is_pinned, is_ai_work, metadata)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (memory_type, title, description, source_type, source_id, skills, is_pinned, is_ai_work, metadata))
-        conn.commit()
-        memory_id = cur.lastrowid
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    result = supabase.table("career_memories").insert({
+        "memory_type": memory_type,
+        "title": title,
+        "description": description,
+        "source_type": source_type,
+        "source_id": source_id,
+        "skills": skills,
+        "is_pinned": is_pinned,
+        "is_ai_work": is_ai_work,
+        "metadata": metadata
+    }).execute()
+    
+    memory_id = result.data[0].get("id") if result.data else None
     
     return JSONResponse({"status": "ok", "id": memory_id})
 
@@ -1680,28 +1669,36 @@ async def create_career_memory(request: Request):
 @router.post("/api/career/memories/{memory_id}/pin")
 async def toggle_pin_memory(memory_id: int):
     """Toggle pin status of a memory."""
-    with connect() as conn:
-        row = conn.execute("SELECT is_pinned FROM career_memories WHERE id = ?", (memory_id,)).fetchone()
-        if not row:
-            return JSONResponse({"error": "Memory not found"}, status_code=404)
-        
-        new_status = 0 if row["is_pinned"] else 1
-        conn.execute("UPDATE career_memories SET is_pinned = ?, updated_at = datetime('now') WHERE id = ?", (new_status, memory_id))
-        conn.commit()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
     
-    return JSONResponse({"status": "ok", "is_pinned": bool(new_status)})
+    result = supabase.table("career_memories").select("is_pinned").eq("id", memory_id).execute()
+    if not result.data:
+        return JSONResponse({"error": "Memory not found"}, status_code=404)
+    
+    current_status = result.data[0].get("is_pinned", False)
+    new_status = not current_status
+    
+    supabase.table("career_memories").update({
+        "is_pinned": new_status
+    }).eq("id", memory_id).execute()
+    
+    return JSONResponse({"status": "ok", "is_pinned": new_status})
 
 
 @router.delete("/api/career/memories/{memory_id}")
 async def delete_career_memory(memory_id: int):
     """Delete a career memory (only if not pinned)."""
-    with connect() as conn:
-        row = conn.execute("SELECT is_pinned FROM career_memories WHERE id = ?", (memory_id,)).fetchone()
-        if row and row["is_pinned"]:
-            return JSONResponse({"error": "Cannot delete pinned memory. Unpin first."}, status_code=400)
-        
-        conn.execute("DELETE FROM career_memories WHERE id = ?", (memory_id,))
-        conn.commit()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    result = supabase.table("career_memories").select("is_pinned").eq("id", memory_id).execute()
+    if result.data and result.data[0].get("is_pinned"):
+        return JSONResponse({"error": "Cannot delete pinned memory. Unpin first."}, status_code=400)
+    
+    supabase.table("career_memories").delete().eq("id", memory_id).execute()
     
     return JSONResponse({"status": "ok"})
 
@@ -1709,71 +1706,87 @@ async def delete_career_memory(memory_id: int):
 @router.get("/api/career/completed-projects")
 async def get_completed_projects():
     """Get completed projects from tickets and career memories."""
-    with connect() as conn:
-        # Get completed tickets that haven't been synced to memories yet
-        tickets = conn.execute("""
-            SELECT t.*, 
-                   GROUP_CONCAT(DISTINCT tf.filename) as files
-            FROM tickets t
-            LEFT JOIN ticket_files tf ON tf.ticket_id = t.id
-            WHERE t.status IN ('done', 'complete', 'completed')
-              AND NOT EXISTS (
-                  SELECT 1 FROM career_memories cm 
-                  WHERE cm.source_type = 'ticket' 
-                    AND cm.source_id = CAST(t.id AS TEXT)
-              )
-            GROUP BY t.id
-            ORDER BY t.updated_at DESC
-            LIMIT 50
-        """).fetchall()
-        
-        # Get completed project memories (includes synced tickets)
-        memories = conn.execute("""
-            SELECT * FROM career_memories 
-            WHERE memory_type = 'completed_project'
-            ORDER BY is_pinned DESC, created_at DESC
-        """).fetchall()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"tickets": [], "memories": []})
+    
+    # Get completed tickets
+    tickets_result = supabase.table("tickets").select("*").in_(
+        "status", ["done", "complete", "completed"]
+    ).order("updated_at", desc=True).limit(50).execute()
+    
+    all_tickets = tickets_result.data or []
+    
+    # Get memories that are already synced
+    synced_result = supabase.table("career_memories").select("source_id").eq(
+        "source_type", "ticket"
+    ).execute()
+    synced_ids = {str(m.get("source_id")) for m in (synced_result.data or [])}
+    
+    # Filter tickets to only those not yet synced
+    tickets = []
+    for t in all_tickets:
+        if str(t.get("id")) not in synced_ids:
+            # Get files for this ticket
+            files_result = supabase.table("ticket_files").select("filename").eq(
+                "ticket_id", t.get("id")
+            ).execute()
+            file_names = [f.get("filename") for f in (files_result.data or [])]
+            t["files"] = ",".join(file_names) if file_names else None
+            tickets.append(t)
+    
+    # Get completed project memories (includes synced tickets)
+    memories_result = supabase.table("career_memories").select("*").eq(
+        "memory_type", "completed_project"
+    ).order("is_pinned", desc=True).order("created_at", desc=True).execute()
     
     return JSONResponse({
-        "tickets": [dict(t) for t in tickets],
-        "memories": [dict(m) for m in memories]
+        "tickets": tickets,
+        "memories": memories_result.data or []
     })
 
 
 @router.post("/api/career/sync-completed-projects")
 async def sync_completed_projects():
     """Sync completed tickets to career memories (without overwriting pinned ones) - reads from Supabase."""
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
     # Get completed tickets from Supabase
     all_tickets = tickets_supabase.get_all_tickets()
     completed_tickets = [t for t in all_tickets if t.get("status") in ('done', 'complete', 'completed')]
     
-    with connect() as conn:
-        # Get IDs already in memories
-        existing = conn.execute("""
-            SELECT source_id FROM career_memories WHERE source_type = 'ticket'
-        """).fetchall()
-        existing_ids = {row["source_id"] for row in existing}
-        
-        added = 0
-        for t in completed_tickets:
-            if t["id"] in existing_ids:
-                continue
-                
-            # Create memory for completed ticket
-            skills = t.get("tags") or ""
-            metadata = json.dumps({
-                "ticket_id": t.get("ticket_id"),
-                "status": t.get("status"),
-                "completed_at": t.get("updated_at")
-            })
+    # Get IDs already in memories
+    existing_result = supabase.table("career_memories").select("source_id").eq(
+        "source_type", "ticket"
+    ).execute()
+    existing_ids = {str(row.get("source_id")) for row in (existing_result.data or [])}
+    
+    added = 0
+    for t in completed_tickets:
+        if str(t.get("id")) in existing_ids:
+            continue
             
-            conn.execute("""
-                INSERT INTO career_memories (memory_type, title, description, source_type, source_id, skills, is_pinned, metadata)
-                VALUES ('completed_project', ?, ?, 'ticket', ?, ?, 0, ?)
-            """, (t.get("title") or "", t.get("ai_summary") or t.get("description") or "", t["id"], skills, metadata))
-            added += 1
+        # Create memory for completed ticket
+        skills = t.get("tags") or ""
+        metadata = json.dumps({
+            "ticket_id": t.get("ticket_id"),
+            "status": t.get("status"),
+            "completed_at": t.get("updated_at")
+        })
         
-        conn.commit()
+        supabase.table("career_memories").insert({
+            "memory_type": "completed_project",
+            "title": t.get("title") or "",
+            "description": t.get("ai_summary") or t.get("description") or "",
+            "source_type": "ticket",
+            "source_id": str(t.get("id")),
+            "skills": skills,
+            "is_pinned": False,
+            "metadata": metadata
+        }).execute()
+        added += 1
     
     return JSONResponse({"status": "ok", "added": added})
 
@@ -1800,53 +1813,63 @@ SKILL_CATEGORIES = {
 @router.get("/api/career/development-tracker")
 async def get_development_tracker():
     """Get development tracker data - skill progress and learning activities."""
-    with connect() as conn:
-        # Get recent skill changes (skills with evidence or high proficiency)
-        skills = conn.execute("""
-            SELECT skill_name, category, proficiency_level, evidence, updated_at, projects_count
-            FROM skill_tracker
-            WHERE proficiency_level > 0
-            ORDER BY 
-                CASE WHEN updated_at IS NOT NULL THEN 0 ELSE 1 END,
-                updated_at DESC,
-                proficiency_level DESC
-            LIMIT 20
-        """).fetchall()
-        
-        # Get recent career memories as learning activities
-        memories = conn.execute("""
-            SELECT id, memory_type, title, description, skills, created_at
-            FROM career_memories
-            WHERE memory_type IN ('skill_milestone', 'achievement')
-            ORDER BY created_at DESC
-            LIMIT 10
-        """).fetchall()
-        
-        # Get completed projects from career_memories
-        projects = conn.execute("""
-            SELECT id, title, skills as technologies, description as impact, created_at as completed_date
-            FROM career_memories
-            WHERE memory_type = 'completed_project' OR is_ai_work = 1
-            ORDER BY created_at DESC
-            LIMIT 5
-        """).fetchall()
-        
-        # Calculate summary stats
-        total_skills = conn.execute("SELECT COUNT(*) FROM skill_tracker WHERE proficiency_level > 0").fetchone()[0]
-        avg_proficiency = conn.execute("SELECT AVG(proficiency_level) FROM skill_tracker WHERE proficiency_level > 0").fetchone()[0] or 0
-        
-        # Skills by proficiency level
-        skill_levels = {
-            "beginner": conn.execute("SELECT COUNT(*) FROM skill_tracker WHERE proficiency_level BETWEEN 1 AND 30").fetchone()[0],
-            "intermediate": conn.execute("SELECT COUNT(*) FROM skill_tracker WHERE proficiency_level BETWEEN 31 AND 60").fetchone()[0],
-            "advanced": conn.execute("SELECT COUNT(*) FROM skill_tracker WHERE proficiency_level BETWEEN 61 AND 85").fetchone()[0],
-            "expert": conn.execute("SELECT COUNT(*) FROM skill_tracker WHERE proficiency_level > 85").fetchone()[0],
-        }
-        
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"skills": [], "activities": [], "projects": [], "summary": {}})
+    
+    # Get recent skill changes (skills with evidence or high proficiency)
+    skills_result = supabase.table("skill_tracker").select(
+        "skill_name,category,proficiency_level,evidence,updated_at,projects_count"
+    ).gt("proficiency_level", 0).order("updated_at", desc=True).order(
+        "proficiency_level", desc=True
+    ).limit(20).execute()
+    skills = skills_result.data or []
+    
+    # Get recent career memories as learning activities
+    memories_result = supabase.table("career_memories").select(
+        "id,memory_type,title,description,skills,created_at"
+    ).in_("memory_type", ["skill_milestone", "achievement"]).order(
+        "created_at", desc=True
+    ).limit(10).execute()
+    memories = memories_result.data or []
+    
+    # Get completed projects from career_memories
+    projects_result = supabase.table("career_memories").select(
+        "id,title,skills,description,created_at"
+    ).or_("memory_type.eq.completed_project,is_ai_work.eq.true").order(
+        "created_at", desc=True
+    ).limit(5).execute()
+    # Rename fields for compatibility
+    projects = []
+    for p in (projects_result.data or []):
+        projects.append({
+            "id": p.get("id"),
+            "title": p.get("title"),
+            "technologies": p.get("skills"),
+            "impact": p.get("description"),
+            "completed_date": p.get("created_at")
+        })
+    
+    # Calculate summary stats
+    all_skills_result = supabase.table("skill_tracker").select("proficiency_level").gt(
+        "proficiency_level", 0
+    ).execute()
+    all_skills = all_skills_result.data or []
+    total_skills = len(all_skills)
+    avg_proficiency = sum(s.get("proficiency_level", 0) for s in all_skills) / total_skills if total_skills else 0
+    
+    # Skills by proficiency level
+    skill_levels = {
+        "beginner": len([s for s in all_skills if 1 <= s.get("proficiency_level", 0) <= 30]),
+        "intermediate": len([s for s in all_skills if 31 <= s.get("proficiency_level", 0) <= 60]),
+        "advanced": len([s for s in all_skills if 61 <= s.get("proficiency_level", 0) <= 85]),
+        "expert": len([s for s in all_skills if s.get("proficiency_level", 0) > 85]),
+    }
+    
     return JSONResponse({
-        "skills": [dict(s) for s in skills],
-        "activities": [dict(m) for m in memories],
-        "projects": [dict(p) for p in projects],
+        "skills": skills,
+        "activities": memories,
+        "projects": projects,
         "summary": {
             "total_skills": total_skills,
             "avg_proficiency": round(avg_proficiency, 1),
@@ -1858,19 +1881,22 @@ async def get_development_tracker():
 @router.get("/api/career/skills")
 async def get_skills():
     """Get all tracked skills with categories."""
-    with connect() as conn:
-        skills = conn.execute("""
-            SELECT * FROM skill_tracker
-            ORDER BY category, proficiency_level DESC
-        """).fetchall()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"skills": [], "by_category": {}, "categories": list(SKILL_CATEGORIES.keys())})
+    
+    result = supabase.table("skill_tracker").select("*").order(
+        "category"
+    ).order("proficiency_level", desc=True).execute()
+    skills = result.data or []
     
     # Group by category
     by_category = {}
     for s in skills:
-        cat = s["category"] or "other"
+        cat = s.get("category") or "other"
         if cat not in by_category:
             by_category[cat] = []
-        by_category[cat].append(dict(s))
+        by_category[cat].append(s)
     
     return JSONResponse({
         "skills": [dict(s) for s in skills],
@@ -1890,49 +1916,64 @@ async def initialize_skills(request: Request):
         skills_with_categories = []
         custom_skills = []
     
-    with connect() as conn:
-        added = 0
-        
-        if skills_with_categories:
-            # New format: skills with their categories
-            for item in skills_with_categories:
-                skill_name = item.get("name") if isinstance(item, dict) else item
-                category = item.get("category", "Custom") if isinstance(item, dict) else "Custom"
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    added = 0
+    
+    if skills_with_categories:
+        # New format: skills with their categories
+        for item in skills_with_categories:
+            skill_name = item.get("name") if isinstance(item, dict) else item
+            category = item.get("category", "Custom") if isinstance(item, dict) else "Custom"
+            try:
+                # Check if exists first
+                existing = supabase.table("skill_tracker").select("id").eq(
+                    "skill_name", skill_name
+                ).execute()
+                if not existing.data:
+                    supabase.table("skill_tracker").insert({
+                        "skill_name": skill_name,
+                        "category": category,
+                        "proficiency_level": 0
+                    }).execute()
+                    added += 1
+            except:
+                pass
+    elif custom_skills:
+        # Legacy format: just skill names (default to Custom category)
+        for skill in custom_skills:
+            try:
+                existing = supabase.table("skill_tracker").select("id").eq(
+                    "skill_name", skill
+                ).execute()
+                if not existing.data:
+                    supabase.table("skill_tracker").insert({
+                        "skill_name": skill,
+                        "category": "Custom",
+                        "proficiency_level": 0
+                    }).execute()
+                    added += 1
+            except:
+                pass
+    else:
+        # Add default skill categories
+        for category, skills in SKILL_CATEGORIES.items():
+            for skill in skills:
                 try:
-                    conn.execute("""
-                        INSERT OR IGNORE INTO skill_tracker (skill_name, category, proficiency_level)
-                        VALUES (?, ?, 0)
-                    """, (skill_name, category))
-                    if conn.execute("SELECT changes()").fetchone()[0] > 0:
+                    existing = supabase.table("skill_tracker").select("id").eq(
+                        "skill_name", skill
+                    ).execute()
+                    if not existing.data:
+                        supabase.table("skill_tracker").insert({
+                            "skill_name": skill,
+                            "category": category,
+                            "proficiency_level": 0
+                        }).execute()
                         added += 1
                 except:
                     pass
-        elif custom_skills:
-            # Legacy format: just skill names (default to Custom category)
-            for skill in custom_skills:
-                try:
-                    conn.execute("""
-                        INSERT OR IGNORE INTO skill_tracker (skill_name, category, proficiency_level)
-                        VALUES (?, ?, 0)
-                    """, (skill, "Custom"))
-                    if conn.execute("SELECT changes()").fetchone()[0] > 0:
-                        added += 1
-                except:
-                    pass
-        else:
-            # Add default skill categories
-            for category, skills in SKILL_CATEGORIES.items():
-                for skill in skills:
-                    try:
-                        conn.execute("""
-                            INSERT OR IGNORE INTO skill_tracker (skill_name, category, proficiency_level)
-                            VALUES (?, ?, 0)
-                        """, (skill, category))
-                        if conn.execute("SELECT changes()").fetchone()[0] > 0:
-                            added += 1
-                    except:
-                        pass
-        conn.commit()
     
     return JSONResponse({"status": "ok", "initialized": added})
 
@@ -1940,9 +1981,12 @@ async def initialize_skills(request: Request):
 @router.post("/api/career/skills/reset")
 async def reset_skills():
     """Reset all skill data (delete all skills)."""
-    with connect() as conn:
-        conn.execute("DELETE FROM skill_tracker")
-        conn.commit()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    # Delete all skills - need to use a filter since Supabase requires one
+    supabase.table("skill_tracker").delete().gte("id", 0).execute()
     return JSONResponse({"status": "ok", "message": "All skills reset"})
 
 
@@ -1955,14 +1999,14 @@ async def remove_skills_by_categories(request: Request):
     if not categories_to_remove:
         return JSONResponse({"status": "ok", "removed": 0})
     
-    with connect() as conn:
-        placeholders = ",".join(["?" for _ in categories_to_remove])
-        result = conn.execute(f"""
-            DELETE FROM skill_tracker 
-            WHERE category IN ({placeholders})
-        """, categories_to_remove)
-        removed = result.rowcount
-        conn.commit()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    removed = 0
+    for category in categories_to_remove:
+        result = supabase.table("skill_tracker").delete().eq("category", category).execute()
+        removed += len(result.data) if result.data else 0
     
     return JSONResponse({"status": "ok", "removed": removed, "categories": categories_to_remove})
 
@@ -2008,23 +2052,35 @@ Return ONLY the JSON object, no other text."""
             
             # Insert skills into database
             skills_added = 0
-            with connect() as conn:
+            supabase = get_supabase_client()
+            if supabase:
                 for skill in skills_data.get("skills", []):
-                    conn.execute("""
-                        INSERT INTO skill_tracker (skill_name, category, proficiency_level, evidence)
-                        VALUES (?, ?, ?, ?)
-                        ON CONFLICT(skill_name) DO UPDATE SET
-                            proficiency_level = MAX(proficiency_level, excluded.proficiency_level),
-                            evidence = excluded.evidence,
-                            updated_at = datetime('now')
-                    """, (
-                        skill.get("name"),
-                        skill.get("category", "Custom"),
-                        skill.get("proficiency", 30),
-                        json.dumps([skill.get("evidence", "Extracted from resume")])
-                    ))
+                    skill_name = skill.get("name")
+                    category = skill.get("category", "Custom")
+                    proficiency = skill.get("proficiency", 30)
+                    evidence = json.dumps([skill.get("evidence", "Extracted from resume")])
+                    
+                    # Check if exists and upsert
+                    existing = supabase.table("skill_tracker").select("id,proficiency_level").eq(
+                        "skill_name", skill_name
+                    ).execute()
+                    
+                    if existing.data:
+                        # Update if new proficiency is higher
+                        current_prof = existing.data[0].get("proficiency_level", 0)
+                        if proficiency > current_prof:
+                            supabase.table("skill_tracker").update({
+                                "proficiency_level": proficiency,
+                                "evidence": evidence
+                            }).eq("skill_name", skill_name).execute()
+                    else:
+                        supabase.table("skill_tracker").insert({
+                            "skill_name": skill_name,
+                            "category": category,
+                            "proficiency_level": proficiency,
+                            "evidence": evidence
+                        }).execute()
                     skills_added += 1
-                conn.commit()
             
             # If update_profile is requested, extract and update profile info
             if update_profile:
@@ -2056,44 +2112,31 @@ Return ONLY valid JSON, no other text. Use null for fields you can't determine."
                     from ..llm import ask as ask_llm
                     profile_response = ask_llm(profile_prompt, model="gpt-4o-mini")
                     profile_match = re.search(r'\{[\s\S]*\}', profile_response)
-                    if profile_match:
+                    if profile_match and supabase:
                         profile_data = json.loads(profile_match.group())
                         
-                        # Build update query for non-null fields
-                        with connect() as conn:
-                            updates = []
-                            values = []
-                            for field in ['current_role', 'target_role', 'years_experience', 'education', 
-                                         'certifications', 'technical_specializations', 'strengths',
-                                         'short_term_goals', 'long_term_goals', 'soft_skills', 
-                                         'languages', 'work_achievements']:
-                                if field in profile_data and profile_data[field]:
-                                    updates.append(f"{field} = ?")
-                                    # Convert lists to comma-separated text
-                                    val = profile_data[field]
-                                    if isinstance(val, list):
-                                        val = ', '.join(str(item) for item in val)
-                                    values.append(str(val))
-                            
-                            if updates:
-                                # Check if profile exists
-                                existing = conn.execute("SELECT id FROM career_profile LIMIT 1").fetchone()
-                                if existing:
-                                    values.append(existing['id'])
-                                    conn.execute(f"""
-                                        UPDATE career_profile 
-                                        SET {', '.join(updates)}, updated_at = datetime('now')
-                                        WHERE id = ?
-                                    """, values)
-                                else:
-                                    # Insert new profile
-                                    fields = [u.split(' = ')[0] for u in updates]
-                                    conn.execute(f"""
-                                        INSERT INTO career_profile ({', '.join(fields)})
-                                        VALUES ({', '.join(['?' for _ in values])})
-                                    """, values)
-                                conn.commit()
-                                profile_updated = True
+                        # Build update dict for non-null fields
+                        update_data = {}
+                        for field in ['current_role', 'target_role', 'years_experience', 'education', 
+                                     'certifications', 'technical_specializations', 'strengths',
+                                     'short_term_goals', 'long_term_goals', 'soft_skills', 
+                                     'languages', 'work_achievements']:
+                            if field in profile_data and profile_data[field]:
+                                val = profile_data[field]
+                                if isinstance(val, list):
+                                    val = ', '.join(str(item) for item in val)
+                                update_data[field] = str(val)
+                        
+                        if update_data:
+                            # Check if profile exists
+                            existing = supabase.table("career_profile").select("id").limit(1).execute()
+                            if existing.data:
+                                supabase.table("career_profile").update(update_data).eq(
+                                    "id", existing.data[0].get("id")
+                                ).execute()
+                            else:
+                                supabase.table("career_profile").insert(update_data).execute()
+                            profile_updated = True
                 except Exception as pe:
                     print(f"Profile update error: {pe}")
             
@@ -2274,7 +2317,8 @@ async def assess_skills_from_codebase(request: Request):
     
     # Update skill levels based on evidence - now per-skill with variance
     skills_updated = 0
-    with connect() as conn:
+    supabase = get_supabase_client()
+    if supabase:
         for skill, evidence in skill_evidence.items():
             file_count = len(evidence["files"])
             pattern_count = len(evidence["patterns_found"])
@@ -2295,19 +2339,27 @@ async def assess_skills_from_codebase(request: Request):
                 category = skill_categories.get(skill, "Custom")
                 evidence_json = json.dumps(evidence["files"][:10])
                 
-                # Insert or update the specific skill
-                conn.execute("""
-                    INSERT INTO skill_tracker (skill_name, category, proficiency_level, evidence)
-                    VALUES (?, ?, ?, ?)
-                    ON CONFLICT(skill_name) DO UPDATE SET
-                        proficiency_level = MAX(proficiency_level, excluded.proficiency_level),
-                        evidence = excluded.evidence,
-                        last_used_at = datetime('now'),
-                        updated_at = datetime('now')
-                """, (skill, category, proficiency, evidence_json))
+                # Check if exists and upsert
+                existing = supabase.table("skill_tracker").select("id,proficiency_level").eq(
+                    "skill_name", skill
+                ).execute()
+                
+                if existing.data:
+                    current_prof = existing.data[0].get("proficiency_level", 0)
+                    if proficiency > current_prof:
+                        supabase.table("skill_tracker").update({
+                            "proficiency_level": proficiency,
+                            "evidence": evidence_json,
+                            "last_used_at": "now()"
+                        }).eq("skill_name", skill).execute()
+                else:
+                    supabase.table("skill_tracker").insert({
+                        "skill_name": skill,
+                        "category": category,
+                        "proficiency_level": proficiency,
+                        "evidence": evidence_json
+                    }).execute()
                 skills_updated += 1
-        
-        conn.commit()
     
     # Build evidence summary for response
     evidence_summary = {
@@ -2332,149 +2384,107 @@ async def populate_skills_from_projects():
     """Populate skill tracker from completed projects and AI implementation memories.
     
     Tracks which memories/tickets have been processed to avoid double-counting.
-    Uses a processed_sources table to remember what's already been imported.
+    Uses skill_import_tracking table to remember what's already been imported.
     """
-    with connect() as conn:
-        skills_updated = 0
-        projects_processed = 0
-        memories_processed = 0
-        skipped_already_processed = 0
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    skills_updated = 0
+    projects_processed = 0
+    memories_processed = 0
+    skipped_already_processed = 0
+    
+    # Get already processed IDs from tracking table
+    tracking_result = supabase.table("skill_import_tracking").select("source_type,source_id").execute()
+    processed = {(r.get("source_type"), str(r.get("source_id"))) for r in (tracking_result.data or [])}
+    
+    # 1. Get skills/tags from completed project memories
+    project_memories_result = supabase.table("career_memories").select(
+        "id,skills,title"
+    ).eq("memory_type", "completed_project").not_.is_("skills", "null").neq("skills", "").execute()
+    
+    for mem in (project_memories_result.data or []):
+        mem_id = str(mem.get("id"))
         
-        # Ensure tracking table exists
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS skill_import_tracking (
-                source_type TEXT NOT NULL,
-                source_id TEXT NOT NULL,
-                imported_at TEXT DEFAULT (datetime('now')),
-                PRIMARY KEY (source_type, source_id)
-            )
-        """)
+        if ("career_memory", mem_id) in processed:
+            skipped_already_processed += 1
+            continue
         
-        # 1. Get skills/tags from completed project memories
-        project_memories = conn.execute("""
-            SELECT id, skills, title FROM career_memories 
-            WHERE memory_type = 'completed_project' AND skills IS NOT NULL AND skills != ''
-        """).fetchall()
-        
-        for mem in project_memories:
-            mem_id = str(mem["id"])
-            
-            # Check if already processed
-            already = conn.execute(
-                "SELECT 1 FROM skill_import_tracking WHERE source_type = 'career_memory' AND source_id = ?",
-                (mem_id,)
-            ).fetchone()
-            
-            if already:
-                skipped_already_processed += 1
-                continue
-            
-            projects_processed += 1
-            for skill in (mem["skills"] or "").split(","):
-                skill = skill.strip()
-                if skill:
-                    # Insert or update skill
-                    conn.execute("""
-                        INSERT INTO skill_tracker (skill_name, category, proficiency_level, projects_count)
-                        VALUES (?, 'projects', 20, 1)
-                        ON CONFLICT(skill_name) DO UPDATE SET
-                            projects_count = projects_count + 1,
-                            proficiency_level = MIN(100, proficiency_level + 5),
-                            last_used_at = datetime('now'),
-                            updated_at = datetime('now')
-                    """, (skill,))
-                    skills_updated += 1
-            
-            # Mark as processed
-            conn.execute(
-                "INSERT OR IGNORE INTO skill_import_tracking (source_type, source_id) VALUES ('career_memory', ?)",
-                (mem_id,)
-            )
-        
-        # 2. Get technologies from AI implementation memories (if table exists)
-        try:
-            ai_memories = conn.execute("""
-                SELECT id, technologies, title FROM ai_implementation_memories 
-                WHERE technologies IS NOT NULL AND technologies != ''
-            """).fetchall()
-            
-            for mem in ai_memories:
-                mem_id = str(mem["id"])
+        projects_processed += 1
+        for skill in (mem.get("skills") or "").split(","):
+            skill = skill.strip()
+            if skill:
+                # Check if skill exists and upsert
+                existing = supabase.table("skill_tracker").select("id,proficiency_level,projects_count").eq(
+                    "skill_name", skill
+                ).execute()
                 
-                # Check if already processed
-                already = conn.execute(
-                    "SELECT 1 FROM skill_import_tracking WHERE source_type = 'ai_memory' AND source_id = ?",
-                    (mem_id,)
-                ).fetchone()
-                
-                if already:
-                    skipped_already_processed += 1
-                    continue
-                
-                memories_processed += 1
-                for tech in (mem["technologies"] or "").split(","):
-                    tech = tech.strip()
-                    if tech:
-                        # Insert or update skill with AI category
-                        conn.execute("""
-                            INSERT INTO skill_tracker (skill_name, category, proficiency_level, projects_count)
-                            VALUES (?, 'ai', 25, 1)
-                            ON CONFLICT(skill_name) DO UPDATE SET
-                                projects_count = projects_count + 1,
-                                proficiency_level = MIN(100, proficiency_level + 8),
-                                last_used_at = datetime('now'),
-                                updated_at = datetime('now')
-                        """, (tech,))
-                        skills_updated += 1
-                
-                # Mark as processed
-                conn.execute(
-                    "INSERT OR IGNORE INTO skill_import_tracking (source_type, source_id) VALUES ('ai_memory', ?)",
-                    (mem_id,)
-                )
-        except Exception:
-            pass  # ai_implementation_memories table may not exist
+                if existing.data:
+                    current = existing.data[0]
+                    new_prof = min(100, (current.get("proficiency_level") or 0) + 5)
+                    new_count = (current.get("projects_count") or 0) + 1
+                    supabase.table("skill_tracker").update({
+                        "proficiency_level": new_prof,
+                        "projects_count": new_count
+                    }).eq("id", current.get("id")).execute()
+                else:
+                    supabase.table("skill_tracker").insert({
+                        "skill_name": skill,
+                        "category": "projects",
+                        "proficiency_level": 20,
+                        "projects_count": 1
+                    }).execute()
+                skills_updated += 1
         
-        # 3. Also process completed tickets with tags (from Supabase)
-        all_tickets = tickets_supabase.get_all_tickets()
-        completed_tickets = [t for t in all_tickets 
-                           if t.get("status") in ('done', 'complete', 'completed')
-                           and t.get("tags")]
+        # Mark as processed
+        supabase.table("skill_import_tracking").insert({
+            "source_type": "career_memory",
+            "source_id": mem_id
+        }).execute()
+    
+    # 2. Process completed tickets with tags (from Supabase tickets)
+    all_tickets = tickets_supabase.get_all_tickets()
+    completed_tickets = [t for t in all_tickets 
+                       if t.get("status") in ('done', 'complete', 'completed')
+                       and t.get("tags")]
+    
+    for ticket in completed_tickets:
+        ticket_id = str(ticket.get("id", ticket.get("key", "")))
         
-        for ticket in completed_tickets:
-            ticket_id = str(ticket.get("id", ticket.get("key", "")))
-            
-            # Check if already processed
-            already = conn.execute(
-                "SELECT 1 FROM skill_import_tracking WHERE source_type = 'ticket' AND source_id = ?",
-                (ticket_id,)
-            ).fetchone()
-            
-            if already:
-                skipped_already_processed += 1
-                continue
-            
-            for tag in (ticket.get("tags") or "").split(","):
-                tag = tag.strip()
-                if tag:
-                    conn.execute("""
-                        INSERT INTO skill_tracker (skill_name, category, proficiency_level, tickets_count)
-                        VALUES (?, 'tickets', 15, 1)
-                        ON CONFLICT(skill_name) DO UPDATE SET
-                            tickets_count = tickets_count + 1,
-                            proficiency_level = MIN(100, proficiency_level + 3),
-                            last_used_at = datetime('now'),
-                            updated_at = datetime('now')
-                    """, (tag,))
-                    skills_updated += 1
-            
-            # Mark as processed
-            conn.execute(
-                "INSERT OR IGNORE INTO skill_import_tracking (source_type, source_id) VALUES ('ticket', ?)",
-                (ticket_id,)
-            )
+        if ("ticket", ticket_id) in processed:
+            skipped_already_processed += 1
+            continue
         
-        conn.commit()
+        for tag in (ticket.get("tags") or "").split(","):
+            tag = tag.strip()
+            if tag:
+                existing = supabase.table("skill_tracker").select("id,proficiency_level,tickets_count").eq(
+                    "skill_name", tag
+                ).execute()
+                
+                if existing.data:
+                    current = existing.data[0]
+                    new_prof = min(100, (current.get("proficiency_level") or 0) + 3)
+                    new_count = (current.get("tickets_count") or 0) + 1
+                    supabase.table("skill_tracker").update({
+                        "proficiency_level": new_prof,
+                        "tickets_count": new_count
+                    }).eq("id", current.get("id")).execute()
+                else:
+                    supabase.table("skill_tracker").insert({
+                        "skill_name": tag,
+                        "category": "tickets",
+                        "proficiency_level": 15,
+                        "tickets_count": 1
+                    }).execute()
+                skills_updated += 1
+        
+        # Mark as processed
+        supabase.table("skill_import_tracking").insert({
+            "source_type": "ticket",
+            "source_id": ticket_id
+        }).execute()
     
     return JSONResponse({
         "status": "ok",
@@ -2488,6 +2498,10 @@ async def populate_skills_from_projects():
 @router.post("/api/career/skills/update-from-tickets")
 async def update_skills_from_tickets():
     """Update skill counts based on completed tickets (from Supabase)."""
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
     # Get completed tickets from Supabase
     all_tickets = tickets_supabase.get_all_tickets()
     completed_tickets = [t for t in all_tickets 
@@ -2502,21 +2516,20 @@ async def update_skills_from_tickets():
             if tag:
                 tag_counts[tag] = tag_counts.get(tag, 0) + 1
     
-    with connect() as conn:
-        # Update skill tracker
-        updated = 0
-        for tag, count in tag_counts.items():
-            # Try to match tag to skill
-            conn.execute("""
-                UPDATE skill_tracker 
-                SET tickets_count = tickets_count + ?,
-                    last_used_at = datetime('now'),
-                    updated_at = datetime('now')
-                WHERE LOWER(skill_name) LIKE ?
-            """, (count, f"%{tag}%"))
-            updated += 1
+    # Update skill tracker
+    updated = 0
+    for tag, count in tag_counts.items():
+        # Find matching skills (case insensitive)
+        result = supabase.table("skill_tracker").select("id,tickets_count").ilike(
+            "skill_name", f"%{tag}%"
+        ).execute()
         
-        conn.commit()
+        for skill in (result.data or []):
+            new_count = (skill.get("tickets_count") or 0) + count
+            supabase.table("skill_tracker").update({
+                "tickets_count": new_count
+            }).eq("id", skill.get("id")).execute()
+            updated += 1
     
     return JSONResponse({"status": "ok", "tags_processed": len(tag_counts)})
 
@@ -2542,13 +2555,22 @@ async def add_ai_implementation_memory(request: Request):
         "features": data.get("features", [])
     })
     
-    with connect() as conn:
-        cur = conn.execute("""
-            INSERT INTO career_memories (memory_type, title, description, source_type, skills, is_pinned, is_ai_work, metadata)
-            VALUES ('ai_implementation', ?, ?, 'codebase', ?, 0, 1, ?)
-        """, (title, description, skills, metadata))
-        conn.commit()
-        memory_id = cur.lastrowid
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    result = supabase.table("career_memories").insert({
+        "memory_type": "ai_implementation",
+        "title": title,
+        "description": description,
+        "source_type": "codebase",
+        "skills": skills,
+        "is_pinned": False,
+        "is_ai_work": True,
+        "metadata": metadata
+    }).execute()
+    
+    memory_id = result.data[0].get("id") if result.data else None
     
     return JSONResponse({"status": "ok", "id": memory_id})
 
@@ -2556,90 +2578,92 @@ async def add_ai_implementation_memory(request: Request):
 @router.get("/api/career/ai-memories")
 async def get_ai_memories():
     """Get all AI implementation memories."""
-    with connect() as conn:
-        rows = conn.execute("""
-            SELECT * FROM career_memories 
-            WHERE is_ai_work = 1
-            ORDER BY is_pinned DESC, created_at DESC
-        """).fetchall()
-    return JSONResponse([dict(r) for r in rows])
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse([])
+    
+    result = supabase.table("career_memories").select("*").eq(
+        "is_ai_work", True
+    ).order("is_pinned", desc=True).order("created_at", desc=True).execute()
+    
+    return JSONResponse(result.data or [])
 
 
 @router.delete("/api/career/ai-memories/{memory_id}")
 async def delete_ai_memory(memory_id: int):
     """Delete an AI implementation memory."""
-    with connect() as conn:
-        conn.execute("DELETE FROM career_memories WHERE id = ? AND is_ai_work = 1", (memory_id,))
-        conn.commit()
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    supabase.table("career_memories").delete().eq("id", memory_id).eq("is_ai_work", True).execute()
     return JSONResponse({"status": "ok", "deleted": memory_id})
 
 
 @router.post("/api/career/ai-memories/compress")
 async def compress_ai_memories(request: Request):
     """Compress AI memories by removing duplicates and merging similar entries."""
-    with connect() as conn:
-        # Get all AI memories
-        memories = conn.execute("""
-            SELECT id, title, description, technologies, skills 
-            FROM career_memories 
-            WHERE is_ai_work = 1
-            ORDER BY created_at DESC
-        """).fetchall()
-        
-        if len(memories) <= 1:
-            return JSONResponse({"status": "ok", "removed": 0, "merged": 0, "message": "Not enough memories to compress"})
-        
-        removed = 0
-        merged = 0
-        
-        # Find and remove exact duplicates (same title)
-        seen_titles = {}
+    supabase = get_supabase_client()
+    if not supabase:
+        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    
+    # Get all AI memories
+    result = supabase.table("career_memories").select(
+        "id,title,description,technologies,skills"
+    ).eq("is_ai_work", True).order("created_at", desc=True).execute()
+    
+    memories = result.data or []
+    
+    if len(memories) <= 1:
+        return JSONResponse({"status": "ok", "removed": 0, "merged": 0, "message": "Not enough memories to compress"})
+    
+    removed = 0
+    merged = 0
+    
+    # Find and remove exact duplicates (same title)
+    seen_titles = {}
+    for mem in memories:
+        title_lower = (mem.get('title') or '').lower().strip()
+        if title_lower in seen_titles:
+            # Delete duplicate
+            supabase.table("career_memories").delete().eq("id", mem.get('id')).execute()
+            removed += 1
+        else:
+            seen_titles[title_lower] = mem.get('id')
+    
+    # Find similar entries (same technologies) and merge their skills
+    if len(memories) > 3:
+        tech_groups = {}
         for mem in memories:
-            title_lower = (mem['title'] or '').lower().strip()
-            if title_lower in seen_titles:
-                # Delete duplicate
-                conn.execute("DELETE FROM career_memories WHERE id = ?", (mem['id'],))
-                removed += 1
-            else:
-                seen_titles[title_lower] = mem['id']
+            tech = (mem.get('technologies') or '').lower().strip()
+            if tech:
+                if tech not in tech_groups:
+                    tech_groups[tech] = []
+                tech_groups[tech].append(mem)
         
-        # Find similar entries (same technologies) and merge their skills
-        if len(memories) > 3:
-            tech_groups = {}
-            for mem in memories:
-                tech = (mem['technologies'] or '').lower().strip()
-                if tech:
-                    if tech not in tech_groups:
-                        tech_groups[tech] = []
-                    tech_groups[tech].append(mem)
-            
-            # Merge groups with same technology
-            for tech, group in tech_groups.items():
-                if len(group) > 1:
-                    # Keep the first one, merge skills from others
-                    keeper = group[0]
-                    all_skills = set((keeper['skills'] or '').split(','))
-                    all_skills = {s.strip() for s in all_skills if s.strip()}
-                    
-                    for other in group[1:]:
-                        other_skills = (other['skills'] or '').split(',')
-                        for s in other_skills:
-                            if s.strip():
-                                all_skills.add(s.strip())
-                        # Delete the duplicate
-                        conn.execute("DELETE FROM career_memories WHERE id = ?", (other['id'],))
-                        removed += 1
-                    
-                    # Update the keeper with merged skills
-                    if all_skills:
-                        conn.execute("""
-                            UPDATE career_memories 
-                            SET skills = ?, updated_at = datetime('now')
-                            WHERE id = ?
-                        """, (','.join(sorted(all_skills)), keeper['id']))
-                        merged += 1
-        
-        conn.commit()
+        # Merge groups with same technology
+        for tech, group in tech_groups.items():
+            if len(group) > 1:
+                # Keep the first one, merge skills from others
+                keeper = group[0]
+                all_skills = set((keeper.get('skills') or '').split(','))
+                all_skills = {s.strip() for s in all_skills if s.strip()}
+                
+                for other in group[1:]:
+                    other_skills = (other.get('skills') or '').split(',')
+                    for s in other_skills:
+                        if s.strip():
+                            all_skills.add(s.strip())
+                    # Delete the duplicate
+                    supabase.table("career_memories").delete().eq("id", other.get('id')).execute()
+                    removed += 1
+                
+                # Update the keeper with merged skills
+                if all_skills:
+                    supabase.table("career_memories").update({
+                        "skills": ','.join(sorted(all_skills))
+                    }).eq("id", keeper.get('id')).execute()
+                    merged += 1
     
     return JSONResponse({
         "status": "ok",
@@ -2722,7 +2746,8 @@ Respond in JSON format:
             patterns = data.get("patterns", [])
             
             added = []
-            with connect() as conn:
+            supabase = get_supabase_client()
+            if supabase:
                 for pattern in patterns[:5]:
                     title = pattern.get("title", "Unknown Pattern")
                     description = pattern.get("description", "")
@@ -2732,28 +2757,21 @@ Respond in JSON format:
                     full_desc = f"{description}\n\n**Code Insight:** {code_insight}" if code_insight else description
                     
                     # Check for duplicates
-                    existing = conn.execute(
-                        "SELECT id FROM career_memories WHERE title = ? AND is_ai_work = 1",
-                        (title,)
-                    ).fetchone()
+                    existing = supabase.table("career_memories").select("id").eq(
+                        "title", title
+                    ).eq("is_ai_work", True).execute()
                     
-                    if not existing:
-                        conn.execute("""
-                            INSERT INTO career_memories (memory_type, title, description, source_type, skills, is_pinned, is_ai_work)
-                            VALUES ('ai_implementation', ?, ?, 'codebase_ai', ?, 0, 1)
-                        """, (title, full_desc, technologies))
+                    if not existing.data:
+                        supabase.table("career_memories").insert({
+                            "memory_type": "ai_implementation",
+                            "title": title,
+                            "description": full_desc,
+                            "source_type": "codebase_ai",
+                            "skills": technologies,
+                            "is_pinned": False,
+                            "is_ai_work": True
+                        }).execute()
                         added.append(title)
-                        
-                        # Sync to Supabase (fire-and-forget)
-                        sync_memory_to_supabase({
-                            'memory_type': 'ai_implementation',
-                            'title': title,
-                            'description': full_desc,
-                            'skills': technologies,
-                            'source_type': 'codebase_ai',
-                            'is_ai_work': True,
-                        })
-                conn.commit()
             
             return JSONResponse({"status": "ok", "added": added, "count": len(added)})
     except Exception as e:
@@ -2862,36 +2880,41 @@ async def sync_docs_to_memories():
         added = []
         updated = []
         
-        with connect() as conn:
-            for impl in implementations:
-                title = impl.get("title", "Unknown Implementation")
-                description = impl.get("summary", "")
-                technologies = ", ".join(impl.get("technologies", []))
-                source = impl.get("source", "docs")
-                
-                # Check if already exists
-                existing = conn.execute(
-                    "SELECT id FROM career_memories WHERE title = ? AND source_type = 'documentation'",
-                    (title,)
-                ).fetchone()
-                
-                if existing:
-                    # Update existing
-                    conn.execute("""
-                        UPDATE career_memories 
-                        SET description = ?, skills = ?, updated_at = datetime('now')
-                        WHERE id = ?
-                    """, (description, technologies, existing["id"]))
-                    updated.append(title)
-                else:
-                    # Insert new
-                    conn.execute("""
-                        INSERT INTO career_memories (memory_type, title, description, source_type, skills, is_pinned, is_ai_work, metadata)
-                        VALUES ('ai_implementation', ?, ?, 'documentation', ?, 0, 1, ?)
-                    """, (title, description, technologies, json.dumps({"source": source})))
-                    added.append(title)
+        supabase = get_supabase_client()
+        if not supabase:
+            return JSONResponse({"error": "Database not configured"}, status_code=500)
+        
+        for impl in implementations:
+            title = impl.get("title", "Unknown Implementation")
+            description = impl.get("summary", "")
+            technologies = ", ".join(impl.get("technologies", []))
+            source = impl.get("source", "docs")
             
-            conn.commit()
+            # Check if already exists
+            existing = supabase.table("career_memories").select("id").eq(
+                "title", title
+            ).eq("source_type", "documentation").execute()
+            
+            if existing.data:
+                # Update existing
+                supabase.table("career_memories").update({
+                    "description": description,
+                    "skills": technologies
+                }).eq("id", existing.data[0].get("id")).execute()
+                updated.append(title)
+            else:
+                # Insert new
+                supabase.table("career_memories").insert({
+                    "memory_type": "ai_implementation",
+                    "title": title,
+                    "description": description,
+                    "source_type": "documentation",
+                    "skills": technologies,
+                    "is_pinned": False,
+                    "is_ai_work": True,
+                    "metadata": json.dumps({"source": source})
+                }).execute()
+                added.append(title)
         
         return JSONResponse({
             "status": "ok",

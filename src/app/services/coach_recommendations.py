@@ -18,7 +18,6 @@ from datetime import datetime, timedelta
 import logging
 import json
 
-from ..db import connect
 from ..infrastructure.supabase_client import get_supabase_client
 
 logger = logging.getLogger(__name__)
@@ -204,27 +203,30 @@ class CoachRecommendationEngine:
         """
         recommendations = []
         
-        with connect() as conn:
-            # Count pending signals
-            pending = conn.execute("""
-                SELECT COUNT(*) as count FROM signal_status 
-                WHERE status = 'pending' OR status IS NULL
-            """).fetchone()
-            
-            count = pending['count'] if pending else 0
-            
-            if count > 5:
-                rec_id = "signals-pending-review"
-                if rec_id not in dismissed_ids:
-                    recommendations.append({
-                        "id": rec_id,
-                        "type": "action",
-                        "label": "📥 Signals to Review",
-                        "text": f"{count} signals waiting for your review",
-                        "action": "Review signals to build your knowledge base",
-                        "link": "/signals",
-                        "link_text": "Review Signals"
-                    })
+        if self.supabase:
+            try:
+                # Count pending signals
+                result = self.supabase.table("signal_status")\
+                    .select("id", count="exact")\
+                    .or_("status.eq.pending,status.is.null")\
+                    .execute()
+                
+                count = result.count or 0
+                
+                if count > 5:
+                    rec_id = "signals-pending-review"
+                    if rec_id not in dismissed_ids:
+                        recommendations.append({
+                            "id": rec_id,
+                            "type": "action",
+                            "label": "📥 Signals to Review",
+                            "text": f"{count} signals waiting for your review",
+                            "action": "Review signals to build your knowledge base",
+                            "link": "/signals",
+                            "link_text": "Review Signals"
+                        })
+            except Exception as e:
+                logger.debug(f"Signal review recommendations error: {e}")
         
         return recommendations
     

@@ -16,7 +16,7 @@ from ..v1.models import (
     DocumentCreate, DocumentUpdate, DocumentResponse,
     PaginatedResponse, APIResponse
 )
-from ...db import connect
+from ...infrastructure.supabase_client import get_supabase_client
 
 logger = logging.getLogger(__name__)
 
@@ -58,37 +58,6 @@ def _get_documents_from_supabase(skip: int = 0, limit: int = 50) -> tuple[List[D
         raise
 
 
-def _get_documents_from_sqlite(skip: int = 0, limit: int = 50) -> tuple[List[Dict[str, Any]], int]:
-    """
-    Fetch documents from SQLite docs table.
-    Returns (documents_list, total_count).
-    """
-    with connect() as conn:
-        # Get total count
-        total = conn.execute("SELECT COUNT(*) as count FROM docs").fetchone()["count"]
-        
-        # Get paginated documents
-        rows = conn.execute(
-            """SELECT id, source, content, document_date, created_at
-               FROM docs
-               ORDER BY created_at DESC
-               LIMIT ? OFFSET ?""",
-            (limit, skip)
-        ).fetchall()
-        
-        documents = []
-        for row in rows:
-            documents.append({
-                "id": row["id"],
-                "title": row["source"] or "",
-                "content": row["content"] or "",
-                "doc_type": "note",  # SQLite schema doesn't have doc_type
-                "created_at": row["created_at"],
-            })
-        
-        return documents, total
-
-
 @router.get("", response_model=PaginatedResponse)
 async def list_documents(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -99,21 +68,13 @@ async def list_documents(
     List all documents with pagination.
     
     Returns documents ordered by most recently created first.
-    Uses Supabase as primary source with SQLite fallback.
+    Uses Supabase as primary source.
     """
-    # Try Supabase first
     try:
         documents, total = _get_documents_from_supabase(skip, limit)
         return PaginatedResponse(items=documents, skip=skip, limit=limit, total=total)
     except Exception as e:
-        logger.warning(f"⚠️ Supabase unavailable, falling back to SQLite: {e}")
-    
-    # Fall back to SQLite
-    try:
-        documents, total = _get_documents_from_sqlite(skip, limit)
-        return PaginatedResponse(items=documents, skip=skip, limit=limit, total=total)
-    except Exception as e:
-        logger.error(f"❌ SQLite also failed: {e}")
+        logger.error(f"❌ Failed to fetch documents: {e}")
         raise HTTPException(status_code=500, detail="Unable to fetch documents")
 
 
@@ -123,9 +84,8 @@ async def get_document(document_id: str):
     Get a single document by ID.
     
     Returns 404 if document not found.
-    Accepts either UUID (Supabase) or integer (SQLite) ID.
+    Accepts UUID (Supabase) ID.
     """
-    # Try Supabase first
     try:
         from ...infrastructure.supabase_client import get_supabase_client
         supabase = get_supabase_client()
@@ -141,26 +101,7 @@ async def get_document(document_id: str):
                 created_at=doc.get("created_at")
             )
     except Exception as e:
-        logger.warning(f"⚠️ Supabase lookup failed: {e}")
-    
-    # Fall back to SQLite
-    try:
-        with connect() as conn:
-            row = conn.execute(
-                "SELECT * FROM docs WHERE id = ?",
-                (int(document_id) if document_id.isdigit() else -1,)
-            ).fetchone()
-        
-        if row:
-            return DocumentResponse(
-                id=str(row["id"]),
-                title=row["source"] or "",
-                content=row["content"] or "",
-                doc_type="note",
-                created_at=row["created_at"]
-            )
-    except Exception as e:
-        logger.error(f"❌ SQLite lookup failed: {e}")
+        logger.error(f"❌ Supabase lookup failed: {e}")
     
     raise HTTPException(status_code=404, detail="Document not found")
 
@@ -170,10 +111,9 @@ async def create_document(document: DocumentCreate):
     """
     Create a new document.
     
-    Creates in Supabase first, then falls back to SQLite.
+    Creates in Supabase.
     Returns the created document ID.
     """
-    # Try Supabase first
     try:
         from ...infrastructure.supabase_client import get_supabase_client
         supabase = get_supabase_client()
@@ -189,19 +129,8 @@ async def create_document(document: DocumentCreate):
             logger.info(f"✅ Created document {document_id} in Supabase")
             return APIResponse(success=True, message="Document created", data={"id": document_id})
     except Exception as e:
-        logger.warning(f"⚠️ Supabase create failed, trying SQLite: {e}")
-    
-    # Fall back to SQLite
-    with connect() as conn:
-        cursor = conn.execute(
-            """INSERT INTO docs (source, content)
-               VALUES (?, ?)""",
-            (document.title, document.content or "")
-        )
-        document_id = cursor.lastrowid
-        conn.commit()
-    
-    return APIResponse(success=True, message="Document created", data={"id": document_id})
+        logger.error(f"❌ Supabase create failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create document")
 
 
 @router.put("/{document_id}", response_model=APIResponse)
@@ -212,7 +141,6 @@ async def update_document(document_id: str, document: DocumentUpdate):
     Only updates fields that are provided.
     Returns 404 if document not found.
     """
-    # Try Supabase first
     try:
         from ...infrastructure.supabase_client import get_supabase_client
         supabase = get_supabase_client()
@@ -236,32 +164,8 @@ async def update_document(document_id: str, document: DocumentUpdate):
     except HTTPException:
         raise
     except Exception as e:
-        logger.warning(f"⚠️ Supabase update failed: {e}")
-    
-    # Fall back to SQLite
-    with connect() as conn:
-        sqlite_id = int(document_id) if document_id.isdigit() else -1
-        existing = conn.execute("SELECT id FROM docs WHERE id = ?", (sqlite_id,)).fetchone()
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Document not found")
-        
-        updates = []
-        params = []
-        if document.title is not None:
-            updates.append("source = ?")
-            params.append(document.title)
-        if document.content is not None:
-            updates.append("content = ?")
-            params.append(document.content)
-        
-        if updates:
-            query = f"UPDATE docs SET {', '.join(updates)} WHERE id = ?"
-            params.append(sqlite_id)
-            conn.execute(query, tuple(params))
-            conn.commit()
-    
-    return APIResponse(success=True, message="Document updated", data={"id": document_id})
+        logger.error(f"❌ Supabase update failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update document")
 
 
 @router.delete("/{document_id}", status_code=204)
@@ -271,7 +175,6 @@ async def delete_document(document_id: str):
     
     Returns 204 No Content on success, 404 if document not found.
     """
-    # Try Supabase first
     try:
         from ...infrastructure.supabase_client import get_supabase_client
         supabase = get_supabase_client()
@@ -286,17 +189,5 @@ async def delete_document(document_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.warning(f"⚠️ Supabase delete failed: {e}")
-    
-    # Fall back to SQLite
-    with connect() as conn:
-        sqlite_id = int(document_id) if document_id.isdigit() else -1
-        existing = conn.execute("SELECT id FROM docs WHERE id = ?", (sqlite_id,)).fetchone()
-        
-        if not existing:
-            raise HTTPException(status_code=404, detail="Document not found")
-        
-        conn.execute("DELETE FROM docs WHERE id = ?", (sqlite_id,))
-        conn.commit()
-    
-    return Response(status_code=204)
+        logger.error(f"❌ Supabase delete failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete document")
