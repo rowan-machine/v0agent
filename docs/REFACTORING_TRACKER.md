@@ -1,19 +1,45 @@
 # V0Agent Refactoring Tracker
 
-> **Last Updated**: 2026-01-27 (Phase 2.6 - Domain Decomposition)
-> **Status**: Phase 2.6 - Career & DIKW Domain Refactoring
+> **Last Updated**: 2026-01-27 (Phase 2.7 - Major Milestone Reached)
+> **Status**: Phase 2.7 - Domain Decomposition Complete, Service Migration Done
 
 ## Current Focus
 
-1. **Repository Pattern Implementation** ✅ - 11 repositories created (CareerRepository, DIKWRepository, etc.)
-2. **Backward Compatibility Removed** ✅ - meetings_supabase, documents_supabase, tickets_supabase removed
-3. **Shared Infrastructure Layer** ✅ - Created shared/ folder for cross-cutting concerns
-4. **Career Domain Decomposition** ✅ - Split into 7 API modules + services
-5. **DIKW Domain Decomposition** ✅ - Split into 4 API modules + services
+1. **Repository Pattern Implementation** ✅ - 11 repositories created
+2. **Backward Compatibility Removed** ✅ - meetings_supabase, documents_supabase, tickets_supabase aliases removed
+3. **Service Naming Migration** ✅ - All 62+ usages migrated to meeting_service, document_service, ticket_service
+4. **Career Domain Decomposition** ✅ - Split into 7 API modules + services (27 routes)
+5. **DIKW Domain Decomposition** ✅ - Split into 4 API modules + services (20 routes)
+6. **Meetings Domain** ✅ - 17 routes at /api/domains/meetings/*
+7. **Tickets Domain** ✅ - 12 routes at /api/domains/tickets/*
+8. **Documents Domain** ✅ - 9 routes at /api/domains/documents/*
+9. **Arjuna Agent Decomposition** ✅ - Package structure created, constants extracted
 
 ---
 
 ## Recent Accomplishments (2026-01-27)
+
+### Major Milestone: main.py Route Extraction
+- **Before**: 450 routes in main.py
+- **After**: 32 routes in main.py (93% reduction!)
+- **Route Distribution**:
+  - Domain routers: 85 routes (career: 27, dikw: 20, meetings: 17, tickets: 12, documents: 9)
+  - API routers: ~333 routes (career.py: 64, workflow.py: 18, dikw.py: 16, etc.)
+  - Main.py remaining: 32 routes (health, auth, page renders, dashboard APIs)
+
+### Service Naming Migration
+| Old Name | New Name | Files Updated |
+|----------|----------|---------------|
+| meetings_supabase | meeting_service | main.py, search.py, routes.py, action_items.py, transcripts.py, background_jobs.py, reports.py, pocket.py |
+| documents_supabase | document_service | main.py, search.py, routes.py, pocket.py |
+| tickets_supabase | ticket_service | main.py, career.py, reports.py, background_jobs.py |
+
+### Arjuna Agent Decomposition
+- Created `agents/arjuna/` package with `__init__.py`
+- Extracted `constants.py` (130 lines): AVAILABLE_MODELS, SYSTEM_PAGES, MODEL_ALIASES, FOCUS_KEYWORDS
+- Renamed `arjuna.py` → `_arjuna_core.py` to avoid circular imports
+- Core file reduced from 2573 → 2466 lines
+- Full backward compatibility maintained through re-exports
 
 ### Domain-Driven Design Progress
 | Task | Status | Details |
@@ -22,10 +48,9 @@
 | Remove backward compat | ✅ DONE | Removed _supabase naming convention aliases |
 | Career domain structure | ✅ DONE | domains/career/ with api/, services/, constants.py |
 | DIKW domain structure | ✅ DONE | domains/dikw/ with api/, services/, constants.py |
-| Career API modules | ✅ DONE | profile, skills, standups, suggestions, memories, code_locker, chat |
-| DIKW API modules | ✅ DONE | items, relationships (placeholder), synthesis, promotion |
-| Career services | ✅ DONE | standup_service, suggestion_service |
-| DIKW services | ✅ DONE | synthesis_service, promotion_service |
+| Meetings domain structure | ✅ DONE | domains/meetings/ with api/, services/ |
+| Tickets domain structure | ✅ DONE | domains/tickets/ with api/, services/ |
+| Documents domain structure | ✅ DONE | domains/documents/ with api/, services/ |
 
 ### Repository Pattern Status
 | Repository | Status | Table Coverage |
