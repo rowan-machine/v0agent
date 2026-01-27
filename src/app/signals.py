@@ -52,6 +52,8 @@ def get_signals_by_type(signal_type: str, days: int = None, limit: int = 100):
     }
     
     supabase = get_supabase_client()
+    if not supabase:
+        return [], 0
 
     # Build query
     query = supabase.table("meetings").select("id, meeting_name, meeting_date, signals").neq("signals", None).neq("signals", "{}")

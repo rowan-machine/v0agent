@@ -185,6 +185,9 @@ async def get_workflow_modes():
     try:
         import json
         supabase = get_supabase_client()
+        if not supabase:
+            return JSONResponse({"modes": DEFAULT_MODES, "is_default": True})
+        
         response = supabase.table("workflow_modes").select("*").eq("is_active", True).order("sort_order").execute()
         modes = response.data
         

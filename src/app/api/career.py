@@ -715,10 +715,21 @@ async def get_standups(request: Request, limit: int = Query(30, ge=1, le=100)):
     if not supabase:
         return JSONResponse([])
     
-    result = supabase.table("standup_updates").select("*").order(
-        "standup_date", desc=True
-    ).order("created_at", desc=True).limit(limit).execute()
-    return JSONResponse(result.data or [])
+    try:
+        # Try ordering by standup_date first, fall back to created_at
+        result = supabase.table("standup_updates").select("*").order(
+            "standup_date", desc=True
+        ).order("created_at", desc=True).limit(limit).execute()
+        return JSONResponse(result.data or [])
+    except Exception as e:
+        # If standup_date doesn't exist, try just created_at
+        try:
+            result = supabase.table("standup_updates").select("*").order(
+                "created_at", desc=True
+            ).limit(limit).execute()
+            return JSONResponse(result.data or [])
+        except Exception:
+            return JSONResponse([])
 
 
 @router.get("/career/standups")
