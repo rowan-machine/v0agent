@@ -19,11 +19,17 @@ All repository and service files follow these naming patterns:
 - `repositories/meeting_repository.py` - Clean repository pattern
 - `repositories/document_repository.py` - Clean repository pattern
 - `repositories/ticket_repository.py` - Clean repository pattern
-- `repositories/signal_repository.py` - **NEW** - Signal feedback/status operations
-- `repositories/settings_repository.py` - **NEW** - Mode sessions, sprint settings, user status
+- `repositories/signal_repository.py` - Signal feedback/status operations
+- `repositories/settings_repository.py` - Mode sessions, sprint settings, user status
+- `repositories/ai_memory_repository.py` - **NEW** - AI memory storage operations
+- `repositories/agent_messages_repository.py` - **NEW** - Agent-to-agent communication
+- `repositories/mindmap_repository.py` - **NEW** - Conversation mindmaps and syntheses
 - `services/meeting_service.py` - Clean service module (renamed from meetings_supabase.py)
 - `services/document_service.py` - Clean service module (renamed from documents_supabase.py)
 - `services/ticket_service.py` - Clean service module (renamed from tickets_supabase.py)
+- `services/signal_learning.py` - **REFACTORED** - Uses repositories
+- `services/agent_bus.py` - **REFACTORED** - Uses repositories
+- `services/mindmap_synthesis.py` - **REFACTORED** - Uses repositories
 - `mcp/server.py` - Uses proper service layer
 - `api/dikw.py` - Uses proper service layer
 - `api/mindmap.py` - Uses proper service layer
@@ -65,8 +71,11 @@ from .services import tickets_supabase  # -> ticket_service
 │  - MeetingRepository                                      │
 │  - DocumentRepository                                     │
 │  - TicketRepository                                       │
-│  - SignalRepository (NEW)                                 │
-│  - SettingsRepository (NEW)                               │
+│  - SignalRepository                                       │
+│  - SettingsRepository                                     │
+│  - AIMemoryRepository (NEW)                               │
+│  - AgentMessagesRepository (NEW)                          │
+│  - MindmapRepository (NEW)                                │
 │  - ConversationRepository                                 │
 │  - NotificationRepository                                 │
 └────────────────────────┬─────────────────────────────────┘
@@ -77,8 +86,11 @@ from .services import tickets_supabase  # -> ticket_service
 │  (Concrete implementations)                               │
 │  - SupabaseMeetingRepository                             │
 │  - SupabaseDocumentRepository                            │
-│  - SupabaseSignalRepository (NEW)                        │
-│  - SupabaseSettingsRepository (NEW)                      │
+│  - SupabaseSignalRepository                              │
+│  - SupabaseSettingsRepository                            │
+│  - SupabaseAIMemoryRepository (NEW)                      │
+│  - SupabaseAgentMessagesRepository (NEW)                 │
+│  - SupabaseMindmapRepository (NEW)                       │
 │  - etc.                                                   │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -98,15 +110,15 @@ from .services import tickets_supabase  # -> ticket_service
 - [x] `src/app/repositories/signal_repository.py` - **NEW** - Extracted from main.py
 - [x] `src/app/repositories/settings_repository.py` - **NEW** - Extracted from main.py
 
-### Priority 3 - Services Layer
+### Priority 3 - Services Layer (COMPLETED ✅)
 - [x] `src/app/services/meeting_service.py` - Renamed, enhanced with signal update methods
 - [x] `src/app/services/document_service.py` - Renamed
 - [x] `src/app/services/ticket_service.py` - Renamed
-- [ ] `src/app/services/background_jobs.py`
-- [ ] `src/app/services/agent_bus.py`
-- [ ] `src/app/services/mindmap_synthesis.py`
-- [ ] `src/app/services/coach_recommendations.py`
-- [ ] `src/app/services/signal_learning.py`
+- [x] `src/app/services/signal_learning.py` - Refactored to use SignalRepository + AIMemoryRepository
+- [x] `src/app/services/agent_bus.py` - Refactored to use AgentMessagesRepository
+- [x] `src/app/services/mindmap_synthesis.py` - Refactored to use MindmapRepository
+- [ ] `src/app/services/background_jobs.py` - Remaining (uses settings, notifications tables)
+- [ ] `src/app/services/coach_recommendations.py` - Remaining (uses multiple tables)
 
 ### Priority 4 - API Layer
 - [ ] `src/app/api/search.py`

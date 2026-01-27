@@ -24,7 +24,7 @@ def _get_repo():
     """Get or create the repository singleton."""
     global _repo
     if _repo is None:
-        _repo = get_document_repository("supabase")
+        _repo = get_document_repository()
     return _repo
 
 

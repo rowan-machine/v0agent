@@ -30,6 +30,26 @@ from .settings_repository import (
     SupabaseSettingsRepository,
     get_settings_repository,
 )
+from .ai_memory_repository import (
+    AIMemoryRepository,
+    SupabaseAIMemoryRepository,
+    get_ai_memory_repository,
+)
+from .agent_messages_repository import (
+    AgentMessage,
+    AgentMessagesRepository,
+    SupabaseAgentMessagesRepository,
+    MessagePriority,
+    MessageType,
+    get_agent_messages_repository,
+)
+from .mindmap_repository import (
+    ConversationMindmap,
+    MindmapSynthesis,
+    MindmapRepository,
+    SupabaseMindmapRepository,
+    get_mindmap_repository,
+)
 
 def get_meeting_repository() -> MeetingRepository:
     """Get meeting repository (Supabase)."""
@@ -69,4 +89,21 @@ __all__ = [
     "SettingsRepository",
     "SupabaseSettingsRepository",
     "get_settings_repository",
+    # AI Memory
+    "AIMemoryRepository",
+    "SupabaseAIMemoryRepository",
+    "get_ai_memory_repository",
+    # Agent Messages
+    "AgentMessage",
+    "AgentMessagesRepository",
+    "SupabaseAgentMessagesRepository",
+    "MessagePriority",
+    "MessageType",
+    "get_agent_messages_repository",
+    # Mindmaps
+    "ConversationMindmap",
+    "MindmapSynthesis",
+    "MindmapRepository",
+    "SupabaseMindmapRepository",
+    "get_mindmap_repository",
 ]

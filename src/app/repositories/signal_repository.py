@@ -76,6 +76,26 @@ class SignalRepository(ABC):
         """Remove feedback for a signal."""
         pass
     
+    @abstractmethod
+    def get_feedback_by_date_range(
+        self, 
+        days: int = 90, 
+        user_id: Optional[str] = None,
+        fields: List[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get feedback records within a date range.
+        
+        Args:
+            days: Number of days to look back
+            user_id: Optional user ID to filter by
+            fields: Optional list of fields to select (default: all)
+            
+        Returns:
+            List of feedback records matching criteria
+        """
+        pass
+    
     # --- Status Operations ---
     
     @abstractmethod
@@ -177,6 +197,31 @@ class SupabaseSignalRepository(SignalRepository):
             return True
         except Exception:
             return False
+    
+    def get_feedback_by_date_range(
+        self, 
+        days: int = 90, 
+        user_id: Optional[str] = None,
+        fields: List[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Get feedback records within a date range."""
+        from datetime import timedelta
+        
+        try:
+            cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+            select_fields = ", ".join(fields) if fields else "*"
+            
+            query = self._supabase.table("signal_feedback").select(
+                select_fields
+            ).gte("created_at", cutoff_date)
+            
+            if user_id:
+                query = query.eq("user_id", user_id)
+            
+            result = query.execute()
+            return result.data or []
+        except Exception:
+            return []
     
     # --- Status Operations ---
     

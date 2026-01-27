@@ -5,24 +5,28 @@ Aggregates mindmap data from all conversations and generates AI-powered
 synthesis with hierarchy preservation for knowledge graph integration.
 """
 
-import os
 import json
 import logging
 from typing import Optional, Dict, List, Any
 from datetime import datetime
 
 from ..llm import ask as ask_llm
-from ..infrastructure.supabase_client import get_supabase_client
+from ..repositories import get_mindmap_repository, MindmapRepository
 
 logger = logging.getLogger(__name__)
-
-def get_supabase():
-    """Get Supabase client."""
-    return get_supabase_client()
 
 
 class MindmapSynthesizer:
     """Synthesize mindmap data from conversations."""
+    
+    _repository: MindmapRepository = None
+    
+    @classmethod
+    def _get_repository(cls) -> MindmapRepository:
+        """Get or create the repository instance."""
+        if cls._repository is None:
+            cls._repository = get_mindmap_repository()
+        return cls._repository
     
     @staticmethod
     def extract_hierarchy_from_mindmap(mindmap_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -99,19 +103,15 @@ class MindmapSynthesizer:
             hierarchy = MindmapSynthesizer.extract_hierarchy_from_mindmap(mindmap_data)
             root_node_id = hierarchy.get('root_node', {}).get('id')
             
-            supabase = get_supabase()
-            if supabase:
-                result = supabase.table("conversation_mindmaps").insert({
-                    "conversation_id": str(conversation_id),
-                    "mindmap_json": json.dumps(mindmap_data),
-                    "hierarchy_levels": min(hierarchy.get('levels', 0), hierarchy_level + 1) if hierarchy_level >= 0 else hierarchy.get('levels', 0),
-                    "root_node_id": root_node_id,
-                    "node_count": hierarchy.get('node_count', 0),
-                    "title": title or str(conversation_id)
-                }).execute()
-                if result.data:
-                    return result.data[0].get('id')
-            return None
+            repo = MindmapSynthesizer._get_repository()
+            return repo.insert_conversation_mindmap(
+                conversation_id=str(conversation_id),
+                mindmap_json=json.dumps(mindmap_data),
+                hierarchy_levels=min(hierarchy.get('levels', 0), hierarchy_level + 1) if hierarchy_level >= 0 else hierarchy.get('levels', 0),
+                root_node_id=root_node_id,
+                node_count=hierarchy.get('node_count', 0),
+                title=title or str(conversation_id)
+            )
         except Exception as e:
             logger.error(f"Error storing conversation mindmap: {e}")
             return None
@@ -151,14 +151,8 @@ class MindmapSynthesizer:
         Returns:
             List of mindmaps with metadata and hierarchy info
         """
-        supabase = get_supabase()
-        if supabase:
-            result = supabase.table("conversation_mindmaps")\
-                .select("id, conversation_id, mindmap_json, hierarchy_levels, node_count, root_node_id, created_at")\
-                .order("updated_at", desc=True)\
-                .execute()
-            return result.data or []
-        return []
+        repo = MindmapSynthesizer._get_repository()
+        return repo.get_all_conversation_mindmaps()
     
     @staticmethod
     def extract_key_topics_and_relationships(mindmap_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -233,23 +227,14 @@ class MindmapSynthesizer:
             ID of the generated synthesis or None on error
         """
         try:
-            supabase = get_supabase()
-            if not supabase:
-                logger.error("Supabase not available for synthesis generation")
-                return None
+            repo = MindmapSynthesizer._get_repository()
             
             # Check if recent synthesis exists (within last hour)
             if not force:
-                from datetime import datetime, timedelta
-                cutoff = (datetime.utcnow() - timedelta(hours=1)).isoformat()
-                recent = supabase.table("mindmap_syntheses")\
-                    .select("id")\
-                    .gte("updated_at", cutoff)\
-                    .limit(1)\
-                    .execute()
-                if recent.data:
+                recent = repo.get_recent_synthesis(hours=1)
+                if recent:
                     logger.info("Recent synthesis exists, skipping generation")
-                    return recent.data[0]['id']
+                    return recent['id']
             
             # Get all mindmaps
             mindmaps = MindmapSynthesizer.get_all_mindmaps()
@@ -323,17 +308,15 @@ class MindmapSynthesizer:
             except:
                 synthesis_json = {'overview': response}
             
-            # Store synthesis
-            result = supabase.table("mindmap_syntheses").upsert({
-                "synthesis_text": response,
-                "hierarchy_summary": json.dumps(all_hierarchies),
-                "source_mindmap_ids": json.dumps(source_mindmap_ids),
-                "source_conversation_ids": json.dumps(source_conversation_ids),
-                "key_topics": json.dumps(list(set(all_topics[:50]))),
-                "relationships": json.dumps(all_relationships[:50])
-            }).execute()
-            
-            synthesis_id = result.data[0].get('id') if result.data else None
+            # Store synthesis using repository
+            synthesis_id = repo.upsert_synthesis(
+                synthesis_text=response,
+                hierarchy_summary=json.dumps(all_hierarchies),
+                source_mindmap_ids=json.dumps(source_mindmap_ids),
+                source_conversation_ids=json.dumps(source_conversation_ids),
+                key_topics=json.dumps(list(set(all_topics[:50]))),
+                relationships=json.dumps(all_relationships[:50])
+            )
             
             logger.info(f"Generated synthesis {synthesis_id} from {len(mindmaps)} mindmaps")
             return synthesis_id
@@ -345,16 +328,8 @@ class MindmapSynthesizer:
     @staticmethod
     def get_current_synthesis() -> Optional[Dict[str, Any]]:
         """Get the most recent synthesis."""
-        supabase = get_supabase()
-        if supabase:
-            result = supabase.table("mindmap_syntheses")\
-                .select("id, synthesis_text, hierarchy_summary, key_topics, relationships, source_mindmap_ids, source_conversation_ids, created_at, updated_at")\
-                .order("updated_at", desc=True)\
-                .limit(1)\
-                .execute()
-            if result.data:
-                return result.data[0]
-        return None
+        repo = MindmapSynthesizer._get_repository()
+        return repo.get_current_synthesis()
     
     @staticmethod
     def get_mindmap_by_hierarchy_level(level: int) -> List[Dict[str, Any]]:
@@ -439,35 +414,21 @@ class MindmapSynthesizer:
     @staticmethod
     def needs_synthesis() -> bool:
         """Check if synthesis is needed (new mindmaps since last synthesis)."""
-        supabase = get_supabase()
-        if not supabase:
-            return False
+        repo = MindmapSynthesizer._get_repository()
         
         # Get current mindmap IDs
-        mindmaps_result = supabase.table("conversation_mindmaps")\
-            .select("id")\
-            .order("id")\
-            .execute()
-        current_ids = [m['id'] for m in (mindmaps_result.data or [])]
+        current_ids = repo.get_conversation_mindmap_ids()
         
         if not current_ids:
             return False
         
-        # Get last synthesis
-        last_synthesis = supabase.table("mindmap_syntheses")\
-            .select("source_mindmap_ids")\
-            .order("updated_at", desc=True)\
-            .limit(1)\
-            .execute()
+        # Get last synthesis source IDs
+        synth_ids = repo.get_last_synthesis_source_ids()
         
-        if not last_synthesis.data:
+        if synth_ids is None:
             return True
         
-        try:
-            synth_ids = json.loads(last_synthesis.data[0]['source_mindmap_ids'])
-            return set(current_ids) != set(synth_ids)
-        except:
-            return True
+        return set(current_ids) != set(synth_ids)
 
     @staticmethod
     def generate_multiple_syntheses(force: bool = False) -> Dict[str, Optional[int]]:
@@ -484,19 +445,12 @@ class MindmapSynthesizer:
         """
         from ..llm import ask as ask_llm
         
-        supabase = get_supabase()
-        if not supabase:
-            return {}
+        repo = MindmapSynthesizer._get_repository()
         
         # Check if needed
         if not force and not MindmapSynthesizer.needs_synthesis():
             logger.info("No new mindmaps since last synthesis, skipping")
-            existing = supabase.table("mindmap_syntheses")\
-                .select("id, synthesis_type")\
-                .order("updated_at", desc=True)\
-                .limit(4)\
-                .execute()
-            return {row.get('synthesis_type') or 'default': row['id'] for row in (existing.data or [])}
+            return repo.get_recent_syntheses_by_type(limit=4)
         
         mindmaps = MindmapSynthesizer.get_all_mindmaps()
         if not mindmaps:
@@ -587,18 +541,17 @@ class MindmapSynthesizer:
                 
                 response = ask_llm(prompt, model="gpt-4o-mini")
                 
-                # Store this synthesis type
-                result = supabase.table("mindmap_syntheses").insert({
-                    "synthesis_text": response,
-                    "synthesis_type": synth_type,
-                    "hierarchy_summary": json.dumps(all_hierarchies),
-                    "source_mindmap_ids": json.dumps(source_mindmap_ids),
-                    "source_conversation_ids": json.dumps(source_conversation_ids),
-                    "key_topics": json.dumps(unique_topics),
-                    "relationships": json.dumps(all_relationships[:50])
-                }).execute()
+                # Store this synthesis type using repository
+                synth_id = repo.insert_synthesis(
+                    synthesis_text=response,
+                    hierarchy_summary=json.dumps(all_hierarchies),
+                    source_mindmap_ids=json.dumps(source_mindmap_ids),
+                    source_conversation_ids=json.dumps(source_conversation_ids),
+                    key_topics=json.dumps(unique_topics),
+                    relationships=json.dumps(all_relationships[:50]),
+                    synthesis_type=synth_type,
+                )
                 
-                synth_id = result.data[0].get('id') if result.data else None
                 results[synth_type] = synth_id
                 logger.info(f"Generated {synth_type} synthesis with ID {synth_id}")
                     
@@ -611,49 +564,12 @@ class MindmapSynthesizer:
     @staticmethod
     def get_synthesis_by_type(synthesis_type: str = 'default') -> Optional[Dict[str, Any]]:
         """Get the most recent synthesis of a specific type."""
-        supabase = get_supabase()
-        if not supabase:
-            return None
-        
-        if synthesis_type == 'default':
-            result = supabase.table("mindmap_syntheses")\
-                .select("id, synthesis_text, synthesis_type, hierarchy_summary, key_topics, relationships, source_mindmap_ids, source_conversation_ids, created_at, updated_at")\
-                .or_("synthesis_type.is.null,synthesis_type.eq.,synthesis_type.eq.default")\
-                .order("updated_at", desc=True)\
-                .limit(1)\
-                .execute()
-        else:
-            result = supabase.table("mindmap_syntheses")\
-                .select("id, synthesis_text, synthesis_type, hierarchy_summary, key_topics, relationships, source_mindmap_ids, source_conversation_ids, created_at, updated_at")\
-                .eq("synthesis_type", synthesis_type)\
-                .order("updated_at", desc=True)\
-                .limit(1)\
-                .execute()
-        
-        if result.data:
-            synthesis = result.data[0]
-            # Parse JSON fields
-            for field in ['key_topics', 'source_mindmap_ids', 'source_conversation_ids', 'relationships', 'hierarchy_summary']:
-                if synthesis.get(field) and isinstance(synthesis[field], str):
-                    try:
-                        synthesis[field] = json.loads(synthesis[field])
-                    except:
-                        pass
-            return synthesis
-        return None
+        repo = MindmapSynthesizer._get_repository()
+        return repo.get_synthesis_by_type(synthesis_type)
 
     @staticmethod
     def get_all_synthesis_types() -> List[str]:
         """Get list of available synthesis types."""
-        supabase = get_supabase()
-        if not supabase:
-            return ['default']
-        
-        result = supabase.table("mindmap_syntheses")\
-            .select("synthesis_type")\
-            .execute()
-        
-        types = set()
-        for row in (result.data or []):
-            types.add(row.get('synthesis_type') or 'default')
-        return sorted(list(types))
+        repo = MindmapSynthesizer._get_repository()
+        return repo.get_all_synthesis_types()
+

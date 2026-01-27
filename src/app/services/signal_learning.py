@@ -20,7 +20,12 @@ from datetime import datetime, timedelta
 import json
 import logging
 
-from ..infrastructure.supabase_client import get_supabase_client as get_supabase
+from ..repositories import (
+    get_signal_repository,
+    get_ai_memory_repository,
+    SignalRepository,
+    AIMemoryRepository,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,8 +45,15 @@ class SignalLearningService:
     4. Store learnings in ai_memory for context retrieval
     """
     
-    def __init__(self, user_id: Optional[str] = None):
+    def __init__(
+        self, 
+        user_id: Optional[str] = None,
+        signal_repository: Optional[SignalRepository] = None,
+        ai_memory_repository: Optional[AIMemoryRepository] = None,
+    ):
         self.user_id = user_id
+        self._signal_repo = signal_repository or get_signal_repository()
+        self._ai_memory_repo = ai_memory_repository or get_ai_memory_repository()
         self._feedback_cache: Dict[str, Any] = {}
         self._cache_expiry: Optional[datetime] = None
     
@@ -52,12 +64,7 @@ class SignalLearningService:
         Returns:
             Dict with feedback statistics by signal type and overall patterns
         """
-        supabase = get_supabase()
-        if not supabase:
-            logger.warning("Supabase not available for feedback summary")
-            return self._empty_summary()
-        
-        return self._get_feedback_summary_supabase(supabase, days)
+        return self._get_feedback_summary(days)
     
     def _empty_summary(self) -> Dict[str, Any]:
         """Return empty summary when no data available."""
@@ -70,26 +77,18 @@ class SignalLearningService:
             "approved_patterns": []
         }
     
-    def _get_feedback_summary_supabase(self, supabase, days: int) -> Dict[str, Any]:
-        """Supabase implementation for feedback summary."""
-        cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
-        
-        # Build filter for user if specified
-        filters = {"created_at": {"gte": cutoff_date}}
-        if self.user_id:
-            filters["user_id"] = self.user_id
-        
+    def _get_feedback_summary(self, days: int) -> Dict[str, Any]:
+        """Get feedback summary using repository."""
         try:
-            # Get all feedback in date range
-            query = supabase.table("signal_feedback").select(
-                "signal_type, signal_text, feedback, created_at"
-            ).gte("created_at", cutoff_date)
+            # Get all feedback in date range using repository
+            rows = self._signal_repo.get_feedback_by_date_range(
+                days=days,
+                user_id=self.user_id,
+                fields=["signal_type", "signal_text", "feedback", "created_at"]
+            )
             
-            if self.user_id:
-                query = query.eq("user_id", self.user_id)
-            
-            result = query.execute()
-            rows = result.data or []
+            if not rows:
+                return self._empty_summary()
             
             # Aggregate manually
             type_feedback_counts = {}
@@ -114,7 +113,7 @@ class SignalLearningService:
             return self._build_summary(type_counts, rejected[:50], approved[:50])
         
         except Exception as e:
-            logger.error(f"Failed to get feedback summary from Supabase: {e}")
+            logger.error(f"Failed to get feedback summary: {e}")
             return self._empty_summary()
     
     def _build_summary(
@@ -299,80 +298,25 @@ class SignalLearningService:
         if not learning_context:
             return None
         
-        supabase = get_supabase()
-        if not supabase:
-            return self._store_learning_sqlite(learning_context)
-        
         try:
-            # Check if we already have a signal learning memory
-            result = supabase.table("ai_memory").select("id").eq(
-                "source_type", "signal_learning"
-            ).limit(1).execute()
+            # Use upsert_by_source to create or update signal learning memory
+            memory = self._ai_memory_repo.upsert_by_source(
+                source_type="signal_learning",
+                source_query="Signal feedback patterns",
+                content=learning_context,
+                status="approved",
+                importance=8,  # High importance for context retrieval
+                tags=["signal", "learning", "feedback"],
+            )
             
-            if result.data:
-                # Update existing
-                memory_id = result.data[0]["id"]
-                supabase.table("ai_memory").update({
-                    "content": learning_context,
-                    "updated_at": datetime.now().isoformat(),
-                }).eq("id", memory_id).execute()
-                logger.info(f"Updated signal learning memory: {memory_id}")
-                return str(memory_id)
-            else:
-                # Create new
-                insert_result = supabase.table("ai_memory").insert({
-                    "source_type": "signal_learning",
-                    "source_query": "Signal feedback patterns",
-                    "content": learning_context,
-                    "status": "approved",
-                    "importance": 8,  # High importance for context retrieval
-                    "tags": ["signal", "learning", "feedback"],
-                }).execute()
-                
-                if insert_result.data:
-                    memory_id = insert_result.data[0]["id"]
-                    logger.info(f"Created signal learning memory: {memory_id}")
-                    return str(memory_id)
+            if memory:
+                logger.info(f"Stored signal learning memory: {memory.id}")
+                return str(memory.id)
         
         except Exception as e:
             logger.error(f"Failed to store signal learning: {e}")
         
         return None
-    
-    def _store_learning_sqlite(self, learning_context: str) -> Optional[str]:
-        """Supabase storage for learning (renamed from SQLite for compatibility)."""
-        try:
-            supabase = get_supabase()
-            if not supabase:
-                logger.warning("Supabase not available for storing learning")
-                return None
-            
-            # Check for existing
-            existing_result = supabase.table("ai_memory").select("id").eq("source_type", "signal_learning").execute()
-            
-            if existing_result.data:
-                existing_id = existing_result.data[0]["id"]
-                supabase.table("ai_memory").update({
-                    "content": learning_context,
-                    "updated_at": "now()"
-                }).eq("id", existing_id).execute()
-                return str(existing_id)
-            else:
-                insert_result = supabase.table("ai_memory").insert({
-                    "source_type": "signal_learning",
-                    "source_query": "Signal feedback patterns",
-                    "content": learning_context,
-                    "status": "approved",
-                    "importance": 8,
-                    "tags": "signal,learning,feedback"
-                }).execute()
-                if insert_result.data:
-                    return str(insert_result.data[0]["id"])
-                return None
-        
-        except Exception as e:
-            logger.error(f"Failed to store signal learning in Supabase: {e}")
-            return None
     
     def get_signal_quality_hints(self, signal_type: str) -> Dict[str, Any]:
         """
