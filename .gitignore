@@ -21,6 +21,9 @@ yarn-error.log
 *.db
 agent.db
 
+# Uploads - stored in Supabase Storage in production
+uploads/
+
 # Build outputs
 dist/
 build/

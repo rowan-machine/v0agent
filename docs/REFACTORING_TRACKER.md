@@ -1,15 +1,49 @@
 # V0Agent Refactoring Tracker
 
-> **Last Updated**: 2026-01-27 (Phase 2 Update)
-> **Status**: Phase 2 - DDD Enforcement & Backend/Frontend Separation
+> **Last Updated**: 2026-01-27 (Phase 2.5 - Cleanup & Tests)
+> **Status**: Phase 2.5 - Codebase Cleanup & Test Structure
 
 ## Current Focus
 
 1. **Enforce DDD in MCP Server** ✅ - Refactored to use service layer instead of direct Supabase calls
 2. **Remove pgAdmin from Docker** ✅ - Using Supabase Studio instead
 3. **Consolidate Domain Models** ✅ - Single canonical source in `core/domain/models.py`
-4. **Extract Analyst SDK** 🔄 - Create clean client library for external integrations
-5. **Backend/Frontend Separation** 🔄 - Clear decoupling with proper API contracts
+4. **Extract Analyst SDK** ✅ - Created sdk/signalflow/ with typed client
+5. **Backend/Frontend Separation** ✅ - Uploads migrated to Supabase Storage
+6. **Cleanup Scripts Folder** ✅ - Removed 31+ obsolete scripts
+7. **Restructure Tests** ✅ - unit/integration/e2e folder structure
+
+---
+
+## Recent Accomplishments (2026-01-27)
+
+### Cleanup Tasks Completed
+| Task | Status | Details |
+|------|--------|---------|
+| Remove llm_new.py | ✅ DONE | Was unused (0 imports found) |
+| Clean /scripts folder | ✅ DONE | Removed 31+ fix_*, check_*, sync_* scripts |
+| Remove /src/app/scripts | ✅ DONE | Deleted entire folder (completed migrations) |
+| Migrate uploads to Supabase | ✅ DONE | Updated tickets.py to use storage_supabase |
+| Update templates for Supabase URLs | ✅ DONE | edit_meeting.html, edit_doc.html |
+| Remove UPLOAD_DIR from main.py | ✅ DONE | No longer mounting local uploads |
+| Add uploads/ to .gitignore | ✅ DONE | Local-only, not tracked |
+
+### SDK & API Progress
+| Component | Status | Details |
+|-----------|--------|---------|
+| SDK Package (sdk/signalflow/) | ✅ DONE | client.py, analyst.py, models.py |
+| API v1 DIKW Endpoints | ✅ DONE | /api/v1/dikw with full CRUD |
+| MCP Server | ✅ DONE | src/app/mcp/server.py with DDD patterns |
+| Domain Models | ✅ DONE | core/domain/models.py with all entities |
+| Protocol Interfaces | ✅ DONE | core/ports/protocols.py |
+
+### Test Structure
+| Folder | Status | Tests |
+|--------|--------|-------|
+| tests/unit/ | ✅ DONE | 27 tests passing |
+| tests/integration/ | ✅ DONE | Structure created |
+| tests/fixtures/ | ✅ DONE | data.py with factories |
+| tests/e2e/ | ✅ DONE | Structure created |
 
 ---
 
@@ -168,29 +202,30 @@ src/
 
 ## Phase 3: Tests Reorganization
 
-### Target Structure
+### Target Structure ✅ IMPLEMENTED
 ```
 tests/
-├── unit/                       # Fast, isolated tests
-│   ├── domain/                 # Domain model tests
-│   ├── services/               # Service logic tests
-│   └── adapters/               # Adapter tests (mocked)
-├── integration/                # Tests with real dependencies
-│   ├── api/                    # API endpoint tests
-│   ├── database/               # Database integration
-│   └── external/               # External service tests
-├── e2e/                        # End-to-end scenarios
-│   └── workflows/
-├── fixtures/                   # Shared test data
-└── conftest.py                 # Shared pytest config
+├── unit/                       # Fast, isolated tests ✅
+│   ├── test_domain_models.py   # Domain model tests (13 tests)
+│   └── test_sdk_client.py      # SDK client tests (14 tests)
+├── integration/                # Tests with real dependencies ✅
+│   └── test_api_dikw.py        # DIKW API tests
+├── e2e/                        # End-to-end scenarios ✅
+│   └── __init__.py
+├── fixtures/                   # Shared test data ✅
+│   ├── data.py                 # Factory functions
+│   └── __init__.py
+└── conftest.py                 # Shared pytest config (existing)
 ```
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Create directory structure | ⬜ TODO | |
+| Create directory structure | ✅ DONE | unit/, integration/, fixtures/, e2e/ |
+| Add domain model tests | ✅ DONE | 13 tests for Signal, Meeting, DIKW, etc. |
+| Add SDK client tests | ✅ DONE | 14 tests for SignalFlowClient |
+| Create fixtures module | ✅ DONE | data.py with make_* factories |
 | Move existing tests | ⬜ TODO | Categorize by type |
 | Add missing unit tests | ⬜ TODO | Target 80% coverage |
-| Create fixtures module | ⬜ TODO | Reusable test data |
 
 ---
 
