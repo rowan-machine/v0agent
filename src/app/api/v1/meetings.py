@@ -39,7 +39,7 @@ def _get_meetings_from_supabase(skip: int = 0, limit: int = 50) -> tuple[List[Di
         
         # Get paginated meetings
         result = supabase.table("meetings").select("*").order(
-            "created_at", desc=True
+            "meeting_date", desc=True
         ).range(skip, skip + limit - 1).execute()
         
         meetings = []

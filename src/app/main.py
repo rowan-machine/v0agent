@@ -45,6 +45,9 @@ from .services import documents_supabase  # Supabase-first document reads
 from .services import tickets_supabase  # Supabase-first ticket reads
 from typing import Optional
 
+# Initialize logger
+logger = logging.getLogger(__name__)
+
 # =============================================================================
 # DIKW SYNTHESIZER AGENT IMPORTS (Checkpoint 2.5)
 # =============================================================================
@@ -4573,6 +4576,7 @@ async def load_meeting_bundle_ui(
     meeting_name: str = Form(...),
     meeting_date: str = Form(None),
     summary_text: str = Form(...),
+    pocket_recording_id: str = Form(None),
     pocket_ai_summary: str = Form(None),
     pocket_mind_map: str = Form(None),
     mindmap_level: int = Form(0),
@@ -4607,6 +4611,7 @@ async def load_meeting_bundle_ui(
         "transcript_text": merged_transcript,
         "pocket_ai_summary": pocket_ai_summary,
         "pocket_mind_map": pocket_mind_map,
+        "pocket_recording_id": pocket_recording_id,
         "format": "plain",
     })
     
@@ -4651,23 +4656,41 @@ async def load_meeting_bundle_ui(
                     import uuid
                     import os
                     
-                    # Generate unique filename
-                    ext = os.path.splitext(screenshot.filename)[1] or '.png'
-                    unique_name = f"{uuid.uuid4().hex}{ext}"
-                    file_path = os.path.join(UPLOAD_DIR, unique_name)
-                    
-                    # Save file
                     content = await screenshot.read()
-                    with open(file_path, 'wb') as f:
-                        f.write(content)
+                    mime_type = screenshot.content_type or 'image/png'
                     
-                    # Record in database
+                    # Try Supabase Storage first
+                    supabase_url = None
+                    supabase_path = None
+                    local_path = None
+                    
+                    try:
+                        from .services.storage_supabase import upload_file_to_supabase
+                        supabase_url, supabase_path = await upload_file_to_supabase(
+                            content=content,
+                            filename=screenshot.filename,
+                            meeting_id=meeting_id,
+                            content_type=mime_type
+                        )
+                    except Exception as e:
+                        logger.warning(f"Supabase upload failed, using local: {e}")
+                    
+                    # Fallback to local storage if Supabase fails
+                    if not supabase_url:
+                        ext = os.path.splitext(screenshot.filename)[1] or '.png'
+                        unique_name = f"{uuid.uuid4().hex}{ext}"
+                        file_path = os.path.join(UPLOAD_DIR, unique_name)
+                        with open(file_path, 'wb') as f:
+                            f.write(content)
+                        local_path = f"uploads/{unique_name}"
+                    
+                    # Record in database (with Supabase URL if available)
                     with connect() as conn:
                         conn.execute("""
-                            INSERT INTO attachments (ref_type, ref_id, filename, file_path, mime_type, file_size)
-                            VALUES ('meeting', ?, ?, ?, ?, ?)
-                        """, (meeting_id, screenshot.filename, f"uploads/{unique_name}", 
-                              screenshot.content_type or 'image/png', len(content)))
+                            INSERT INTO attachments (ref_type, ref_id, filename, file_path, mime_type, file_size, supabase_url, supabase_path)
+                            VALUES ('meeting', ?, ?, ?, ?, ?, ?, ?)
+                        """, (meeting_id, screenshot.filename, local_path or '', 
+                              mime_type, len(content), supabase_url, supabase_path))
                 except Exception as e:
                     logger.warning(f"Failed to upload screenshot: {e}")
         

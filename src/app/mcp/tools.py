@@ -151,7 +151,7 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
     - Optional transcript
     - Persist authoritative synthesis + structured signals
     - Auto-generates embeddings for meeting, transcript, and Pocket summary
-    - Idempotent: skips if (meeting_name, meeting_date) already exists
+    - Idempotent: skips if pocket_recording_id OR (meeting_name, meeting_date) already exists
     
     Pocket AI Summary Handling:
     - Detects Pocket template type from heading patterns
@@ -168,10 +168,27 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
     transcript_text = args.get("transcript_text")
     pocket_ai_summary = args.get("pocket_ai_summary")
     pocket_mind_map = args.get("pocket_mind_map")
+    pocket_recording_id = args.get("pocket_recording_id")  # Unique ID from Pocket
 
     # -----------------------------
-    # 0. Idempotency check - skip duplicates
+    # 0. Idempotency check - prefer pocket_recording_id if available
     # -----------------------------
+    
+    # Check Supabase first (primary)
+    from ..services import meetings_supabase
+    
+    if pocket_recording_id:
+        # Check by unique Pocket recording ID first
+        existing_by_pocket = meetings_supabase.get_meeting_by_pocket_recording_id(pocket_recording_id)
+        if existing_by_pocket:
+            return {
+                "status": "skipped",
+                "reason": "duplicate",
+                "existing_meeting_id": existing_by_pocket.get("id"),
+                "message": f"Meeting with Pocket recording '{pocket_recording_id}' already exists"
+            }
+    
+    # Fallback: check by name + date (for non-Pocket imports)
     with connect() as conn:
         existing = conn.execute(
             """
@@ -227,11 +244,12 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
     from ..services import meetings_supabase, documents_supabase
     
     supabase_meeting_data = {
-        "meeting_name": meeting_name,
-        "synthesized_notes": synthesized_notes,
+        "meeting_name": str(meeting_name).strip(),  # Ensure it's a string
+        "synthesized_notes": str(synthesized_notes).strip() if synthesized_notes else "",  # Ensure it's a string
         "meeting_date": meeting_date,
         "signals": signals,
-        "raw_text": transcript_text or "",
+        "raw_text": str(transcript_text).strip() if transcript_text else "",  # Ensure it's a string
+        "pocket_recording_id": pocket_recording_id,  # Unique ID for idempotency
     }
     
     supabase_meeting = meetings_supabase.create_meeting(supabase_meeting_data)

@@ -187,10 +187,16 @@
   }
 
   .collapsible-section.collapsed .section-content {
-    max-height: 0;
-    opacity: 0;
+    max-height: 0 !important;
+    opacity: 0 !important;
     padding-top: 0;
     padding-bottom: 0;
+    overflow: hidden;
+  }
+  
+  .collapsible-section:not(.collapsed) .section-content {
+    max-height: none !important;
+    opacity: 1 !important;
   }
 
   .collapsible-section .card-header {
@@ -2125,8 +2131,8 @@
     
     <div style="margin-bottom: 1.5rem;">
       <h4 style="margin: 0 0 0.75rem 0; font-size: 0.95rem; color: #374151;">📁 Upload Resume File</h4>
-      <div class="resume-upload-area" id="resumeDropZone" onclick="document.getElementById('resumeFileInput').click()">
-        <input type="file" id="resumeFileInput" accept=".pdf,.doc,.docx,.txt" style="display: none;" onchange="handleResumeFile(event)">
+      <div class="resume-upload-area" id="resumeDropZone" onclick="document.getElementById('resumeModalFileInput').click()">
+        <input type="file" id="resumeModalFileInput" accept=".pdf,.doc,.docx,.txt" style="display: none;" onchange="handleResumeFile(event)">
         <div style="font-size: 2rem; margin-bottom: 0.5rem;">📎</div>
         <p style="margin: 0; color: #6b7280;">Click or drag & drop your resume here</p>
         <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: #9ca3af;">Supports PDF, DOC, DOCX, TXT</p>
@@ -2170,7 +2176,19 @@ function showResumeModal() {
 function closeResumeModal() {
   document.getElementById('resumeModal').classList.remove('active');
   document.getElementById('resumeTextArea').value = '';
-  document.getElementById('resumeFileInput').value = '';
+  
+  // Reset the drop zone to original state
+  const dropZone = document.getElementById('resumeDropZone');
+  if (dropZone) {
+    dropZone.innerHTML = `
+      <input type="file" id="resumeModalFileInput" accept=".pdf,.doc,.docx,.txt" style="display: none;" onchange="handleResumeFile(event)">
+      <div style="font-size: 2rem; margin-bottom: 0.5rem;">📎</div>
+      <p style="margin: 0; color: #6b7280;">Click or drag & drop your resume here</p>
+      <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: #9ca3af;">Supports PDF, DOC, DOCX, TXT</p>
+    `;
+    dropZone.style.borderColor = '';
+    dropZone.style.background = '';
+  }
 }
 
 function setupResumeDropZone() {
@@ -2190,7 +2208,7 @@ function setupResumeDropZone() {
     dropZone.classList.remove('dragover');
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      handleResumeFileUpload(files[0]);
+      handleResumeModalUpload(files[0]);
     }
   });
 }
@@ -2198,12 +2216,13 @@ function setupResumeDropZone() {
 function handleResumeFile(event) {
   const file = event.target.files[0];
   if (file) {
-    handleResumeFileUpload(file);
+    handleResumeModalUpload(file);
   }
 }
 
-async function handleResumeFileUpload(file) {
+async function handleResumeModalUpload(file) {
   const btn = document.getElementById('extractResumeBtn');
+  const dropZone = document.getElementById('resumeDropZone');
   btn.disabled = true;
   btn.textContent = '📤 Uploading...';
   
@@ -2211,7 +2230,7 @@ async function handleResumeFileUpload(file) {
   formData.append('file', file);
   
   try {
-    const response = await fetch('/api/career/resume/upload', {
+    const response = await fetch('/api/career/extract-resume-text', {
       method: 'POST',
       credentials: 'same-origin',
       body: formData
@@ -2219,11 +2238,35 @@ async function handleResumeFileUpload(file) {
     
     if (response.ok) {
       const data = await response.json();
-      document.getElementById('resumeTextArea').value = data.text || '';
-      showToast(`Resume uploaded: ${file.name}`);
+      const extractedText = data.text || '';
+      document.getElementById('resumeTextArea').value = extractedText;
+      
+      // Update drop zone to show uploaded file
+      if (dropZone) {
+        dropZone.innerHTML = `
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">✅</div>
+          <p style="margin: 0; color: #059669; font-weight: 500;">📄 ${file.name}</p>
+          <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: #6b7280;">${extractedText.length} characters extracted</p>
+          <p style="margin: 0.5rem 0 0; font-size: 0.8rem; color: #9ca3af;">Click to upload a different file</p>
+        `;
+        dropZone.style.borderColor = '#059669';
+        dropZone.style.background = 'rgba(5, 150, 105, 0.05)';
+      }
+      
+      showToast(`✅ Resume extracted: ${extractedText.length} chars - Click "Extract Skills"`);
     } else {
       const err = await response.json();
       showToast(err.error || 'Failed to upload resume');
+      // Reset drop zone on error
+      if (dropZone) {
+        dropZone.innerHTML = `
+          <input type="file" id="resumeModalFileInput" accept=".pdf,.doc,.docx,.txt" style="display: none;" onchange="handleResumeFile(event)">
+          <div style="font-size: 2rem; margin-bottom: 0.5rem;">❌</div>
+          <p style="margin: 0; color: #ef4444;">Upload failed - try again</p>
+          <p style="margin: 0.25rem 0 0; font-size: 0.85rem; color: #9ca3af;">Click or drag & drop</p>
+        `;
+        dropZone.style.borderColor = '#ef4444';
+      }
     }
   } catch (err) {
     console.error('Upload error:', err);
@@ -2314,6 +2357,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSuggestions();
   loadCareerChatHistory();
   loadCareerMemory();
+  loadSavedInsights();  // Load persisted AI insights
   loadSkills();
   loadCompletedProjects();
   loadAIMemories();
@@ -2619,7 +2663,19 @@ async function loadSuggestions() {
     const response = await fetch('/api/career/suggestions', { credentials: 'same-origin' });
     if (response.ok) {
       suggestions = await response.json();
+      console.log('Loaded suggestions:', suggestions.length, 'items');
       renderSuggestions();
+      
+      // Auto-expand suggestions section if there are suggestions
+      const activeSuggestions = suggestions.filter(s => s.status !== 'dismissed');
+      if (activeSuggestions.length > 0) {
+        const section = document.getElementById('suggestionsSection');
+        if (section) {
+          // Remove collapsed class and update localStorage
+          section.classList.remove('collapsed');
+          localStorage.setItem('career_suggestionsSection_collapsed', 'false');
+        }
+      }
     }
   } catch (err) {
     console.error('Failed to load suggestions:', err);
@@ -2632,7 +2688,7 @@ async function generateSuggestions() {
   btn.innerHTML = '<span class="spinner"></span> Generating...';
 
   try {
-    const response = await fetch('/api/career/suggestions/generate', {
+    const response = await fetch('/api/career/generate-suggestions', {
       method: 'POST',
       credentials: 'same-origin'
     });
@@ -2653,8 +2709,18 @@ function renderSuggestions() {
   const list = document.getElementById('suggestionList');
   const count = document.getElementById('suggestionCount');
   
+  console.log('renderSuggestions called, list element:', list);
+  console.log('suggestions array:', suggestions);
+  
+  if (!list) {
+    console.error('suggestionList element not found!');
+    return;
+  }
+  
   const activeSuggestions = suggestions.filter(s => s.status !== 'dismissed');
-  count.textContent = `${activeSuggestions.length} suggestions`;
+  if (count) count.textContent = `${activeSuggestions.length} suggestions`;
+  
+  console.log('Rendering', activeSuggestions.length, 'active suggestions');
 
   if (activeSuggestions.length === 0) {
     list.innerHTML = `
@@ -2669,16 +2735,20 @@ function renderSuggestions() {
     return;
   }
 
-  list.innerHTML = activeSuggestions.map(s => `
-    <div class="suggestion-item ${s.status === 'dismissed' ? 'dismissed' : ''}">
+  const html = activeSuggestions.map(s => `
+    <div class="suggestion-item ${s.status === 'dismissed' ? 'dismissed' : ''}" style="border: 1px solid #e5e7eb;">
       <div class="suggestion-title">${escapeHtml(s.title || 'Suggestion')}</div>
-      <div class="suggestion-content">${escapeHtml(s.content)}</div>
+      <div class="suggestion-content">${escapeHtml(s.description || s.content || '')}</div>
+      ${s.rationale ? `<div class="suggestion-rationale" style="font-size: 0.8rem; color: #6b7280; margin-top: 0.25rem;">💡 ${escapeHtml(s.rationale)}</div>` : ''}
       <div class="suggestion-actions">
         <button class="suggestion-btn convert" onclick="convertToTicket(${s.id})">📋 Create Ticket</button>
         <button class="suggestion-btn dismiss" onclick="dismissSuggestion(${s.id})">✕ Dismiss</button>
       </div>
     </div>
   `).join('');
+  
+  console.log('Setting innerHTML to:', html.substring(0, 200));
+  list.innerHTML = html;
 }
 
 async function dismissSuggestion(id) {
@@ -2827,6 +2897,29 @@ async function loadCareerMemory() {
 
 // Track current career insights run_id for feedback
 let careerInsightsRunId = null;
+
+// Load saved insights from backend on page init
+async function loadSavedInsights() {
+  const content = document.getElementById('careerMemoryContent');
+  const timestamp = document.getElementById('memoryTimestamp');
+  if (!content) return;
+  
+  try {
+    const response = await fetch('/api/career/insights', { credentials: 'same-origin' });
+    if (!response.ok) return;
+    
+    const data = await response.json();
+    if (data.insights) {
+      let insightsHtml = parseInsightsWithSaveButtons(data.insights);
+      content.innerHTML = insightsHtml;
+      if (timestamp && data.generated_at) {
+        timestamp.textContent = `Last generated: ${new Date(data.generated_at).toLocaleString()}`;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load saved insights:', err);
+  }
+}
 
 // Generate AI Career Insights based on skills, projects, and profile
 async function generateCareerInsights() {
@@ -3372,18 +3465,29 @@ async function removeUnselectedSkills() {
 
 // Handle resume file upload
 async function handleResumeFileUpload(event) {
-  const file = event.target.files[0];
+  const file = event.target?.files?.[0] || event;
   if (!file) return;
   
   const fileNameSpan = document.getElementById('resumeFileName');
-  fileNameSpan.textContent = file.name;
+  const textArea = document.getElementById('resumeTextInput');
+  const uploadBtn = document.querySelector('[onclick*="resumeFileInput"]');
+  
+  // Show file is being processed
+  if (fileNameSpan) {
+    fileNameSpan.textContent = `📄 ${file.name}`;
+    fileNameSpan.style.color = '#059669';  // Green color
+    fileNameSpan.style.fontWeight = '500';
+  }
   
   // For text files, read directly
   if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      document.getElementById('resumeTextInput').value = e.target.result;
-      showToast('Resume text loaded! Click "Extract Skills" to continue.');
+      if (textArea) {
+        textArea.value = e.target.result;
+        textArea.style.border = '2px solid #059669';  // Visual indicator
+      }
+      showToast(`✅ Resume loaded: ${file.name} - Click "Extract Skills" to continue`);
     };
     reader.readAsText(file);
     return;
@@ -3391,6 +3495,7 @@ async function handleResumeFileUpload(event) {
   
   // For PDF/DOC files, we need server-side processing
   if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+    if (fileNameSpan) fileNameSpan.textContent = `⏳ Processing ${file.name}...`;
     showToast('PDF detected - extracting text...');
     
     const formData = new FormData();
@@ -3405,14 +3510,34 @@ async function handleResumeFileUpload(event) {
       
       if (response.ok) {
         const data = await response.json();
-        document.getElementById('resumeTextInput').value = data.text || '';
-        showToast('Resume text extracted! Click "Extract Skills" to continue.');
+        const extractedText = data.text || '';
+        if (textArea) {
+          textArea.value = extractedText;
+          textArea.style.border = extractedText ? '2px solid #059669' : '2px solid #ef4444';
+        }
+        if (fileNameSpan) {
+          fileNameSpan.textContent = extractedText ? `✅ ${file.name}` : `⚠️ ${file.name} (empty)`;
+          fileNameSpan.style.color = extractedText ? '#059669' : '#f59e0b';
+        }
+        if (extractedText) {
+          showToast(`✅ Resume text extracted (${extractedText.length} chars) - Click "Extract Skills"`);
+        } else {
+          showToast('⚠️ PDF appears empty. Please paste text manually.');
+        }
       } else {
-        showToast('Could not extract text from PDF. Please paste the text manually.');
+        if (fileNameSpan) {
+          fileNameSpan.textContent = `❌ ${file.name} (failed)`;
+          fileNameSpan.style.color = '#ef4444';
+        }
+        showToast('❌ Could not extract text from PDF. Please paste the text manually.');
       }
     } catch (err) {
       console.error('Failed to extract PDF text:', err);
-      showToast('Could not extract text from PDF. Please paste the text manually.');
+      if (fileNameSpan) {
+        fileNameSpan.textContent = `❌ ${file.name} (error)`;
+        fileNameSpan.style.color = '#ef4444';
+      }
+      showToast('❌ Could not extract text from PDF. Please paste the text manually.');
     }
     return;
   }
@@ -3427,9 +3552,16 @@ async function handleResumeFileUpload(event) {
 }
 
 async function uploadResumeForSkills() {
-  const resumeText = document.getElementById('resumeTextInput')?.value?.trim();
+  const textArea = document.getElementById('resumeTextInput');
+  const resumeText = textArea?.value?.trim();
   if (!resumeText) {
-    showToast('Please upload a file or paste your resume text first');
+    // Highlight the textarea to show where input is needed
+    if (textArea) {
+      textArea.style.border = '2px solid #ef4444';
+      textArea.focus();
+      textArea.placeholder = '⬆️ Upload a file above or paste your resume text here...';
+    }
+    showToast('⚠️ No resume text found. Upload a file or paste text in the box above.');
     return;
   }
   

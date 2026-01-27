@@ -2270,7 +2270,7 @@ class SimpleLLMClient:
             messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": prompt})
         
-        resp = _client_once().chat.completions.create(
+        resp = _openai_client_once().chat.completions.create(
             model=model,
             messages=messages,
             temperature=temperature,

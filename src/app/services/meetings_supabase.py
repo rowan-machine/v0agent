@@ -58,6 +58,33 @@ def get_meeting_by_id(meeting_id: str) -> Optional[Dict[str, Any]]:
     return _get_repo().get_by_id(meeting_id)
 
 
+def get_meeting_by_pocket_recording_id(pocket_recording_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Get a meeting by its Pocket recording ID.
+    
+    Args:
+        pocket_recording_id: The unique Pocket recording UUID
+        
+    Returns:
+        Meeting dictionary or None if not found
+    """
+    client = get_supabase_client()
+    if not client or not pocket_recording_id:
+        return None
+    
+    try:
+        result = client.table("meetings").select("*").eq(
+            "pocket_recording_id", pocket_recording_id
+        ).limit(1).execute()
+        
+        if result.data:
+            return _get_repo()._format_row(result.data[0])
+        return None
+    except Exception as e:
+        logger.error(f"Failed to get meeting by pocket_recording_id: {e}")
+        return None
+
+
 def get_meetings_count() -> int:
     """
     Get total count of meetings in Supabase.

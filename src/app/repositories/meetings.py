@@ -68,16 +68,36 @@ class SupabaseMeetingRepository(MeetingRepository):
     
     def _format_row(self, row: Dict) -> Dict[str, Any]:
         """Format Supabase row to standard meeting dict."""
+        # Handle case where the entire meeting got JSON-encoded in meeting_name
+        meeting_name = row.get("meeting_name", "Untitled Meeting")
+        if isinstance(meeting_name, str) and meeting_name.startswith('{'):
+            try:
+                # Try to parse it as JSON
+                parsed = json.loads(meeting_name)
+                if isinstance(parsed, dict) and "meeting_name" in parsed:
+                    # It's the full meeting object encoded - use the parsed version
+                    logger.warning("Found full meeting object in meeting_name field - merging data")
+                    row.update(parsed)
+                    meeting_name = parsed.get("meeting_name", "Untitled Meeting")
+            except json.JSONDecodeError:
+                pass  # It's just a string that happens to start with {
+        
+        # Format meeting_date to just the date (no time)
+        meeting_date = row.get("meeting_date", "")
+        if meeting_date and "T" in str(meeting_date):
+            meeting_date = str(meeting_date).split("T")[0]
+        
         return {
             "id": row.get("id"),
-            "meeting_name": row.get("meeting_name", "Untitled Meeting"),
-            "meeting_date": row.get("meeting_date"),
-            "synthesized_notes": row.get("synthesized_notes", ""),
+            "meeting_name": str(meeting_name) if meeting_name else "Untitled Meeting",
+            "meeting_date": meeting_date,
+            "synthesized_notes": str(row.get("synthesized_notes", "")) if row.get("synthesized_notes") else "",
             "signals_json": json.dumps(row.get("signals", {})) if row.get("signals") else None,
             "signals": row.get("signals", {}),
-            "raw_text": row.get("raw_text"),
-            "pocket_ai_summary": row.get("pocket_ai_summary"),
-            "pocket_mind_map": row.get("pocket_mind_map"),
+            "raw_text": str(row.get("raw_text", "")) if row.get("raw_text") else "",
+            "pocket_ai_summary": str(row.get("pocket_ai_summary", "")) if row.get("pocket_ai_summary") else "",
+            "pocket_mind_map": str(row.get("pocket_mind_map", "")) if row.get("pocket_mind_map") else "",
+            "pocket_recording_id": row.get("pocket_recording_id"),  # Unique ID for idempotency
             "import_source": row.get("import_source"),
             "created_at": row.get("created_at"),
             "updated_at": row.get("updated_at"),
@@ -272,18 +292,39 @@ class SQLiteMeetingRepository(MeetingRepository):
     
     def _format_row(self, row) -> Dict[str, Any]:
         """Format SQLite row to standard meeting dict."""
+        # Convert sqlite3.Row to dict if needed
+        if hasattr(row, 'keys'):
+            row_dict = dict(row)
+        else:
+            row_dict = row
+        
+        # Handle case where the entire meeting got JSON-encoded in meeting_name
+        meeting_name = row_dict.get("meeting_name") or row.get("meeting_name")
+        
+        if isinstance(meeting_name, str) and meeting_name.startswith('{'):
+            try:
+                # Try to parse it as JSON
+                parsed = json.loads(meeting_name)
+                if isinstance(parsed, dict) and "meeting_name" in parsed:
+                    # It's the full meeting object encoded - use the parsed version
+                    logger.warning("Found full meeting object in meeting_name field - merging data")
+                    row_dict.update(parsed)
+                    meeting_name = parsed.get("meeting_name", "Untitled Meeting")
+            except json.JSONDecodeError:
+                pass  # It's just a string that happens to start with {
+        
         return {
-            "id": row["id"],
-            "meeting_name": row["meeting_name"],
-            "meeting_date": row["meeting_date"],
-            "synthesized_notes": row["synthesized_notes"],
-            "signals_json": row.get("signals_json"),
-            "signals": json.loads(row["signals_json"]) if row.get("signals_json") else {},
-            "raw_text": row.get("raw_text"),
-            "pocket_ai_summary": row.get("pocket_ai_summary"),
-            "pocket_mind_map": row.get("pocket_mind_map"),
-            "import_source": row.get("import_source"),
-            "created_at": row.get("created_at"),
+            "id": row_dict.get("id") or row["id"],
+            "meeting_name": str(meeting_name) if meeting_name else "Untitled Meeting",
+            "meeting_date": row_dict.get("meeting_date"),
+            "synthesized_notes": str(row_dict.get("synthesized_notes", "")) if row_dict.get("synthesized_notes") else "",
+            "signals_json": row_dict.get("signals_json"),
+            "signals": json.loads(row_dict["signals_json"]) if row_dict.get("signals_json") else {},
+            "raw_text": str(row_dict.get("raw_text", "")) if row_dict.get("raw_text") else "",
+            "pocket_ai_summary": str(row_dict.get("pocket_ai_summary", "")) if row_dict.get("pocket_ai_summary") else "",
+            "pocket_mind_map": str(row_dict.get("pocket_mind_map", "")) if row_dict.get("pocket_mind_map") else "",
+            "import_source": row_dict.get("import_source"),
+            "created_at": row_dict.get("created_at"),
         }
     
     def get_all(self, options: Optional[QueryOptions] = None) -> List[Dict[str, Any]]:

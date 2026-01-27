@@ -70,19 +70,18 @@ def get_supabase_client():
     except ImportError:
         logger.warning("⚠️ supabase package not installed")
         return None
-    except TypeError as e:
+    except (TypeError, AttributeError) as e:
         # Handle version incompatibility - try without options
-        if "proxy" in str(e) or "unexpected keyword argument" in str(e):
-            try:
-                from supabase import create_client
-                _supabase_client = create_client(supabase_url, supabase_key)
-                logger.info(f"✅ Connected to Supabase (fallback): {supabase_url}")
-                return _supabase_client
-            except Exception as e2:
-                logger.error(f"❌ Failed to connect to Supabase (fallback): {e2}")
-                return None
-        logger.error(f"❌ Failed to connect to Supabase: {e}")
-        return None
+        # Common errors: 'proxy', 'unexpected keyword argument', 'storage' attribute
+        logger.warning(f"⚠️ Supabase client options failed ({e}), trying without options...")
+        try:
+            from supabase import create_client
+            _supabase_client = create_client(supabase_url, supabase_key)
+            logger.info(f"✅ Connected to Supabase (fallback): {supabase_url}")
+            return _supabase_client
+        except Exception as e2:
+            logger.error(f"❌ Failed to connect to Supabase (fallback): {e2}")
+            return None
     except Exception as e:
         logger.error(f"❌ Failed to connect to Supabase: {e}")
         return None

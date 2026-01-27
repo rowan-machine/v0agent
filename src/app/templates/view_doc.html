@@ -34,6 +34,22 @@
     background: var(--sf-primary-dark, #5568d3);
     transform: translateY(-1px);
   }
+  
+  /* Highlight mention styles */
+  .highlight-mention {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    padding: 2px 4px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(251, 191, 36, 0.3);
+  }
+  .highlight-pulse {
+    animation: pulse-highlight 2s ease-in-out;
+  }
+  @keyframes pulse-highlight {
+    0%, 100% { background: linear-gradient(135deg, #fef3c7, #fde68a); }
+    50% { background: linear-gradient(135deg, #fbbf24, #f59e0b); box-shadow: 0 0 20px rgba(251, 191, 36, 0.6); }
+  }
+  
   /* Markdown styles */
   .doc-content strong { font-weight: bold; color: var(--sf-text-dark, #1a1a1a); }
   .doc-content em { font-style: italic; color: var(--sf-text, #555); }
@@ -221,10 +237,51 @@ function parseMarkdown(text) {
   return text;
 }
 
+function highlightAndScroll(text, searchTerm) {
+  if (!searchTerm || !text) return text;
+  
+  // Create a regex to find the search term (case insensitive)
+  const regex = new RegExp(`(${searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  
+  // Wrap matches in a highlight span
+  const highlighted = text.replace(regex, '<mark class="highlight-mention" id="first-mention">$1</mark>');
+  
+  // Only keep the ID on the first match
+  let first = true;
+  return highlighted.replace(/id="first-mention"/g, () => {
+    if (first) {
+      first = false;
+      return 'id="first-mention"';
+    }
+    return '';
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   const content = document.getElementById('doc-content');
+  const highlightTerm = '{{ highlight|default("", true) }}';
+  
   if (content) {
-    content.innerHTML = parseMarkdown(content.textContent);
+    let html = parseMarkdown(content.textContent);
+    
+    // Apply highlighting if a search term was provided
+    if (highlightTerm) {
+      html = highlightAndScroll(html, highlightTerm);
+    }
+    
+    content.innerHTML = html;
+    
+    // Scroll to first mention if exists
+    if (highlightTerm) {
+      setTimeout(() => {
+        const firstMention = document.getElementById('first-mention');
+        if (firstMention) {
+          firstMention.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Pulse animation
+          firstMention.classList.add('highlight-pulse');
+        }
+      }, 100);
+    }
   }
 });
 

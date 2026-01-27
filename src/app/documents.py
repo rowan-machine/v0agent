@@ -179,13 +179,13 @@ def list_documents(request: Request, success: str = Query(default=None)):
 
 
 @router.get("/documents/{doc_id}")
-def view_document(doc_id: str, request: Request):
+def view_document(doc_id: str, request: Request, highlight: str = None):
     # Read from Supabase directly
     doc = documents_supabase.get_document_by_id(doc_id)
 
     return templates.TemplateResponse(
         "view_doc.html",
-        {"request": request, "doc": doc},
+        {"request": request, "doc": doc, "highlight": highlight},
     )
 
 

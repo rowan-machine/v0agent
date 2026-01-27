@@ -233,32 +233,56 @@ class CoachRecommendationEngine:
         dismissed_ids: List[str]
     ) -> List[Dict[str, Any]]:
         """
-        Find meetings that don't have linked transcripts.
+        Find meetings that don't have linked transcripts in the documents table.
         """
         recommendations = []
         
         if self.supabase:
             try:
-                # Find recent meetings without linked documents
+                # Find recent meetings
                 meetings = self.supabase.table("meetings").select(
                     "id, meeting_name, meeting_date"
-                ).is_("raw_text", "null").gte(
+                ).gte(
                     "meeting_date",
                     (datetime.now() - timedelta(days=7)).isoformat()
-                ).order("meeting_date", desc=True).limit(2).execute()
+                ).order("meeting_date", desc=True).limit(10).execute()
                 
                 for meeting in (meetings.data or []):
-                    rec_id = f"missing-transcript-{meeting['id']}"
-                    if rec_id not in dismissed_ids:
-                        recommendations.append({
-                            "id": rec_id,
-                            "type": "transcript",
-                            "label": "📝 Missing Transcript",
-                            "text": meeting['meeting_name'][:60],
-                            "action": "Add the transcript to extract more signals",
-                            "link": f"/meetings/{meeting['id']}",
-                            "link_text": "Add Transcript"
-                        })
+                    meeting_id = meeting.get('id')
+                    
+                    # Check if this meeting has any linked documents (transcripts)
+                    docs = self.supabase.table("documents").select(
+                        "id"
+                    ).eq("meeting_id", meeting_id).limit(1).execute()
+                    
+                    has_transcript = bool(docs.data)
+                    
+                    if not has_transcript:
+                        rec_id = f"missing-transcript-{meeting_id}"
+                        if rec_id not in dismissed_ids:
+                            meeting_name = meeting.get('meeting_name', 'Meeting')
+                            # Handle JSON-encoded meeting names
+                            if isinstance(meeting_name, str) and meeting_name.startswith('{'):
+                                try:
+                                    import json
+                                    parsed = json.loads(meeting_name)
+                                    meeting_name = parsed.get('meeting_name', 'Meeting')
+                                except:
+                                    pass
+                            
+                            recommendations.append({
+                                "id": rec_id,
+                                "type": "transcript",
+                                "label": "📝 Missing Transcript",
+                                "text": str(meeting_name)[:60],
+                                "action": "Add the transcript to extract more signals",
+                                "link": f"/meetings/{meeting_id}",
+                                "link_text": "Add Transcript"
+                            })
+                            
+                            # Limit to 2 recommendations
+                            if len(recommendations) >= 2:
+                                break
             
             except Exception as e:
                 logger.debug(f"Transcript recommendations error: {e}")
@@ -270,39 +294,95 @@ class CoachRecommendationEngine:
         dismissed_ids: List[str]
     ) -> List[Dict[str, Any]]:
         """
-        Find transcripts where the user was mentioned.
+        Find transcripts where the user was mentioned BY OTHERS (not when user is speaking).
+        Excludes cases where user name appears as speaker attribution (e.g., "Rowan 6 minutes 43 seconds")
         """
         recommendations = []
         
         if self.supabase and self.user_name:
             try:
+                import re
+                
                 # Search documents for user mentions
                 docs = self.supabase.table("documents").select(
                     "id, source, content, meeting_id"
                 ).ilike("content", f"%{self.user_name}%").order(
                     "created_at", desc=True
-                ).limit(3).execute()
+                ).limit(10).execute()  # Get more docs to filter from
                 
                 for doc in (docs.data or []):
-                    # Find the mention context
                     content = doc['content']
-                    idx = content.lower().find(self.user_name.lower())
-                    if idx >= 0:
-                        start = max(0, idx - 50)
-                        end = min(len(content), idx + len(self.user_name) + 100)
-                        snippet = "..." + content[start:end] + "..."
+                    user_lower = self.user_name.lower()
+                    
+                    # Find all mentions of user name
+                    mentions_found = []
+                    search_pos = 0
+                    while True:
+                        idx = content.lower().find(user_lower, search_pos)
+                        if idx == -1:
+                            break
                         
+                        # Check if this is a speaker attribution (user speaking, not being mentioned)
+                        # Speaker format: "Name 6 minutes 43 seconds" or "Name Surname 6 minutes"
+                        # Look ahead after the name for timestamp patterns
+                        after_name = content[idx + len(self.user_name):idx + len(self.user_name) + 50]
+                        
+                        # Skip if followed by timestamp pattern (speaker attribution)
+                        is_speaker_line = bool(re.match(r'^\s*(\w+\s+)?\d+\s*(minutes?|seconds?|:\d{2})', after_name, re.IGNORECASE))
+                        
+                        # Also check for markdown speaker format: **Name:** or Name:
+                        # These indicate the user is speaking, not being mentioned
+                        is_speaker_line = is_speaker_line or bool(re.match(r'^(\**)?[:\s*]', after_name))
+                        
+                        # Also check for lastname + colon: "Rowan Neri:" or "**Rowan Neri:**"
+                        is_speaker_line = is_speaker_line or bool(re.match(r'^\s*\w+\s*(:\**|\*+:)', after_name, re.IGNORECASE))
+                        
+                        # Also check if line starts with user name (speaker line format)
+                        line_start = content.rfind('\n', 0, idx) + 1
+                        line_prefix = content[line_start:idx].strip()
+                        is_speaker_line = is_speaker_line or (
+                            len(line_prefix) < 5 and  # Very little text before the name
+                            bool(re.match(r'^\s*(\w{1,3}|\s|\**)*$', line_prefix))  # Only initials/whitespace/asterisks before
+                        )
+                        
+                        if not is_speaker_line:
+                            # This is a real mention (someone else talking about the user)
+                            start = max(0, idx - 50)
+                            end = min(len(content), idx + len(self.user_name) + 100)
+                            snippet = "..." + content[start:end] + "..."
+                            mentions_found.append((idx, snippet))
+                        
+                        search_pos = idx + len(self.user_name)
+                    
+                    # Only add recommendation if there are real mentions (not speaker attributions)
+                    if mentions_found:
+                        idx, snippet = mentions_found[0]  # Use first real mention
                         rec_id = f"mention-{doc['id']}"
                         if rec_id not in dismissed_ids:
+                            # Build link with highlight parameter for document view
+                            from urllib.parse import quote
+                            highlight_param = f"?highlight={quote(self.user_name)}"
+                            
+                            if doc['meeting_id']:
+                                # For meetings, link to the document directly with highlight
+                                link = f"/documents/{doc['id']}{highlight_param}"
+                            else:
+                                link = f"/documents/{doc['id']}{highlight_param}"
+                            
                             recommendations.append({
                                 "id": rec_id,
                                 "type": "mention",
                                 "label": "👋 You Were Mentioned",
                                 "text": snippet[:100],
                                 "action": f"In: {doc['source'][:40]}",
-                                "link": f"/documents/{doc['id']}" if not doc['meeting_id'] else f"/meetings/{doc['meeting_id']}",
-                                "link_text": "View Context"
+                                "link": link,
+                                "link_text": "View Context",
+                                "mention_position": idx  # Store position for scrolling
                             })
+                            
+                            # Limit to 3 recommendations
+                            if len(recommendations) >= 3:
+                                break
             
             except Exception as e:
                 logger.debug(f"Mention recommendations error: {e}")

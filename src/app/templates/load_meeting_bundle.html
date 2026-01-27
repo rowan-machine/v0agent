@@ -251,6 +251,9 @@
   </div>
 
   <form method="post" action="/meetings/load" enctype="multipart/form-data" id="bundle-form">
+    <!-- Hidden field for Pocket recording ID (for unique meeting identification) -->
+    <input type="hidden" name="pocket_recording_id" id="pocket_recording_id" value="">
+    
     <div class="form-section">
       <h3>📋 Meeting Details</h3>
       <div class="form-row">
@@ -518,6 +521,10 @@ document.getElementById('pocket-recording-select').addEventListener('change', as
   const mindMapEl = document.querySelector('textarea[name="pocket_mind_map"]');
   const actionItemsDisplayEl = document.querySelector('textarea[name="pocket_action_items_display"]');
   const actionItemsJsonEl = document.getElementById('pocket_action_items_json');
+  const recordingIdEl = document.getElementById('pocket_recording_id');
+  
+  // Store the recording ID for unique meeting identification
+  if (recordingIdEl) recordingIdEl.value = recordingId || '';
   
   if (!recordingId) {
     summaryEl.value = '';

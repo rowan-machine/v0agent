@@ -107,10 +107,24 @@
   .section-body.prose {
     line-height: 1.7;
     color: var(--sf-text, #374151);
-    white-space: pre-wrap;
   }
 
-  /* Markdown styles */
+  /* Markdown styles for marked.js output */
+  .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+    margin-top: 1.25rem;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--sf-text, #1a1a1a);
+  }
+  .prose h1 { font-size: 1.5em; }
+  .prose h2 { font-size: 1.3em; }
+  .prose h3 { font-size: 1.15em; }
+  .prose h4 { font-size: 1.05em; }
+  .prose p { margin: 0.75rem 0; line-height: 1.7; }
+  .prose ul, .prose ol { margin: 0.75rem 0; padding-left: 1.5rem; }
+  .prose li { margin: 0.25rem 0; line-height: 1.6; }
+  .prose li > ul, .prose li > ol { margin: 0.25rem 0; }
   .prose strong { font-weight: 600; color: var(--sf-text, #1a1a1a); }
   .prose em { font-style: italic; }
   .prose code {
@@ -120,6 +134,30 @@
     font-family: 'Monaco', 'Menlo', monospace;
     font-size: 0.85em;
     color: #d63384;
+  }
+  .prose pre {
+    background: var(--sf-code-bg, #f5f5f5);
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+  .prose pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+  }
+  .prose blockquote {
+    border-left: 3px solid var(--sf-primary, #667eea);
+    padding-left: 1rem;
+    margin: 1rem 0;
+    color: var(--sf-text-muted, #6b7280);
+    font-style: italic;
+  }
+  .prose hr {
+    border: none;
+    border-top: 1px solid var(--sf-border, #e5e7eb);
+    margin: 1.5rem 0;
   }
   .prose .md-h1 { font-size: 1.4em; font-weight: 700; color: var(--sf-text, #1a1a1a); margin: 1.25rem 0 0.75rem 0; display: block; }
   .prose .md-h2 { font-size: 1.2em; font-weight: 600; color: var(--sf-text, #333); margin: 1rem 0 0.5rem 0; display: block; }
@@ -620,15 +658,38 @@
   }
 </style>
 
+<!-- Marked.js for Markdown rendering -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
+// Configure marked for safe rendering
+if (typeof marked !== 'undefined') {
+  marked.setOptions({
+    breaks: true,      // Convert \n to <br>
+    gfm: true,         // GitHub Flavored Markdown
+    headerIds: false,  // Avoid ID conflicts
+    mangle: false      // Don't mangle email addresses
+  });
+}
+
 function parseMarkdown(text) {
   if (!text) return '';
-  text = text.replace(/^### (.+)$/gm, '<span class="md-h3">$1</span>');
-  text = text.replace(/^## (.+)$/gm, '<span class="md-h2">$1</span>');
-  text = text.replace(/^# (.+)$/gm, '<span class="md-h1">$1</span>');
+  // Use marked.js if available, otherwise fallback to basic parsing
+  if (typeof marked !== 'undefined' && marked.parse) {
+    try {
+      return marked.parse(text);
+    } catch (e) {
+      console.warn('Marked.js parse error, using fallback:', e);
+    }
+  }
+  // Fallback basic parsing
+  text = text.replace(/^### (.+)$/gm, '<h3 class="md-h3">$1</h3>');
+  text = text.replace(/^## (.+)$/gm, '<h2 class="md-h2">$1</h2>');
+  text = text.replace(/^# (.+)$/gm, '<h1 class="md-h1">$1</h1>');
   text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
   text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  text = text.replace(/^[-*]\s+(.+)$/gm, '<li>$1</li>');
+  text = text.replace(/(<li>.*<\/li>)+/g, '<ul>$&</ul>');
   return text;
 }
 

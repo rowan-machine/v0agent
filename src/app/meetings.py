@@ -160,10 +160,8 @@ def list_meetings(request: Request, success: str = Query(default=None)):
                     date_str = str(date_str).split("T")[0]
                     meeting["display_date"] = date_str
                 elif " " in str(date_str):
-                    dt = datetime.strptime(str(date_str).split(".")[0].split("+")[0], "%Y-%m-%d %H:%M:%S")
-                    dt_utc = dt.replace(tzinfo=ZoneInfo("UTC"))
-                    dt_central = dt_utc.astimezone(ZoneInfo("America/Chicago"))
-                    meeting["display_date"] = dt_central.strftime("%Y-%m-%d %I:%M %p %Z")
+                    # Just extract the date part, no time
+                    meeting["display_date"] = str(date_str).split(" ")[0]
                 else:
                     meeting["display_date"] = str(date_str)
             except Exception:
@@ -192,11 +190,12 @@ def view_meeting(meeting_id: str, request: Request):
     linked_transcript = None
     documents = []
     if meeting:
-        # Get documents from Supabase by meeting name
+        # Get documents from Supabase linked to THIS meeting only (by meeting_id)
         from .services import documents_supabase
         all_docs = documents_supabase.get_all_documents(limit=100)
         meeting_name = meeting.get('meeting_name', '')
-        documents = [d for d in all_docs if d.get('meeting_id') == meeting_id or (meeting_name and meeting_name in d.get('source', ''))]
+        # Only include documents that are explicitly linked to this meeting by ID
+        documents = [d for d in all_docs if d.get('meeting_id') == meeting_id]
         
         # Find transcript specifically for extract signals button
         for doc in documents:
@@ -317,7 +316,7 @@ def update_meeting(
     meeting_id: str,
     background_tasks: BackgroundTasks,
     meeting_name: str = Form(...),
-    synthesized_notes: str = Form(...),
+    synthesized_notes: str = Form(""),
     meeting_date: str = Form(...),
     raw_text: str = Form(None),
     signals_json: str = Form(None),
@@ -329,8 +328,14 @@ def update_meeting(
     pocket_mind_map: str = Form(None),
     mindmap_level: int = Form(0)
 ):
-    # Clean the text (remove aside tags and markdown headers)
-    cleaned_notes = clean_meeting_text(synthesized_notes)
+    # Preserve notes as-is (don't strip markdown formatting)
+    # Only clean aside tags that might interfere with display
+    import re
+    cleaned_notes = synthesized_notes
+    if cleaned_notes:
+        # Only remove aside tags, preserve markdown headers and formatting
+        cleaned_notes = re.sub(r'<aside[^>]*>', '', cleaned_notes)
+        cleaned_notes = re.sub(r'</aside>', '', cleaned_notes)
     
     # Merge pocket and teams transcripts into raw_text
     transcript_parts = []
@@ -358,6 +363,9 @@ def update_meeting(
         parsed_sections = parse_meeting_summary(cleaned_notes)
         signals = extract_structured_signals(parsed_sections)
     
+    # Log incoming data for debugging
+    logger.info(f"Updating meeting {meeting_id}: date={meeting_date}, name={meeting_name[:30] if meeting_name else 'N/A'}")
+    
     # Update meeting in Supabase
     update_data = {
         "meeting_name": meeting_name,
@@ -372,6 +380,8 @@ def update_meeting(
     updated = meetings_supabase.update_meeting(meeting_id, update_data)
     if not updated:
         logger.error(f"Failed to update meeting {meeting_id} in Supabase")
+    else:
+        logger.info(f"Successfully updated meeting {meeting_id}")
     
     # Also update linked transcript document if provided
     if linked_transcript_id and linked_transcript_content is not None:
@@ -464,7 +474,7 @@ def list_action_items(
     sort_by: str = Query(default="date_desc"),
     group_by: str = Query(default="none")
 ):
-    """Display all action items across all meetings."""
+    """Display all action items across all meetings from Supabase and SQLite."""
     
     all_action_items = []
     all_meetings = []
@@ -473,11 +483,111 @@ def list_action_items(
     ticket_keywords = ['implement', 'create', 'build', 'fix', 'refactor', 'deploy', 'migrate', 
                        'update', 'add', 'remove', 'investigate', 'research', 'design', 'test']
     
+    # Helper function to extract action items from text content
+    def extract_action_items_from_content(content: str, meeting_id: str, meeting_name: str, meeting_date: str):
+        """Extract action items from document content using patterns."""
+        items = []
+        if not content:
+            return items
+        
+        # Patterns that indicate action items
+        action_patterns = [
+            r'(?:action item|todo|to-do|task):\s*(.+?)(?:\n|$)',
+            r'(?:- |\* )(?:action|todo|task):\s*(.+?)(?:\n|$)',
+            r'(?:we need to|should|must|will)\s+(.+?)(?:\.|$)',
+        ]
+        
+        import re
+        for pattern in action_patterns:
+            matches = re.findall(pattern, content, re.IGNORECASE)
+            for idx, match in enumerate(matches):
+                if len(match) > 10 and len(match) < 500:  # Reasonable length
+                    items.append({
+                        'meeting_id': meeting_id,
+                        'meeting_name': meeting_name,
+                        'meeting_date': meeting_date,
+                        'item_index': idx,
+                        'text': match.strip(),
+                        'completed': False,
+                        'priority': 'medium',
+                        'assignee': None,
+                        'due_date': None,
+                        'source': 'extracted_content'
+                    })
+        return items
+    
+    # First try Supabase
+    try:
+        from .infrastructure.supabase_client import get_supabase_client
+        client = get_supabase_client()
+        
+        # Get meetings with signals from Supabase
+        supabase_meetings = client.table('meetings').select('id, meeting_name, meeting_date, signals').execute()
+        
+        for meeting in supabase_meetings.data:
+            signals = meeting.get('signals') or {}
+            if isinstance(signals, str):
+                try:
+                    signals = json.loads(signals)
+                except:
+                    signals = {}
+            
+            raw_items = signals.get('action_items', [])
+            meeting_date = meeting.get('meeting_date', '')
+            if meeting_date and 'T' in str(meeting_date):
+                meeting_date = str(meeting_date).split('T')[0]
+            
+            for idx, item in enumerate(raw_items):
+                action_item = {
+                    'meeting_id': meeting['id'],
+                    'meeting_name': meeting['meeting_name'],
+                    'meeting_date': meeting_date,
+                    'item_index': idx,
+                    'completed': False,
+                    'priority': 'medium',
+                    'assignee': None,
+                    'due_date': None,
+                    'source': 'supabase'
+                }
+                
+                if isinstance(item, dict):
+                    action_item['text'] = item.get('description') or item.get('text') or str(item)
+                    action_item['assignee'] = item.get('assignee')
+                    action_item['priority'] = item.get('priority', 'medium')
+                    action_item['due_date'] = item.get('dueDate') or item.get('due_date')
+                    action_item['completed'] = item.get('completed', False)
+                else:
+                    action_item['text'] = str(item)
+                
+                # Check ticket suggestion
+                text_lower = action_item['text'].lower()
+                action_item['suggest_ticket'] = (
+                    not action_item['completed'] and
+                    action_item['priority'].lower() in ['high', 'medium'] and
+                    any(kw in text_lower for kw in ticket_keywords)
+                )
+                
+                all_action_items.append(action_item)
+        
+        # Get all meetings for dropdown
+        meetings_list = client.table('meetings').select('id, meeting_name').order('meeting_date', desc=True).limit(50).execute()
+        all_meetings = [{'id': m['id'], 'meeting_name': m['meeting_name']} for m in meetings_list.data]
+        
+    except Exception as e:
+        logger.warning(f"Could not load from Supabase: {e}")
+    
+    # Also load from SQLite as fallback/supplement
     with connect() as conn:
-        # Get all meetings for the add form dropdown
-        all_meetings = conn.execute(
+        # Get SQLite meetings for dropdown
+        sqlite_meetings = conn.execute(
             "SELECT id, meeting_name FROM meeting_summaries ORDER BY meeting_date DESC LIMIT 50"
         ).fetchall()
+        
+        # Merge with Supabase meetings (avoiding duplicates)
+        existing_names = {m['meeting_name'] for m in all_meetings}
+        for m in sqlite_meetings:
+            if m['meeting_name'] not in existing_names:
+                all_meetings.append(dict(m))
         
         meetings = conn.execute(
             """
@@ -487,6 +597,9 @@ def list_action_items(
             ORDER BY COALESCE(meeting_date, created_at) DESC
             """
         ).fetchall()
+        
+        # Track existing action item texts to avoid duplicates
+        existing_texts = {item['text'] for item in all_action_items}
         
         for meeting in meetings:
             try:
@@ -511,10 +624,14 @@ def list_action_items(
                         action_item['priority'] = item.get('priority', 'medium')
                         action_item['due_date'] = item.get('dueDate') or item.get('due_date')
                         action_item['completed'] = item.get('completed', False)
-                        action_item['source'] = item.get('source', 'extracted')
+                        action_item['source'] = item.get('source', 'sqlite')
                     else:
                         action_item['text'] = str(item)
-                        action_item['source'] = 'extracted'
+                        action_item['source'] = 'sqlite'
+                    
+                    # Skip if duplicate from Supabase
+                    if action_item['text'] in existing_texts:
+                        continue
                     
                     # Check if item should suggest ticket creation
                     text_lower = action_item['text'].lower()
@@ -524,17 +641,17 @@ def list_action_items(
                         any(kw in text_lower for kw in ticket_keywords)
                     )
                     
-                    # Apply filters
-                    if filter_status == 'completed' and not action_item['completed']:
-                        continue
-                    if filter_status == 'pending' and action_item['completed']:
-                        continue
-                    if filter_priority != 'all' and action_item['priority'].lower() != filter_priority.lower():
-                        continue
-                    
                     all_action_items.append(action_item)
             except (json.JSONDecodeError, TypeError):
                 continue
+    
+    # Apply filters
+    if filter_status == 'completed':
+        all_action_items = [i for i in all_action_items if i['completed']]
+    elif filter_status == 'pending':
+        all_action_items = [i for i in all_action_items if not i['completed']]
+    if filter_priority != 'all':
+        all_action_items = [i for i in all_action_items if i['priority'].lower() == filter_priority.lower()]
     
     # Sort items
     if sort_by == 'date_desc':
@@ -570,7 +687,8 @@ def list_action_items(
         'completed': sum(1 for i in all_action_items if i['completed']),
         'pending': sum(1 for i in all_action_items if not i['completed']),
         'high_priority': sum(1 for i in all_action_items if i['priority'].lower() == 'high'),
-        'from_pocket': sum(1 for i in all_action_items if i.get('source') == 'pocket'),
+        'from_supabase': sum(1 for i in all_action_items if i.get('source') == 'supabase'),
+        'from_sqlite': sum(1 for i in all_action_items if i.get('source') == 'sqlite'),
     }
     
     return templates.TemplateResponse(

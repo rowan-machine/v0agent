@@ -556,9 +556,8 @@ async function summarizeTranscript() {
         
         if (resp.ok && data.success) {
             btn.textContent = '✅ Summary Generated';
-            statusEl.textContent = `Summary generated using ${data.model_used || 'GPT-4o'}. Review and save the meeting to keep changes.`;
             
-            // Auto-fill the summarized notes textarea
+            // Auto-fill the synthesized notes textarea
             if (synthesizedTextarea && data.draft_summary) {
                 synthesizedTextarea.value = data.draft_summary;
                 synthesizedTextarea.style.backgroundColor = '#f0fff4'; // Light green to indicate new content
@@ -572,6 +571,12 @@ async function summarizeTranscript() {
                     synthesizedTextarea.classList.remove('ring-2', 'ring-green-500');
                 }, 2000);
             }
+            
+            // Auto-save the form after generating summary
+            statusEl.textContent = `Summary generated using ${data.model_used || 'GPT-4o'}. Auto-saving...`;
+            setTimeout(() => {
+                document.querySelector('form').submit();
+            }, 1500);
             
             // Re-enable button for re-generation
             setTimeout(() => {

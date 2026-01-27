@@ -19,7 +19,7 @@ class QueryOptions:
     """Options for repository queries."""
     limit: int = 100
     offset: int = 0
-    order_by: str = "created_at"
+    order_by: str = "meeting_date"
     order_desc: bool = True
     filters: Dict[str, Any] = field(default_factory=dict)
 

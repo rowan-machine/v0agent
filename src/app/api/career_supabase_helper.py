@@ -143,7 +143,11 @@ def sync_skill_to_supabase(
     Sync a skill update to Supabase (fire-and-forget).
     """
     client = get_supabase_client()
-    if not client or not client.is_connected:
+    if not client:
+        return False
+    
+    # Check for async agent client (has is_connected property)
+    if hasattr(client, 'is_connected') and not client.is_connected:
         return False
     
     try:
@@ -176,7 +180,11 @@ def sync_memory_to_supabase(
     Sync a career memory to Supabase (fire-and-forget).
     """
     client = get_supabase_client()
-    if not client or not client.is_connected:
+    if not client:
+        return False
+    
+    # Check for async agent client (has is_connected property)
+    if hasattr(client, 'is_connected') and not client.is_connected:
         return False
     
     try:
@@ -219,7 +227,11 @@ def sync_standup_to_supabase(
     Sync a standup update to Supabase (fire-and-forget).
     """
     client = get_supabase_client()
-    if not client or not client.is_connected:
+    if not client:
+        return False
+    
+    # Check for async agent client (has is_connected property)
+    if hasattr(client, 'is_connected') and not client.is_connected:
         return False
     
     try:
@@ -256,7 +268,11 @@ def sync_chat_to_supabase(
     Sync a career chat exchange to Supabase (fire-and-forget).
     """
     client = get_supabase_client()
-    if not client or not client.is_connected:
+    if not client:
+        return False
+    
+    # Check for async agent client (has is_connected property)
+    if hasattr(client, 'is_connected') and not client.is_connected:
         return False
     
     try:

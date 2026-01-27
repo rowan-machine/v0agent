@@ -4,31 +4,71 @@ API v1 - Tickets endpoints.
 
 RESTful endpoints for ticket CRUD operations with sprint management
 integration and AI-powered features via TicketAgent adapters.
+
+Supabase-first with SQLite fallback.
 """
 
+import logging
 from fastapi import APIRouter, HTTPException, Query, Response
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 from ..v1.models import (
     TicketCreate, TicketUpdate, TicketResponse,
     PaginatedResponse, APIResponse
 )
 from ...db import connect
+from ...repositories import get_ticket_repository
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-@router.get("", response_model=PaginatedResponse)
-async def list_tickets(
-    skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(50, ge=1, le=100, description="Max records to return"),
-    status: Optional[str] = Query(None, description="Filter by status"),
-    tag: Optional[str] = Query(None, description="Filter by tag"),
-):
+def _get_tickets_from_supabase(skip: int = 0, limit: int = 50, status: Optional[str] = None, tag: Optional[str] = None) -> tuple[List[Dict[str, Any]], int]:
     """
-    List all tickets with pagination and filtering.
-    
-    Status: backlog, active, in_progress, done, archived
+    Fetch tickets from Supabase.
+    Returns (tickets_list, total_count) or raises exception.
+    """
+    try:
+        from ...infrastructure.supabase_client import get_supabase_client
+        supabase = get_supabase_client()
+        
+        if not supabase:
+            raise Exception("Supabase client not available")
+        
+        # Build query with filters
+        query = supabase.table("tickets").select("*", count="exact")
+        
+        if status:
+            query = query.eq("status", status)
+        if tag:
+            query = query.ilike("tags", f"%{tag}%")
+        
+        # Get total count first
+        count_result = query.execute()
+        total = count_result.count if count_result.count is not None else len(count_result.data or [])
+        
+        # Get paginated tickets
+        query = supabase.table("tickets").select("*")
+        if status:
+            query = query.eq("status", status)
+        if tag:
+            query = query.ilike("tags", f"%{tag}%")
+        
+        result = query.order("created_at", desc=True).range(skip, skip + limit - 1).execute()
+        
+        tickets = result.data or []
+        logger.info(f"✅ Fetched {len(tickets)} tickets from Supabase")
+        return tickets, total
+    except Exception as e:
+        logger.error(f"❌ Failed to fetch tickets from Supabase: {e}")
+        raise
+
+
+def _get_tickets_from_sqlite(skip: int = 0, limit: int = 50, status: Optional[str] = None, tag: Optional[str] = None) -> tuple[List[Dict[str, Any]], int]:
+    """
+    Fetch tickets from SQLite.
+    Returns (tickets_list, total_count).
     """
     with connect() as conn:
         query = "SELECT * FROM tickets WHERE 1=1"
@@ -52,12 +92,36 @@ async def list_tickets(
         rows = conn.execute(query, tuple(params)).fetchall()
         tickets = [dict(row) for row in rows]
     
-    return PaginatedResponse(
-        items=tickets,
-        skip=skip,
-        limit=limit,
-        total=total
-    )
+    return tickets, total
+
+
+@router.get("", response_model=PaginatedResponse)
+async def list_tickets(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Max records to return"),
+    status: Optional[str] = Query(None, description="Filter by status"),
+    tag: Optional[str] = Query(None, description="Filter by tag"),
+):
+    """
+    List all tickets with pagination and filtering.
+    
+    Status: backlog, active, in_progress, done, archived
+    Uses Supabase as primary source with SQLite fallback.
+    """
+    # Try Supabase first
+    try:
+        tickets, total = _get_tickets_from_supabase(skip, limit, status, tag)
+        return PaginatedResponse(items=tickets, skip=skip, limit=limit, total=total)
+    except Exception as e:
+        logger.warning(f"⚠️ Supabase unavailable for tickets, falling back to SQLite: {e}")
+    
+    # Fall back to SQLite
+    try:
+        tickets, total = _get_tickets_from_sqlite(skip, limit, status, tag)
+        return PaginatedResponse(items=tickets, skip=skip, limit=limit, total=total)
+    except Exception as e:
+        logger.error(f"❌ SQLite also failed for tickets: {e}")
+        raise HTTPException(status_code=500, detail="Unable to fetch tickets")
 
 
 @router.get("/{ticket_id}", response_model=TicketResponse)

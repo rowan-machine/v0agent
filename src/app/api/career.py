@@ -556,11 +556,46 @@ Keep it brief, actionable, and encouraging. Use markdown formatting."""
             task_type="career_insights",
         )
         
+        # Persist insights to career_profile for reload
+        try:
+            # Add column if it doesn't exist
+            conn.execute("ALTER TABLE career_profile ADD COLUMN last_insights TEXT")
+        except:
+            pass  # Column already exists
+        
+        try:
+            conn.execute(
+                "UPDATE career_profile SET last_insights = ?, updated_at = datetime('now') WHERE id = 1",
+                (insights,)
+            )
+            conn.commit()
+        except Exception as e:
+            logger.warning(f"Could not persist insights: {e}")
+        
         return JSONResponse({
             "status": "ok", 
             "insights": insights, 
             "run_id": agent.last_run_id
         })
+
+
+@router.get("/api/career/insights")
+async def get_career_insights():
+    """Get the last saved career insights."""
+    with connect() as conn:
+        # Add column if doesn't exist
+        try:
+            conn.execute("ALTER TABLE career_profile ADD COLUMN last_insights TEXT")
+        except:
+            pass
+        
+        result = conn.execute("SELECT last_insights, updated_at FROM career_profile WHERE id = 1").fetchone()
+        if result and result["last_insights"]:
+            return JSONResponse({
+                "insights": result["last_insights"],
+                "generated_at": result["updated_at"]
+            })
+        return JSONResponse({"insights": None})
 
 
 # ----------------------
@@ -1321,6 +1356,50 @@ async def delete_ticket_file(file_id: int):
 @router.get("/api/career/tickets-with-files")
 async def get_tickets_with_files():
     """Get all active tickets with their associated files for code locker selection."""
+    # Try Supabase first for tickets
+    try:
+        from ..infrastructure.supabase_client import get_supabase_client
+        supabase = get_supabase_client()
+        
+        if supabase:
+            # Get active tickets from Supabase
+            result = supabase.table("tickets").select("*").in_(
+                "status", ["todo", "in_progress", "in_review", "blocked"]
+            ).eq("in_sprint", True).execute()
+            
+            tickets = result.data or []
+            
+            # Sort by status priority
+            status_order = {"in_progress": 1, "blocked": 2, "in_review": 3, "todo": 4}
+            tickets.sort(key=lambda t: status_order.get(t.get("status", "todo"), 5))
+            
+            # Get files from SQLite (ticket_files table is still local)
+            with connect() as conn:
+                result_list = []
+                for ticket in tickets:
+                    files = conn.execute("""
+                        SELECT tf.id, tf.filename, tf.file_type, tf.description,
+                               (SELECT MAX(version) FROM code_locker cl 
+                                WHERE cl.filename = tf.filename AND cl.ticket_id = tf.ticket_id) as latest_version
+                        FROM ticket_files tf
+                        WHERE tf.ticket_id = ?
+                        ORDER BY tf.file_type, tf.filename
+                    """, (ticket.get('id'),)).fetchall()
+                    
+                    result_list.append({
+                        "id": ticket.get("id"),
+                        "ticket_id": ticket.get("ticket_id"),
+                        "title": ticket.get("title", ""),
+                        "status": ticket.get("status"),
+                        "files": [dict(f) for f in files]
+                    })
+                
+                return JSONResponse(result_list)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Supabase tickets-with-files failed, falling back to SQLite: {e}")
+    
+    # Fallback to SQLite
     with connect() as conn:
         tickets = conn.execute("""
             SELECT t.id, t.ticket_id, t.title, t.status
@@ -1990,7 +2069,11 @@ Return ONLY valid JSON, no other text. Use null for fields you can't determine."
                                          'languages', 'work_achievements']:
                                 if field in profile_data and profile_data[field]:
                                     updates.append(f"{field} = ?")
-                                    values.append(str(profile_data[field]))
+                                    # Convert lists to comma-separated text
+                                    val = profile_data[field]
+                                    if isinstance(val, list):
+                                        val = ', '.join(str(item) for item in val)
+                                    values.append(str(val))
                             
                             if updates:
                                 # Check if profile exists
@@ -2246,19 +2329,46 @@ async def assess_skills_from_codebase(request: Request):
 
 @router.post("/api/career/skills/populate-from-projects")
 async def populate_skills_from_projects():
-    """Populate skill tracker from completed projects and AI implementation memories."""
+    """Populate skill tracker from completed projects and AI implementation memories.
+    
+    Tracks which memories/tickets have been processed to avoid double-counting.
+    Uses a processed_sources table to remember what's already been imported.
+    """
     with connect() as conn:
         skills_updated = 0
         projects_processed = 0
         memories_processed = 0
+        skipped_already_processed = 0
+        
+        # Ensure tracking table exists
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS skill_import_tracking (
+                source_type TEXT NOT NULL,
+                source_id TEXT NOT NULL,
+                imported_at TEXT DEFAULT (datetime('now')),
+                PRIMARY KEY (source_type, source_id)
+            )
+        """)
         
         # 1. Get skills/tags from completed project memories
         project_memories = conn.execute("""
-            SELECT skills, title FROM career_memories 
+            SELECT id, skills, title FROM career_memories 
             WHERE memory_type = 'completed_project' AND skills IS NOT NULL AND skills != ''
         """).fetchall()
         
         for mem in project_memories:
+            mem_id = str(mem["id"])
+            
+            # Check if already processed
+            already = conn.execute(
+                "SELECT 1 FROM skill_import_tracking WHERE source_type = 'career_memory' AND source_id = ?",
+                (mem_id,)
+            ).fetchone()
+            
+            if already:
+                skipped_already_processed += 1
+                continue
+            
             projects_processed += 1
             for skill in (mem["skills"] or "").split(","):
                 skill = skill.strip()
@@ -2274,15 +2384,33 @@ async def populate_skills_from_projects():
                             updated_at = datetime('now')
                     """, (skill,))
                     skills_updated += 1
+            
+            # Mark as processed
+            conn.execute(
+                "INSERT OR IGNORE INTO skill_import_tracking (source_type, source_id) VALUES ('career_memory', ?)",
+                (mem_id,)
+            )
         
         # 2. Get technologies from AI implementation memories (if table exists)
         try:
             ai_memories = conn.execute("""
-                SELECT technologies, title FROM ai_implementation_memories 
+                SELECT id, technologies, title FROM ai_implementation_memories 
                 WHERE technologies IS NOT NULL AND technologies != ''
             """).fetchall()
             
             for mem in ai_memories:
+                mem_id = str(mem["id"])
+                
+                # Check if already processed
+                already = conn.execute(
+                    "SELECT 1 FROM skill_import_tracking WHERE source_type = 'ai_memory' AND source_id = ?",
+                    (mem_id,)
+                ).fetchone()
+                
+                if already:
+                    skipped_already_processed += 1
+                    continue
+                
                 memories_processed += 1
                 for tech in (mem["technologies"] or "").split(","):
                     tech = tech.strip()
@@ -2298,6 +2426,12 @@ async def populate_skills_from_projects():
                                 updated_at = datetime('now')
                         """, (tech,))
                         skills_updated += 1
+                
+                # Mark as processed
+                conn.execute(
+                    "INSERT OR IGNORE INTO skill_import_tracking (source_type, source_id) VALUES ('ai_memory', ?)",
+                    (mem_id,)
+                )
         except Exception:
             pass  # ai_implementation_memories table may not exist
         
@@ -2308,6 +2442,18 @@ async def populate_skills_from_projects():
                            and t.get("tags")]
         
         for ticket in completed_tickets:
+            ticket_id = str(ticket.get("id", ticket.get("key", "")))
+            
+            # Check if already processed
+            already = conn.execute(
+                "SELECT 1 FROM skill_import_tracking WHERE source_type = 'ticket' AND source_id = ?",
+                (ticket_id,)
+            ).fetchone()
+            
+            if already:
+                skipped_already_processed += 1
+                continue
+            
             for tag in (ticket.get("tags") or "").split(","):
                 tag = tag.strip()
                 if tag:
@@ -2321,6 +2467,12 @@ async def populate_skills_from_projects():
                             updated_at = datetime('now')
                     """, (tag,))
                     skills_updated += 1
+            
+            # Mark as processed
+            conn.execute(
+                "INSERT OR IGNORE INTO skill_import_tracking (source_type, source_id) VALUES ('ticket', ?)",
+                (ticket_id,)
+            )
         
         conn.commit()
     
@@ -2328,7 +2480,8 @@ async def populate_skills_from_projects():
         "status": "ok",
         "projects_processed": projects_processed,
         "memories_processed": memories_processed,
-        "skills_updated": skills_updated
+        "skills_updated": skills_updated,
+        "skipped_already_processed": skipped_already_processed
     })
 
 
