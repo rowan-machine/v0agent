@@ -238,6 +238,10 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
         "signals": signals,
         "raw_text": str(transcript_text).strip() if transcript_text else "",  # Ensure it's a string
         "pocket_recording_id": pocket_recording_id,  # Unique ID for idempotency
+        "pocket_ai_summary": str(pocket_ai_summary).strip() if pocket_ai_summary else None,
+        "pocket_mind_map": str(pocket_mind_map).strip() if pocket_mind_map else None,
+        "pocket_template_type": pocket_template,  # Detected template type
+        "import_source": "pocket" if pocket_recording_id else "manual",
     }
     
     supabase_meeting = meetings_supabase.create_meeting(supabase_meeting_data)
