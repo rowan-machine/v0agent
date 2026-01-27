@@ -66,60 +66,103 @@
 | **Constants** | SCREAMING_SNAKE_CASE | `DEFAULT_LIMIT`, `MAX_RETRIES` |
 | **Private** | Leading underscore | `_parse_signals()`, `_client` |
 
-### Target Architecture
+### Target Architecture (Updated 2026-01-27)
 
 ```
 src/
 └── app/
     ├── core/                    # Domain layer (pure business logic)
     │   ├── domain/              # Domain models (dataclasses)
-    │   │   ├── meeting.py
-    │   │   ├── ticket.py
-    │   │   ├── career.py
-    │   │   └── signal.py
-    │   ├── ports/               # Interfaces (Protocols)
-    │   │   ├── repositories.py
-    │   │   ├── services.py
-    │   │   └── external.py
-    │   └── services/            # Domain services (pure logic)
-    │       ├── signal_extraction.py
-    │       └── dikw_synthesis.py
+    │   │   └── models.py        # ✅ All domain models
+    │   └── ports/               # Interfaces (Protocols)
+    │       ├── protocols.py     # ✅ Repository/Service protocols
+    │       └── __init__.py
     │
-    ├── adapters/                # Infrastructure adapters
-    │   ├── persistence/         # Database implementations
-    │   │   ├── supabase/
-    │   │   └── sqlite/
-    │   ├── external/            # External API clients
-    │   │   ├── pocket.py
-    │   │   └── openai.py
-    │   └── embedding/           # Vector store implementations
+    ├── domains/                 # ✅ NEW: Bounded contexts (domain-driven)
+    │   ├── career/              # Career bounded context
+    │   │   ├── api/             # HTTP route handlers
+    │   │   │   ├── __init__.py  # Aggregates sub-routers
+    │   │   │   ├── profile.py
+    │   │   │   ├── skills.py
+    │   │   │   ├── standups.py
+    │   │   │   ├── suggestions.py
+    │   │   │   ├── memories.py
+    │   │   │   ├── code_locker.py
+    │   │   │   └── chat.py
+    │   │   ├── services/        # Business logic
+    │   │   │   ├── standup_service.py
+    │   │   │   └── suggestion_service.py
+    │   │   └── constants.py
+    │   │
+    │   └── dikw/                # DIKW bounded context
+    │       ├── api/
+    │       │   ├── __init__.py
+    │       │   ├── items.py
+    │       │   ├── relationships.py
+    │       │   ├── synthesis.py
+    │       │   └── promotion.py
+    │       ├── services/
+    │       │   ├── synthesis_service.py
+    │       │   └── promotion_service.py
+    │       └── constants.py
     │
-    ├── application/             # Application layer (use cases)
-    │   ├── meetings/            # Meeting use cases
-    │   │   ├── load_bundle.py
-    │   │   ├── extract_signals.py
-    │   │   └── search.py
-    │   ├── career/              # Career use cases
-    │   └── tickets/             # Ticket use cases
+    ├── repositories/            # ✅ Data access layer
+    │   ├── __init__.py          # Factory functions (get_*_repository)
+    │   ├── meeting_repository.py
+    │   ├── document_repository.py
+    │   ├── ticket_repository.py
+    │   ├── signal_repository.py
+    │   ├── settings_repository.py
+    │   ├── ai_memory_repository.py
+    │   ├── agent_messages_repository.py
+    │   ├── mindmap_repository.py
+    │   ├── notifications_repository.py
+    │   ├── career_repository.py
+    │   └── dikw_repository.py
+    │
+    ├── shared/                  # ✅ NEW: Cross-cutting concerns
+    │   ├── repositories/        # Re-exports from repositories/
+    │   ├── infrastructure/      # Clients (supabase, etc.)
+    │   ├── services/            # Shared services
+    │   ├── config/              # Configuration helpers
+    │   └── utils/               # Utility functions
+    │
+    ├── services/                # Application services (legacy, migrating)
+    │   ├── meeting_service.py
+    │   ├── document_service.py
+    │   ├── ticket_service.py
+    │   └── signal_learning.py
     │
     ├── api/                     # API layer (HTTP handlers)
     │   ├── v1/                  # Versioned API routes
-    │   └── internal/            # Internal/admin routes
+    │   ├── mobile/              # Mobile sync endpoints
+    │   ├── career.py            # ⚠️ DEPRECATED → domains/career/
+    │   ├── dikw.py              # ⚠️ DEPRECATED → domains/dikw/
+    │   └── ...                  # Other routes (to be migrated)
     │
-    ├── agents/                  # AI Agents (kept separate)
+    ├── agents/                  # AI Agents
     │   ├── base.py
     │   ├── arjuna.py
-    │   └── specialized/
+    │   ├── career_coach.py
+    │   ├── dikw_synthesizer.py
+    │   └── ticket_agent.py
+    │
+    ├── infrastructure/          # External service clients
+    │   ├── supabase_client.py
+    │   └── ...
     │
     ├── mcp/                     # MCP Server (for agent tools)
     │   ├── server.py
-    │   ├── tools/
-    │   └── resources/
+    │   └── tools.py
     │
-    └── config/                  # Configuration
-        ├── settings.py
-        └── dependencies.py
+    └── main.py                  # FastAPI app entry point
 ```
+
+**Route Mounting:**
+- Legacy routes: `/api/*` (from api/*.py)
+- Domain routes: `/api/domains/career/*`, `/api/domains/dikw/*`
+- Versioned API: `/api/v1/*`
+- Mobile API: `/api/mobile/*`
 
 ---
 
@@ -197,9 +240,19 @@ src/
 |------|--------|---------|
 | Career domain aggregator | ✅ DONE | `domains/career/api/__init__.py` combines all sub-routers |
 | DIKW domain aggregator | ✅ DONE | `domains/dikw/api/__init__.py` combines all sub-routers |
-| Import to main.py | ✅ DONE | `career_domain_router`, `dikw_domain_router` imported |
-| Mount domain routers | ✅ DONE | Mounted at `/api/domains/career/*` and `/api/domains/dikw/*` |
+| Meetings domain | ✅ DONE | `domains/meetings/api/__init__.py` - 17 routes |
+| Tickets domain | ✅ DONE | `domains/tickets/api/__init__.py` - 12 routes |
+| Documents domain | ✅ DONE | `domains/documents/api/__init__.py` - 9 routes |
+| Import to main.py | ✅ DONE | All 5 domain routers imported |
+| Mount domain routers | ✅ DONE | Mounted at `/api/domains/*` |
 | Deprecate legacy files | ✅ DONE | Warnings added to `api/career.py` and `api/dikw.py` |
+
+**Domain Summary (5 domains, 85 routes total):**
+- `/api/domains/career/*` - 27 routes (profile, skills, standups, suggestions, memories, code_locker, chat)
+- `/api/domains/dikw/*` - 20 routes (items, relationships, synthesis, promotion)
+- `/api/domains/meetings/*` - 17 routes (crud, search, signals, transcripts)
+- `/api/domains/tickets/*` - 12 routes (crud, sprints)
+- `/api/domains/documents/*` - 9 routes (crud, search)
 
 ### 2.3 arjuna.py (2573 lines) → Agent System
 | Extract To | Status | Lines | Description |

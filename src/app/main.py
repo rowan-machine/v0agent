@@ -43,6 +43,9 @@ from .api.pocket import router as pocket_router  # Pocket integration (Refactor 
 # New domain-driven routers (Phase 3 - Domain Decomposition)
 from .domains.career.api import router as career_domain_router
 from .domains.dikw.api import router as dikw_domain_router
+from .domains.meetings.api import router as meetings_domain_router
+from .domains.tickets.api import router as tickets_domain_router
+from .domains.documents.api import router as documents_domain_router
 from .mcp.registry import TOOL_REGISTRY
 from .llm import ask as ask_llm
 from .auth import (
@@ -1539,3 +1542,6 @@ app.include_router(pocket_router)  # Pocket integration (Refactor Phase 2)
 # Mounted at /api/domains/* to avoid conflicts during migration.
 app.include_router(career_domain_router, prefix="/api/domains")  # Career domain
 app.include_router(dikw_domain_router, prefix="/api/domains")  # DIKW domain
+app.include_router(meetings_domain_router, prefix="/api/domains")  # Meetings domain
+app.include_router(tickets_domain_router, prefix="/api/domains")  # Tickets domain
+app.include_router(documents_domain_router, prefix="/api/domains")  # Documents domain
