@@ -21,15 +21,19 @@ All repository and service files follow these naming patterns:
 - `repositories/ticket_repository.py` - Clean repository pattern
 - `repositories/signal_repository.py` - Signal feedback/status operations
 - `repositories/settings_repository.py` - Mode sessions, sprint settings, user status
-- `repositories/ai_memory_repository.py` - **NEW** - AI memory storage operations
-- `repositories/agent_messages_repository.py` - **NEW** - Agent-to-agent communication
-- `repositories/mindmap_repository.py` - **NEW** - Conversation mindmaps and syntheses
+- `repositories/ai_memory_repository.py` - AI memory storage operations
+- `repositories/agent_messages_repository.py` - Agent-to-agent communication
+- `repositories/mindmap_repository.py` - Conversation mindmaps and syntheses
+- `repositories/notifications_repository.py` - **NEW** - Push/in-app notifications
+- `repositories/career_repository.py` - **NEW** - Career profile, skills, standups, memories, suggestions
+- `repositories/dikw_repository.py` - **NEW** - DIKW items, evolution, promotion, merge operations
 - `services/meeting_service.py` - Clean service module (renamed from meetings_supabase.py)
 - `services/document_service.py` - Clean service module (renamed from documents_supabase.py)
 - `services/ticket_service.py` - Clean service module (renamed from tickets_supabase.py)
 - `services/signal_learning.py` - **REFACTORED** - Uses repositories
 - `services/agent_bus.py` - **REFACTORED** - Uses repositories
 - `services/mindmap_synthesis.py` - **REFACTORED** - Uses repositories
+- `services/background_jobs.py` - **REFACTORED** - Uses NotificationsRepository
 - `mcp/server.py` - Uses proper service layer
 - `api/dikw.py` - Uses proper service layer
 - `api/mindmap.py` - Uses proper service layer
@@ -73,11 +77,12 @@ from .services import tickets_supabase  # -> ticket_service
 │  - TicketRepository                                       │
 │  - SignalRepository                                       │
 │  - SettingsRepository                                     │
-│  - AIMemoryRepository (NEW)                               │
-│  - AgentMessagesRepository (NEW)                          │
-│  - MindmapRepository (NEW)                                │
-│  - ConversationRepository                                 │
-│  - NotificationRepository                                 │
+│  - AIMemoryRepository                                     │
+│  - AgentMessagesRepository                                │
+│  - MindmapRepository                                      │
+│  - NotificationsRepository (NEW)                          │
+│  - CareerRepository (NEW)                                 │
+│  - DIKWRepository (NEW)                                   │
 └────────────────────────┬─────────────────────────────────┘
                          │ implemented by
                          ▼
@@ -88,10 +93,12 @@ from .services import tickets_supabase  # -> ticket_service
 │  - SupabaseDocumentRepository                            │
 │  - SupabaseSignalRepository                              │
 │  - SupabaseSettingsRepository                            │
-│  - SupabaseAIMemoryRepository (NEW)                      │
-│  - SupabaseAgentMessagesRepository (NEW)                 │
-│  - SupabaseMindmapRepository (NEW)                       │
-│  - etc.                                                   │
+│  - SupabaseAIMemoryRepository                            │
+│  - SupabaseAgentMessagesRepository                       │
+│  - SupabaseMindmapRepository                             │
+│  - SupabaseNotificationsRepository (NEW)                 │
+│  - SupabaseCareerRepository (NEW)                        │
+│  - SupabaseDIKWRepository (NEW)                          │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -109,6 +116,9 @@ from .services import tickets_supabase  # -> ticket_service
 - [x] `src/app/repositories/ticket_repository.py` - Renamed, Supabase-only
 - [x] `src/app/repositories/signal_repository.py` - **NEW** - Extracted from main.py
 - [x] `src/app/repositories/settings_repository.py` - **NEW** - Extracted from main.py
+- [x] `src/app/repositories/notifications_repository.py` - **NEW** - Push/in-app notifications
+- [x] `src/app/repositories/career_repository.py` - **NEW** - Career tables (126 direct calls to consolidate)
+- [x] `src/app/repositories/dikw_repository.py` - **NEW** - DIKW tables (33 direct calls)
 
 ### Priority 3 - Services Layer (COMPLETED ✅)
 - [x] `src/app/services/meeting_service.py` - Renamed, enhanced with signal update methods
@@ -117,18 +127,19 @@ from .services import tickets_supabase  # -> ticket_service
 - [x] `src/app/services/signal_learning.py` - Refactored to use SignalRepository + AIMemoryRepository
 - [x] `src/app/services/agent_bus.py` - Refactored to use AgentMessagesRepository
 - [x] `src/app/services/mindmap_synthesis.py` - Refactored to use MindmapRepository
-- [ ] `src/app/services/background_jobs.py` - Remaining (uses settings, notifications tables)
-- [ ] `src/app/services/coach_recommendations.py` - Remaining (uses multiple tables)
+- [x] `src/app/services/background_jobs.py` - Refactored to use NotificationsRepository
+- [ ] `src/app/services/coach_recommendations.py` - Has null checks, lower priority
 
-### Priority 4 - API Layer
-- [ ] `src/app/api/search.py`
-- [ ] `src/app/api/career.py`
-- [ ] `src/app/api/settings.py`
+### Priority 4 - API Layer (IN PROGRESS)
+- [ ] `src/app/api/career.py` - **BLOCKED** - 126 direct calls, use CareerRepository
+- [ ] `src/app/api/dikw.py` - **BLOCKED** - 26 direct calls, use DIKWRepository
+- [ ] `src/app/api/search.py` - 18 direct calls
+- [ ] `src/app/api/knowledge_graph.py` - 34 direct calls
+- [ ] `src/app/api/assistant.py` - 25 direct calls
+- [ ] `src/app/api/settings.py` - 10 direct calls
 - [ ] `src/app/api/admin.py`
 - [ ] `src/app/api/accountability.py`
-- [ ] `src/app/api/knowledge_graph.py`
 - [ ] `src/app/api/shortcuts.py`
-- [ ] `src/app/api/assistant.py`
 - [ ] `src/app/api/mcp.py`
 
 ### Priority 5 - Memory/Search Layer
