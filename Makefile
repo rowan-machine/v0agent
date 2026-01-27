@@ -1,4 +1,4 @@
-.PHONY: help build build-dev run run-dev stop clean test test-unit test-integration test-e2e test-coverage shell logs logs-chroma push pull
+.PHONY: help build build-dev run run-dev stop clean test test-unit test-integration test-e2e test-coverage shell logs push pull dev
 
 # Colors for output
 BLUE := \033[0;34m
@@ -9,13 +9,19 @@ NC := \033[0m # No Color
 help:
 	@echo "$(BLUE)V0Agent Docker & Development Commands$(NC)"
 	@echo ""
-	@echo "$(GREEN)Build & Run:$(NC)"
+	@echo "$(GREEN)Local Development:$(NC)"
+	@echo "  make dev                Start local dev server (uvicorn with hot reload)"
+	@echo "  make test               Run all tests locally"
+	@echo "  make test-unit          Run unit tests only"
+	@echo "  make test-integration   Run integration tests only"
+	@echo "  make test-coverage      Run tests with coverage report"
+	@echo ""
+	@echo "$(GREEN)Docker Build & Run:$(NC)"
 	@echo "  make build              Build production Docker image"
 	@echo "  make build-dev          Build development Docker image"
 	@echo "  make build-no-cache     Build without Docker cache"
 	@echo "  make run                Start all services (app + Redis)"
 	@echo "  make run-dev            Start with development image (hot reload)"
-	@echo "  make run-with-chromadb  Start with ChromaDB (for local embeddings)"
 	@echo "  make stop               Stop all running containers"
 	@echo ""
 	@echo "$(GREEN)Testing & Quality:$(NC)"
@@ -78,17 +84,10 @@ run-dev:
 	docker-compose -f docker-compose.yaml up
 	@echo "$(GREEN)✓ Development server started (hot reload enabled)$(NC)"
 
-run-with-neo4j:
-	@echo "$(BLUE)Starting services with Neo4j...$(NC)"
-	docker-compose --profile with-knowledge-graph up -d
-	@echo "$(GREEN)✓ Services started with Neo4j$(NC)"
-	@echo "$(BLUE)Neo4j Browser: http://localhost:7474$(NC)"
-
-run-with-chromadb:
-	@echo "$(BLUE)Starting services with ChromaDB (for local embeddings)...$(NC)"
-	docker-compose --profile with-chromadb up -d
-	@echo "$(GREEN)✓ Services started with ChromaDB$(NC)"
-	@echo "$(BLUE)ChromaDB: http://localhost:8001$(NC)"
+# ===== Local Development =====
+dev:
+	@echo "$(BLUE)Starting local dev server...$(NC)"
+	uvicorn src.app.main:app --reload --port 8001
 
 logs-redis:
 	@echo "$(BLUE)Tailing Redis logs (Ctrl+C to exit)...$(NC)"
@@ -102,37 +101,43 @@ stop:
 # ===== Testing Targets =====
 test:
 	@echo "$(BLUE)Running all tests...$(NC)"
-	docker-compose exec -T app pytest tests/ -v
+	pytest tests/ -v
 	@echo "$(GREEN)✓ Tests complete$(NC)"
 
 test-unit:
 	@echo "$(BLUE)Running unit tests...$(NC)"
-	docker-compose exec -T app pytest tests/unit -v
+	pytest tests/unit -v
 	@echo "$(GREEN)✓ Unit tests complete$(NC)"
 
 test-integration:
 	@echo "$(BLUE)Running integration tests...$(NC)"
-	docker-compose exec -T app pytest tests/integration -v
+	pytest tests/integration -v
 	@echo "$(GREEN)✓ Integration tests complete$(NC)"
 
 test-e2e:
 	@echo "$(BLUE)Running E2E tests...$(NC)"
-	docker-compose exec -T app pytest tests/e2e -v
+	pytest tests/e2e -v
 	@echo "$(GREEN)✓ E2E tests complete$(NC)"
 
 test-smoke:
 	@echo "$(BLUE)Running smoke tests...$(NC)"
-	docker-compose exec -T app pytest tests/smoke -v
+	pytest tests/smoke -v
 	@echo "$(GREEN)✓ Smoke tests complete$(NC)"
 
 test-coverage:
 	@echo "$(BLUE)Running tests with coverage...$(NC)"
-	docker-compose exec -T app pytest tests/ \
+	pytest tests/ \
 		--cov=src/app \
 		--cov-report=html \
 		--cov-report=term-missing
 	@echo "$(GREEN)✓ Coverage report generated$(NC)"
 	@echo "$(BLUE)Open htmlcov/index.html to view detailed report$(NC)"
+
+# ===== Docker Testing (if needed) =====
+test-docker:
+	@echo "$(BLUE)Running all tests in Docker...$(NC)"
+	docker-compose exec -T app pytest tests/ -v
+	@echo "$(GREEN)✓ Docker tests complete$(NC)"
 
 # ===== Quality Targets =====
 lint:
@@ -164,10 +169,6 @@ logs:
 logs-redis:
 	@echo "$(BLUE)Tailing Redis logs (Ctrl+C to exit)...$(NC)"
 	docker-compose logs -f redis
-
-logs-chroma:
-	@echo "$(BLUE)Tailing ChromaDB logs (requires --profile with-chromadb)...$(NC)"
-	docker-compose logs -f chroma
 
 clean:
 	@echo "$(BLUE)Stopping containers and removing volumes...$(NC)"

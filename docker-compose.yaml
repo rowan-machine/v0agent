@@ -20,9 +20,9 @@ services:
       - UPLOAD_DIR=/app/uploads
       - LOG_DIR=/app/logs
       - LOG_LEVEL=INFO
-      # Redis for caching (now default)
+      # Redis for caching
       - REDIS_URL=redis://redis:6379/0
-      # Embeddings via Supabase pgvector (no ChromaDB needed)
+      # Embeddings via Supabase pgvector
       - EMBEDDINGS_PROVIDER=supabase
     depends_on:
       redis:
@@ -37,7 +37,7 @@ services:
       retries: 3
       start_period: 10s
   
-  # Redis for caching (now default - removed profile requirement)
+  # Redis for caching
   redis:
     image: redis:7-alpine
     container_name: v0agent_redis
@@ -55,50 +55,7 @@ services:
       timeout: 5s
       retries: 3
 
-  # ChromaDB (optional - for local embeddings, prefer Supabase pgvector)
-  chroma:
-    image: ghcr.io/chroma-core/chroma:latest
-    container_name: v0agent_chroma
-    ports:
-      - "8001:8000"
-    volumes:
-      - chroma_data:/chroma/data
-    environment:
-      - IS_PERSISTENT=TRUE
-      - CHROMA_SERVER_HOST=0.0.0.0
-      - CHROMA_SERVER_PORT=8000
-    networks:
-      - v0agent_network
-    restart: unless-stopped
-    profiles:
-      - with-chromadb
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-
-  # Neo4j Knowledge Graph (optional - requires --profile with-knowledge-graph)
-  neo4j:
-    image: neo4j:latest
-    container_name: v0agent_neo4j
-    ports:
-      - "7474:7474"
-      - "7687:7687"
-    volumes:
-      - neo4j_data:/data
-      - neo4j_logs:/logs
-    environment:
-      - NEO4J_AUTH=neo4j/password123
-      - NEO4J_dbms_memory_heap_initial__size=1G
-      - NEO4J_dbms_memory_heap_max__size=2G
-    networks:
-      - v0agent_network
-    restart: unless-stopped
-    profiles:
-      - with-knowledge-graph
-
-  # pgAdmin for database management (dev only)
+  # pgAdmin for database management (dev only - use: docker-compose --profile dev-tools up)
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: v0agent_pgadmin
@@ -113,9 +70,6 @@ services:
       - dev-tools
 
 volumes:
-  chroma_data:
-  neo4j_data:
-  neo4j_logs:
   redis_data:
 
 networks:
