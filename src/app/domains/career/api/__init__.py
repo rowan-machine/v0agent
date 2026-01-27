@@ -10,6 +10,7 @@ from fastapi import APIRouter
 
 from .profile import router as profile_router
 from .skills import router as skills_router
+from .skills_advanced import router as skills_advanced_router
 from .standups import router as standups_router
 from .suggestions import router as suggestions_router
 from .memories import router as memories_router
@@ -25,6 +26,7 @@ router = APIRouter(prefix="/career", tags=["career"])
 # Include all sub-routers
 router.include_router(profile_router)
 router.include_router(skills_router)
+router.include_router(skills_advanced_router)
 router.include_router(standups_router)
 router.include_router(suggestions_router)
 router.include_router(memories_router)

@@ -18,47 +18,50 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The project implements an AI-powered knowledge management and meeting intelligence system with several specialized subsystems:
+The system implements an AI-powered knowledge management platform with five core business components:
 
-## Core Knowledge Management
-- DIKW (Data-Information-Knowledge-Wisdom) pyramid implementation for hierarchical knowledge organization
-- Signal intelligence system extracting decisions, actions, risks, and blockers from meetings
-- Multi-stage knowledge synthesis with confidence scoring and promotion logic
-- Custom tag clustering and relationship mapping across knowledge entities
+1. DIKW (Data-Information-Knowledge-Wisdom) Pyramid
+Importance Score: 90
+- Hierarchical knowledge progression system
+- Promotion workflows with confidence scoring
+- Multi-stage validation requirements
+- Knowledge synthesis and relationship mapping
+- Automatic tag generation and categorization
+Location: src/app/api/v1/dikw.py
 
-## Meeting Intelligence
-- Multi-source transcript integration combining Teams and Pocket recordings
-- Mindmap analysis using GPT-4 Vision for visual intelligence extraction 
-- Signal deduplication across different meeting sources
-- Auto-generation of meeting summaries with structured signals
-- Custom template detection supporting 30+ meeting formats
+2. AI Memory Management
+Importance Score: 85
+- Contextual learning system with semantic search
+- Importance-based memory retrieval (1-10 scoring)
+- Memory deduplication with confidence tracking
+- Holistic context injection for LLMs
+Location: src/app/api/v1/ai_memory.py
 
-## AI Assistant System
-- Contextual memory management with semantic search capabilities
-- Memory importance scoring affecting retrieval priority
-- Thread-based conversation tracking with LangSmith analytics
-- Domain-specific suggestion generation based on context
-- Command history management with 24-hour expiration
+3. Intelligent Signal Processing
+Importance Score: 85
+- Visual mindmap analysis using GPT-4 Vision
+- Structured knowledge extraction from mindmaps
+- Meeting bundle processing with signal extraction
+- Pattern recognition for DIKW item generation
+Location: src/app/api/v1/imports.py
 
-## Career Development
-- AI-powered standup analysis with sentiment tracking
-- Sprint-based career coaching recommendations
-- Code change analysis for growth suggestions
-- Automated feedback generation based on activity patterns
+4. Feedback Loop System
+Importance Score: 80
+- Signal-based AI learning mechanisms
+- Confidence boosting based on feedback patterns
+- DIKW item confidence updates
+- Holistic signal merging and deduplication
+Location: src/app/api/v1/feedback.py
 
-## Agent Communication
-- Priority-based message routing between agents
-- Token bucket rate limiting for agent messages 
-- Human-in-the-loop review workflow
-- Context preservation across agent conversations
-- TTL-based message lifecycle management
+5. Domain Notifications
+Importance Score: 75
+- Knowledge management specific notification types
+- Priority-based queueing system
+- Contextual notification grouping
+- Workflow-integrated actions
+Location: src/app/api/v1/notifications.py
 
-Key Unique Features:
-- Hybrid local-cloud sync with conflict resolution
-- Signal learning pipeline driven by user feedback
-- Knowledge visualization with multiple view modes
-- Sprint intelligence with workflow mode tracking
-- Multi-model routing based on task complexity
+The platform centers around transforming unstructured information into hierarchical knowledge through AI-assisted analysis and human feedback loops. The DIKW pyramid serves as the core organizational structure, while intelligent signal processing and memory management enable contextual learning and knowledge synthesis.
 
 $END$
 

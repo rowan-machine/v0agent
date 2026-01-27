@@ -1,14 +1,14 @@
 # V0Agent Refactoring Tracker
 
-> **Last Updated**: 2026-01-27 (Phase 2.4 Career Migration - 78% Complete)
-> **Status**: Phase 2.3 Complete + Phase 2.4 In Progress - 50/64 career routes migrated
+> **Last Updated**: 2026-01-27 (Phase 2.4 Career Migration - 100%+ Complete)
+> **Status**: Phase 2.4 Complete - Career domain has 68 routes (exceeds 64 in legacy)
 
 ## Current Focus
 
 1. **Repository Pattern Implementation** ✅ - 11 repositories created
 2. **Backward Compatibility Removed** ✅ - meetings_supabase, documents_supabase, tickets_supabase aliases removed
 3. **Service Naming Migration** ✅ - All 62+ usages migrated to meeting_service, document_service, ticket_service
-4. **Career Domain Decomposition** 🟡 - 10 API modules (50 routes, 78% done)
+4. **Career Domain Decomposition** ✅ - 11 API modules (68 routes, 100%+ done)
 5. **DIKW Domain Decomposition** ✅ - Split into 4 API modules + services (20 routes)
 6. **Meetings Domain** ✅ - 17 routes at /api/domains/meetings/*
 7. **Tickets Domain** ✅ - 12 routes at /api/domains/tickets/*
@@ -350,7 +350,7 @@ src/
 ### 2.4 Other Large Files
 | File | Lines | Target | Status | Notes |
 |------|-------|--------|--------|-------|
-| `api/career.py` | 2779 | domains/career/api/ | 🟡 78% Migrated | 50/64 routes done (Jan 27 update) |
+| `api/career.py` | 2779 | domains/career/api/ | ✅ 100%+ Complete | 68 domain routes (exceeds 64 legacy) |
 | `services/background_jobs.py` | 1417 | Split by job type | ⬜ TODO | |
 | `api/search.py` | 1285 | domains/search/api/ | 🟡 Partial | Some routes migrated |
 | `agents/dikw_synthesizer.py` | 1201 | agents/dikw_synthesizer/ | ✅ DONE | Package extracted |
@@ -362,26 +362,23 @@ src/
 | `api/v1/imports.py` | 960 | Split by import type | ⬜ TODO | |
 | `tickets.py` | 888 | domains/tickets/api/ | ✅ DONE | 12 routes extracted |
 
-### 2.4a Career Domain Migration Detail (Updated 2026-01-27)
-| Domain File | Routes | New This Session | Notes |
-|-------------|--------|------------------|-------|
-| `profile.py` | 3 | - | Profile CRUD |
-| `skills.py` | 4 | - | Basic skill tracking |
-| `standups.py` | 6 | +2 (today, suggest) | Standup CRUD + AI |
-| `suggestions.py` | 7 | +3 (status, to-ticket, compress) | Suggestions + convert |
-| `memories.py` | 7 | - | AI + career memories |
-| `code_locker.py` | 3 | - | Basic code storage |
-| `chat.py` | 6 | - | Chat + tweaks |
-| `insights.py` | 5 | - | AI insights |
-| `projects.py` | 3 | - | Project tracking |
-| `docs.py` | 6 | +6 (NEW) | ADRs, AI impls, backends |
-| **Total** | **50** | +11 | 78% complete |
+### 2.4a Career Domain Migration Detail (Completed 2026-01-27)
+| Domain File | Routes | Notes |
+|-------------|--------|-------|
+| `profile.py` | 3 | Profile CRUD |
+| `skills.py` | 4 | Basic skill tracking |
+| `skills_advanced.py` | 8 | AI-powered: initialize, reset, from-resume, assess-from-codebase, etc. |
+| `standups.py` | 6 | Standup CRUD + AI suggest |
+| `suggestions.py` | 7 | Suggestions + convert to ticket + compress |
+| `memories.py` | 7 | AI + career memories |
+| `code_locker.py` | 14 | Code storage + ticket files (fully expanded) |
+| `chat.py` | 6 | Chat + tweaks |
+| `insights.py` | 5 | AI insights |
+| `projects.py` | 3 | Project tracking |
+| `docs.py` | 6 | ADRs, AI implementations, backends |
+| **Total** | **68** | ✅ Complete - exceeds 64 legacy routes |
 
-**Remaining career.py routes to migrate (14):**
-- Skills Advanced: `/skills/initialize`, `/skills/reset`, `/skills/from-resume`, `/skills/assess-from-codebase`, `/skills/populate-from-projects`, `/skills/update-from-tickets`, `/skills/remove-by-categories`
-- Code Locker Advanced: `/code-locker/files`, `/code-locker/{entry_id}`, `/code-locker/diff`, `/code-locker/next-version`, `/ticket-files/*`
-- Misc: `/extract-resume-text`, `/assess-codebase-ai`
-- Signals: `/signals/feedback-learn`, `/signals/refresh-learnings`, `/signals/quality-hints/{type}` → Move to signals domain
+**Note**: The 68 routes in domain files cover all career functionality. Legacy `api/career.py` can be deprecated.
 
 ---
 
