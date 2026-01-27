@@ -1,14 +1,14 @@
 # V0Agent Refactoring Tracker
 
-> **Last Updated**: 2026-01-27 (Phase 2.4 Career Migration - 100%+ Complete)
-> **Status**: Phase 2.4 Complete - Career domain has 68 routes (exceeds 64 in legacy)
+> **Last Updated**: 2026-01-27 (Phase 2.4 Complete + Signals Domain)
+> **Status**: 10 Domains with 189 total routes - Career, Signals fully migrated
 
 ## Current Focus
 
 1. **Repository Pattern Implementation** ✅ - 11 repositories created
 2. **Backward Compatibility Removed** ✅ - meetings_supabase, documents_supabase, tickets_supabase aliases removed
 3. **Service Naming Migration** ✅ - All 62+ usages migrated to meeting_service, document_service, ticket_service
-4. **Career Domain Decomposition** ✅ - 11 API modules (68 routes, 100%+ done)
+4. **Career Domain Decomposition** ✅ - 11 API modules (68 routes)
 5. **DIKW Domain Decomposition** ✅ - Split into 4 API modules + services (20 routes)
 6. **Meetings Domain** ✅ - 17 routes at /api/domains/meetings/*
 7. **Tickets Domain** ✅ - 12 routes at /api/domains/tickets/*
@@ -17,7 +17,10 @@
 10. **dikw_synthesizer Agent Package** ✅ - Full decomposition into 5 modules
 11. **meeting_analyzer Agent Package** ✅ - Full decomposition into 5 modules
 12. **Workflow Domain** ✅ - 18 routes (modes, progress, timer, jobs, tracing)
-13. **Dashboard Domain** ✅ - 4 routes (quick_ask, highlights, context)
+13. **Dashboard Domain** ✅ - 3 routes (quick_ask, highlights, context)
+14. **Search Domain** ✅ - 10 routes (semantic, hybrid, unified, mindmap)
+15. **Signals Domain** ✅ - 13 routes (browse, extraction, learning)
+16. **Assistant Domain** ✅ - 19 routes
 
 ---
 
