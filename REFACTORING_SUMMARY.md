@@ -12,25 +12,34 @@ Migrating direct `supabase.table()` calls in domain modules to use the repositor
 ### Progress
 - ✅ Repositories exist: MeetingRepository, SignalRepository, DocumentRepository, DIKWRepository, CareerRepository
 - ✅ **signals/browse.py** - Fully migrated to repository pattern
-- ✅ **signals/extraction.py** - Fully migrated to repository pattern
+- ✅ **signals/extraction.py** - Fully migrated to repository pattern  
 - ✅ **DIKW domain** - No direct supabase calls (already clean)
-- 🔄 **career domain** - 19 direct supabase calls to migrate
+- ✅ **career/insights.py** - Fully migrated to CareerRepository
+- ✅ **career/projects.py** - Fully migrated to CareerRepository
 - 🔄 **search domain** - 7 direct supabase calls to migrate
+
+### CareerRepository Enhancements (Phase 2.9)
+Extended with new methods:
+- `get_synced_source_ids(source_type)` - Get IDs synced to career memories
+- `get_memories_by_type(memory_type, limit, order_by_pinned)` - Filter by memory type
+- `get_memories_by_types(memory_types, limit)` - Filter by multiple types
+- `get_project_memories(limit)` - Get completed project/AI work memories
+- `get_skill_summary()` - Get skill statistics (total, avg, levels)
+- `get_skills()` now supports `min_proficiency` parameter
 
 ### Remaining Direct Supabase Calls
 
 | Domain | File | Calls | Priority |
 |--------|------|-------|----------|
-| career | `insights.py` | 10 | High |
-| career | `projects.py` | 9 | High |
 | search | `keyword.py` | 2 | Medium |
 | search | `unified.py` | 5 | Medium |
+| career | `projects.py` | 2 | Low (tickets table - need TicketRepository) |
 
 ### Next Steps
-1. Extend CareerRepository with missing methods
-2. Migrate career/insights.py to use CareerRepository
-3. Migrate career/projects.py to use CareerRepository
-4. Extend SearchRepository or create new repositories for search domain
+1. Create SearchRepository for search domain queries
+2. Migrate search/keyword.py to use repositories
+3. Migrate search/unified.py to use repositories
+4. Consider TicketRepository for remaining ticket table calls
 
 ---
 
