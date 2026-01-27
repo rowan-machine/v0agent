@@ -1,6 +1,6 @@
 # Refactoring Summary
 
-> **Last Updated**: 2026-01-27  
+> **Last Updated**: 2025-01-27  
 > **Current Phase**: 2.9 In Progress  
 > **Status**: ✅ Phase 2.8 Complete | 🔄 Repository Pattern Migration
 
@@ -10,9 +10,27 @@
 Migrating direct `supabase.table()` calls in domain modules to use the repository pattern.
 
 ### Progress
-- ✅ Repositories exist: SignalRepository, DIKWRepository, CareerRepository
-- 🔄 Domains using direct DB calls need migration
-- ⏳ Testing repository integration
+- ✅ Repositories exist: MeetingRepository, SignalRepository, DocumentRepository, DIKWRepository, CareerRepository
+- ✅ **signals/browse.py** - Fully migrated to repository pattern
+- ✅ **signals/extraction.py** - Fully migrated to repository pattern
+- ✅ **DIKW domain** - No direct supabase calls (already clean)
+- 🔄 **career domain** - 19 direct supabase calls to migrate
+- 🔄 **search domain** - 7 direct supabase calls to migrate
+
+### Remaining Direct Supabase Calls
+
+| Domain | File | Calls | Priority |
+|--------|------|-------|----------|
+| career | `insights.py` | 10 | High |
+| career | `projects.py` | 9 | High |
+| search | `keyword.py` | 2 | Medium |
+| search | `unified.py` | 5 | Medium |
+
+### Next Steps
+1. Extend CareerRepository with missing methods
+2. Migrate career/insights.py to use CareerRepository
+3. Migrate career/projects.py to use CareerRepository
+4. Extend SearchRepository or create new repositories for search domain
 
 ---
 

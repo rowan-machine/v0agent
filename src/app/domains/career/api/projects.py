@@ -11,6 +11,7 @@ import json
 import logging
 
 from ....infrastructure.supabase_client import get_supabase_client
+from ....repositories import get_career_repository
 from ....services import ticket_service
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,9 @@ router = APIRouter(tags=["career-projects"])
 @router.get("/completed-projects")
 async def get_completed_projects():
     """Get completed projects from tickets and career memories."""
+    career_repo = get_career_repository()
     supabase = get_supabase_client()
+    
     if not supabase:
         return JSONResponse({"tickets": [], "memories": []})
     
@@ -32,11 +35,8 @@ async def get_completed_projects():
     
     all_tickets = tickets_result.data or []
     
-    # Get memories that are already synced
-    synced_result = supabase.table("career_memories").select("source_id").eq(
-        "source_type", "ticket"
-    ).execute()
-    synced_ids = {str(m.get("source_id")) for m in (synced_result.data or [])}
+    # Get memories that are already synced using repository
+    synced_ids = set(career_repo.get_synced_source_ids("ticket"))
     
     # Filter tickets to only those not yet synced
     tickets = []
@@ -49,31 +49,25 @@ async def get_completed_projects():
             t["files"] = ",".join(file_names) if file_names else None
             tickets.append(t)
     
-    # Get completed project memories
-    memories_result = supabase.table("career_memories").select("*").eq(
-        "memory_type", "completed_project"
-    ).order("is_pinned", desc=True).order("created_at", desc=True).execute()
+    # Get completed project memories using repository
+    memories = career_repo.get_memories_by_type("completed_project", limit=100, order_by_pinned=True)
     
     return JSONResponse({
         "tickets": tickets,
-        "memories": memories_result.data or []
+        "memories": memories
     })
 
 
 @router.post("/sync-completed-projects")
 async def sync_completed_projects():
     """Sync completed tickets to career memories."""
-    supabase = get_supabase_client()
-    if not supabase:
-        return JSONResponse({"error": "Database not configured"}, status_code=500)
+    career_repo = get_career_repository()
     
     all_tickets = ticket_service.get_all_tickets()
     completed_tickets = [t for t in all_tickets if t.get("status") in ('done', 'complete', 'completed')]
     
-    existing_result = supabase.table("career_memories").select("source_id").eq(
-        "source_type", "ticket"
-    ).execute()
-    existing_ids = {str(row.get("source_id")) for row in (existing_result.data or [])}
+    # Get existing synced IDs using repository
+    existing_ids = set(career_repo.get_synced_source_ids("ticket"))
     
     added = 0
     for t in completed_tickets:
@@ -87,7 +81,7 @@ async def sync_completed_projects():
             "completed_at": t.get("updated_at")
         })
         
-        supabase.table("career_memories").insert({
+        career_repo.add_memory({
             "memory_type": "completed_project",
             "title": t.get("title") or "",
             "description": t.get("ai_summary") or t.get("description") or "",
@@ -96,7 +90,7 @@ async def sync_completed_projects():
             "skills": skills,
             "is_pinned": False,
             "metadata": metadata
-        }).execute()
+        })
         added += 1
     
     return JSONResponse({"status": "ok", "added": added})
@@ -105,67 +99,49 @@ async def sync_completed_projects():
 @router.get("/development-tracker")
 async def get_development_tracker():
     """Get development tracker data - skill progress and learning activities."""
-    supabase = get_supabase_client()
-    if not supabase:
-        return JSONResponse({"skills": [], "activities": [], "projects": [], "summary": {}})
+    career_repo = get_career_repository()
     
-    # Get recent skill changes
-    skills_result = supabase.table("skill_tracker").select(
-        "skill_name,category,proficiency_level,evidence,updated_at,projects_count"
-    ).gt("proficiency_level", 0).order("updated_at", desc=True).order(
-        "proficiency_level", desc=True
-    ).limit(20).execute()
-    skills = skills_result.data or []
+    # Get recent skills with proficiency > 0
+    skills_entries = career_repo.get_skills(min_proficiency=1, limit=20, order_by="updated_at")
+    skills = [
+        {
+            "skill_name": s.skill_name,
+            "category": s.category,
+            "proficiency_level": s.proficiency_level,
+            "evidence": s.evidence,
+            "updated_at": s.updated_at,
+            "projects_count": s.projects_count
+        }
+        for s in skills_entries
+    ]
     
     # Get recent career memories as learning activities
-    memories_result = supabase.table("career_memories").select(
-        "id,memory_type,title,description,skills,created_at"
-    ).in_("memory_type", ["skill_milestone", "achievement"]).order(
-        "created_at", desc=True
-    ).limit(10).execute()
-    memories = memories_result.data or []
+    memories = career_repo.get_memories_by_types(
+        memory_types=["skill_milestone", "achievement"],
+        limit=10
+    )
     
     # Get completed projects from career_memories
-    projects_result = supabase.table("career_memories").select(
-        "id,title,skills,description,created_at"
-    ).or_("memory_type.eq.completed_project,is_ai_work.eq.true").order(
-        "created_at", desc=True
-    ).limit(5).execute()
-    
-    projects = []
-    for p in (projects_result.data or []):
-        projects.append({
+    project_data = career_repo.get_project_memories(limit=5)
+    projects = [
+        {
             "id": p.get("id"),
             "title": p.get("title"),
             "technologies": p.get("skills"),
             "impact": p.get("description"),
             "completed_date": p.get("created_at")
-        })
+        }
+        for p in project_data
+    ]
     
-    # Calculate summary stats
-    all_skills_result = supabase.table("skill_tracker").select("proficiency_level").gt(
-        "proficiency_level", 0
-    ).execute()
-    all_skills = all_skills_result.data or []
-    total_skills = len(all_skills)
-    avg_proficiency = sum(s.get("proficiency_level", 0) for s in all_skills) / total_skills if total_skills else 0
-    
-    skill_levels = {
-        "beginner": len([s for s in all_skills if 1 <= s.get("proficiency_level", 0) <= 30]),
-        "intermediate": len([s for s in all_skills if 31 <= s.get("proficiency_level", 0) <= 60]),
-        "advanced": len([s for s in all_skills if 61 <= s.get("proficiency_level", 0) <= 85]),
-        "expert": len([s for s in all_skills if s.get("proficiency_level", 0) > 85]),
-    }
+    # Calculate summary stats using repository
+    summary = career_repo.get_skill_summary()
     
     return JSONResponse({
         "skills": skills,
         "activities": memories,
         "projects": projects,
-        "summary": {
-            "total_skills": total_skills,
-            "avg_proficiency": round(avg_proficiency, 1),
-            "skill_levels": skill_levels
-        }
+        "summary": summary
     })
 
 

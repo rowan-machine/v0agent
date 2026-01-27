@@ -302,6 +302,40 @@ class CareerRepository(ABC):
         """Delete a career memory."""
         pass
 
+    @abstractmethod
+    def get_synced_source_ids(self, source_type: str) -> List[str]:
+        """Get source IDs that have been synced to career memories."""
+        pass
+
+    @abstractmethod
+    def get_memories_by_type(
+        self,
+        memory_type: str,
+        limit: int = 50,
+        order_by_pinned: bool = False
+    ) -> List[Dict[str, Any]]:
+        """Get memories filtered by memory_type."""
+        pass
+
+    @abstractmethod
+    def get_memories_by_types(
+        self,
+        memory_types: List[str],
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """Get memories filtered by multiple memory_types."""
+        pass
+
+    @abstractmethod
+    def get_project_memories(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """Get completed project or AI work memories."""
+        pass
+
+    @abstractmethod
+    def get_skill_summary(self) -> Dict[str, Any]:
+        """Get skill summary stats (total, avg proficiency, levels breakdown)."""
+        pass
+
     # Suggestion operations
     @abstractmethod
     def get_suggestions(
@@ -333,6 +367,7 @@ class CareerRepository(ABC):
     def get_skills(
         self,
         category: Optional[str] = None,
+        min_proficiency: Optional[int] = None,
         limit: int = 100,
         order_by: str = "proficiency"
     ) -> List[SkillEntry]:
@@ -585,6 +620,99 @@ class SupabaseCareerRepository(CareerRepository):
             logger.error(f"Failed to delete memory: {e}")
             return False
 
+    def get_synced_source_ids(self, source_type: str) -> List[str]:
+        """Get source IDs that have been synced to career memories."""
+        if not self.client:
+            return []
+        try:
+            result = self.client.table("career_memories").select("source_id").eq(
+                "source_type", source_type
+            ).execute()
+            return [str(m.get("source_id")) for m in (result.data or []) if m.get("source_id")]
+        except Exception as e:
+            logger.error(f"Failed to get synced source IDs: {e}")
+            return []
+
+    def get_memories_by_type(
+        self,
+        memory_type: str,
+        limit: int = 50,
+        order_by_pinned: bool = False
+    ) -> List[Dict[str, Any]]:
+        """Get memories filtered by memory_type."""
+        if not self.client:
+            return []
+        try:
+            query = self.client.table("career_memories").select("*").eq("memory_type", memory_type)
+            if order_by_pinned:
+                query = query.order("is_pinned", desc=True)
+            query = query.order("created_at", desc=True).limit(limit)
+            result = query.execute()
+            return result.data or []
+        except Exception as e:
+            logger.error(f"Failed to get memories by type: {e}")
+            return []
+
+    def get_memories_by_types(
+        self,
+        memory_types: List[str],
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """Get memories filtered by multiple memory_types."""
+        if not self.client:
+            return []
+        try:
+            query = self.client.table("career_memories").select(
+                "id,memory_type,title,description,skills,created_at"
+            ).in_("memory_type", memory_types).order("created_at", desc=True).limit(limit)
+            result = query.execute()
+            return result.data or []
+        except Exception as e:
+            logger.error(f"Failed to get memories by types: {e}")
+            return []
+
+    def get_project_memories(self, limit: int = 5) -> List[Dict[str, Any]]:
+        """Get completed project or AI work memories."""
+        if not self.client:
+            return []
+        try:
+            result = self.client.table("career_memories").select(
+                "id,title,skills,description,created_at"
+            ).or_("memory_type.eq.completed_project,is_ai_work.eq.true").order(
+                "created_at", desc=True
+            ).limit(limit).execute()
+            return result.data or []
+        except Exception as e:
+            logger.error(f"Failed to get project memories: {e}")
+            return []
+
+    def get_skill_summary(self) -> Dict[str, Any]:
+        """Get skill summary stats."""
+        if not self.client:
+            return {"total_skills": 0, "avg_proficiency": 0, "skill_levels": {}}
+        try:
+            result = self.client.table("skill_tracker").select("proficiency_level").gt(
+                "proficiency_level", 0
+            ).execute()
+            all_skills = result.data or []
+            total_skills = len(all_skills)
+            avg_proficiency = sum(s.get("proficiency_level", 0) for s in all_skills) / total_skills if total_skills else 0
+            
+            skill_levels = {
+                "beginner": len([s for s in all_skills if 1 <= s.get("proficiency_level", 0) <= 30]),
+                "intermediate": len([s for s in all_skills if 31 <= s.get("proficiency_level", 0) <= 60]),
+                "advanced": len([s for s in all_skills if 61 <= s.get("proficiency_level", 0) <= 85]),
+                "expert": len([s for s in all_skills if s.get("proficiency_level", 0) > 85]),
+            }
+            return {
+                "total_skills": total_skills,
+                "avg_proficiency": round(avg_proficiency, 1),
+                "skill_levels": skill_levels
+            }
+        except Exception as e:
+            logger.error(f"Failed to get skill summary: {e}")
+            return {"total_skills": 0, "avg_proficiency": 0, "skill_levels": {}}
+
     # -------------------------------------------------------------------------
     # Suggestion operations
     # -------------------------------------------------------------------------
@@ -662,6 +790,7 @@ class SupabaseCareerRepository(CareerRepository):
     def get_skills(
         self,
         category: Optional[str] = None,
+        min_proficiency: Optional[int] = None,
         limit: int = 100,
         order_by: str = "proficiency"
     ) -> List[SkillEntry]:
@@ -673,6 +802,8 @@ class SupabaseCareerRepository(CareerRepository):
             query = self.client.table("skill_tracker").select("*")
             if category:
                 query = query.eq("category", category)
+            if min_proficiency is not None:
+                query = query.gt("proficiency_level", min_proficiency - 1)
             query = query.order(order_by, desc=True).limit(limit)
             result = query.execute()
             return [SkillEntry.from_dict(s) for s in (result.data or [])]
