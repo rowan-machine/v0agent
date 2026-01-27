@@ -50,6 +50,12 @@ from .mindmap_repository import (
     SupabaseMindmapRepository,
     get_mindmap_repository,
 )
+from .notifications_repository import (
+    NotificationEntity,
+    NotificationsRepository,
+    SupabaseNotificationsRepository,
+    get_notifications_repository,
+)
 
 def get_meeting_repository() -> MeetingRepository:
     """Get meeting repository (Supabase)."""
@@ -106,4 +112,9 @@ __all__ = [
     "MindmapRepository",
     "SupabaseMindmapRepository",
     "get_mindmap_repository",
+    # Notifications
+    "NotificationEntity",
+    "NotificationsRepository",
+    "SupabaseNotificationsRepository",
+    "get_notifications_repository",
 ]
