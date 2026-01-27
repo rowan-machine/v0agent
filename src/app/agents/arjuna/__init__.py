@@ -3,12 +3,12 @@ Arjuna Agent Package - SignalFlow Smart Assistant
 
 This package provides the Arjuna conversational AI agent.
 
-MIGRATION NOTE:
+MIGRATION STATUS:
 The agent is being decomposed from a single 2500+ line file into:
-- constants.py - Knowledge bases and configuration
+- constants.py - Knowledge bases and configuration ✅
+- tools.py - Intent execution tools (ticket CRUD, etc.) ✅
+- context.py - Context gathering (system state, focus) ✅
 - core.py - ArjunaAgent class (future)
-- tools.py - Intent execution tools (future)
-- context.py - Context gathering methods (future)
 - standup.py - Standup-related methods (future)
 - adapters.py - Module-level adapter functions (future)
 
@@ -22,6 +22,10 @@ from .constants import (
     MODEL_ALIASES,
     FOCUS_KEYWORDS,
 )
+
+# Import mixins (for use in agent composition)
+from .tools import ArjunaToolsMixin
+from .context import ArjunaContextMixin
 
 # Import everything else from the original arjuna module (renamed to avoid circular import)
 from .._arjuna_core import (
@@ -48,6 +52,9 @@ __all__ = [
     "SYSTEM_PAGES", 
     "MODEL_ALIASES",
     "FOCUS_KEYWORDS",
+    # Mixins
+    "ArjunaToolsMixin",
+    "ArjunaContextMixin",
     # Agent
     "ArjunaAgent",
     "SimpleLLMClient",
