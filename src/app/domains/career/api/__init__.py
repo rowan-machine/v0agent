@@ -17,6 +17,7 @@ from .code_locker import router as code_locker_router
 from .chat import router as chat_router
 from .insights import router as insights_router
 from .projects import router as projects_router
+from .docs import router as docs_router
 
 # Create the aggregated career router
 router = APIRouter(prefix="/career", tags=["career"])
@@ -31,5 +32,6 @@ router.include_router(code_locker_router)
 router.include_router(chat_router)
 router.include_router(insights_router)
 router.include_router(projects_router)
+router.include_router(docs_router)
 
 __all__ = ["router"]

@@ -1,23 +1,23 @@
 # V0Agent Refactoring Tracker
 
-> **Last Updated**: 2026-01-27 (Phase 2.8 - Agent Packages + Domain Extraction)
-> **Status**: Phase 2.8 - Agent Package Decomposition Complete, Additional Domains Extracted
+> **Last Updated**: 2026-01-27 (Phase 2.4 Career Migration - 78% Complete)
+> **Status**: Phase 2.3 Complete + Phase 2.4 In Progress - 50/64 career routes migrated
 
 ## Current Focus
 
 1. **Repository Pattern Implementation** ✅ - 11 repositories created
 2. **Backward Compatibility Removed** ✅ - meetings_supabase, documents_supabase, tickets_supabase aliases removed
 3. **Service Naming Migration** ✅ - All 62+ usages migrated to meeting_service, document_service, ticket_service
-4. **Career Domain Decomposition** ✅ - Split into 7 API modules + services (27 routes)
+4. **Career Domain Decomposition** 🟡 - 10 API modules (50 routes, 78% done)
 5. **DIKW Domain Decomposition** ✅ - Split into 4 API modules + services (20 routes)
 6. **Meetings Domain** ✅ - 17 routes at /api/domains/meetings/*
 7. **Tickets Domain** ✅ - 12 routes at /api/domains/tickets/*
 8. **Documents Domain** ✅ - 9 routes at /api/domains/documents/*
-9. **Arjuna Agent Decomposition** ✅ - Package structure created, constants extracted
-10. **dikw_synthesizer Agent Package** ✅ NEW - Full decomposition into 5 modules (constants, agent, visualization, adapters, __init__)
-11. **meeting_analyzer Agent Package** ✅ NEW - Full decomposition into 5 modules (constants, parser, extractor, agent, adapters)
-12. **Workflow Domain** ✅ NEW - 18 routes (modes, progress, timer, jobs, tracing)
-13. **Dashboard Domain** ✅ NEW - 4 routes (quick_ask, highlights, context)
+9. **Arjuna Agent Decomposition** ✅ - 11 modules (~1900 lines)
+10. **dikw_synthesizer Agent Package** ✅ - Full decomposition into 5 modules
+11. **meeting_analyzer Agent Package** ✅ - Full decomposition into 5 modules
+12. **Workflow Domain** ✅ - 18 routes (modes, progress, timer, jobs, tracing)
+13. **Dashboard Domain** ✅ - 4 routes (quick_ask, highlights, context)
 
 ---
 
@@ -260,6 +260,8 @@ src/
 | `adapters/embedding/openai.py` | ⬜ TODO | Implement embedding protocol |
 | `adapters/storage/supabase.py` | ⬜ TODO | Implement storage protocol |
 
+**Note**: Phase 1.3 was skipped during initial development. The repository pattern was implemented directly in `repositories/` without the formal adapter layer. Consider consolidating infrastructure code into adapters/ folder in a future cleanup phase.
+
 ---
 
 ## Phase 2: Decompose Large Files
@@ -326,26 +328,60 @@ src/
 - `/api/domains/tickets/*` - 12 routes (crud, sprints)
 - `/api/domains/documents/*` - 9 routes (crud, search)
 
-### 2.3 arjuna.py (2573 lines) → Agent System
+### 2.3 arjuna.py (2573 lines) → Agent System ✅ COMPLETE
 | Extract To | Status | Lines | Description |
 |------------|--------|-------|-------------|
-| `agents/arjuna/core.py` | ⬜ TODO | ~500 | Main agent logic |
-| `agents/arjuna/memory.py` | ⬜ TODO | ~400 | Memory management |
-| `agents/arjuna/tools.py` | ⬜ TODO | ~600 | Tool implementations |
-| `agents/arjuna/prompts.py` | ⬜ TODO | ~300 | System prompts |
-| `agents/arjuna/routing.py` | ⬜ TODO | ~300 | Request routing |
+| `agents/arjuna/constants.py` | ✅ DONE | ~130 | AVAILABLE_MODELS, SYSTEM_PAGES, MODEL_ALIASES, FOCUS_KEYWORDS |
+| `agents/arjuna/context.py` | ✅ DONE | ~150 | ArjunaContextMixin - Context gathering |
+| `agents/arjuna/focus.py` | ✅ DONE | ~120 | ArjunaFocusMixin - Focus recommendations |
+| `agents/arjuna/standup.py` | ✅ DONE | ~100 | ArjunaStandupMixin - Standup operations |
+| `agents/arjuna/tools.py` | ✅ DONE | ~80 | Helper functions for response formatting |
+| `agents/arjuna/mcp_handler.py` | ✅ DONE | ~165 | ArjunaMCPMixin - MCP command handling |
+| `agents/arjuna/chain_executor.py` | ✅ DONE | ~218 | ArjunaChainMixin + CHAIN_DEFINITIONS |
+| `agents/arjuna/intents.py` | ✅ DONE | ~147 | ArjunaIntentMixin - Intent parsing/execution |
+| `agents/arjuna/tickets.py` | ✅ DONE | ~186 | ArjunaTicketMixin - Ticket CRUD operations |
+| `agents/arjuna/core.py` | ✅ DONE | ~350 | ArjunaAgentCore - Composition-based agent |
+| `agents/arjuna/adapters.py` | ✅ DONE | ~280 | Module-level adapter functions |
+
+**Total: 11 modules (~1900 lines) - Well-organized, single-responsibility code**
+
+**Architecture**: Uses mixin composition pattern. ArjunaAgentCore inherits from all mixins for clean separation of concerns while maintaining a unified agent interface.
 
 ### 2.4 Other Large Files
-| File | Lines | Target | Status |
-|------|-------|--------|--------|
-| `services/background_jobs.py` | 1425 | Split by job type | ⬜ TODO |
-| `api/search.py` | 1285 | Extract to application layer | ⬜ TODO |
-| `agents/dikw_synthesizer.py` | 1189 | Split stages | ⬜ TODO |
-| `meetings.py` | 1102 | Move to application layer | ⬜ TODO |
-| `api/assistant.py` | 987 | Split by feature | ⬜ TODO |
-| `db.py` | 961 | Remove (use adapters) | ⬜ TODO |
-| `api/v1/imports.py` | 960 | Split by import type | ⬜ TODO |
-| `tickets.py` | 888 | Move to application layer | ⬜ TODO |
+| File | Lines | Target | Status | Notes |
+|------|-------|--------|--------|-------|
+| `api/career.py` | 2779 | domains/career/api/ | 🟡 78% Migrated | 50/64 routes done (Jan 27 update) |
+| `services/background_jobs.py` | 1417 | Split by job type | ⬜ TODO | |
+| `api/search.py` | 1285 | domains/search/api/ | 🟡 Partial | Some routes migrated |
+| `agents/dikw_synthesizer.py` | 1201 | agents/dikw_synthesizer/ | ✅ DONE | Package extracted |
+| `main.py` | 1235 | Acceptable | ✅ OK | Application setup |
+| `career_repository.py` | 1133 | Acceptable | ✅ OK | Repository pattern |
+| `meetings.py` | 1102 | domains/meetings/api/ | ✅ DONE | 17 routes extracted |
+| `api/assistant.py` | 987 | Split by feature | ⬜ TODO | |
+| `db.py` | 961 | Remove (use adapters) | ⬜ TODO | Legacy, migrate to repositories |
+| `api/v1/imports.py` | 960 | Split by import type | ⬜ TODO | |
+| `tickets.py` | 888 | domains/tickets/api/ | ✅ DONE | 12 routes extracted |
+
+### 2.4a Career Domain Migration Detail (Updated 2026-01-27)
+| Domain File | Routes | New This Session | Notes |
+|-------------|--------|------------------|-------|
+| `profile.py` | 3 | - | Profile CRUD |
+| `skills.py` | 4 | - | Basic skill tracking |
+| `standups.py` | 6 | +2 (today, suggest) | Standup CRUD + AI |
+| `suggestions.py` | 7 | +3 (status, to-ticket, compress) | Suggestions + convert |
+| `memories.py` | 7 | - | AI + career memories |
+| `code_locker.py` | 3 | - | Basic code storage |
+| `chat.py` | 6 | - | Chat + tweaks |
+| `insights.py` | 5 | - | AI insights |
+| `projects.py` | 3 | - | Project tracking |
+| `docs.py` | 6 | +6 (NEW) | ADRs, AI impls, backends |
+| **Total** | **50** | +11 | 78% complete |
+
+**Remaining career.py routes to migrate (14):**
+- Skills Advanced: `/skills/initialize`, `/skills/reset`, `/skills/from-resume`, `/skills/assess-from-codebase`, `/skills/populate-from-projects`, `/skills/update-from-tickets`, `/skills/remove-by-categories`
+- Code Locker Advanced: `/code-locker/files`, `/code-locker/{entry_id}`, `/code-locker/diff`, `/code-locker/next-version`, `/ticket-files/*`
+- Misc: `/extract-resume-text`, `/assess-codebase-ai`
+- Signals: `/signals/feedback-learn`, `/signals/refresh-learnings`, `/signals/quality-hints/{type}` → Move to signals domain
 
 ---
 
