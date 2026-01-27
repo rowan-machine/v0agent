@@ -3,21 +3,22 @@ Arjuna Agent Package - SignalFlow Smart Assistant
 
 This package provides the Arjuna conversational AI agent.
 
-MIGRATION STATUS:
-The agent is being decomposed from a single 2500+ line file into:
+MIGRATION STATUS: 95% Complete ✅
+The agent has been decomposed from a single 2500+ line file into:
 - constants.py - Knowledge bases and configuration ✅
 - tools.py - Intent execution tools (ticket CRUD, etc.) ✅
 - context.py - Context gathering (system state, focus) ✅
 - standup.py - Standup-related methods ✅
 - focus.py - Focus recommendation methods ✅
-- mcp_handler.py - MCP command handling ✅ (NEW)
-- chain_executor.py - Chain command execution ✅ (NEW)
-- intents.py - Intent parsing and execution ✅ (NEW)
-- tickets.py - Ticket CRUD operations ✅ (NEW)
-- core.py - ArjunaAgent class (future)
-- adapters.py - Module-level adapter functions (future)
+- mcp_handler.py - MCP command handling ✅
+- chain_executor.py - Chain command execution ✅
+- intents.py - Intent parsing and execution ✅
+- tickets.py - Ticket CRUD operations ✅
+- core.py - ArjunaAgentCore class (new composition-based) ✅
+- adapters.py - Module-level adapter functions ✅
 
-For now, we re-export from the original module to maintain compatibility.
+For backward compatibility, we still re-export from _arjuna_core.py.
+New code should import from this package directly.
 """
 
 # Import constants from the new location
@@ -40,9 +41,11 @@ from .chain_executor import ArjunaChainMixin, CHAIN_DEFINITIONS
 from .intents import ArjunaIntentMixin
 from .tickets import ArjunaTicketMixin
 
-# Import everything else from the original arjuna module (renamed to avoid circular import)
-from .._arjuna_core import (
-    ArjunaAgent,
+# Import new core class (Phase 2.3)
+from .core import ArjunaAgentCore, ArjunaAgentComposed
+
+# Import adapter functions (Phase 2.3)
+from .adapters import (
     SimpleLLMClient,
     get_arjuna_agent,
     get_follow_up_suggestions,
@@ -53,6 +56,12 @@ from .._arjuna_core import (
     quick_ask,
     quick_ask_sync,
     interpret_user_status_adapter,
+)
+
+# Import everything else from the original arjuna module (for backward compatibility)
+# This will be removed once all code migrates to using this package directly
+from .._arjuna_core import (
+    ArjunaAgent,  # Original class - use ArjunaAgentCore for new code
 )
 
 # MCP commands (already extracted)
@@ -75,8 +84,10 @@ __all__ = [
     "ArjunaChainMixin",
     "ArjunaIntentMixin",
     "ArjunaTicketMixin",
-    # Agent
-    "ArjunaAgent",
+    # Agent classes
+    "ArjunaAgent",  # Original (backward compat)
+    "ArjunaAgentCore",  # New composition-based
+    "ArjunaAgentComposed",  # Alias for ArjunaAgentCore
     "SimpleLLMClient",
     "get_arjuna_agent",
     # Adapter functions

@@ -412,3 +412,147 @@ class TestTicketMixin:
         assert hasattr(ArjunaTicketMixin, '_update_sprint')
         assert hasattr(ArjunaTicketMixin, '_reset_workflow')
         assert hasattr(ArjunaTicketMixin, '_search_meetings')
+
+
+# =============================================================================
+# CORE MODULE TESTS (Phase 2.3)
+# =============================================================================
+
+class TestArjunaCore:
+    """Tests for ArjunaAgentCore class."""
+    
+    def test_core_importable(self):
+        """ArjunaAgentCore should be importable."""
+        from src.app.agents.arjuna import ArjunaAgentCore
+        
+        assert ArjunaAgentCore is not None
+    
+    def test_core_alias_importable(self):
+        """ArjunaAgentComposed should be an alias for ArjunaAgentCore."""
+        from src.app.agents.arjuna import ArjunaAgentCore, ArjunaAgentComposed
+        
+        assert ArjunaAgentComposed is ArjunaAgentCore
+    
+    def test_core_has_run_method(self):
+        """ArjunaAgentCore should have run method."""
+        from src.app.agents.arjuna import ArjunaAgentCore
+        
+        assert hasattr(ArjunaAgentCore, 'run')
+    
+    def test_core_has_get_system_prompt(self):
+        """ArjunaAgentCore should have get_system_prompt method."""
+        from src.app.agents.arjuna import ArjunaAgentCore
+        
+        assert hasattr(ArjunaAgentCore, 'get_system_prompt')
+    
+    def test_core_has_quick_ask(self):
+        """ArjunaAgentCore should have quick_ask method."""
+        from src.app.agents.arjuna import ArjunaAgentCore
+        
+        assert hasattr(ArjunaAgentCore, 'quick_ask')
+    
+    def test_core_has_ask_llm(self):
+        """ArjunaAgentCore should have ask_llm method."""
+        from src.app.agents.arjuna import ArjunaAgentCore
+        
+        assert hasattr(ArjunaAgentCore, 'ask_llm')
+    
+    def test_core_inherits_mixins(self):
+        """ArjunaAgentCore should inherit from all mixins."""
+        from src.app.agents.arjuna import (
+            ArjunaAgentCore,
+            ArjunaContextMixin,
+            ArjunaFocusMixin,
+            ArjunaMCPMixin,
+            ArjunaChainMixin,
+            ArjunaIntentMixin,
+            ArjunaTicketMixin,
+        )
+        
+        # Check MRO includes mixins
+        mro = ArjunaAgentCore.__mro__
+        mixin_names = [c.__name__ for c in mro]
+        
+        assert 'ArjunaContextMixin' in mixin_names
+        assert 'ArjunaFocusMixin' in mixin_names
+        assert 'ArjunaMCPMixin' in mixin_names
+        assert 'ArjunaChainMixin' in mixin_names
+        assert 'ArjunaIntentMixin' in mixin_names
+        assert 'ArjunaTicketMixin' in mixin_names
+
+
+# =============================================================================
+# ADAPTERS MODULE TESTS (Phase 2.3)
+# =============================================================================
+
+class TestArjunaAdapters:
+    """Tests for Arjuna adapter functions."""
+    
+    def test_simple_llm_client_importable(self):
+        """SimpleLLMClient should be importable."""
+        from src.app.agents.arjuna import SimpleLLMClient
+        
+        assert SimpleLLMClient is not None
+    
+    def test_get_arjuna_agent_importable(self):
+        """get_arjuna_agent should be importable."""
+        from src.app.agents.arjuna import get_arjuna_agent
+        
+        assert get_arjuna_agent is not None
+        assert callable(get_arjuna_agent)
+    
+    def test_get_follow_up_suggestions_importable(self):
+        """get_follow_up_suggestions should be importable."""
+        from src.app.agents.arjuna import get_follow_up_suggestions
+        
+        assert get_follow_up_suggestions is not None
+        assert callable(get_follow_up_suggestions)
+    
+    def test_get_focus_recommendations_importable(self):
+        """get_focus_recommendations should be importable."""
+        from src.app.agents.arjuna import get_focus_recommendations
+        
+        assert get_focus_recommendations is not None
+        assert callable(get_focus_recommendations)
+    
+    def test_get_system_context_importable(self):
+        """get_system_context should be importable."""
+        from src.app.agents.arjuna import get_system_context
+        
+        assert get_system_context is not None
+        assert callable(get_system_context)
+    
+    def test_parse_assistant_intent_importable(self):
+        """parse_assistant_intent should be importable."""
+        from src.app.agents.arjuna import parse_assistant_intent
+        
+        assert parse_assistant_intent is not None
+        assert callable(parse_assistant_intent)
+    
+    def test_execute_intent_importable(self):
+        """execute_intent should be importable."""
+        from src.app.agents.arjuna import execute_intent
+        
+        assert execute_intent is not None
+        assert callable(execute_intent)
+    
+    def test_quick_ask_importable(self):
+        """quick_ask should be importable."""
+        from src.app.agents.arjuna import quick_ask
+        
+        assert quick_ask is not None
+        assert callable(quick_ask)
+    
+    def test_quick_ask_sync_importable(self):
+        """quick_ask_sync should be importable."""
+        from src.app.agents.arjuna import quick_ask_sync
+        
+        assert quick_ask_sync is not None
+        assert callable(quick_ask_sync)
+    
+    def test_interpret_user_status_adapter_importable(self):
+        """interpret_user_status_adapter should be importable."""
+        from src.app.agents.arjuna import interpret_user_status_adapter
+        
+        assert interpret_user_status_adapter is not None
+        assert callable(interpret_user_status_adapter)
