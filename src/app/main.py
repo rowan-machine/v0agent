@@ -33,6 +33,13 @@ from .api.admin import router as admin_router  # Admin endpoints (Phase 4.1)
 from .api.search import router as api_search_router  # Semantic/Hybrid search (Phase 5.2)
 from .api.knowledge_graph import router as knowledge_graph_router  # Knowledge graph (Phase 5.10)
 from .api.shortcuts import router as shortcuts_router  # Arjuna shortcuts (Technical Debt)
+from .api.dikw import router as dikw_router  # DIKW pyramid (Refactor Phase 2)
+from .api.mindmap import router as mindmap_router  # Mindmap visualization (Refactor Phase 2)
+from .api.notifications import router as notifications_router  # Notifications (Refactor Phase 2)
+from .api.workflow import router as workflow_router  # Workflow modes & timer (Refactor Phase 2)
+from .api.reports import router as reports_router  # Reports & analytics (Refactor Phase 2)
+from .api.evaluations import router as evaluations_router  # LangSmith evaluations (Refactor Phase 2)
+from .api.pocket import router as pocket_router  # Pocket integration (Refactor Phase 2)
 from .mcp.registry import TOOL_REGISTRY
 from .llm import ask as ask_llm
 from .auth import (
@@ -136,10 +143,8 @@ STATIC_DIR = "src/app/static"
 os.makedirs(STATIC_DIR, exist_ok=True)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-# Serve uploaded files
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+# NOTE: Uploads folder removed - attachments are stored in Supabase Storage
+# See services/storage_supabase.py for file storage operations
 
 templates = Jinja2Templates(directory="src/app/templates")
 
@@ -4857,3 +4862,10 @@ app.include_router(admin_router)  # Admin endpoints (Phase 4.1)
 app.include_router(api_search_router)  # Semantic/Hybrid search (Phase 5.2)
 app.include_router(knowledge_graph_router)  # Knowledge graph links (Phase 5.10)
 app.include_router(shortcuts_router)  # Arjuna shortcuts (Technical Debt)
+app.include_router(dikw_router)  # DIKW pyramid (Refactor Phase 2)
+app.include_router(mindmap_router)  # Mindmap visualization (Refactor Phase 2)
+app.include_router(notifications_router)  # Notifications (Refactor Phase 2)
+app.include_router(workflow_router)  # Workflow modes & timer (Refactor Phase 2)
+app.include_router(reports_router)  # Reports & analytics (Refactor Phase 2)
+app.include_router(evaluations_router)  # LangSmith evaluations (Refactor Phase 2)
+app.include_router(pocket_router)  # Pocket integration (Refactor Phase 2)

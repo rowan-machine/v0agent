@@ -1,15 +1,18 @@
-# src/app/core/models/__init__.py
+# src/app/core/domain/__init__.py
 """
-Domain models for the application.
+Domain Models for V0Agent
 
-DEPRECATED: Import from core.domain.models instead.
+Pure dataclasses representing core business entities.
+These are database-agnostic and contain no infrastructure concerns.
 
-This module re-exports from core.domain.models for backward compatibility.
-All new code should import directly from core.domain.models.
+Design Principles:
+- Immutable by default (frozen=True where sensible)
+- No database-specific types (use str for UUIDs, Optional for nullable)
+- Rich type hints for IDE support
+- Factory methods for common creation patterns
 """
 
-# Re-export everything from the canonical location
-from ..domain.models import (
+from .models import (
     # Enums
     DIKWLevel,
     SignalType,
@@ -19,32 +22,37 @@ from ..domain.models import (
     SuggestionStatus,
     MemoryType,
     
-    # Core Domain Models
+    # Meeting Domain
     Meeting,
-    MeetingBundle,
     Signal,
+    MeetingBundle,
+    
+    # Document Domain
     Document,
+    
+    # Ticket Domain
     Ticket,
     TaskDecomposition,
     
-    # DIKW Models
+    # DIKW Domain
     DIKWItem,
     
-    # Conversation Models
+    # Conversation Domain
     Conversation,
     Message,
     
-    # Career Models
+    # Career Domain
     CareerProfile,
     CareerSuggestion,
     CareerMemory,
     StandupUpdate,
     Skill,
     
-    # System Models
+    # System Domain
     Notification,
     UserStatus,
     ModeSession,
+    Settings,
 )
 
 __all__ = [
@@ -57,30 +65,35 @@ __all__ = [
     "SuggestionStatus",
     "MemoryType",
     
-    # Core Domain Models
+    # Meeting Domain
     "Meeting",
-    "MeetingBundle",
     "Signal",
+    "MeetingBundle",
+    
+    # Document Domain
     "Document",
+    
+    # Ticket Domain
     "Ticket",
     "TaskDecomposition",
     
-    # DIKW Models
+    # DIKW Domain
     "DIKWItem",
     
-    # Conversation Models
+    # Conversation Domain
     "Conversation",
     "Message",
     
-    # Career Models
+    # Career Domain
     "CareerProfile",
     "CareerSuggestion",
     "CareerMemory",
     "StandupUpdate",
     "Skill",
     
-    # System Models
+    # System Domain
     "Notification",
     "UserStatus",
     "ModeSession",
+    "Settings",
 ]

@@ -33,8 +33,8 @@ from .memory.vector_store import upsert_embedding
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
 
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+# NOTE: Local UPLOAD_DIR removed - using Supabase Storage
+# See services/storage_supabase.py for file operations
 
 
 # ----- Sprint Settings -----
@@ -802,7 +802,7 @@ async def get_archived_sprint_time(sprint_name: str = None):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
-# ----- File Uploads -----
+# ----- File Uploads (Supabase Storage) -----
 
 @router.post("/api/upload/{ref_type}/{ref_id}")
 async def upload_files(
@@ -810,22 +810,33 @@ async def upload_files(
     ref_id: int,
     files: list[UploadFile] = File(...),
 ):
-    """Upload multiple files (screenshots, etc.) for a meeting, doc, or ticket."""
+    """Upload multiple files (screenshots, etc.) for a meeting, doc, or ticket.
+    
+    Files are uploaded to Supabase Storage and metadata saved to attachments table.
+    """
+    from .services.storage_supabase import upload_file_to_supabase
+    
     if ref_type not in ["meeting", "doc", "ticket"]:
         return JSONResponse({"error": "Invalid ref_type"}, status_code=400)
     
     uploaded = []
     
     for file in files:
-        # Generate unique filename
-        ext = os.path.splitext(file.filename)[1]
-        unique_name = f"{ref_type}_{ref_id}_{uuid.uuid4().hex[:8]}{ext}"
-        file_path = os.path.join(UPLOAD_DIR, unique_name)
-        
-        # Save file
         content = await file.read()
-        with open(file_path, "wb") as f:
-            f.write(content)
+        
+        # Upload to Supabase Storage
+        public_url, storage_path = await upload_file_to_supabase(
+            content=content,
+            filename=file.filename,
+            meeting_id=str(ref_id),  # Use ref_id as folder
+            content_type=file.content_type or "application/octet-stream"
+        )
+        
+        if not public_url:
+            # Log warning but continue - storage may not be configured
+            import logging
+            logging.warning(f"Failed to upload {file.filename} to Supabase Storage")
+            continue
         
         # Generate AI description for images
         ai_description = None
@@ -838,7 +849,8 @@ async def upload_files(
             "ref_type": ref_type,
             "ref_id": ref_id,
             "filename": file.filename,
-            "file_path": file_path,
+            "file_path": storage_path,  # Store Supabase path
+            "file_url": public_url,     # Store public URL
             "mime_type": file.content_type,
             "file_size": len(content),
             "ai_description": ai_description
@@ -853,7 +865,7 @@ async def upload_files(
         uploaded.append({
             "id": attach_id,
             "filename": file.filename,
-            "path": file_path,
+            "url": public_url,
         })
     
     return JSONResponse({"uploaded": uploaded, "count": len(uploaded)})
@@ -861,15 +873,18 @@ async def upload_files(
 
 @router.delete("/api/attachments/{attachment_id}")
 async def delete_attachment(attachment_id: int):
-    """Delete an attachment."""
+    """Delete an attachment from Supabase Storage and database."""
+    from .services.storage_supabase import delete_file_from_supabase
+    
     supabase = get_supabase_client()
     
     # Get file path first
     attach_result = supabase.table("attachments").select("file_path").eq("id", attachment_id).single().execute()
     attach = attach_result.data
     
-    if attach and attach.get("file_path") and os.path.exists(attach["file_path"]):
-        os.remove(attach["file_path"])
+    # Delete from Supabase Storage if path exists
+    if attach and attach.get("file_path"):
+        await delete_file_from_supabase(attach["file_path"])
     
     supabase.table("attachments").delete().eq("id", attachment_id).execute()
     supabase.table("embeddings").delete().eq("ref_type", "attachment").eq("ref_id", attachment_id).execute()

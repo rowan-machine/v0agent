@@ -37,6 +37,25 @@ services:
       retries: 3
       start_period: 10s
   
+  # MCP Server for AI Agent Tools
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    container_name: v0agent_mcp
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./.env:/app/.env:ro                 # Environment file (read-only)
+    environment:
+      - MCP_SERVER_PORT=8002
+      - LOG_LEVEL=INFO
+    networks:
+      - v0agent_network
+    restart: unless-stopped
+    profiles:
+      - mcp  # Enable with: docker-compose --profile mcp up
+  
   # Redis for caching
   redis:
     image: redis:7-alpine
@@ -54,20 +73,6 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-
-  # pgAdmin for database management (dev only - use: docker-compose --profile dev-tools up)
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: v0agent_pgadmin
-    ports:
-      - "5050:80"
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=admin@example.com
-      - PGADMIN_DEFAULT_PASSWORD=admin
-    networks:
-      - v0agent_network
-    profiles:
-      - dev-tools
 
 volumes:
   redis_data:

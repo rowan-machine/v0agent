@@ -19,10 +19,17 @@ help:
 	@echo "$(GREEN)Docker Build & Run:$(NC)"
 	@echo "  make build              Build production Docker image"
 	@echo "  make build-dev          Build development Docker image"
+	@echo "  make build-mcp          Build MCP server Docker image"
 	@echo "  make build-no-cache     Build without Docker cache"
 	@echo "  make run                Start all services (app + Redis)"
+	@echo "  make run-mcp            Start with MCP server for agents"
 	@echo "  make run-dev            Start with development image (hot reload)"
 	@echo "  make stop               Stop all running containers"
+	@echo ""
+	@echo "$(GREEN)MCP Server (AI Agent Tools):$(NC)"
+	@echo "  make mcp                Run MCP server locally (stdio mode)"
+	@echo "  make mcp-docker         Run MCP server in Docker"
+	@echo "  make build-mcp          Build MCP server Docker image"
 	@echo ""
 	@echo "$(GREEN)Testing & Quality:$(NC)"
 	@echo "  make test               Run all tests"
@@ -71,12 +78,26 @@ build-no-cache:
 		-f Dockerfile .
 	@echo "$(GREEN)✓ Build complete: v0agent:latest (no cache)$(NC)"
 
+build-mcp:
+	@echo "$(BLUE)Building MCP server Docker image...$(NC)"
+	docker build -t v0agent-mcp:latest \
+		-f Dockerfile.mcp .
+	@echo "$(GREEN)✓ Build complete: v0agent-mcp:latest$(NC)"
+
 # ===== Run Targets =====
 run:
 	@echo "$(BLUE)Starting services (production with Redis)...$(NC)"
 	docker-compose up -d
 	@echo "$(GREEN)✓ Services started$(NC)"
 	@echo "$(BLUE)App: http://localhost:8000$(NC)"
+	@echo "$(BLUE)Redis: localhost:6379$(NC)"
+
+run-mcp:
+	@echo "$(BLUE)Starting services with MCP server...$(NC)"
+	docker-compose --profile mcp up -d
+	@echo "$(GREEN)✓ Services started with MCP$(NC)"
+	@echo "$(BLUE)App: http://localhost:8000$(NC)"
+	@echo "$(BLUE)MCP: localhost:8002$(NC)"
 	@echo "$(BLUE)Redis: localhost:6379$(NC)"
 
 run-dev:
@@ -88,6 +109,15 @@ run-dev:
 dev:
 	@echo "$(BLUE)Starting local dev server...$(NC)"
 	uvicorn src.app.main:app --reload --port 8001
+
+mcp:
+	@echo "$(BLUE)Starting MCP server (stdio mode)...$(NC)"
+	python -m src.app.mcp.server
+
+mcp-docker:
+	@echo "$(BLUE)Starting MCP server in Docker...$(NC)"
+	docker-compose --profile mcp up mcp
+	@echo "$(GREEN)✓ MCP server running on port 8002$(NC)"
 
 logs-redis:
 	@echo "$(BLUE)Tailing Redis logs (Ctrl+C to exit)...$(NC)"

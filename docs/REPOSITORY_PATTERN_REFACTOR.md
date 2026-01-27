@@ -1,8 +1,30 @@
 # Repository Pattern Refactor Plan
 
+> **Last Updated**: 2026-01-27
+> **Status**: DDD Enforcement Phase
+
 ## Overview
 
 This document outlines the plan to migrate from direct SQLite/Supabase access throughout the codebase to a clean ports/adapters (hexagonal) architecture.
+
+## DDD Compliance Status
+
+### ✅ Compliant Files (Using Service Layer)
+- `mcp/server.py` - Refactored to use `meetings_supabase`, `tickets_supabase`, `SupabaseDIKWRepository`
+- `api/dikw.py` - Uses proper service layer
+- `api/mindmap.py` - Uses proper service layer
+- `services/meetings_supabase.py` - Clean service module
+- `services/tickets_supabase.py` - Clean service module
+- `adapters/database/supabase.py` - Repository implementations
+
+### ⚠️ Temporary Exceptions (Documented)
+- `mcp/server.py` career functions - Uses `career_supabase_helper` until CareerRepository extracted
+- `api/career.py` - Large file pending decomposition
+
+### ❌ Red Flags (Need Migration)
+- Direct `supabase.table()` calls outside service/adapter layer
+- Direct `from ..db import connect` SQLite calls
+- Dual-write logic (write to both SQLite and Supabase)
 
 ## Current State
 
