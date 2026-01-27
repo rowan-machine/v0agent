@@ -14,8 +14,8 @@ import logging
 import asyncio
 import time
 
-from ....infrastructure.supabase_client import get_supabase_client
-from ....api.models import (
+from src.app.infrastructure.supabase_client import get_supabase_client
+from src.app.api.models import (
     UnifiedSearchRequest,
     UnifiedSearchResultItem,
     UnifiedSearchResponse,

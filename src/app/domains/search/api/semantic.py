@@ -12,8 +12,8 @@ from typing import Optional, List, Dict, Any
 import os
 import logging
 
-from ....infrastructure.supabase_client import get_supabase_client
-from ....api.models import (
+from src.app.infrastructure.supabase_client import get_supabase_client
+from src.app.api.models import (
     SemanticSearchRequest,
     SearchResultItem,
     SearchResponse,
@@ -196,7 +196,7 @@ async def search_mindmaps(request: SemanticSearchRequest):
     - Parent/child relationships for context
     """
     try:
-        from ....services.mindmap_synthesis import MindmapSynthesizer
+        from src.app.services.mindmap_synthesis import MindmapSynthesizer
         
         query = request.query.lower()
         limit = request.match_count
