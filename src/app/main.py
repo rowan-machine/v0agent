@@ -53,9 +53,7 @@ from .auth import (
     destroy_session, get_auth_password, hash_password
 )
 from .integrations.pocket import PocketClient, extract_latest_summary, extract_transcript_text, extract_mind_map, extract_action_items, get_all_summary_versions, get_all_mind_map_versions
-from .services import meetings_supabase  # Supabase-first meeting reads
-from .services import documents_supabase  # Supabase-first document reads
-from .services import tickets_supabase  # Supabase-first ticket reads
+from .services import meeting_service, document_service, ticket_service
 from .repositories import get_signal_repository, get_settings_repository
 from .infrastructure.supabase_client import get_supabase_client
 from typing import Optional
@@ -326,14 +324,14 @@ def dashboard(request: Request):
         greeting_context = "ready to dive in"
     
     # Get stats - from Supabase first
-    meeting_stats = meetings_supabase.get_dashboard_stats()
+    meeting_stats = meeting_service.get_dashboard_stats()
     meetings_count = meeting_stats["meetings_count"]
     meetings_with_signals = meeting_stats["meetings_with_signals"]
     signals_count = meeting_stats["signals_count"]
     
     # Get docs and tickets count from Supabase
-    docs_count = documents_supabase.get_documents_count()
-    tickets_count = tickets_supabase.get_tickets_count(statuses=["todo", "in_progress", "in_review"])
+    docs_count = document_service.get_documents_count()
+    tickets_count = ticket_service.get_tickets_count(statuses=["todo", "in_progress", "in_review"])
     
     # Conversations count from Supabase
     conversations_count = 0
@@ -443,7 +441,7 @@ def dashboard(request: Request):
     
     # Recent items (meetings and docs from Supabase)
     recent_items = []
-    recent_mtgs = meetings_supabase.get_recent_meetings(limit=5)
+    recent_mtgs = meeting_service.get_recent_meetings(limit=5)
     for m in recent_mtgs:
         recent_items.append({
             "type": "meeting",
@@ -453,7 +451,7 @@ def dashboard(request: Request):
         })
     
     # Get recent docs from Supabase
-    recent_docs = documents_supabase.get_recent_documents(limit=5)
+    recent_docs = document_service.get_recent_documents(limit=5)
     for d in recent_docs:
         recent_items.append({
             "type": "doc",
@@ -467,7 +465,7 @@ def dashboard(request: Request):
     recent_items = recent_items[:5]
     
     # Get active tickets from Supabase
-    active_tickets = tickets_supabase.get_active_tickets(limit=5)
+    active_tickets = ticket_service.get_active_tickets(limit=5)
 
     execution_ticket = None
     execution_tasks = []
@@ -630,7 +628,7 @@ async def get_highlights(request: Request):
     highlights = []
     
     # 1. Check for blocked tickets (HIGH PRIORITY) - from Supabase
-    blocked_tickets = tickets_supabase.get_blocked_tickets(limit=3)
+    blocked_tickets = ticket_service.get_blocked_tickets(limit=3)
     for t in blocked_tickets:
         highlight_id = f"blocked-{t.get('ticket_id')}"
         if highlight_id not in dismissed_ids:
@@ -645,7 +643,7 @@ async def get_highlights(request: Request):
             })
     
     # 2. Check for stale in-progress tickets (> 3 days old) - from Supabase
-    stale_tickets = tickets_supabase.get_stale_in_progress_tickets(days=3, limit=2)
+    stale_tickets = ticket_service.get_stale_in_progress_tickets(days=3, limit=2)
     for t in stale_tickets:
         highlight_id = f"stale-{t.get('ticket_id')}"
         if highlight_id not in dismissed_ids:
@@ -672,7 +670,7 @@ async def get_highlights(request: Request):
             
             # Sprint ending soon
             if 0 < days_left <= 3 and f"sprint-ending" not in dismissed_ids:
-                todo_count = tickets_supabase.get_tickets_count(statuses=["todo"])
+                todo_count = ticket_service.get_tickets_count(statuses=["todo"])
                 if todo_count > 0:
                     highlights.append({
                         "id": "sprint-ending",
@@ -686,7 +684,7 @@ async def get_highlights(request: Request):
             
             # Sprint just started - set it up
             if progress < 10 and f"sprint-setup" not in dismissed_ids:
-                ticket_count = tickets_supabase.get_tickets_count()
+                ticket_count = ticket_service.get_tickets_count()
                 if ticket_count == 0:
                     highlights.append({
                         "id": "sprint-setup",
@@ -720,7 +718,7 @@ async def get_highlights(request: Request):
     # (suggest moving to next mode if current is complete)
     
         # 6. Recent meeting with unprocessed signals (from Supabase)
-        recent_meetings_for_highlights = meetings_supabase.get_meetings_with_signals(limit=1)
+        recent_meetings_for_highlights = meeting_service.get_meetings_with_signals(limit=1)
         if recent_meetings_for_highlights:
             recent_meeting = recent_meetings_for_highlights[0]
             try:
@@ -793,7 +791,7 @@ async def get_highlights(request: Request):
             })
         
     # 9. No recent meetings (encourage logging) - check Supabase
-    recent_meetings_check = meetings_supabase.get_meetings_with_signals_in_range(days=7)
+    recent_meetings_check = meeting_service.get_meetings_with_signals_in_range(days=7)
     if len(recent_meetings_check) == 0 and "log-meeting" not in dismissed_ids:
         highlights.append({
             "id": "log-meeting",
@@ -853,11 +851,11 @@ async def get_highlight_context(request: Request):
     # Find the meeting from Supabase
     meeting = None
     if meeting_id:
-        meeting = meetings_supabase.get_meeting_by_id(meeting_id)
+        meeting = meeting_service.get_meeting_by_id(meeting_id)
     
     # If not found by id, search by name (less common case)
     if not meeting and source:
-        all_meetings = meetings_supabase.get_all_meetings(limit=50)
+        all_meetings = meeting_service.get_all_meetings(limit=50)
         for m in all_meetings:
             if m.get("meeting_name") == source:
                 meeting = m
@@ -968,10 +966,10 @@ async def convert_signal_to_ticket(request: Request):
         return JSONResponse({"error": "Missing required fields"}, status_code=400)
     
     # Get meeting name from Supabase for context
-    meeting_name = meetings_supabase.get_meeting_name(meeting_id) or "Unknown Meeting"
+    meeting_name = meeting_service.get_meeting_name(meeting_id) or "Unknown Meeting"
     
     # Generate ticket ID from Supabase
-    next_num = tickets_supabase.get_next_ticket_number()
+    next_num = ticket_service.get_next_ticket_number()
     ticket_id = f"SIG-{next_num}"
     
     # Determine priority based on signal type
@@ -1123,7 +1121,7 @@ async def convert_ai_to_action(request: Request):
         return JSONResponse({"error": "Content is required"}, status_code=400)
     
     # Generate ticket ID from Supabase
-    next_num = tickets_supabase.get_next_ticket_number()
+    next_num = ticket_service.get_next_ticket_number()
     ticket_id = f"AI-{next_num}"
     
     # Extract first line as title
@@ -1287,7 +1285,7 @@ async def get_current_status():
 async def get_unprocessed_signals():
     """Get signals that haven't been promoted to DIKW yet."""
     # Get meetings with signals from Supabase
-    meetings = meetings_supabase.get_meetings_with_signals(limit=20)
+    meetings = meeting_service.get_meetings_with_signals(limit=20)
     
     # Get already processed signals using signal repository
     processed = signal_repo.get_converted_signals("dikw")
@@ -1406,7 +1404,7 @@ async def load_meeting_bundle_ui(
             
             if pocket_items:
                 # Get current meeting signals from Supabase
-                meeting = meetings_supabase.get_meeting_by_id(meeting_id)
+                meeting = meeting_service.get_meeting_by_id(meeting_id)
                 if meeting:
                     signals = meeting.get("signals", {})
                     
@@ -1415,7 +1413,7 @@ async def load_meeting_bundle_ui(
                     signals["action_items"] = existing_items + pocket_items
                     
                     # Update in Supabase
-                    meetings_supabase.update_meeting(meeting_id, {"signals": signals})
+                    meeting_service.update_meeting(meeting_id, {"signals": signals})
                     
                 logging.getLogger(__name__).info(f"Added {len(pocket_items)} Pocket action items to meeting {meeting_id}")
         except Exception as e:

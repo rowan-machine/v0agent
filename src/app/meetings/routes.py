@@ -24,7 +24,7 @@ from ..memory.vector_store import upsert_embedding
 from ..mcp.parser import parse_meeting_summary
 from ..mcp.extract import extract_structured_signals
 from ..mcp.cleaner import clean_meeting_text
-from ..services import meetings_supabase
+from ..services import meeting_service
 from .screenshots import process_screenshots, get_meeting_screenshots
 
 logger = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ async def store_meeting(
         "signals_json": signals,
     }
     
-    created = meetings_supabase.create_meeting(meeting_data)
+    created = meeting_service.create_meeting(meeting_data)
     if not created:
         logger.error("Failed to create meeting in Supabase")
         return RedirectResponse(url="/meetings?error=create_failed", status_code=303)
@@ -100,7 +100,7 @@ async def store_meeting(
 def list_meetings(request: Request, success: str = Query(default=None)):
     """List all meetings."""
     # Use Supabase as primary source
-    meetings_list = meetings_supabase.get_all_meetings(limit=500)
+    meetings_list = meeting_service.get_all_meetings(limit=500)
     
     formatted = []
     for meeting in meetings_list:
@@ -141,7 +141,7 @@ def list_meetings(request: Request, success: str = Query(default=None)):
 def view_meeting(meeting_id: str, request: Request):
     """View a single meeting."""
     # Fetch from Supabase (primary source)
-    meeting = meetings_supabase.get_meeting_by_id(meeting_id)
+    meeting = meeting_service.get_meeting_by_id(meeting_id)
     
     # Find linked transcript document
     linked_transcript = None
@@ -149,7 +149,7 @@ def view_meeting(meeting_id: str, request: Request):
     if meeting:
         # Get documents from Supabase linked to THIS meeting only (by meeting_id)
         from ..services import documents_supabase
-        all_docs = documents_supabase.get_all_documents(limit=100)
+        all_docs = document_service.get_all_documents(limit=100)
         meeting_name = meeting.get('meeting_name', '')
         # Only include documents that are explicitly linked to this meeting by ID
         documents = [d for d in all_docs if d.get('meeting_id') == meeting_id]
@@ -202,7 +202,7 @@ def view_meeting(meeting_id: str, request: Request):
 def edit_meeting(meeting_id: str, request: Request, from_transcript: str = None):
     """Edit a meeting."""
     # Fetch from Supabase
-    meeting = meetings_supabase.get_meeting_by_id(meeting_id)
+    meeting = meeting_service.get_meeting_by_id(meeting_id)
     
     # Find linked documents
     linked_transcript = None
@@ -210,7 +210,7 @@ def edit_meeting(meeting_id: str, request: Request, from_transcript: str = None)
     if meeting:
         # Get documents from Supabase
         from ..services import documents_supabase
-        all_docs = documents_supabase.get_all_documents(limit=100)
+        all_docs = document_service.get_all_documents(limit=100)
         meeting_name = meeting.get('meeting_name', '')
         
         # Find transcript doc
@@ -335,7 +335,7 @@ def update_meeting(
         "pocket_mind_map": pocket_mind_map or "",
     }
     
-    updated = meetings_supabase.update_meeting(meeting_id, update_data)
+    updated = meeting_service.update_meeting(meeting_id, update_data)
     if not updated:
         logger.error(f"Failed to update meeting {meeting_id} in Supabase")
     else:
@@ -344,10 +344,10 @@ def update_meeting(
     # Also update linked transcript document if provided
     if linked_transcript_id and linked_transcript_content is not None:
         from ..services import documents_supabase
-        documents_supabase.update_document(linked_transcript_id, {"content": linked_transcript_content})
+        document_service.update_document(linked_transcript_id, {"content": linked_transcript_content})
         
         # Update document embedding
-        doc = documents_supabase.get_document_by_id(linked_transcript_id)
+        doc = document_service.get_document_by_id(linked_transcript_id)
         if doc:
             try:
                 doc_embed_text = f"{doc.get('source', '')}\n{linked_transcript_content}"
@@ -381,7 +381,7 @@ def trigger_mindmap_synthesis(meeting_id: str, level: int = 0, new_mindmap: str 
         from ..services.mindmap_synthesis import MindmapSynthesizer
         
         # Get meeting from Supabase
-        meeting = meetings_supabase.get_meeting_by_id(meeting_id)
+        meeting = meeting_service.get_meeting_by_id(meeting_id)
         
         if not meeting or not meeting.get('pocket_mind_map'):
             return
@@ -412,7 +412,7 @@ def trigger_mindmap_synthesis(meeting_id: str, level: int = 0, new_mindmap: str 
 def delete_meeting(meeting_id: str):
     """Delete a meeting."""
     # Delete from Supabase
-    success = meetings_supabase.delete_meeting(meeting_id)
+    success = meeting_service.delete_meeting(meeting_id)
     if not success:
         logger.error(f"Failed to delete meeting {meeting_id} from Supabase")
     

@@ -24,8 +24,8 @@ from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 
 from ..infrastructure.supabase_client import get_supabase_client
-from ..services import meetings_supabase
-from ..services import tickets_supabase
+from ..services import meeting_service
+from ..services import ticket_service
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,7 @@ async def get_signals_report(days: int = 14):
     cutoff = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
     
     # Get meetings from Supabase
-    meetings = meetings_supabase.get_meetings_with_signals_in_range(days=days)
+    meetings = meeting_service.get_meetings_with_signals_in_range(days=days)
     
     decisions = actions = blockers = risks = ideas = 0
     
@@ -91,7 +91,7 @@ async def get_signals_report(days: int = 14):
             continue
     
     # Count tickets created in period from Supabase
-    tickets_count = tickets_supabase.get_tickets_created_since(cutoff)
+    tickets_count = ticket_service.get_tickets_created_since(cutoff)
     
     return JSONResponse({
         "decisions": decisions,
@@ -168,7 +168,7 @@ async def get_daily_report(days: int = 14):
     
     # Get daily signal counts from Supabase
     daily_signals = {}
-    meetings = meetings_supabase.get_meetings_with_signals_in_range(days=days)
+    meetings = meeting_service.get_meetings_with_signals_in_range(days=days)
     
     for m in meetings:
         date = m.get("meeting_date") or m.get("created_at", "")[:10]
@@ -225,7 +225,7 @@ async def get_sprint_burndown(force: bool = False):
         working_days_remaining = max(0, int(days_remaining * 5 / 7))
     
     # Get all active tickets assigned to sprint from Supabase
-    tickets = tickets_supabase.get_active_sprint_tickets()
+    tickets = ticket_service.get_active_sprint_tickets()
     
     total_points = 0
     completed_points = 0
@@ -299,7 +299,7 @@ async def get_sprint_burndown(force: bool = False):
         })
     
     # Get completed tickets for total burndown context (in sprint only)
-    done_points = tickets_supabase.get_completed_sprint_points()
+    done_points = ticket_service.get_completed_sprint_points()
     
     # Count total remaining tasks
     total_remaining_tasks = sum(
@@ -372,7 +372,7 @@ async def get_weekly_intelligence():
     sb = get_supabase_client()
     
     # Get meetings from Supabase
-    meetings_from_supabase = meetings_supabase.get_meetings_with_signals_in_range(days=7)
+    meetings_from_supabase = meeting_service.get_meetings_with_signals_in_range(days=7)
     
     meetings_data = []
     all_decisions = []
@@ -436,7 +436,7 @@ async def get_weekly_intelligence():
     # =====================================================================
     # TICKET/SPRINT PROGRESS
     # =====================================================================
-    sprint_overview = tickets_supabase.get_sprint_ticket_stats()
+    sprint_overview = ticket_service.get_sprint_ticket_stats()
     if not sprint_overview:
         sprint_overview = {
             "todo": {"count": 0, "points": 0},
@@ -447,7 +447,7 @@ async def get_weekly_intelligence():
         }
     
     # Blocked tickets need attention
-    blocked_tickets = tickets_supabase.get_blocked_sprint_tickets(limit=5)
+    blocked_tickets = ticket_service.get_blocked_sprint_tickets(limit=5)
     
     # =====================================================================
     # ACTION ITEMS DUE SOON

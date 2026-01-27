@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Query
 from fastapi.templating import Jinja2Templates
 from .infrastructure.supabase_client import get_supabase_client
-from .services import documents_supabase, meetings_supabase
+from .services import document_service, meeting_service
 from typing import Optional
 import re
 
@@ -62,7 +62,7 @@ def highlight_match(text: str, query: str, context_chars: int = 100) -> str:
 
 def _search_documents_supabase(query: str, start_date: str = None, end_date: str = None, limit: int = 10) -> list:
     """Search documents using Supabase."""
-    all_docs = documents_supabase.get_all_documents()
+    all_docs = document_service.get_all_documents()
     results = []
     
     like = query.lower()
@@ -94,7 +94,7 @@ def _search_documents_supabase(query: str, start_date: str = None, end_date: str
 
 def _search_meetings_supabase(query: str, include_transcripts: bool, start_date: str = None, end_date: str = None, limit: int = 10) -> list:
     """Search meetings using Supabase."""
-    all_meetings = meetings_supabase.get_all_meetings()
+    all_meetings = meeting_service.get_all_meetings()
     results = []
     
     like = query.lower()

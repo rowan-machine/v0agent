@@ -21,7 +21,7 @@ from dataclasses import dataclass
 
 from ..infrastructure.supabase_client import get_supabase_client
 from ..repositories import get_settings_repository, get_notifications_repository
-from . import tickets_supabase, meetings_supabase
+from . import ticket_service, meeting_service
 from .notification_queue import (
     NotificationQueue,
     NotificationType,
@@ -193,7 +193,7 @@ class OneOnOnePrepJob:
     
     def _get_top_work_items(self, limit: int = 3) -> List[Dict[str, Any]]:
         """Get top active tickets ordered by recent activity (from Supabase)."""
-        all_tickets = tickets_supabase.get_active_tickets()
+        all_tickets = ticket_service.get_active_tickets()
         
         # Sort by most recent activity
         def get_activity_time(t):
@@ -219,7 +219,7 @@ class OneOnOnePrepJob:
         blockers = []
         
         # Get blockers from meeting signals (Supabase)
-        all_meetings = meetings_supabase.get_all_meetings()
+        all_meetings = meeting_service.get_all_meetings()
         for meeting in all_meetings:
             meeting_date = meeting.get("meeting_date") or meeting.get("created_at") or ""
             if meeting_date < cutoff:
@@ -251,7 +251,7 @@ class OneOnOnePrepJob:
                     })
         
         # Get tickets with blocked status (Supabase)
-        blocked_tickets = tickets_supabase.get_blocked_tickets()
+        blocked_tickets = ticket_service.get_blocked_tickets()
         for ticket in blocked_tickets:
             blockers.append({
                 "text": ticket.get("title") or "",
@@ -266,7 +266,7 @@ class OneOnOnePrepJob:
         cutoff = (datetime.now() - timedelta(days=days)).isoformat()
         observations = []
         
-        all_meetings = meetings_supabase.get_all_meetings()
+        all_meetings = meeting_service.get_all_meetings()
         count = 0
         for meeting in all_meetings:
             if count >= 10:
@@ -331,7 +331,7 @@ class OneOnOnePrepJob:
             (r'due\s+(\d{1,2}/\d{1,2})', 'date'),
         ]
         
-        all_meetings = meetings_supabase.get_all_meetings()
+        all_meetings = meeting_service.get_all_meetings()
         count = 0
         for meeting in all_meetings:
             if count >= 20:
@@ -761,7 +761,7 @@ class StaleTicketAlertJob:
         """Find tickets with no activity for STALE_TICKET_DAYS (from Supabase)."""
         cutoff = (datetime.now() - timedelta(days=self.STALE_TICKET_DAYS)).isoformat()
         
-        stale_tickets = tickets_supabase.get_stale_in_progress_tickets(days=self.STALE_TICKET_DAYS)
+        stale_tickets = ticket_service.get_stale_in_progress_tickets(days=self.STALE_TICKET_DAYS)
         
         stale = []
         for ticket in stale_tickets[:10]:
@@ -791,7 +791,7 @@ class StaleTicketAlertJob:
         
         blockers = []
         
-        all_meetings = meetings_supabase.get_all_meetings()
+        all_meetings = meeting_service.get_all_meetings()
         for meeting in all_meetings:
             meeting_date = meeting.get("meeting_date") or ""
             if not meeting_date or meeting_date < cutoff_old or meeting_date > cutoff_recent:
@@ -906,7 +906,7 @@ class GroomingMatchJob:
         """Find grooming meetings from the last 24 hours that haven't been matched yet (from Supabase)."""
         cutoff = (datetime.now() - timedelta(hours=24)).isoformat()
         
-        all_meetings = meetings_supabase.get_all_meetings()
+        all_meetings = meeting_service.get_all_meetings()
         
         # Get processed meeting IDs from notifications table using repository
         processed_ids = set()
@@ -953,7 +953,7 @@ class GroomingMatchJob:
         matches = []
         
         # Get all active tickets from Supabase
-        all_tickets = tickets_supabase.get_active_tickets()
+        all_tickets = ticket_service.get_active_tickets()
         
         # First, check for exact ticket ID matches
         if potential_ids:
@@ -1285,7 +1285,7 @@ class OverdueEncouragementJob:
         }
         
         # Get active tickets from Supabase
-        all_tickets = tickets_supabase.get_active_tickets()
+        all_tickets = ticket_service.get_active_tickets()
         
         # Sort: in_progress first, then todo
         def sort_priority(t):

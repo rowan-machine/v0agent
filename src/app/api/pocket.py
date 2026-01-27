@@ -30,8 +30,8 @@ from ..integrations.pocket import (
     get_all_mind_map_versions,
 )
 from ..infrastructure.supabase_client import get_supabase_client
-from ..services import meetings_supabase
-from ..services import documents_supabase
+from ..services import meeting_service
+from ..services import document_service
 
 logger = logging.getLogger(__name__)
 
@@ -288,7 +288,7 @@ async def generate_transcript_document(meeting_id: str, request: Request):
         return JSONResponse({"success": False, "error": "transcript_type must be 'pocket' or 'teams'"}, status_code=400)
     
     # Get the meeting from Supabase
-    meeting = meetings_supabase.get_meeting_by_id(meeting_id)
+    meeting = meeting_service.get_meeting_by_id(meeting_id)
     if not meeting:
         return JSONResponse({"success": False, "error": "Meeting not found"}, status_code=404)
     
@@ -349,7 +349,7 @@ async def generate_transcript_document(meeting_id: str, request: Request):
         "document_date": meeting_date,
     }
     
-    created_doc = documents_supabase.create_document(doc_data)
+    created_doc = document_service.create_document(doc_data)
     if not created_doc:
         return JSONResponse({"success": False, "error": "Failed to create document"}, status_code=500)
     

@@ -18,7 +18,7 @@ from datetime import datetime
 import uuid
 
 from ..infrastructure.supabase_client import get_supabase_client
-from ..services import meetings_supabase
+from ..services import meeting_service
 from ..services.meeting_service import (
     get_meeting_signals, 
     update_meeting_signals,
@@ -273,7 +273,7 @@ def list_action_items(
 def toggle_action_item(meeting_id: int, item_index: int):
     """Toggle completion status of an action item."""
     # Get meeting signals using service
-    meeting = meetings_supabase.get_meeting_by_id(str(meeting_id))
+    meeting = meeting_service.get_meeting_by_id(str(meeting_id))
     if not meeting or not meeting.get('signals'):
         return {"success": False, "error": "Meeting not found"}
 
@@ -318,7 +318,7 @@ async def update_action_item_priority(meeting_id: int, item_index: int, request:
         return {"success": False, "error": "Invalid priority. Must be low, medium, or high"}
     
     # Get meeting using service
-    meeting = meetings_supabase.get_meeting_by_id(str(meeting_id))
+    meeting = meeting_service.get_meeting_by_id(str(meeting_id))
     if not meeting or not meeting.get('signals'):
         return {"success": False, "error": "Meeting not found"}
 
@@ -379,7 +379,7 @@ async def add_action_item(request: Request):
     supabase = get_supabase_client()
     if meeting_id:
         # Add to existing meeting using service
-        meeting = meetings_supabase.get_meeting_by_id(str(meeting_id))
+        meeting = meeting_service.get_meeting_by_id(str(meeting_id))
         if not meeting:
             return {"success": False, "error": "Meeting not found"}
 
@@ -449,7 +449,7 @@ async def create_ticket_from_action_item(request: Request):
     
     if meeting_id is not None:
         # Use meeting service to get meeting data
-        meeting = meetings_supabase.get_meeting_by_id(str(meeting_id))
+        meeting = meeting_service.get_meeting_by_id(str(meeting_id))
 
         if meeting:
             meeting_name = meeting.get('meeting_name')
@@ -550,7 +550,7 @@ async def create_ticket_from_action_item(request: Request):
     # Mark action item as converted to ticket AND completed
     if meeting_id is not None and item_index is not None:
         try:
-            meeting = meetings_supabase.get_meeting_by_id(str(meeting_id))
+            meeting = meeting_service.get_meeting_by_id(str(meeting_id))
             
             if meeting:
                 signals = meeting.get('signals') or {}

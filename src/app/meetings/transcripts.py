@@ -11,7 +11,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import logging
 
-from ..services import meetings_supabase
+from ..services import meeting_service
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ async def summarize_meeting_transcript(meeting_id: str, request: Request):
     focus_areas = body.get("focus_areas", [])
     
     # Get meeting from Supabase
-    meeting = meetings_supabase.get_meeting_by_id(meeting_id)
+    meeting = meeting_service.get_meeting_by_id(meeting_id)
     if not meeting:
         return JSONResponse({"success": False, "error": "Meeting not found"}, status_code=404)
     

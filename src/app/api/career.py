@@ -31,7 +31,7 @@ from fastapi import APIRouter, Request, Query
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from ..infrastructure.supabase_client import get_supabase_client
-from ..services import tickets_supabase
+from ..services import ticket_service
 # llm.ask removed - use lazy imports inside functions for backward compatibility
 import json
 import logging
@@ -1586,7 +1586,7 @@ async def sync_completed_projects():
         return JSONResponse({"error": "Database not configured"}, status_code=500)
     
     # Get completed tickets from Supabase
-    all_tickets = tickets_supabase.get_all_tickets()
+    all_tickets = ticket_service.get_all_tickets()
     completed_tickets = [t for t in all_tickets if t.get("status") in ('done', 'complete', 'completed')]
     
     # Get IDs already in memories
@@ -2276,7 +2276,7 @@ async def populate_skills_from_projects():
         }).execute()
     
     # 2. Process completed tickets with tags (from Supabase tickets)
-    all_tickets = tickets_supabase.get_all_tickets()
+    all_tickets = ticket_service.get_all_tickets()
     completed_tickets = [t for t in all_tickets 
                        if t.get("status") in ('done', 'complete', 'completed')
                        and t.get("tags")]
@@ -2335,7 +2335,7 @@ async def update_skills_from_tickets():
         return JSONResponse({"error": "Database not configured"}, status_code=500)
     
     # Get completed tickets from Supabase
-    all_tickets = tickets_supabase.get_all_tickets()
+    all_tickets = ticket_service.get_all_tickets()
     completed_tickets = [t for t in all_tickets 
                        if t.get("status") in ('done', 'complete', 'completed')
                        and t.get("tags")]
