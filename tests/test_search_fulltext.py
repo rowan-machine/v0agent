@@ -11,106 +11,84 @@ Tests the enhanced search functionality including:
 
 import pytest
 import json
-from fastapi.testclient import TestClient
 
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.app.main import app
-from src.app.db import connect
-
-
-client = TestClient(app)
 
 
 # ============== Test Fixtures ==============
 
 @pytest.fixture
-def meeting_with_transcript():
-    """Create a meeting with raw transcript text."""
-    with connect() as conn:
-        cursor = conn.execute("""
-            INSERT INTO meeting_summaries 
-            (meeting_name, synthesized_notes, meeting_date, signals_json, raw_text)
-            VALUES (?, ?, ?, ?, ?)
-        """, (
-            "Sprint Planning Meeting",
-            "We discussed the sprint goals and assigned tasks.",
-            "2026-01-22",
-            json.dumps({"decisions": [], "action_items": []}),
-            """[00:00:15] Rowan: Good morning everyone. Today we're going to discuss the 
+def meeting_with_transcript(mock_supabase_with_data):
+    """Create a meeting with raw transcript text in mock Supabase."""
+    mock_supabase_with_data.seed_data("meeting_summaries", [
+        {
+            "id": "uuid-meeting-transcript",
+            "meeting_name": "Sprint Planning Meeting",
+            "synthesized_notes": "We discussed the sprint goals and assigned tasks.",
+            "meeting_date": "2026-01-22",
+            "signals_json": {"decisions": [], "action_items": []},
+            "raw_text": """[00:00:15] Rowan: Good morning everyone. Today we're going to discuss the 
             MetaSpan integration and how it affects our pricing pipeline.
             
             [00:02:30] Alex: I think we need to consider the DataBricks connection first.
             
             [00:05:00] Sam: The Kubernetes deployment is ready for testing.
             
-            [00:08:00] Rowan: Great, let's proceed with the MetaSpan pricing updates."""
-        ))
-        meeting_id = cursor.lastrowid
-        conn.commit()
-    
-    yield meeting_id
-    
-    # Cleanup
-    with connect() as conn:
-        conn.execute("DELETE FROM meeting_documents WHERE meeting_id = ?", (meeting_id,))
-        conn.execute("DELETE FROM meeting_summaries WHERE id = ?", (meeting_id,))
-        conn.commit()
+            [00:08:00] Rowan: Great, let's proceed with the MetaSpan pricing updates.""",
+            "created_at": "2026-01-22T10:00:00Z"
+        }
+    ])
+    return "uuid-meeting-transcript"
 
 
 @pytest.fixture
-def meeting_with_linked_documents():
-    """Create a meeting with linked transcript documents."""
-    with connect() as conn:
-        cursor = conn.execute("""
-            INSERT INTO meeting_summaries 
-            (meeting_name, synthesized_notes, meeting_date, signals_json)
-            VALUES (?, ?, ?, ?)
-        """, (
-            "Architecture Review",
-            "Reviewed the system architecture and identified improvements.",
-            "2026-01-21",
-            json.dumps({"decisions": []})
-        ))
-        meeting_id = cursor.lastrowid
-        
-        # Add Teams transcript
-        conn.execute("""
-            INSERT INTO meeting_documents 
-            (meeting_id, doc_type, source, content, format, is_primary)
-            VALUES (?, 'transcript', 'teams', ?, 'txt', 1)
-        """, (meeting_id, """
-            Teams transcript of architecture review.
+def meeting_with_linked_documents(mock_supabase_with_data):
+    """Create a meeting with linked transcript documents in mock Supabase."""
+    mock_supabase_with_data.seed_data("meeting_summaries", [
+        {
+            "id": "uuid-meeting-docs",
+            "meeting_name": "Architecture Review",
+            "synthesized_notes": "Reviewed the system architecture and identified improvements.",
+            "meeting_date": "2026-01-21",
+            "signals_json": {"decisions": []},
+            "created_at": "2026-01-21T10:00:00Z"
+        }
+    ])
+    mock_supabase_with_data.seed_data("meeting_documents", [
+        {
+            "id": "uuid-doc-teams",
+            "meeting_id": "uuid-meeting-docs",
+            "doc_type": "transcript",
+            "source": "teams",
+            "content": """Teams transcript of architecture review.
             
             Jonathan mentioned the PostgreSQL migration is critical.
             We discussed the OLAP vs OLTP considerations.
-            The Snowflake integration was a key topic.
-        """))
-        
-        # Add Pocket transcript
-        conn.execute("""
-            INSERT INTO meeting_documents 
-            (meeting_id, doc_type, source, content, format, is_primary)
-            VALUES (?, 'transcript', 'pocket', ?, 'txt', 0)
-        """, (meeting_id, """
-            Pocket transcription of architecture session.
+            The Snowflake integration was a key topic.""",
+            "format": "txt",
+            "is_primary": True,
+            "created_at": "2026-01-21T10:00:00Z"
+        },
+        {
+            "id": "uuid-doc-pocket",
+            "meeting_id": "uuid-meeting-docs",
+            "doc_type": "transcript",
+            "source": "pocket",
+            "content": """Pocket transcription of architecture session.
             
             Nathan brought up the Redis caching strategy.
             Kristen suggested using Apache Kafka for event streaming.
-            The microservices architecture was debated.
-        """))
-        
-        conn.commit()
-    
-    yield meeting_id
-    
-    # Cleanup
-    with connect() as conn:
-        conn.execute("DELETE FROM meeting_documents WHERE meeting_id = ?", (meeting_id,))
-        conn.execute("DELETE FROM meeting_summaries WHERE id = ?", (meeting_id,))
-        conn.commit()
+            The microservices architecture was debated.""",
+            "format": "txt",
+            "is_primary": False,
+            "created_at": "2026-01-21T10:00:00Z"
+        }
+    ])
+    return "uuid-meeting-docs"
 
 
 # ============== Test Highlight Function ==============
@@ -171,9 +149,9 @@ class TestHighlightMatch:
 class TestSearchWithTranscripts:
     """Tests for search including raw transcripts."""
     
-    def test_search_finds_in_raw_text(self, meeting_with_transcript):
+    def test_search_finds_in_raw_text(self, client_with_data, meeting_with_transcript):
         """Should find matches in raw_text when include_transcripts is True."""
-        response = client.get(
+        response = client_with_data.get(
             "/search",
             params={
                 "q": "MetaSpan",
@@ -186,9 +164,9 @@ class TestSearchWithTranscripts:
         # Check that the meeting is found (HTML response)
         assert "Sprint Planning Meeting" in response.text
     
-    def test_search_excludes_raw_text_by_default(self, meeting_with_transcript):
+    def test_search_excludes_raw_text_by_default(self, client_with_data, meeting_with_transcript):
         """Should NOT search raw_text when include_transcripts is False."""
-        response = client.get(
+        response = client_with_data.get(
             "/search",
             params={
                 "q": "MetaSpan",
@@ -202,9 +180,9 @@ class TestSearchWithTranscripts:
         # So it should NOT be found
         assert "Sprint Planning Meeting" not in response.text or "No results" in response.text
     
-    def test_search_finds_in_notes_without_transcript_flag(self, meeting_with_transcript):
+    def test_search_finds_in_notes_without_transcript_flag(self, client_with_data, meeting_with_transcript):
         """Should find matches in synthesized_notes without transcript flag."""
-        response = client.get(
+        response = client_with_data.get(
             "/search",
             params={
                 "q": "sprint goals",
@@ -215,9 +193,9 @@ class TestSearchWithTranscripts:
         assert response.status_code == 200
         assert "Sprint Planning Meeting" in response.text
     
-    def test_indicates_match_source(self, meeting_with_transcript):
+    def test_indicates_match_source(self, client_with_data, meeting_with_transcript):
         """Should indicate when match was found in transcript."""
-        response = client.get(
+        response = client_with_data.get(
             "/search",
             params={
                 "q": "DataBricks",
@@ -236,9 +214,9 @@ class TestSearchWithTranscripts:
 class TestSearchLinkedDocuments:
     """Tests for search in meeting_documents table."""
     
-    def test_search_finds_in_teams_transcript(self, meeting_with_linked_documents):
+    def test_search_finds_in_teams_transcript(self, client_with_data, meeting_with_linked_documents):
         """Should find matches in Teams transcript documents."""
-        response = client.get(
+        response = client_with_data.get(
             "/search",
             params={
                 "q": "Snowflake",
@@ -250,9 +228,9 @@ class TestSearchLinkedDocuments:
         assert response.status_code == 200
         assert "Architecture Review" in response.text or "teams" in response.text.lower()
     
-    def test_search_finds_in_pocket_transcript(self, meeting_with_linked_documents):
+    def test_search_finds_in_pocket_transcript(self, client_with_data, meeting_with_linked_documents):
         """Should find matches in Pocket transcript documents."""
-        response = client.get(
+        response = client_with_data.get(
             "/search",
             params={
                 "q": "Kafka",
@@ -263,9 +241,9 @@ class TestSearchLinkedDocuments:
         assert response.status_code == 200
         assert "pocket" in response.text.lower() or "Architecture Review" in response.text
     
-    def test_transcripts_only_mode(self, meeting_with_linked_documents):
+    def test_transcripts_only_mode(self, client_with_data, meeting_with_linked_documents):
         """Should filter to transcripts only when source_type is transcripts."""
-        response = client.get(
+        response = client_with_data.get(
             "/search",
             params={
                 "q": "Redis",
@@ -283,9 +261,9 @@ class TestSearchLinkedDocuments:
 class TestSearchResultTypes:
     """Tests for different result type handling."""
     
-    def test_meeting_result_links_to_meeting(self, meeting_with_transcript):
+    def test_meeting_result_links_to_meeting(self, client_with_data, meeting_with_transcript):
         """Meeting results should link to /meetings/{id}."""
-        response = client.get(
+        response = client_with_data.get(
             "/search",
             params={
                 "q": "sprint",
@@ -296,9 +274,9 @@ class TestSearchResultTypes:
         assert response.status_code == 200
         assert f"/meetings/{meeting_with_transcript}" in response.text
     
-    def test_transcript_result_links_to_meeting(self, meeting_with_linked_documents):
+    def test_transcript_result_links_to_meeting(self, client_with_data, meeting_with_linked_documents):
         """Transcript results should link to the parent meeting."""
-        response = client.get(
+        response = client_with_data.get(
             "/search",
             params={
                 "q": "PostgreSQL",
@@ -315,7 +293,7 @@ class TestSearchResultTypes:
 class TestSearchUI:
     """Tests for search UI elements."""
     
-    def test_shows_transcript_toggle(self):
+    def test_shows_transcript_toggle(self, client):
         """Should show the transcript search toggle."""
         response = client.get("/search")
         

@@ -15,48 +15,36 @@ import pytest
 import io
 import json
 from unittest.mock import patch, MagicMock
-from fastapi.testclient import TestClient
 
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.app.main import app
-from src.app.db import connect
-
-
-client = TestClient(app)
 
 
 # ============== Test Fixtures ==============
 
 @pytest.fixture
-def sample_meeting():
-    """Create a sample meeting for testing amendments."""
-    with connect() as conn:
-        cursor = conn.execute("""
-            INSERT INTO meeting_summaries 
-            (meeting_name, synthesized_notes, meeting_date, signals_json)
-            VALUES (?, ?, ?, ?)
-        """, (
-            "Test Meeting for Amendment",
-            "Initial meeting notes from manual entry.",
-            "2026-01-22",
-            json.dumps({
+def sample_meeting(mock_supabase_with_data):
+    """Return a meeting ID from the mock data for testing amendments."""
+    # Seed a meeting with initial signals
+    mock_supabase_with_data.seed_data("meeting_summaries", [
+        {
+            "id": "uuid-test-meeting",
+            "meeting_name": "Test Meeting for Amendment",
+            "synthesized_notes": "Initial meeting notes from manual entry.",
+            "meeting_date": "2026-01-22",
+            "signals_json": {
                 "decisions": [{"text": "Use PostgreSQL for database"}],
                 "action_items": [{"text": "Review PR by Friday"}]
-            })
-        ))
-        meeting_id = cursor.lastrowid
-        conn.commit()
+            },
+            "created_at": "2026-01-22T10:00:00Z"
+        }
+    ])
+    mock_supabase_with_data.seed_data("meeting_documents", [])
     
-    yield meeting_id
-    
-    # Cleanup
-    with connect() as conn:
-        conn.execute("DELETE FROM meeting_documents WHERE meeting_id = ?", (meeting_id,))
-        conn.execute("DELETE FROM meeting_summaries WHERE id = ?", (meeting_id,))
-        conn.commit()
+    return "uuid-test-meeting"
 
 
 @pytest.fixture
@@ -199,9 +187,9 @@ class TestMergeSignalsHolistically:
 class TestAmendMeetingEndpoint:
     """Tests for POST /api/v1/imports/amend/{meeting_id}"""
     
-    def test_amend_with_transcript_only(self, sample_meeting, sample_transcript):
+    def test_amend_with_transcript_only(self, client_with_data, sample_meeting, sample_transcript):
         """Should add transcript to existing meeting."""
-        response = client.post(
+        response = client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             data={
                 "transcript": sample_transcript,
@@ -216,9 +204,9 @@ class TestAmendMeetingEndpoint:
         assert data["documents_added"][0]["doc_type"] == "transcript"
         assert data["documents_added"][0]["source"] == "pocket"
     
-    def test_amend_with_summary_only(self, sample_meeting, sample_summary):
+    def test_amend_with_summary_only(self, client_with_data, sample_meeting, sample_summary):
         """Should add summary and extract signals."""
-        response = client.post(
+        response = client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             data={
                 "summary": sample_summary,
@@ -233,9 +221,9 @@ class TestAmendMeetingEndpoint:
         # Signal count may be 0 depending on parser - just verify it's a number
         assert isinstance(data["documents_added"][0]["signal_count"], int)
     
-    def test_amend_with_both_transcript_and_summary(self, sample_meeting, sample_transcript, sample_summary):
+    def test_amend_with_both_transcript_and_summary(self, client_with_data, sample_meeting, sample_transcript, sample_summary):
         """Should add both transcript and summary."""
-        response = client.post(
+        response = client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             data={
                 "transcript": sample_transcript,
@@ -251,18 +239,18 @@ class TestAmendMeetingEndpoint:
         doc_types = {d["doc_type"] for d in data["documents_added"]}
         assert doc_types == {"transcript", "summary"}
     
-    def test_amend_nonexistent_meeting(self, sample_summary):
+    def test_amend_nonexistent_meeting(self, client, sample_summary):
         """Should return 404 for non-existent meeting."""
         response = client.post(
-            "/api/v1/imports/amend/999999",
+            "/api/v1/imports/amend/nonexistent-uuid",
             data={"summary": sample_summary}
         )
         
         assert response.status_code == 404
     
-    def test_amend_requires_content(self, sample_meeting):
+    def test_amend_requires_content(self, client_with_data, sample_meeting):
         """Should reject request with no content."""
-        response = client.post(
+        response = client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             data={"source": "pocket"}
         )
@@ -270,11 +258,11 @@ class TestAmendMeetingEndpoint:
         assert response.status_code == 400
         assert "at least one" in response.json()["detail"].lower()
     
-    def test_amend_with_file_upload(self, sample_meeting, sample_summary):
+    def test_amend_with_file_upload(self, client_with_data, sample_meeting, sample_summary):
         """Should accept file upload for summary."""
         file_content = sample_summary.encode('utf-8')
         
-        response = client.post(
+        response = client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             files={"summary_file": ("summary.md", io.BytesIO(file_content), "text/markdown")},
             data={"source": "pocket"}
@@ -284,17 +272,17 @@ class TestAmendMeetingEndpoint:
         data = response.json()
         assert len(data["documents_added"]) == 1
     
-    def test_holistic_signal_merging(self, sample_meeting, sample_summary, teams_summary):
+    def test_holistic_signal_merging(self, client_with_data, sample_meeting, sample_summary, teams_summary):
         """Should merge signals from Teams and Pocket without duplicates."""
         # First add Teams summary
-        response1 = client.post(
+        response1 = client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             data={"summary": teams_summary, "source": "teams"}
         )
         assert response1.status_code == 200
         
         # Then add Pocket summary (has some overlapping signals)
-        response2 = client.post(
+        response2 = client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             data={"summary": sample_summary, "source": "pocket"}
         )
@@ -305,9 +293,9 @@ class TestAmendMeetingEndpoint:
         # The "Use PostgreSQL" decision exists in both - should not duplicate
         assert data["holistic_signals_merged"] >= 0  # Some signals merged
     
-    def test_marks_first_document_as_primary(self, sample_meeting, sample_transcript):
+    def test_marks_first_document_as_primary(self, client_with_data, sample_meeting, sample_transcript):
         """Should mark first document of each type as primary."""
-        response = client.post(
+        response = client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             data={"transcript": sample_transcript, "source": "teams"}
         )
@@ -316,7 +304,7 @@ class TestAmendMeetingEndpoint:
         assert response.json()["documents_added"][0]["is_primary"] == True
         
         # Second transcript from different source should not be primary
-        response2 = client.post(
+        response2 = client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             data={"transcript": "Another transcript from Pocket", "source": "pocket"}
         )
@@ -331,17 +319,17 @@ class TestAmendMeetingEndpoint:
 class TestListMeetingDocuments:
     """Tests for GET /api/v1/imports/meetings/{meeting_id}/documents"""
     
-    def test_returns_empty_list_initially(self, sample_meeting):
+    def test_returns_empty_list_initially(self, client_with_data, sample_meeting):
         """Should return empty list for meeting with no documents."""
-        response = client.get(f"/api/v1/imports/meetings/{sample_meeting}/documents")
+        response = client_with_data.get(f"/api/v1/imports/meetings/{sample_meeting}/documents")
         
         assert response.status_code == 200
         assert response.json() == []
     
-    def test_returns_added_documents(self, sample_meeting, sample_transcript, sample_summary):
+    def test_returns_added_documents(self, client_with_data, sample_meeting, sample_transcript, sample_summary):
         """Should return all documents after amendment."""
         # Add documents
-        client.post(
+        client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             data={
                 "transcript": sample_transcript,
@@ -350,7 +338,7 @@ class TestListMeetingDocuments:
             }
         )
         
-        response = client.get(f"/api/v1/imports/meetings/{sample_meeting}/documents")
+        response = client_with_data.get(f"/api/v1/imports/meetings/{sample_meeting}/documents")
         
         assert response.status_code == 200
         docs = response.json()
@@ -359,9 +347,9 @@ class TestListMeetingDocuments:
         doc_types = {d["doc_type"] for d in docs}
         assert doc_types == {"transcript", "summary"}
     
-    def test_returns_404_for_nonexistent_meeting(self):
+    def test_returns_404_for_nonexistent_meeting(self, client):
         """Should return 404 for non-existent meeting."""
-        response = client.get("/api/v1/imports/meetings/999999/documents")
+        response = client.get("/api/v1/imports/meetings/nonexistent-uuid/documents")
         assert response.status_code == 404
 
 
@@ -370,16 +358,16 @@ class TestListMeetingDocuments:
 class TestGetMeetingDocument:
     """Tests for GET /api/v1/imports/meetings/{meeting_id}/documents/{doc_id}"""
     
-    def test_returns_document_content(self, sample_meeting, sample_transcript):
+    def test_returns_document_content(self, client_with_data, sample_meeting, sample_transcript):
         """Should return full document content."""
         # Add document
-        amend_response = client.post(
+        amend_response = client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             data={"transcript": sample_transcript, "source": "pocket"}
         )
         doc_id = amend_response.json()["documents_added"][0]["document_id"]
         
-        response = client.get(f"/api/v1/imports/meetings/{sample_meeting}/documents/{doc_id}")
+        response = client_with_data.get(f"/api/v1/imports/meetings/{sample_meeting}/documents/{doc_id}")
         
         assert response.status_code == 200
         data = response.json()
@@ -387,17 +375,17 @@ class TestGetMeetingDocument:
         assert data["doc_type"] == "transcript"
         assert data["source"] == "pocket"
     
-    def test_returns_404_for_wrong_meeting(self, sample_meeting, sample_transcript):
+    def test_returns_404_for_wrong_meeting(self, client_with_data, sample_meeting, sample_transcript):
         """Should return 404 if document doesn't belong to meeting."""
         # Add document
-        amend_response = client.post(
+        amend_response = client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             data={"transcript": sample_transcript, "source": "pocket"}
         )
         doc_id = amend_response.json()["documents_added"][0]["document_id"]
         
         # Try to get with wrong meeting ID
-        response = client.get(f"/api/v1/imports/meetings/999999/documents/{doc_id}")
+        response = client_with_data.get(f"/api/v1/imports/meetings/nonexistent-uuid/documents/{doc_id}")
         assert response.status_code == 404
 
 
@@ -406,10 +394,10 @@ class TestGetMeetingDocument:
 class TestMultipleSourcesWorkflow:
     """Tests for the full Teams + Pocket workflow."""
     
-    def test_full_workflow_teams_then_pocket(self, sample_meeting, sample_transcript, sample_summary, teams_summary):
+    def test_full_workflow_teams_then_pocket(self, client_with_data, sample_meeting, sample_transcript, sample_summary, teams_summary):
         """Should support adding Teams content first, then Pocket content."""
         # Step 1: Add Teams transcript and summary
-        response1 = client.post(
+        response1 = client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             data={
                 "transcript": "Teams meeting transcript content...",
@@ -421,7 +409,7 @@ class TestMultipleSourcesWorkflow:
         assert len(response1.json()["documents_added"]) == 2
         
         # Step 2: Add Pocket transcript and summary
-        response2 = client.post(
+        response2 = client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             data={
                 "transcript": sample_transcript,
@@ -433,22 +421,22 @@ class TestMultipleSourcesWorkflow:
         assert len(response2.json()["documents_added"]) == 2
         
         # Verify all 4 documents are linked
-        docs_response = client.get(f"/api/v1/imports/meetings/{sample_meeting}/documents")
+        docs_response = client_with_data.get(f"/api/v1/imports/meetings/{sample_meeting}/documents")
         assert len(docs_response.json()) == 4
         
         sources = {d["source"] for d in docs_response.json()}
         assert sources == {"teams", "pocket"}
     
-    def test_signals_merged_across_sources(self, sample_meeting, sample_summary, teams_summary):
+    def test_signals_merged_across_sources(self, client_with_data, sample_meeting, sample_summary, teams_summary):
         """Should merge signals from multiple sources without duplicates."""
         # Add Teams summary with "Use PostgreSQL" decision
-        client.post(
+        client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             data={"summary": teams_summary, "source": "teams"}
         )
         
         # Add Pocket summary 
-        response = client.post(
+        response = client_with_data.post(
             f"/api/v1/imports/amend/{sample_meeting}",
             data={"summary": sample_summary, "source": "pocket"}
         )

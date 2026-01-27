@@ -3,165 +3,253 @@
 Pytest configuration and fixtures for SignalFlow test suite.
 
 Provides:
-- Test database setup/teardown
+- Supabase mock client for testing
 - FastAPI test client
-- Supabase mock client
 - Common fixtures for meetings, documents, signals
+
+Note: Tests use mocked Supabase client to avoid hitting production database.
+The application uses Supabase as primary datastore (SQLite is deprecated).
 """
 
 import os
 import pytest
-import sqlite3
-from typing import Generator, Dict, Any
-from unittest.mock import MagicMock, patch
+import uuid
+from typing import Generator, Dict, Any, List
+from datetime import datetime
+from unittest.mock import MagicMock, patch, AsyncMock
 from fastapi.testclient import TestClient
 
 # Set test environment before imports
 os.environ["SIGNALFLOW_ENV"] = "test"
-os.environ["AGENT_DB_PATH"] = ":memory:"
+os.environ["SUPABASE_URL"] = "https://test.supabase.co"
+os.environ["SUPABASE_KEY"] = "test-key"
+
 
 from src.app.main import app
-from src.app.db import connect, init_db, SCHEMA
 
 
-# ============== Database Fixtures ==============
+# ============== Supabase Mock Fixtures ==============
+
+class MockSupabaseResponse:
+    """Mock response from Supabase operations."""
+    def __init__(self, data: List[Dict] = None, count: int = None, error: str = None):
+        self.data = data or []
+        self.count = count if count is not None else len(self.data)
+        self.error = error
+
+
+class MockSupabaseTable:
+    """Mock Supabase table with chainable methods."""
+    
+    def __init__(self, table_name: str, data_store: Dict[str, List[Dict]]):
+        self.table_name = table_name
+        self._data_store = data_store
+        self._filters = {}
+        self._order_by = None
+        self._limit = None
+        self._select_cols = "*"
+        
+    def select(self, columns: str = "*"):
+        self._select_cols = columns
+        return self
+    
+    def insert(self, data: Dict | List[Dict]):
+        if isinstance(data, dict):
+            data = [data]
+        # Add UUIDs and timestamps if not present
+        for item in data:
+            if "id" not in item:
+                item["id"] = str(uuid.uuid4())
+            if "created_at" not in item:
+                item["created_at"] = datetime.utcnow().isoformat()
+        # Store in mock data store
+        if self.table_name not in self._data_store:
+            self._data_store[self.table_name] = []
+        self._data_store[self.table_name].extend(data)
+        return self
+    
+    def update(self, data: Dict):
+        self._update_data = data
+        return self
+    
+    def delete(self):
+        return self
+    
+    def eq(self, column: str, value: Any):
+        self._filters[column] = value
+        return self
+    
+    def neq(self, column: str, value: Any):
+        self._filters[f"neq_{column}"] = value
+        return self
+    
+    def order(self, column: str, desc: bool = False):
+        self._order_by = (column, desc)
+        return self
+    
+    def limit(self, count: int):
+        self._limit = count
+        return self
+    
+    def range(self, start: int, end: int):
+        self._range = (start, end)
+        return self
+    
+    def execute(self) -> MockSupabaseResponse:
+        """Execute the query and return results."""
+        data = self._data_store.get(self.table_name, [])
+        
+        # Apply filters
+        for col, val in self._filters.items():
+            if col.startswith("neq_"):
+                actual_col = col[4:]
+                data = [d for d in data if d.get(actual_col) != val]
+            else:
+                data = [d for d in data if d.get(col) == val]
+        
+        # Apply limit
+        if self._limit:
+            data = data[:self._limit]
+        
+        # Reset state
+        self._filters = {}
+        self._order_by = None
+        self._limit = None
+        
+        return MockSupabaseResponse(data=data)
+
+
+class MockSupabaseClient:
+    """Mock Supabase client for testing."""
+    
+    def __init__(self):
+        self._data_store: Dict[str, List[Dict]] = {}
+        self._rpc_results = {}
+    
+    def table(self, name: str) -> MockSupabaseTable:
+        return MockSupabaseTable(name, self._data_store)
+    
+    def rpc(self, function_name: str, params: Dict = None):
+        """Mock RPC call."""
+        mock = MagicMock()
+        result = self._rpc_results.get(function_name, [])
+        mock.execute.return_value = MockSupabaseResponse(data=result)
+        return mock
+    
+    def set_rpc_result(self, function_name: str, result: List[Dict]):
+        """Set the result for an RPC call."""
+        self._rpc_results[function_name] = result
+    
+    def seed_data(self, table_name: str, data: List[Dict]):
+        """Seed test data into a table."""
+        self._data_store[table_name] = data
+    
+    def clear(self):
+        """Clear all test data."""
+        self._data_store.clear()
+        self._rpc_results.clear()
+
 
 @pytest.fixture(scope="function")
-def test_db() -> Generator[sqlite3.Connection, None, None]:
+def mock_supabase() -> MockSupabaseClient:
     """
-    Create an in-memory SQLite database for testing.
+    Mock Supabase client for testing.
     
-    Yields a connection that is automatically cleaned up after the test.
-    Each test gets a fresh database.
+    Provides a fully functional mock that stores data in memory
+    and supports common operations like select, insert, update, delete.
     """
-    conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
-    
-    # Initialize schema
-    conn.executescript(SCHEMA)
-    conn.commit()
-    
-    yield conn
-    
-    conn.close()
+    return MockSupabaseClient()
 
 
 @pytest.fixture(scope="function")
-def db_with_data(test_db) -> sqlite3.Connection:
-    """Database with sample test data pre-loaded."""
-    # Insert sample meeting
-    test_db.execute(
-        """
-        INSERT INTO meeting_summaries (id, meeting_name, synthesized_notes, meeting_date, signals_json)
-        VALUES (1, 'Test Standup', 'Discussed test coverage goals', '2024-01-15', '{"decisions": [], "action_items": []}')
-        """
-    )
+def mock_supabase_with_data(mock_supabase) -> MockSupabaseClient:
+    """Supabase mock with sample data pre-loaded."""
+    # Seed meetings
+    mock_supabase.seed_data("meeting_summaries", [
+        {
+            "id": "uuid-meeting-1",
+            "meeting_name": "Test Standup",
+            "synthesized_notes": "Discussed test coverage goals",
+            "meeting_date": "2024-01-15",
+            "signals_json": {"decisions": [], "action_items": []},
+            "created_at": "2024-01-15T10:00:00Z"
+        }
+    ])
     
-    # Insert sample document
-    test_db.execute(
-        """
-        INSERT INTO docs (id, source, content, document_date)
-        VALUES (1, 'Test Document', 'Sample document content for testing', '2024-01-15')
-        """
-    )
+    # Seed documents
+    mock_supabase.seed_data("docs", [
+        {
+            "id": "uuid-doc-1",
+            "source": "Test Document",
+            "content": "Sample document content for testing",
+            "document_date": "2024-01-15",
+            "created_at": "2024-01-15T10:00:00Z"
+        }
+    ])
     
-    # Insert sample ticket
-    test_db.execute(
-        """
-        INSERT INTO tickets (id, ticket_id, title, description, status, sprint_points)
-        VALUES (1, 'TEST-001', 'Test Ticket', 'Test ticket description', 'backlog', 3)
-        """
-    )
+    # Seed tickets
+    mock_supabase.seed_data("tickets", [
+        {
+            "id": "uuid-ticket-1",
+            "ticket_id": "TEST-001",
+            "title": "Test Ticket",
+            "description": "Test ticket description",
+            "status": "backlog",
+            "sprint_points": 3,
+            "created_at": "2024-01-15T10:00:00Z"
+        }
+    ])
     
-    # Insert sample DIKW item
-    test_db.execute(
-        """
-        INSERT INTO dikw_items (id, level, content, source_type, confidence)
-        VALUES (1, 'information', 'Test insight from meeting', 'signal', 0.75)
-        """
-    )
+    # Seed DIKW items
+    mock_supabase.seed_data("dikw_items", [
+        {
+            "id": "uuid-dikw-1",
+            "level": "information",
+            "content": "Test insight from meeting",
+            "source_type": "signal",
+            "confidence": 0.75,
+            "created_at": "2024-01-15T10:00:00Z"
+        }
+    ])
     
-    # Insert sample AI memory
-    test_db.execute(
-        """
-        INSERT INTO ai_memory (id, source_type, source_query, content, status, importance)
-        VALUES (1, 'chat', 'What is testing?', 'Testing ensures code quality...', 'approved', 7)
-        """
-    )
+    # Seed AI memory
+    mock_supabase.seed_data("ai_memory", [
+        {
+            "id": "uuid-memory-1",
+            "source_type": "chat",
+            "source_query": "What is testing?",
+            "content": "Testing ensures code quality...",
+            "status": "approved",
+            "importance": 7,
+            "created_at": "2024-01-15T10:00:00Z"
+        }
+    ])
     
-    test_db.commit()
-    return test_db
+    return mock_supabase
 
 
 # ============== FastAPI Client Fixtures ==============
 
 @pytest.fixture(scope="function")
-def client(test_db) -> Generator[TestClient, None, None]:
+def client(mock_supabase) -> Generator[TestClient, None, None]:
     """
-    FastAPI test client with mocked database.
+    FastAPI test client with mocked Supabase.
     
-    Patches the connect() function to use the test database.
+    Patches get_supabase_client() to return the mock client.
     """
-    def mock_connect():
-        return test_db
-    
-    with patch("src.app.db.connect", mock_connect):
-        with TestClient(app) as test_client:
-            yield test_client
+    with patch("src.app.infrastructure.supabase_client.get_supabase_client", return_value=mock_supabase):
+        with patch("src.app.repositories.meeting_repository.get_supabase_client", return_value=mock_supabase):
+            with TestClient(app) as test_client:
+                yield test_client
 
 
 @pytest.fixture(scope="function")
-def client_with_data(db_with_data) -> Generator[TestClient, None, None]:
+def client_with_data(mock_supabase_with_data) -> Generator[TestClient, None, None]:
     """FastAPI test client with pre-loaded test data."""
-    def mock_connect():
-        return db_with_data
-    
-    with patch("src.app.db.connect", mock_connect):
-        with TestClient(app) as test_client:
-            yield test_client
-
-
-# ============== Supabase Mock Fixtures ==============
-
-@pytest.fixture
-def mock_supabase() -> MagicMock:
-    """
-    Mock Supabase client for testing cloud sync.
-    
-    Provides chainable mock methods that mimic Supabase client behavior.
-    """
-    mock = MagicMock()
-    
-    # Mock table operations
-    mock_table = MagicMock()
-    mock_table.select.return_value = mock_table
-    mock_table.insert.return_value = mock_table
-    mock_table.update.return_value = mock_table
-    mock_table.delete.return_value = mock_table
-    mock_table.eq.return_value = mock_table
-    mock_table.execute.return_value = MagicMock(data=[], count=0)
-    
-    mock.table.return_value = mock_table
-    
-    return mock
-
-
-@pytest.fixture
-def mock_supabase_with_data(mock_supabase) -> MagicMock:
-    """Supabase mock with sample data in responses."""
-    sample_meeting = {
-        "id": "uuid-123",
-        "meeting_name": "Test Meeting",
-        "synthesized_notes": "Test notes",
-        "created_at": "2024-01-15T10:00:00Z"
-    }
-    
-    mock_supabase.table.return_value.execute.return_value = MagicMock(
-        data=[sample_meeting],
-        count=1
-    )
-    
-    return mock_supabase
+    with patch("src.app.infrastructure.supabase_client.get_supabase_client", return_value=mock_supabase_with_data):
+        with patch("src.app.repositories.meeting_repository.get_supabase_client", return_value=mock_supabase_with_data):
+            with TestClient(app) as test_client:
+                yield test_client
 
 
 # ============== Embedding Mock Fixtures ==============
