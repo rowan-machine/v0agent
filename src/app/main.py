@@ -50,11 +50,16 @@ from .integrations.pocket import PocketClient, extract_latest_summary, extract_t
 from .services import meetings_supabase  # Supabase-first meeting reads
 from .services import documents_supabase  # Supabase-first document reads
 from .services import tickets_supabase  # Supabase-first ticket reads
+from .repositories import get_signal_repository, get_settings_repository
 from .infrastructure.supabase_client import get_supabase_client
 from typing import Optional
 
-# Get supabase client for direct table access
+# Get supabase client for direct table access (legacy - being phased out)
 supabase = get_supabase_client()
+
+# Repository instances
+signal_repo = get_signal_repository()
+settings_repo = get_settings_repository()
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -332,25 +337,24 @@ def dashboard(request: Request):
     except:
         pass
     
-    # Get feedback for signals from Supabase
+    # Get feedback for signals using signal repository
     feedback_map = {}
     try:
-        feedback_rows = supabase.table("signal_feedback").select("meeting_id, signal_type, signal_text, feedback").execute().data
+        feedback_rows = signal_repo.get_all_feedback()
         for f in feedback_rows:
             key = f"{f['meeting_id']}:{f['signal_type']}:{f['signal_text']}"
             feedback_map[key] = f['feedback']
     except:
         pass
 
-    # Get status for recent signals from Supabase
+    # Get status for recent signals using signal repository
     status_map = {}
     try:
         meeting_ids = [m["id"] for m in meetings_with_signals[:10]]
         if meeting_ids:
-            status_rows = supabase.table("signal_status").select("meeting_id, signal_type, signal_text, status").in_("meeting_id", meeting_ids).execute().data
-            for s in status_rows:
-                key = f"{s['meeting_id']}:{s['signal_type']}:{s['signal_text']}"
-                status_map[key] = s["status"]
+            status_result = signal_repo.get_status_for_meetings(meeting_ids)
+            for key, s in status_result.items():
+                status_map[key] = s.get("status")
     except:
         pass
     
@@ -568,16 +572,11 @@ async def signal_feedback(request: Request):
     feedback = data.get("feedback")  # 'up', 'down', or None to remove
     
     if feedback is None:
-        # Remove feedback
-        supabase.table("signal_feedback").delete().eq("meeting_id", meeting_id).eq("signal_type", signal_type).eq("signal_text", signal_text).execute()
+        # Remove feedback using repository
+        signal_repo.delete_feedback(meeting_id, signal_type, signal_text)
     else:
-        # Upsert feedback
-        supabase.table("signal_feedback").upsert({
-            "meeting_id": meeting_id,
-            "signal_type": signal_type,
-            "signal_text": signal_text,
-            "feedback": feedback
-        }, on_conflict="meeting_id,signal_type,signal_text").execute()
+        # Upsert feedback using repository
+        signal_repo.upsert_feedback(meeting_id, signal_type, signal_text, feedback)
     
     return JSONResponse({"status": "ok"})
 
@@ -654,10 +653,9 @@ async def get_highlights(request: Request):
                 "link_text": "Update Status"
             })
     
-    # 3. Check sprint progress from Supabase
+    # 3. Check sprint progress using settings repository
     try:
-        sprint_result = supabase.table("sprint_settings").select("*").eq("id", 1).execute()
-        sprint = sprint_result.data[0] if sprint_result.data else None
+        sprint = settings_repo.get_sprint_settings()
         if sprint and sprint.get('sprint_start_date'):
             start = datetime.strptime(sprint['sprint_start_date'], '%Y-%m-%d')
             length = sprint.get('sprint_length_days') or 14
@@ -696,10 +694,9 @@ async def get_highlights(request: Request):
     except:
         pass
     
-    # 4. Check for unreviewed signals from Supabase
+    # 4. Check for unreviewed signals using signal repository
     try:
-        unreviewed_result = supabase.table("signal_status").select("id", count="exact").or_("status.eq.pending,status.is.null").execute()
-        unreviewed_count = unreviewed_result.count or 0
+        unreviewed_count = signal_repo.get_unreviewed_count()
         if unreviewed_count > 5 and "review-signals" not in dismissed_ids:
             highlights.append({
                 "id": "review-signals",
@@ -947,13 +944,8 @@ async def update_signal_status(request: Request):
     if not all([meeting_id, signal_type, signal_text, status]):
         return JSONResponse({"error": "Missing required fields"}, status_code=400)
     
-    supabase.table("signal_status").upsert({
-        "meeting_id": meeting_id,
-        "signal_type": signal_type,
-        "signal_text": signal_text,
-        "status": status,
-        "notes": notes
-    }, on_conflict="meeting_id,signal_type,signal_text").execute()
+    # Use signal repository for status update
+    signal_repo.upsert_status(meeting_id, signal_type, signal_text, status, notes)
     
     return JSONResponse({"status": "ok", "new_status": status})
 
@@ -980,7 +972,7 @@ async def convert_signal_to_ticket(request: Request):
     priority_map = {"blocker": "high", "risk": "high", "action_item": "medium", "decision": "low", "idea": "low"}
     priority = priority_map.get(signal_type, "medium")
     
-    # Create ticket in Supabase
+    # Create ticket in Supabase (still using direct access - TODO: add to ticket_repository)
     ticket_result = supabase.table("tickets").insert({
         "ticket_id": ticket_id,
         "title": signal_text[:100],
@@ -992,15 +984,11 @@ async def convert_signal_to_ticket(request: Request):
     
     ticket_db_id = ticket_result.data[0]["id"] if ticket_result.data else None
     
-    # Update signal status in Supabase
-    supabase.table("signal_status").upsert({
-        "meeting_id": meeting_id,
-        "signal_type": signal_type,
-        "signal_text": signal_text,
-        "status": "completed",
-        "converted_to": "ticket",
-        "converted_ref_id": ticket_db_id
-    }, on_conflict="meeting_id,signal_type,signal_text").execute()
+    # Update signal status using repository
+    signal_repo.upsert_status(
+        meeting_id, signal_type, signal_text, "completed",
+        converted_to="ticket", converted_ref_id=ticket_db_id
+    )
     
     return JSONResponse({"status": "ok", "ticket_id": ticket_id, "ticket_db_id": ticket_db_id})
 
@@ -1168,41 +1156,31 @@ async def calculate_mode_statistics():
     today = datetime.now().strftime("%Y-%m-%d")
     week_start = (datetime.now() - timedelta(days=datetime.now().weekday())).strftime("%Y-%m-%d")
     
-    # Calculate daily and weekly stats for each mode
+    # Calculate daily and weekly stats for each mode using settings repository
     for mode in ['grooming', 'planning', 'standup', 'implementation']:
-        # Get daily sessions from Supabase
-        daily_result = supabase.table("mode_sessions").select("duration_seconds").eq("mode", mode).eq("date", today).not_.is_("duration_seconds", "null").execute()
+        # Get daily sessions
+        daily_sessions = settings_repo.get_sessions_for_date(mode, today)
         
-        if daily_result.data:
-            daily_total = sum(s["duration_seconds"] for s in daily_result.data)
-            daily_count = len(daily_result.data)
+        if daily_sessions:
+            daily_total = sum(s["duration_seconds"] for s in daily_sessions)
+            daily_count = len(daily_sessions)
             daily_avg = int(daily_total / daily_count) if daily_count > 0 else 0
             
-            supabase.table("mode_statistics").upsert({
-                "mode": mode,
-                "stat_type": "daily",
-                "period": today,
-                "total_seconds": daily_total,
-                "session_count": daily_count,
-                "avg_session_seconds": daily_avg
-            }, on_conflict="mode,stat_type,period").execute()
+            settings_repo.upsert_statistics(
+                mode, "daily", today, daily_total, daily_count, daily_avg
+            )
         
-        # Get weekly sessions from Supabase
-        weekly_result = supabase.table("mode_sessions").select("duration_seconds").eq("mode", mode).gte("date", week_start).not_.is_("duration_seconds", "null").execute()
+        # Get weekly sessions
+        weekly_sessions = settings_repo.get_sessions_since_date(mode, week_start)
         
-        if weekly_result.data:
-            weekly_total = sum(s["duration_seconds"] for s in weekly_result.data)
-            weekly_count = len(weekly_result.data)
+        if weekly_sessions:
+            weekly_total = sum(s["duration_seconds"] for s in weekly_sessions)
+            weekly_count = len(weekly_sessions)
             weekly_avg = int(weekly_total / weekly_count) if weekly_count > 0 else 0
             
-            supabase.table("mode_statistics").upsert({
-                "mode": mode,
-                "stat_type": "weekly",
-                "period": week_start,
-                "total_seconds": weekly_total,
-                "session_count": weekly_count,
-                "avg_session_seconds": weekly_avg
-            }, on_conflict="mode,stat_type,period").execute()
+            settings_repo.upsert_statistics(
+                mode, "weekly", week_start, weekly_total, weekly_count, weekly_avg
+            )
     
     return JSONResponse({"status": "ok", "calculated_at": datetime.now().isoformat()})
 
@@ -1234,32 +1212,19 @@ async def update_user_status(request: Request):
     activity = interpreted.get("activity", status_text)
     context_str = interpreted.get("context", "")
     
-    # Save status to Supabase
-    # Mark all previous statuses as not current
-    supabase.table("user_status").update({"is_current": False}).eq("is_current", True).execute()
-    
-    # Insert new status
-    supabase.table("user_status").insert({
-        "status_text": status_text,
-        "interpreted_mode": mode,
-        "interpreted_activity": activity,
-        "interpreted_context": context_str,
-        "is_current": True
-    }).execute()
+    # Save status using settings repository
+    settings_repo.set_user_status(status_text, mode, activity, context_str)
     
     # Auto-start timer for the interpreted mode
     # First stop any active timers
-    active_sessions = supabase.table("mode_sessions").select("id, mode, started_at").is_("ended_at", "null").execute()
+    active_sessions = settings_repo.get_active_sessions()
     
     ended_at = datetime.now().isoformat()
-    for session in active_sessions.data or []:
+    for session in active_sessions:
         try:
             start_time = datetime.fromisoformat(session["started_at"].replace("Z", "+00:00").replace("+00:00", ""))
             duration = int((datetime.now() - start_time).total_seconds())
-            supabase.table("mode_sessions").update({
-                "ended_at": ended_at,
-                "duration_seconds": duration
-            }).eq("id", session["id"]).execute()
+            settings_repo.end_session(session["id"], ended_at, duration)
         except:
             pass
     
@@ -1267,12 +1232,7 @@ async def update_user_status(request: Request):
     today = datetime.now().strftime("%Y-%m-%d")
     started_at = datetime.now().isoformat()
     
-    supabase.table("mode_sessions").insert({
-        "mode": mode,
-        "started_at": started_at,
-        "date": today,
-        "notes": activity
-    }).execute()
+    settings_repo.start_session(mode, started_at, today, activity)
     
     return JSONResponse({
         "status": "ok",
@@ -1287,12 +1247,11 @@ async def update_user_status(request: Request):
 @app.get("/api/user-status/current")
 async def get_current_status():
     """Get current user status."""
-    result = supabase.table("user_status").select("*").eq("is_current", True).order("created_at", desc=True).limit(1).execute()
+    status = settings_repo.get_current_user_status()
     
-    if not result.data:
+    if not status:
         return JSONResponse({"status": None})
     
-    status = result.data[0]
     return JSONResponse({
         "status": {
             "text": status.get("status_text"),
@@ -1324,9 +1283,8 @@ async def get_unprocessed_signals():
     # Get meetings with signals from Supabase
     meetings = meetings_supabase.get_meetings_with_signals(limit=20)
     
-    # Get already processed signals from Supabase
-    processed_result = supabase.table("signal_status").select("meeting_id, signal_type, signal_text").eq("converted_to", "dikw").execute()
-    processed = processed_result.data or []
+    # Get already processed signals using signal repository
+    processed = signal_repo.get_converted_signals("dikw")
     
     processed_set = set(
         (p['meeting_id'], p['signal_type'], p['signal_text']) 

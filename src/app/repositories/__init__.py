@@ -17,9 +17,19 @@ Usage:
 """
 
 from .base import BaseRepository
-from .meetings import MeetingRepository, SupabaseMeetingRepository
-from .documents import DocumentRepository, SupabaseDocumentRepository
-from .tickets import TicketRepository, SupabaseTicketRepository
+from .meeting_repository import MeetingRepository, SupabaseMeetingRepository
+from .document_repository import DocumentRepository, SupabaseDocumentRepository
+from .ticket_repository import TicketRepository, SupabaseTicketRepository
+from .signal_repository import (
+    SignalRepository,
+    SupabaseSignalRepository,
+    get_signal_repository,
+)
+from .settings_repository import (
+    SettingsRepository,
+    SupabaseSettingsRepository,
+    get_settings_repository,
+)
 
 def get_meeting_repository() -> MeetingRepository:
     """Get meeting repository (Supabase)."""
@@ -51,4 +61,12 @@ __all__ = [
     "TicketRepository",
     "SupabaseTicketRepository",
     "get_ticket_repository",
+    # Signals
+    "SignalRepository",
+    "SupabaseSignalRepository",
+    "get_signal_repository",
+    # Settings
+    "SettingsRepository",
+    "SupabaseSettingsRepository",
+    "get_settings_repository",
 ]

@@ -1,23 +1,37 @@
 # Repository Pattern Refactor Plan
 
 > **Last Updated**: 2026-01-27
-> **Status**: DDD Enforcement Phase
+> **Status**: DDD Enforcement Phase - Naming Convention Applied
 
 ## Overview
 
 This document outlines the plan to migrate from direct SQLite/Supabase access throughout the codebase to a clean ports/adapters (hexagonal) architecture.
 
+## Naming Convention
+
+All repository and service files follow these naming patterns:
+- **Repositories**: `*_repository.py` (e.g., `meeting_repository.py`, `signal_repository.py`)
+- **Services**: `*_service.py` (e.g., `meeting_service.py`, `document_service.py`)
+
 ## DDD Compliance Status
 
-### ✅ Compliant Files (Using Service Layer)
-- `mcp/server.py` - Refactored to use `meetings_supabase`, `tickets_supabase`, `SupabaseDIKWRepository`
+### ✅ Compliant Files (Using Repository/Service Layer)
+- `repositories/meeting_repository.py` - Clean repository pattern
+- `repositories/document_repository.py` - Clean repository pattern
+- `repositories/ticket_repository.py` - Clean repository pattern
+- `repositories/signal_repository.py` - **NEW** - Signal feedback/status operations
+- `repositories/settings_repository.py` - **NEW** - Mode sessions, sprint settings, user status
+- `services/meeting_service.py` - Clean service module (renamed from meetings_supabase.py)
+- `services/document_service.py` - Clean service module (renamed from documents_supabase.py)
+- `services/ticket_service.py` - Clean service module (renamed from tickets_supabase.py)
+- `mcp/server.py` - Uses proper service layer
 - `api/dikw.py` - Uses proper service layer
 - `api/mindmap.py` - Uses proper service layer
-- `services/meetings_supabase.py` - Clean service module
-- `services/tickets_supabase.py` - Clean service module
 - `adapters/database/supabase.py` - Repository implementations
 
-### ⚠️ Temporary Exceptions (Documented)
+### ⚠️ Remaining Direct DB Access
+- `main.py` - 6 remaining `supabase.table()` calls (conversations, tickets, ai_memory, attachments)
+- `meetings/action_items.py` - 1 remaining call for ticket creation
 - `mcp/server.py` career functions - Uses `career_supabase_helper` until CareerRepository extracted
 - `api/career.py` - Large file pending decomposition
 
@@ -26,13 +40,15 @@ This document outlines the plan to migrate from direct SQLite/Supabase access th
 - Direct `from ..db import connect` SQLite calls
 - Dual-write logic (write to both SQLite and Supabase)
 
-## Current State
+## Backward Compatibility
 
-The codebase has **50+ files** with direct database imports:
-- `from ..db import connect` (SQLite)
-- `from ..infrastructure.supabase_client import get_supabase_client` (Supabase)
-
-Many files have dual-write logic that writes to both databases.
+The services `__init__.py` provides aliases for the old names:
+```python
+# Old imports still work:
+from .services import meetings_supabase  # -> meeting_service
+from .services import documents_supabase  # -> document_service  
+from .services import tickets_supabase  # -> ticket_service
+```
 
 ## Target Architecture
 
@@ -49,9 +65,10 @@ Many files have dual-write logic that writes to both databases.
 │  - MeetingRepository                                      │
 │  - DocumentRepository                                     │
 │  - TicketRepository                                       │
+│  - SignalRepository (NEW)                                 │
+│  - SettingsRepository (NEW)                               │
 │  - ConversationRepository                                 │
 │  - NotificationRepository                                 │
-│  - SettingsRepository                                     │
 └────────────────────────┬─────────────────────────────────┘
                          │ implemented by
                          ▼
@@ -60,6 +77,8 @@ Many files have dual-write logic that writes to both databases.
 │  (Concrete implementations)                               │
 │  - SupabaseMeetingRepository                             │
 │  - SupabaseDocumentRepository                            │
+│  - SupabaseSignalRepository (NEW)                        │
+│  - SupabaseSettingsRepository (NEW)                      │
 │  - etc.                                                   │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -72,12 +91,17 @@ Many files have dual-write logic that writes to both databases.
 - [x] `src/app/chat/turn.py` - Chat turns
 - [x] `src/app/services/notification_queue.py` - Notifications
 
-### Priority 2 - Repositories (Existing but mixed)
-- [ ] `src/app/repositories/documents.py` - Has Supabase but SQLite fallback
-- [ ] `src/app/repositories/meetings.py` - Has Supabase but SQLite fallback  
-- [ ] `src/app/repositories/tickets.py` - Has Supabase but SQLite fallback
+### Priority 2 - Repositories (COMPLETED ✅)
+- [x] `src/app/repositories/document_repository.py` - Renamed, Supabase-only
+- [x] `src/app/repositories/meeting_repository.py` - Renamed, Supabase-only
+- [x] `src/app/repositories/ticket_repository.py` - Renamed, Supabase-only
+- [x] `src/app/repositories/signal_repository.py` - **NEW** - Extracted from main.py
+- [x] `src/app/repositories/settings_repository.py` - **NEW** - Extracted from main.py
 
 ### Priority 3 - Services Layer
+- [x] `src/app/services/meeting_service.py` - Renamed, enhanced with signal update methods
+- [x] `src/app/services/document_service.py` - Renamed
+- [x] `src/app/services/ticket_service.py` - Renamed
 - [ ] `src/app/services/background_jobs.py`
 - [ ] `src/app/services/agent_bus.py`
 - [ ] `src/app/services/mindmap_synthesis.py`

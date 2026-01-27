@@ -19,6 +19,12 @@ import uuid
 
 from ..infrastructure.supabase_client import get_supabase_client
 from ..services import meetings_supabase
+from ..services.meeting_service import (
+    get_meeting_signals, 
+    update_meeting_signals,
+    get_or_create_personal_meeting,
+    get_meetings_for_action_items,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -266,15 +272,11 @@ def list_action_items(
 @router.post("/api/action-items/{meeting_id}/{item_index}/toggle")
 def toggle_action_item(meeting_id: int, item_index: int):
     """Toggle completion status of an action item."""
-    supabase = get_supabase_client()
-
-    result = supabase.table("meetings").select("signals").eq("id", meeting_id).execute()
-    meetings = result.data or []
-
-    if not meetings or not meetings[0].get('signals'):
+    # Get meeting signals using service
+    meeting = meetings_supabase.get_meeting_by_id(str(meeting_id))
+    if not meeting or not meeting.get('signals'):
         return {"success": False, "error": "Meeting not found"}
 
-    meeting = meetings[0]
     try:
         signals = meeting['signals'] if isinstance(meeting['signals'], dict) else json.loads(meeting['signals'])
         action_items = signals.get('action_items', [])
@@ -297,7 +299,8 @@ def toggle_action_item(meeting_id: int, item_index: int):
         
         signals['action_items'] = action_items
         
-        supabase.table("meetings").update({"signals": signals}).eq("id", meeting_id).execute()
+        # Update using service
+        update_meeting_signals(str(meeting_id), signals)
         
         return {"success": True, "completed": action_items[item_index].get('completed', True) if isinstance(action_items[item_index], dict) else True}
     except (json.JSONDecodeError, TypeError) as e:
@@ -314,14 +317,11 @@ async def update_action_item_priority(meeting_id: int, item_index: int, request:
     if new_priority not in ['low', 'medium', 'high']:
         return {"success": False, "error": "Invalid priority. Must be low, medium, or high"}
     
-    supabase = get_supabase_client()
-    result = supabase.table("meetings").select("signals").eq("id", meeting_id).execute()
-    meetings = result.data or []
-
-    if not meetings or not meetings[0].get('signals'):
+    # Get meeting using service
+    meeting = meetings_supabase.get_meeting_by_id(str(meeting_id))
+    if not meeting or not meeting.get('signals'):
         return {"success": False, "error": "Meeting not found"}
 
-    meeting = meetings[0]
     try:
         signals = meeting['signals'] if isinstance(meeting['signals'], dict) else json.loads(meeting['signals'])
         action_items = signals.get('action_items', [])
@@ -344,7 +344,8 @@ async def update_action_item_priority(meeting_id: int, item_index: int, request:
         
         signals['action_items'] = action_items
 
-        supabase.table("meetings").update({"signals": signals}).eq("id", meeting_id).execute()
+        # Update using service
+        update_meeting_signals(str(meeting_id), signals)
 
         return {"success": True, "priority": new_priority}
     except (json.JSONDecodeError, TypeError) as e:
@@ -377,14 +378,11 @@ async def add_action_item(request: Request):
     
     supabase = get_supabase_client()
     if meeting_id:
-        # Add to existing meeting
-        result = supabase.table("meetings").select("signals").eq("id", meeting_id).execute()
-        meetings = result.data or []
-
-        if not meetings:
+        # Add to existing meeting using service
+        meeting = meetings_supabase.get_meeting_by_id(str(meeting_id))
+        if not meeting:
             return {"success": False, "error": "Meeting not found"}
 
-        meeting = meetings[0]
         try:
             signals = meeting.get('signals') or {}
             if isinstance(signals, str):
@@ -397,14 +395,12 @@ async def add_action_item(request: Request):
         
         signals['action_items'].append(new_item)
 
-        supabase.table("meetings").update({"signals": signals}).eq("id", meeting_id).execute()
+        update_meeting_signals(str(meeting_id), signals)
     else:
-        # Create a "Personal Tasks" meeting if it doesn't exist
-        result = supabase.table("meetings").select("id, signals").eq("meeting_name", "Personal Action Items").execute()
-        personal_meetings = result.data or []
+        # Create a "Personal Tasks" meeting if it doesn't exist using service
+        personal_meeting = get_or_create_personal_meeting()
         
-        if personal_meetings:
-            personal_meeting = personal_meetings[0]
+        if personal_meeting:
             try:
                 signals = personal_meeting.get('signals') or {}
                 if isinstance(signals, str):
@@ -417,16 +413,9 @@ async def add_action_item(request: Request):
 
             signals['action_items'].append(new_item)
 
-            supabase.table("meetings").update({"signals": signals}).eq("id", personal_meeting['id']).execute()
+            update_meeting_signals(personal_meeting['id'], signals)
         else:
-            # Create new personal meeting
-            signals = {'action_items': [new_item]}
-
-            supabase.table("meetings").insert({
-                "meeting_name": "Personal Action Items",
-                "meeting_date": datetime.now().strftime('%Y-%m-%d'),
-                "signals": signals
-            }).execute()
+            return {"success": False, "error": "Could not create personal meeting"}
     
     return {"success": True}
 
@@ -459,13 +448,10 @@ async def create_ticket_from_action_item(request: Request):
     assignee = None
     
     if meeting_id is not None:
-        result = supabase.table("meetings").select(
-            "signals, meeting_name, meeting_date, raw_text, pocket_ai_summary, synthesized_notes"
-        ).eq("id", meeting_id).execute()
-        meetings = result.data or []
+        # Use meeting service to get meeting data
+        meeting = meetings_supabase.get_meeting_by_id(str(meeting_id))
 
-        if meetings:
-            meeting = meetings[0]
+        if meeting:
             meeting_name = meeting.get('meeting_name')
             meeting_date = meeting.get('meeting_date')
 
@@ -564,11 +550,9 @@ async def create_ticket_from_action_item(request: Request):
     # Mark action item as converted to ticket AND completed
     if meeting_id is not None and item_index is not None:
         try:
-            result = supabase.table("meetings").select("signals").eq("id", meeting_id).execute()
-            meetings = result.data or []
+            meeting = meetings_supabase.get_meeting_by_id(str(meeting_id))
             
-            if meetings:
-                meeting = meetings[0]
+            if meeting:
                 signals = meeting.get('signals') or {}
                 if isinstance(signals, str):
                     signals = json.loads(signals)
@@ -586,8 +570,8 @@ async def create_ticket_from_action_item(request: Request):
                             'completed': True  # Auto-check the action item
                         }
                     signals['action_items'] = items
-                    supabase.table("meetings").update({"signals": signals}).eq("id", meeting_id).execute()
-        except:
+                    update_meeting_signals(str(meeting_id), signals)
+        except Exception:
             pass  # Non-critical
     
     return {"success": True, "ticket_id": ticket_id, "row_id": row_id}

@@ -352,3 +352,91 @@ def delete_meeting(meeting_id: str) -> bool:
     except Exception as e:
         logger.error(f"Failed to delete meeting {meeting_id}: {e}")
         return False
+
+
+def update_meeting_signals(meeting_id: str, signals: Dict[str, Any]) -> bool:
+    """
+    Update signals for a specific meeting.
+    
+    Args:
+        meeting_id: UUID of the meeting
+        signals: Updated signals dictionary
+        
+    Returns:
+        True if successful
+    """
+    client = get_supabase_client()
+    if not client:
+        return False
+    
+    try:
+        client.table("meetings").update({"signals": signals}).eq("id", meeting_id).execute()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to update signals for meeting {meeting_id}: {e}")
+        return False
+
+
+def get_or_create_personal_meeting() -> Optional[Dict[str, Any]]:
+    """
+    Get the personal action items meeting, or create it if it doesn't exist.
+    
+    Returns:
+        The personal meeting record or None on failure
+    """
+    client = get_supabase_client()
+    if not client:
+        return None
+    
+    try:
+        result = client.table("meetings").select("id, signals").eq(
+            "meeting_name", "Personal Action Items"
+        ).execute()
+        
+        if result.data:
+            return result.data[0]
+        
+        # Create the personal meeting
+        new_meeting = {
+            "meeting_name": "Personal Action Items",
+            "meeting_type": "personal",
+            "meeting_date": datetime.now().isoformat()[:10],
+            "signals": {"action_items": []}
+        }
+        create_result = client.table("meetings").insert(new_meeting).execute()
+        return create_result.data[0] if create_result.data else None
+    except Exception as e:
+        logger.error(f"Failed to get/create personal meeting: {e}")
+        return None
+
+
+def get_meetings_for_action_items(
+    filter_type: str = "all", 
+    sort_by: str = "date"
+) -> List[Dict[str, Any]]:
+    """
+    Get meetings for the action items page with their signals.
+    
+    Args:
+        filter_type: Filter type ('all', 'incomplete', 'blockers')
+        sort_by: Sort field ('date', 'priority')
+        
+    Returns:
+        List of meetings with action items
+    """
+    client = get_supabase_client()
+    if not client:
+        return []
+    
+    try:
+        # Get meetings with signals, ordered by meeting date
+        result = client.table("meetings").select(
+            "id, meeting_name, meeting_date, signals"
+        ).not_.is_("signals", "null").order(
+            "meeting_date", desc=(sort_by == "date")
+        ).execute()
+        
+        return result.data or []
+    except Exception as e:
+        logger.error(f"Failed to get meetings for action items: {e}")
+        return []
