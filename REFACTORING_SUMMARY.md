@@ -56,7 +56,7 @@ Phase 2.8 focused on decomposing large modules into organized packages with clea
 
 ### Test Coverage
 
-**Total Tests**: 134 passing
+**Total Tests**: 238 passing
 
 | Test File | Tests | Description |
 |-----------|-------|-------------|
@@ -66,6 +66,9 @@ Phase 2.8 focused on decomposing large modules into organized packages with clea
 | `test_dashboard_domain.py` | 21 | Dashboard domain routes, exports |
 | `test_signals_domain.py` | 20 | Signals domain routes, deprecation |
 | `test_arjuna_package.py` | 32 | Arjuna mixins, constants, exports |
+| `test_dikw_repository.py` | 35 | DIKW repository, data classes, interface |
+| `test_search_career_domains.py` | 42 | Search/career domain structure, repositories |
+| (other existing tests) | 27 | Various legacy tests |
 
 ### Architecture Pattern
 
