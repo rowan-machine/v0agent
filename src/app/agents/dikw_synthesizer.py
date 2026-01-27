@@ -1,6 +1,16 @@
 """
 DIKW Synthesizer Agent - Knowledge Pyramid Management (Checkpoint 2.5)
 
+DEPRECATED: This module is maintained for backward compatibility.
+Please import from the dikw_synthesizer package instead:
+
+    from .dikw_synthesizer import (
+        DIKWSynthesizerAgent,
+        DIKW_LEVELS,
+        get_dikw_synthesizer,
+        ...
+    )
+
 AI-powered knowledge management that handles:
 - Signal promotion through DIKW levels (Data → Information → Knowledge → Wisdom)
 - Multi-item synthesis and merging
@@ -19,6 +29,93 @@ DIKW Pyramid Levels:
 - Wisdom: Strategic principles and timeless lessons
 """
 
+# Re-export everything from the package for backward compatibility
+from .dikw_synthesizer import (
+    # Constants
+    DIKW_LEVELS,
+    DIKW_LEVEL_DESCRIPTIONS,
+    DIKW_NEXT_LEVEL,
+    DIKW_PREV_LEVEL,
+    LEVEL_PROMPTS,
+    MERGE_PROMPT,
+    PROMOTION_PROMPTS,
+    SYNTHESIS_PROMPTS,
+    
+    # Agent
+    DIKWSynthesizerAgent,
+    get_dikw_synthesizer,
+    
+    # Visualization
+    build_graph_data,
+    build_mindmap_tree,
+    build_tag_clusters,
+    get_mindmap_data,
+    
+    # Adapters (async)
+    promote_signal_to_dikw_adapter,
+    promote_dikw_item_adapter,
+    merge_dikw_items_adapter,
+    validate_dikw_item_adapter,
+    generate_dikw_tags_adapter,
+    ai_summarize_dikw_adapter,
+    ai_promote_dikw_adapter,
+    get_mindmap_data_adapter,
+    find_duplicates_adapter,
+    analyze_for_suggestions_adapter,
+    generate_promoted_content_adapter,
+    generate_wisdom_content_adapter,
+    suggest_from_signals_adapter,
+    
+    # Adapters (sync)
+    generate_dikw_tags,
+)
+
+__all__ = [
+    # Constants
+    "DIKW_LEVELS",
+    "DIKW_LEVEL_DESCRIPTIONS",
+    "DIKW_NEXT_LEVEL",
+    "DIKW_PREV_LEVEL",
+    "LEVEL_PROMPTS",
+    "MERGE_PROMPT",
+    "PROMOTION_PROMPTS",
+    "SYNTHESIS_PROMPTS",
+    
+    # Agent
+    "DIKWSynthesizerAgent",
+    "get_dikw_synthesizer",
+    
+    # Visualization
+    "build_graph_data",
+    "build_mindmap_tree",
+    "build_tag_clusters",
+    "get_mindmap_data",
+    
+    # Adapters (async)
+    "promote_signal_to_dikw_adapter",
+    "promote_dikw_item_adapter",
+    "merge_dikw_items_adapter",
+    "validate_dikw_item_adapter",
+    "generate_dikw_tags_adapter",
+    "ai_summarize_dikw_adapter",
+    "ai_promote_dikw_adapter",
+    "get_mindmap_data_adapter",
+    "find_duplicates_adapter",
+    "analyze_for_suggestions_adapter",
+    "generate_promoted_content_adapter",
+    "generate_wisdom_content_adapter",
+    "suggest_from_signals_adapter",
+    
+    # Adapters (sync)
+    "generate_dikw_tags",
+]
+
+# ============================================================================
+# LEGACY CODE BELOW - Kept for reference during migration
+# ============================================================================
+# The code below has been moved to the dikw_synthesizer/ package.
+# It is kept here temporarily for reference but will be removed in a future version.
+
 from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
 import json
@@ -30,92 +127,7 @@ from ..agents.base import BaseAgent, AgentConfig
 logger = logging.getLogger(__name__)
 
 
-# =============================================================================
-# DIKW CONSTANTS - Moved from main.py
-# =============================================================================
-
-DIKW_LEVELS = ['data', 'information', 'knowledge', 'wisdom']
-
-DIKW_NEXT_LEVEL = {
-    'data': 'information', 
-    'information': 'knowledge', 
-    'knowledge': 'wisdom'
-}
-
-DIKW_PREV_LEVEL = {
-    'information': 'data',
-    'knowledge': 'information',
-    'wisdom': 'knowledge'
-}
-
-# Level descriptions for context
-DIKW_LEVEL_DESCRIPTIONS = {
-    'data': "Raw facts, observations, and signals without context",
-    'information': "Contextualized data with meaning and structure",
-    'knowledge': "Actionable insights, patterns, and applied understanding",
-    'wisdom': "Strategic principles, timeless lessons, and guiding truths"
-}
-
-# Prompts for each level (used in promotion and summarization)
-LEVEL_PROMPTS = {
-    'data': "Briefly describe this raw signal in one sentence",
-    'information': "Explain the context and meaning of this signal",
-    'knowledge': "What actionable insight or pattern does this represent?",
-    'wisdom': "What strategic principle or lesson can be derived from this?"
-}
-
-PROMOTION_PROMPTS = {
-    'information': """Transform this raw data into structured information. 
-Explain what it means in context and why it matters.
-
-Data: {content}
-
-Provide the promoted information-level content:""",
-    
-    'knowledge': """Extract actionable knowledge from this information. 
-What patterns, insights, or principles emerge that can guide decisions?
-
-Information: {content}
-
-Provide the promoted knowledge-level content:""",
-    
-    'wisdom': """Distill strategic wisdom from this knowledge. 
-What fundamental principle or timeless lesson should guide future actions and decisions?
-
-Knowledge: {content}
-
-Provide the promoted wisdom-level content:"""
-}
-
-SYNTHESIS_PROMPTS = {
-    'information': """Transform this raw data into structured information. 
-What does it mean in context?
-
-Data: {content}""",
-    
-    'knowledge': """Extract actionable knowledge from this information. 
-What patterns or insights emerge?
-
-Information: {content}""",
-    
-    'wisdom': """Distill strategic wisdom from this knowledge. 
-What principles should guide future decisions?
-
-Knowledge: {content}"""
-}
-
-MERGE_PROMPT = """Synthesize these {count} {current_level}-level items into a single {next_level}-level insight:
-
-Items:
-{combined_content}
-
-Previous summaries:
-{combined_summaries}
-
-Create a unified {next_level}-level synthesis that captures the essence of all these items."""
-
-
-class DIKWSynthesizerAgent(BaseAgent):
+class _LegacyDIKWSynthesizerAgent(BaseAgent):
     """
     DIKW Synthesizer - SignalFlow's knowledge pyramid manager.
     

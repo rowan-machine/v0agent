@@ -46,6 +46,7 @@ from .domains.dikw.api import router as dikw_domain_router
 from .domains.meetings.api import router as meetings_domain_router
 from .domains.tickets.api import router as tickets_domain_router
 from .domains.documents.api import router as documents_domain_router
+from .domains.dashboard import router as dashboard_domain_router  # Dashboard (Refactor Phase 2)
 from .mcp.registry import TOOL_REGISTRY
 from .llm import ask as ask_llm
 from .auth import (
@@ -585,350 +586,37 @@ async def signal_feedback(request: Request):
     return JSONResponse({"status": "ok"})
 
 
-@app.post("/api/dashboard/quick-ask")
-async def dashboard_quick_ask(request: Request):
-    """
-    Handle quick AI questions from dashboard.
-    
-    Delegates to ArjunaAgent.quick_ask() for centralized AI handling.
-    Returns run_id for user feedback.
-    """
-    from .agents.arjuna import quick_ask
-    
-    data = await request.json()
-    topic = data.get("topic")
-    query = data.get("query")
-    
-    try:
-        result = await quick_ask(topic=topic, query=query)
-        
-        if result.get("success"):
-            return JSONResponse({
-                "response": result.get("response", ""),
-                "run_id": result.get("run_id")  # From agent.last_run_id
-            })
-        else:
-            return JSONResponse({"error": result.get("response", "AI Error")}, status_code=500)
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JSONResponse({"error": f"AI Error: {str(e)}"}, status_code=500)
+# =============================================================================
+# DASHBOARD ROUTES - MIGRATED TO DOMAIN
+# =============================================================================
+# The following dashboard routes have been moved to domains/dashboard/api/:
+# - POST /api/dashboard/quick-ask -> domains/dashboard/api/quick_ask.py
+# - GET /api/dashboard/highlights -> domains/dashboard/api/highlights.py  
+# - POST /api/dashboard/highlight-context -> domains/dashboard/api/context.py
+#
+# These legacy routes below are kept for backward compatibility but will be
+# removed in a future release. The domain router is included and handles
+# the same paths.
+# =============================================================================
 
 
-@app.get("/api/dashboard/highlights")
-async def get_highlights(request: Request):
-    """Get smart coaching highlights based on app state and user activity."""
-    import hashlib
-    from datetime import datetime, timedelta
-    
-    # Get dismissed IDs from query param (passed from frontend localStorage)
-    dismissed_ids = request.query_params.get('dismissed', '').split(',')
-    dismissed_ids = [d.strip() for d in dismissed_ids if d.strip()]
-    
-    highlights = []
-    
-    # 1. Check for blocked tickets (HIGH PRIORITY) - from Supabase
-    blocked_tickets = ticket_service.get_blocked_tickets(limit=3)
-    for t in blocked_tickets:
-        highlight_id = f"blocked-{t.get('ticket_id')}"
-        if highlight_id not in dismissed_ids:
-            highlights.append({
-                "id": highlight_id,
-                "type": "blocker",
-                "label": "🚧 Blocked Ticket",
-                "text": f"{t.get('ticket_id')}: {t.get('title')}",
-                "action": "Unblock this ticket to keep making progress",
-                "link": f"/tickets?focus={t.get('ticket_id')}",
-                "link_text": "View Ticket"
-            })
-    
-    # 2. Check for stale in-progress tickets (> 3 days old) - from Supabase
-    stale_tickets = ticket_service.get_stale_in_progress_tickets(days=3, limit=2)
-    for t in stale_tickets:
-        highlight_id = f"stale-{t.get('ticket_id')}"
-        if highlight_id not in dismissed_ids:
-            highlights.append({
-                "id": highlight_id,
-                "type": "action",
-                "label": "⏰ Stale Work",
-                "text": f"{t.get('ticket_id')}: {t.get('title')}",
-                "action": "This has been in progress for a while. Complete or update it?",
-                "link": f"/tickets?focus={t.get('ticket_id')}",
-                "link_text": "Update Status"
-            })
-    
-    # 3. Check sprint progress using settings repository
-    try:
-        sprint = settings_repo.get_sprint_settings()
-        if sprint and sprint.get('sprint_start_date'):
-            start = datetime.strptime(sprint['sprint_start_date'], '%Y-%m-%d')
-            length = sprint.get('sprint_length_days') or 14
-            end = start + timedelta(days=length)
-            now = datetime.now()
-            progress = min(100, max(0, int((now - start).days / length * 100)))
-            days_left = (end - now).days
-            
-            # Sprint ending soon
-            if 0 < days_left <= 3 and f"sprint-ending" not in dismissed_ids:
-                todo_count = ticket_service.get_tickets_count(statuses=["todo"])
-                if todo_count > 0:
-                    highlights.append({
-                        "id": "sprint-ending",
-                        "type": "risk",
-                        "label": "⏳ Sprint Ending",
-                        "text": f"{days_left} day{'s' if days_left != 1 else ''} left with {todo_count} todo items",
-                        "action": "Review remaining work and prioritize",
-                        "link": "/tickets",
-                        "link_text": "View Tickets"
-                    })
-            
-            # Sprint just started - set it up
-            if progress < 10 and f"sprint-setup" not in dismissed_ids:
-                ticket_count = ticket_service.get_tickets_count()
-                if ticket_count == 0:
-                    highlights.append({
-                        "id": "sprint-setup",
-                        "type": "action",
-                        "label": "🚀 New Sprint",
-                        "text": "Your sprint has started but no tickets yet",
-                        "action": "Create tickets to track your work this sprint",
-                        "link": "/tickets",
-                        "link_text": "Add Tickets"
-                    })
-    except:
-        pass
-    
-    # 4. Check for unreviewed signals using signal repository
-    try:
-        unreviewed_count = signal_repo.get_unreviewed_count()
-        if unreviewed_count > 5 and "review-signals" not in dismissed_ids:
-            highlights.append({
-                "id": "review-signals",
-                "type": "action",
-                "label": "📥 Unreviewed Signals",
-                "text": f"{unreviewed_count} signals waiting for your review",
-                "action": "Validate signals to build your knowledge base",
-                "link": "/signals",
-                "link_text": "Review Signals"
-            })
-    except:
-        pass
-    
-    # 5. Check workflow mode progress
-    # (suggest moving to next mode if current is complete)
-    
-        # 6. Recent meeting with unprocessed signals (from Supabase)
-        recent_meetings_for_highlights = meeting_service.get_meetings_with_signals(limit=1)
-        if recent_meetings_for_highlights:
-            recent_meeting = recent_meetings_for_highlights[0]
-            try:
-                signals = recent_meeting.get('signals', {})
-                blockers = signals.get('blockers', [])
-                actions = signals.get('action_items', [])
-                
-                # Highlight blockers from recent meeting
-                for i, blocker in enumerate(blockers[:2]):
-                    if blocker:
-                        highlight_id = f"mtg-blocker-{recent_meeting['id']}-{i}"
-                        if highlight_id not in dismissed_ids:
-                            highlights.append({
-                                "id": highlight_id,
-                                "type": "blocker",
-                                "label": "🚧 Meeting Blocker",
-                                "text": blocker[:100] + ('...' if len(blocker) > 100 else ''),
-                                "action": f"From: {recent_meeting['meeting_name']}",
-                                "link": f"/meetings/{recent_meeting['id']}",
-                                "link_text": "View Meeting"
-                            })
-                
-                # Highlight action items from recent meeting
-                for i, action in enumerate(actions[:2]):
-                    if action:
-                        highlight_id = f"mtg-action-{recent_meeting['id']}-{i}"
-                        if highlight_id not in dismissed_ids:
-                            highlights.append({
-                                "id": highlight_id,
-                                "type": "action",
-                                "label": "📋 Action Item",
-                                "text": action[:100] + ('...' if len(action) > 100 else ''),
-                                "action": f"From: {recent_meeting['meeting_name']}",
-                                "link": f"/meetings/{recent_meeting['id']}",
-                                "link_text": "View Meeting"
-                            })
-            except:
-                pass
-        
-        # 7. Accountability items (waiting for others)
-        waiting = conn.execute(
-            """SELECT id, description, responsible_party FROM accountability_items
-               WHERE status = 'waiting'
-               ORDER BY created_at DESC LIMIT 2"""
-        ).fetchall()
-        for w in waiting:
-            highlight_id = f"waiting-{w['id']}"
-            if highlight_id not in dismissed_ids:
-                highlights.append({
-                    "id": highlight_id,
-                    "type": "waiting",
-                    "label": "⏳ Waiting On",
-                    "text": f"{w['responsible_party']}: {w['description'][:80]}",
-                    "action": "Follow up if this is blocking you",
-                    "link": "/accountability",
-                    "link_text": "Waiting-For List"
-                })
-        
-        # 8. Check for empty DIKW (encourage knowledge building)
-        dikw_count = conn.execute("SELECT COUNT(*) as c FROM dikw_items").fetchone()
-        if dikw_count and dikw_count['c'] == 0 and "dikw-empty" not in dismissed_ids:
-            highlights.append({
-                "id": "dikw-empty",
-                "type": "idea",
-                "label": "💡 Knowledge Base",
-                "text": "Start building your knowledge pyramid",
-                "action": "Promote signals to DIKW to capture learnings",
-                "link": "/dikw",
-                "link_text": "View DIKW"
-            })
-        
-    # 9. No recent meetings (encourage logging) - check Supabase
-    recent_meetings_check = meeting_service.get_meetings_with_signals_in_range(days=7)
-    if len(recent_meetings_check) == 0 and "log-meeting" not in dismissed_ids:
-        highlights.append({
-            "id": "log-meeting",
-            "type": "idea",
-            "label": "📅 Log a Meeting",
-            "text": "No meetings logged in the past week",
-            "action": "Capture decisions and actions from recent discussions",
-            "link": "/meetings/new",
-            "link_text": "Add Meeting"
-        })
-    
-    # ===== ENHANCED RECOMMENDATIONS FROM ENGINE (Technical Debt) =====
-    # Add embedding-based recommendations for DIKW, mentions, grooming, etc.
-    try:
-        from .services.coach_recommendations import get_coach_recommendations
-        engine_recs = get_coach_recommendations(
-            dismissed_ids=dismissed_ids,
-            user_name="Rowan"  # TODO: Get from auth context
-        )
-        # Add engine recommendations that aren't duplicates
-        existing_ids = {h['id'] for h in highlights}
-        for rec in engine_recs:
-            if rec['id'] not in existing_ids:
-                highlights.append(rec)
-    except Exception as e:
-        # Silent fail - don't break highlights if engine has issues
-        import logging
-        logging.getLogger(__name__).debug(f"Coach engine error: {e}")
-    
-    # Prioritize: blockers > mentions > risks > actions > waiting > dikw > grooming > ideas
-    priority = {
-        'blocker': 0, 
-        'mention': 1,
-        'risk': 2, 
-        'action': 3, 
-        'waiting': 4, 
-        'dikw': 5,
-        'grooming': 6,
-        'transcript': 7,
-        'idea': 8, 
-        'decision': 9
-    }
-    highlights.sort(key=lambda h: priority.get(h['type'], 99))
-    
-    # Return top 8 items (increased from 6 for more recommendations)
-    return JSONResponse({"highlights": highlights[:8]})
+# DEPRECATED: Use dashboard_domain_router instead
+# @app.post("/api/dashboard/quick-ask")
+# async def dashboard_quick_ask(request: Request):
+#     """MOVED to domains/dashboard/api/quick_ask.py"""
+#     pass
 
 
-@app.post("/api/dashboard/highlight-context")
-async def get_highlight_context(request: Request):
-    """Get drill-down context for a highlight item."""
-    data = await request.json()
-    source = data.get("source", "")
-    text = data.get("text", "")
-    meeting_id = data.get("meeting_id")
-    
-    # Find the meeting from Supabase
-    meeting = None
-    if meeting_id:
-        meeting = meeting_service.get_meeting_by_id(meeting_id)
-    
-    # If not found by id, search by name (less common case)
-    if not meeting and source:
-        all_meetings = meeting_service.get_all_meetings(limit=50)
-        for m in all_meetings:
-            if m.get("meeting_name") == source:
-                meeting = m
-                break
-    
-    if not meeting:
-        return JSONResponse({
-            "summary": "Meeting not found.",
-            "context": None,
-            "transcript": None,
-            "meeting_link": None
-        })
-    
-    # Build progressive context levels
-    summary = None
-    context = None
-    transcript = None
-    
-    # Level 1: AI-generated summary of the issue
-    if meeting["synthesized_notes"]:
-        # Find relevant section in notes
-        notes = meeting["synthesized_notes"]
-        # Try to find the specific text in notes
-        text_lower = text.lower()
-        lines = notes.split('\n')
-        relevant_lines = []
-        for i, line in enumerate(lines):
-            if text_lower[:30] in line.lower() or any(word in line.lower() for word in text_lower.split()[:3]):
-                # Get surrounding context
-                start = max(0, i - 2)
-                end = min(len(lines), i + 3)
-                relevant_lines = lines[start:end]
-                break
-        
-        if relevant_lines:
-            summary = '\n'.join(relevant_lines)
-        else:
-            summary = notes[:500] + ('...' if len(notes) > 500 else '')
-    
-    # Level 2: Full context from signals
-    if meeting["signals_json"]:
-        try:
-            signals = json.loads(meeting["signals_json"])
-            context_parts = []
-            for stype in ["blockers", "decisions", "action_items", "risks", "ideas"]:
-                items = signals.get(stype, [])
-                if items:
-                    context_parts.append(f"**{stype.replace('_', ' ').title()}:**\n" + '\n'.join(f"• {item}" for item in items))
-            context = '\n\n'.join(context_parts) if context_parts else None
-        except:
-            pass
-    
-    # Level 3: Transcript excerpt
-    if meeting["raw_text"]:
-        raw = meeting["raw_text"]
-        # Try to find the text in the transcript
-        text_lower = text.lower()
-        if text_lower[:30] in raw.lower():
-            # Find position and get surrounding context
-            idx = raw.lower().find(text_lower[:30])
-            start = max(0, idx - 200)
-            end = min(len(raw), idx + 500)
-            transcript = ('...' if start > 0 else '') + raw[start:end] + ('...' if end < len(raw) else '')
-        else:
-            # Just show first 500 chars of transcript
-            transcript = raw[:500] + ('...' if len(raw) > 500 else '')
-    
-    return JSONResponse({
-        "summary": summary,
-        "context": context,
-        "transcript": transcript,
-        "meeting_link": f"/meetings/{meeting['id']}" if meeting else None
-    })
+# DEPRECATED: Use dashboard_domain_router instead  
+# @app.get("/api/dashboard/highlights")
+# async def get_highlights(request: Request):
+#     """MOVED to domains/dashboard/api/highlights.py"""
+#     pass
+
+
+# -------------------------
+# Signal Feedback API
+# -------------------------
 
 
 # -------------------------
@@ -1543,3 +1231,4 @@ app.include_router(dikw_domain_router, prefix="/api/domains")  # DIKW domain
 app.include_router(meetings_domain_router, prefix="/api/domains")  # Meetings domain
 app.include_router(tickets_domain_router, prefix="/api/domains")  # Tickets domain
 app.include_router(documents_domain_router, prefix="/api/domains")  # Documents domain
+app.include_router(dashboard_domain_router)  # Dashboard (already has /api/dashboard prefix)

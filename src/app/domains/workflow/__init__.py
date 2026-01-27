@@ -1,28 +1,29 @@
+# src/app/domains/workflow/__init__.py
 """
-Workflow Mode and Timer API Routes
-
-DEPRECATED: This module is maintained for backward compatibility.
-Please import from the workflow domain instead:
-
-    from ..domains.workflow import workflow_router
+Workflow Domain
 
 Manages workflow modes (A-G), timer sessions, background jobs,
 and workflow progress tracking.
 
-Routes:
+Sub-modules:
+- modes: Mode settings and suggested mode detection
+- progress: Workflow checklist progress
+- timer: Timer session management
+- jobs: Background job execution
+- tracing: LangSmith tracing status
+
+API Routes:
 - /api/settings/mode - Get/set current workflow mode
 - /api/settings/mode/suggested - Get suggested mode based on sprint cadence
 - /api/settings/mode/expected-duration - Get expected durations per mode
 - /api/settings/workflow-progress - Save/get workflow checklist progress
 - /api/workflow/check-completion - Check if mode workflow is complete
 - /api/workflow/overdue-check - Check overdue status
-- /api/workflow/send-encouragement - Trigger encouragement notification
 - /api/mode-timer/* - Timer session management
 - /api/v1/jobs/* - Background job execution
 - /api/v1/tracing/status - LangSmith tracing status
 """
 
-# Re-export the router from the new domain location
-from ..domains.workflow import workflow_router as router
+from .api import router as workflow_router
 
-__all__ = ["router"]
+__all__ = ["workflow_router"]

@@ -1,44 +1,57 @@
-# src/app/agents/meeting_analyzer.py
+# src/app/agents/meeting_analyzer/__init__.py
 """
-Meeting Analyzer Agent - Re-export shim for backward compatibility.
+Meeting Analyzer Agent Package
 
-The implementation has been decomposed into the meeting_analyzer/ package:
-  - meeting_analyzer/constants.py - Signal types, heading patterns
-  - meeting_analyzer/parser.py - Adaptive heading-based parsing
-  - meeting_analyzer/extractor.py - Signal extraction functions
-  - meeting_analyzer/agent.py - MeetingAnalyzerAgent class
-  - meeting_analyzer/adapters.py - Singleton and helper functions
+Extracts structured signals from meeting summaries and transcripts.
+Supports multiple formats: Teams, Pocket, markdown, plain text.
 
-All public exports are re-exported here for backward compatibility.
-New code should import directly from the package.
-"""
-
-# Re-export everything from the package
-from .meeting_analyzer import (
-    # Agent class
-    MeetingAnalyzerAgent,
+Usage:
+    # Singleton pattern (backward compatible)
+    from src.app.agents.meeting_analyzer import (
+        get_meeting_analyzer,
+        parse_meeting_summary_adaptive,
+        extract_signals_from_meeting,
+    )
+    
+    # Direct class usage
+    from src.app.agents.meeting_analyzer import MeetingAnalyzerAgent
     
     # Constants
+    from src.app.agents.meeting_analyzer import SIGNAL_TYPES, HEADING_PATTERNS
+"""
+
+# Agent class
+from .agent import MeetingAnalyzerAgent
+
+# Constants
+from .constants import (
     SIGNAL_TYPES,
     HEADING_PATTERNS,
     HEADING_TO_SIGNAL_TYPE,
     EMPTY_SIGNALS,
-    
-    # Parser functions
+)
+
+# Parser functions
+from .parser import (
     parse_adaptive,
     detect_heading,
-    parse_meeting_summary_adaptive,
-    
-    # Extractor functions
+    parse_meeting_summary_adaptive,  # Alias
+)
+
+# Extractor functions
+from .extractor import (
     extract_signals_from_sections,
     extract_items,
     extract_signals_keyword_fallback,
     parse_ai_signal_response,
     merge_signals,
     deduplicate_signals,
-    
-    # Adapter functions
+)
+
+# Adapter functions (backward compatibility)
+from .adapters import (
     get_meeting_analyzer,
+    parse_meeting_summary_adaptive,
     extract_signals_from_meeting,
     analyze_meeting,
 )

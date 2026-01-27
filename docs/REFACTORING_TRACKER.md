@@ -1,7 +1,7 @@
 # V0Agent Refactoring Tracker
 
-> **Last Updated**: 2026-01-27 (Phase 2.7 - Major Milestone Reached)
-> **Status**: Phase 2.7 - Domain Decomposition Complete, Service Migration Done
+> **Last Updated**: 2026-01-27 (Phase 2.8 - Agent Packages + Domain Extraction)
+> **Status**: Phase 2.8 - Agent Package Decomposition Complete, Additional Domains Extracted
 
 ## Current Focus
 
@@ -14,6 +14,53 @@
 7. **Tickets Domain** ✅ - 12 routes at /api/domains/tickets/*
 8. **Documents Domain** ✅ - 9 routes at /api/domains/documents/*
 9. **Arjuna Agent Decomposition** ✅ - Package structure created, constants extracted
+10. **dikw_synthesizer Agent Package** ✅ NEW - Full decomposition into 5 modules (constants, agent, visualization, adapters, __init__)
+11. **meeting_analyzer Agent Package** ✅ NEW - Full decomposition into 5 modules (constants, parser, extractor, agent, adapters)
+12. **Workflow Domain** ✅ NEW - 18 routes (modes, progress, timer, jobs, tracing)
+13. **Dashboard Domain** ✅ NEW - 4 routes (quick_ask, highlights, context)
+
+---
+
+## Recent Accomplishments (2026-01-27 Phase 2.8)
+
+### Agent Package Decomposition
+Two major agents converted to modular package structure with full backward compatibility:
+
+#### dikw_synthesizer Package (`agents/dikw_synthesizer/`)
+| File | Lines | Purpose |
+|------|-------|---------|
+| `constants.py` | 101 | DIKW_LEVELS, prompts, level descriptions, mapping dicts |
+| `agent.py` | 564 | DIKWSynthesizerAgent class with action handlers |
+| `visualization.py` | 147 | build_mindmap_tree, build_graph_data, build_tag_clusters |
+| `adapters.py` | 460 | Backward-compatible adapter functions for main.py |
+| `__init__.py` | 92 | Re-exports all public API |
+
+#### meeting_analyzer Package (`agents/meeting_analyzer/`)
+| File | Lines | Purpose |
+|------|-------|---------|
+| `constants.py` | 133 | SIGNAL_TYPES, HEADING_PATTERNS, HEADING_TO_SIGNAL_TYPE |
+| `parser.py` | 121 | parse_adaptive(), detect_heading() |
+| `extractor.py` | 328 | extract_signals_from_sections(), merge_signals(), deduplicate_signals() |
+| `agent.py` | 261 | MeetingAnalyzerAgent class with AI enhancement |
+| `adapters.py` | 131 | get_meeting_analyzer(), parse_meeting_summary_adaptive() |
+| `__init__.py` | 86 | Re-exports all public API |
+
+### New Domain Extractions
+
+#### Workflow Domain (`domains/workflow/`)
+- **18 routes** extracted from main.py
+- **5 sub-modules**: modes.py, progress.py, timer.py, jobs.py, tracing.py
+- Handles: workflow mode settings, timer sessions, background jobs, tracing status
+
+#### Dashboard Domain (`domains/dashboard/`)
+- **4 routes** extracted from main.py (~250 lines removed)
+- **3 sub-modules**: quick_ask.py, highlights.py, context.py
+- Handles: AI quick questions, smart coaching highlights (8 sources), drill-down context
+
+### App Route Summary (Post Phase 2.8)
+- **Total routes**: 458
+- **Domain routes**: 107 (career: 27, dikw: 20, meetings: 17, tickets: 12, documents: 9, workflow: 18, dashboard: 4)
+- **Legacy main.py**: Significantly reduced
 
 ---
 
