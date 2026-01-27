@@ -55,21 +55,14 @@ def _format_duration(seconds: int) -> str:
 # Reports Page
 # =============================================================================
 
-# Templates setup - will be initialized from main.py
+# NOTE: The /reports HTML page route is in main.py
+# Templates setup - used by API routes if needed
 templates: Optional[Jinja2Templates] = None
 
 def set_templates(t: Jinja2Templates):
     """Set templates instance from main.py."""
     global templates
     templates = t
-
-
-@router.get("/reports")
-async def reports_page(request: Request):
-    """Render the sprint reports page."""
-    if templates is None:
-        return JSONResponse({"error": "Templates not initialized"}, status_code=500)
-    return templates.TemplateResponse("reports.html", {"request": request})
 
 
 # =============================================================================

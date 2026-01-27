@@ -68,24 +68,7 @@ async def set_model_setting(request: Request):
         return JSONResponse({"status": "error", "error": str(e)}, status_code=500)
 
 
-@router.post("/api/settings/workflow-progress")
-async def save_workflow_progress(request: Request):
-    """Save workflow progress for a specific mode."""
-    try:
-        data = await request.json()
-        mode = data.get("mode")
-        progress = data.get("progress", [])
-        
-        if not mode:
-            return JSONResponse({"error": "mode required"}, status_code=400)
-        
-        import json
-        supabase = get_supabase_client()
-        supabase.table("settings").upsert({"key": f"workflow_progress_{mode}", "value": json.dumps(progress)}).execute()
-        
-        return JSONResponse({"status": "ok"})
-    except Exception as e:
-        return JSONResponse({"status": "error", "error": str(e)}, status_code=500)
+# NOTE: /api/settings/workflow-progress routes are in api/workflow.py
 
 
 @router.post("/api/settings/reset-workflow-progress")

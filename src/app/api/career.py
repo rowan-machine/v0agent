@@ -48,51 +48,7 @@ from .career_supabase_helper import (
 router = APIRouter()
 templates = Jinja2Templates(directory="src/app/templates")
 
-# Place the /api/signals/status endpoint after router is defined
-@router.post("/api/signals/status")
-async def update_signal_status(request: Request):
-    """Update the status of a signal and log feedback."""
-    data = await request.json()
-    meeting_id = data.get("meeting_id")
-    signal_type = data.get("signal_type")
-    signal_text = data.get("signal_text")
-    status = data.get("status")
-
-    if not (meeting_id and signal_type and signal_text and status):
-        return JSONResponse({"error": "Missing required fields"}, status_code=400)
-
-    supabase = get_supabase_client()
-    if not supabase:
-        return JSONResponse({"error": "Database not configured"}, status_code=500)
-    
-    # Update or insert signal status using upsert
-    supabase.table("signal_status").upsert({
-        "meeting_id": meeting_id,
-        "signal_type": signal_type,
-        "signal_text": signal_text,
-        "status": status,
-        "updated_at": "now()"
-    }, on_conflict="meeting_id,signal_type,signal_text").execute()
-
-    # Log feedback (up for approved, down for rejected, etc.)
-    feedback = None
-    if status == 'approved':
-        feedback = 'up'
-    elif status == 'rejected':
-        feedback = 'down'
-    elif status == 'archived':
-        feedback = 'archived'
-    elif status == 'completed':
-        feedback = 'completed'
-    if feedback:
-        supabase.table("signal_feedback").upsert({
-            "meeting_id": meeting_id,
-            "signal_type": signal_type,
-            "signal_text": signal_text,
-            "feedback": feedback
-        }, on_conflict="meeting_id,signal_type,signal_text").execute()
-
-    return JSONResponse({"status": "ok"})
+# NOTE: /api/signals/status endpoint is in main.py
 
 def get_code_locker_code_for_sprint_tickets_supabase(supabase, tickets, max_lines=40, max_chars=2000):
     """Return a dict: {ticket_id: {filename: code}} for latest code locker entries for each file in current sprint tickets (Supabase version)."""
@@ -174,8 +130,8 @@ def _load_overlay_context(supabase):
         "code_locker": code_locker_text,
     }
 
-router = APIRouter()
-templates = Jinja2Templates(directory="src/app/templates")
+
+# NOTE: router and templates are defined once at the top of this file
 
 
 @router.delete("/api/career/standups/{standup_id}")
@@ -1453,157 +1409,7 @@ async def get_next_version(filename: str = Query(...), ticket_id: int = Query(No
     })
 
 
-# ----------------------
-# Career Chat API
-# ----------------------
-
-@router.post("/api/career/chat")
-async def career_chat(request: Request):
-    """Chat with the career agent about sprint progress, standups, and career advice."""
-    data = await request.json()
-    message = (data.get("message") or "").strip()
-    history = data.get("history", [])
-    
-    if not message:
-        return JSONResponse({"error": "Message is required"}, status_code=400)
-    
-    supabase = get_supabase_client()
-    if not supabase:
-        return JSONResponse({"error": "Database not configured"}, status_code=500)
-    
-    # Gather context
-    
-    # Career profile
-    profile_result = supabase.table("career_profile").select("*").eq("id", 1).execute()
-    profile = profile_result.data[0] if profile_result.data else None
-    
-    # Active sprint tickets
-    tickets_result = supabase.table("tickets").select(
-        "ticket_id,title,status,description,sprint_points"
-    ).in_("status", ["todo", "in_progress", "in_review", "blocked"]).eq("in_sprint", True).execute()
-    tickets = tickets_result.data or []
-    status_order = {"in_progress": 1, "blocked": 2, "in_review": 3, "todo": 4}
-    tickets.sort(key=lambda t: status_order.get(t.get("status", "todo"), 5))
-    
-    # Recent standups
-    standups_result = supabase.table("standup_updates").select(
-        "standup_date,content,feedback,sentiment,key_themes"
-    ).order("standup_date", desc=True).limit(7).execute()
-    standups = standups_result.data or []
-    
-    # Sprint settings
-    sprint_result = supabase.table("sprint_settings").select("*").order("id", desc=True).limit(1).execute()
-    sprint = sprint_result.data[0] if sprint_result.data else None
-    
-    # Recent code locker activity - get from last 7 days
-    from datetime import datetime, timedelta
-    seven_days_ago = (datetime.now() - timedelta(days=7)).isoformat()
-    code_result = supabase.table("code_locker").select(
-        "filename,version,notes,created_at,ticket_id"
-    ).gte("created_at", seven_days_ago).order("created_at", desc=True).limit(10).execute()
-    code_activity = code_result.data or []
-    
-    # Enrich code activity with ticket codes
-    for c in code_activity:
-        c["ticket_code"] = None
-        if c.get("ticket_id"):
-            ticket_lookup = supabase.table("tickets").select("ticket_id").eq("id", c["ticket_id"]).execute()
-            if ticket_lookup.data:
-                c["ticket_code"] = ticket_lookup.data[0].get("ticket_id")
-    
-    # Build context string
-    profile_ctx = ""
-    if profile:
-        profile_ctx = f"""Career Profile:
-- Current Role: {profile.get('current_role') or 'Not set'}
-- Target Role: {profile.get('target_role') or 'Not set'}
-- Strengths: {profile.get('strengths') or 'Not specified'}
-- Areas to Develop: {profile.get('weaknesses') or 'Not specified'}
-- Goals: {profile.get('goals') or 'Not specified'}
-"""
-
-    tickets_ctx = "Sprint Tickets:\n"
-    if tickets:
-        for t in tickets:
-            tickets_ctx += f"- [{t.get('status', 'unknown').upper()}] {t.get('ticket_id')}: {t.get('title')}"
-            if t.get('sprint_points'):
-                tickets_ctx += f" ({t['sprint_points']} pts)"
-            tickets_ctx += "\n"
-    else:
-        tickets_ctx += "No active sprint tickets.\n"
-
-    # Add code locker code context for current sprint tickets
-    code_locker_code = get_code_locker_code_for_sprint_tickets_supabase(tickets)
-    code_locker_context = ""
-    for ticket_code, files in code_locker_code.items():
-        if files:
-            code_locker_context += f"\nCode for {ticket_code}:\n"
-            for fname, code in files.items():
-                code_locker_context += f"- {fname} (latest):\n" + code + "\n"
-
-    standups_ctx = "Recent Standups:\n"
-    if standups:
-        for s in standups:
-            standups_ctx += f"- {s.get('standup_date')} ({s.get('sentiment') or 'neutral'}): {(s.get('content') or '')[:150]}...\n"
-    else:
-        standups_ctx += "No recent standups.\n"
-
-    sprint_ctx = ""
-    if sprint:
-        sprint_ctx = f"""Sprint Info:
-- Sprint #{sprint.get('sprint_number') or 'N/A'}
-- Dates: {sprint.get('start_date') or 'Not set'} to {sprint.get('end_date') or 'Not set'}
-- Velocity: {sprint.get('velocity') or 'Not set'} points
-"""
-
-    code_ctx = ""
-    if code_activity:
-        code_ctx = "Recent Code Activity:\n"
-        for c in code_activity:
-            code_ctx += f"- {c.get('filename')} v{c.get('version')} ({c.get('ticket_code') or 'no ticket'}): {c.get('notes') or 'no notes'}\n"
-
-    # Format chat history
-    history_ctx = ""
-    if history:
-        history_ctx = "Recent Conversation:\n"
-        for h in history[-6:]:  # Last 6 messages
-            role = "User" if h['role'] == 'user' else "Assistant"
-            history_ctx += f"{role}: {h['content'][:200]}\n"
-
-    prompt = f"""You are a supportive and insightful career coach AI assistant. You have access to the user's work context and can provide personalized advice.
-
-{profile_ctx}
-{sprint_ctx}
-{tickets_ctx}
-{code_locker_context}
-{standups_ctx}
-{code_ctx}
-{history_ctx}
-
-User's Question: {message}
-
-Provide a helpful, encouraging response that:
-- Directly addresses their question
-- References specific data from their context when relevant
-- Offers actionable suggestions when appropriate
-- Maintains a professional but friendly tone
-- Acknowledges their progress and effort
-- If asked about blockers, help brainstorm solutions
-- If asked about career growth, connect their work to their goals
-
-Keep the response conversational and not too long (2-4 paragraphs typically). Be specific and practical."""
-
-    try:
-        # Lazy import for backward compatibility
-        from ..llm import ask as ask_llm
-        response = ask_llm(prompt, model="gpt-4o-mini")
-    except Exception as e:
-        response = f"I'm sorry, I encountered an error processing your request. Please try again. (Error: {str(e)})"
-    
-    return JSONResponse({
-        "status": "ok",
-        "response": response
-    })
+# NOTE: /api/career/chat route is defined earlier in this file (around line 396)
 
 
 # ============================================
