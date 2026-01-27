@@ -56,6 +56,27 @@ from .notifications_repository import (
     SupabaseNotificationsRepository,
     get_notifications_repository,
 )
+from .career_repository import (
+    CareerProfile,
+    CareerMemory,
+    CareerSuggestion,
+    SkillEntry,
+    StandupUpdate,
+    CodeLockerEntry,
+    CareerRepository,
+    SupabaseCareerRepository,
+    get_career_repository,
+)
+from .dikw_repository import (
+    DIKWItem,
+    DIKWEvolution,
+    DIKWPyramid,
+    DIKW_LEVELS,
+    DIKW_NEXT_LEVEL,
+    DIKWRepository,
+    SupabaseDIKWRepository,
+    get_dikw_repository,
+)
 
 def get_meeting_repository() -> MeetingRepository:
     """Get meeting repository (Supabase)."""
@@ -117,4 +138,23 @@ __all__ = [
     "NotificationsRepository",
     "SupabaseNotificationsRepository",
     "get_notifications_repository",
+    # Career
+    "CareerProfile",
+    "CareerMemory",
+    "CareerSuggestion",
+    "SkillEntry",
+    "StandupUpdate",
+    "CodeLockerEntry",
+    "CareerRepository",
+    "SupabaseCareerRepository",
+    "get_career_repository",
+    # DIKW
+    "DIKWItem",
+    "DIKWEvolution",
+    "DIKWPyramid",
+    "DIKW_LEVELS",
+    "DIKW_NEXT_LEVEL",
+    "DIKWRepository",
+    "SupabaseDIKWRepository",
+    "get_dikw_repository",
 ]
