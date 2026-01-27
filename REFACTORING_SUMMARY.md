@@ -12,14 +12,17 @@ Migrating direct `supabase.table()` calls in domain modules to use the repositor
 ### Progress
 - ✅ Repositories exist: MeetingRepository, SignalRepository, DocumentRepository, DIKWRepository, CareerRepository
 - ✅ **signals/browse.py** - Fully migrated to repository pattern
-- ✅ **signals/extraction.py** - Fully migrated to repository pattern  
+- ✅ **signals/extraction.py** - Fully migrated (1 edge case remains)
 - ✅ **DIKW domain** - No direct supabase calls (already clean)
 - ✅ **career/insights.py** - Fully migrated to CareerRepository
-- ✅ **career/projects.py** - Fully migrated to CareerRepository
-- 🔄 **search domain** - 7 direct supabase calls to migrate
+- ✅ **career/projects.py** - Mostly migrated (2 ticket calls remain)
+- ✅ **search/unified.py** - Mostly migrated (1 ticket call remains)
+- 🔄 **search/keyword.py** - Specialized ILIKE search, may stay as direct
+- 🔄 **assistant/arjuna.py** - Multiple calls need new repositories
 
-### CareerRepository Enhancements (Phase 2.9)
-Extended with new methods:
+### Repository Enhancements in Phase 2.9
+
+**CareerRepository**:
 - `get_synced_source_ids(source_type)` - Get IDs synced to career memories
 - `get_memories_by_type(memory_type, limit, order_by_pinned)` - Filter by memory type
 - `get_memories_by_types(memory_types, limit)` - Filter by multiple types
@@ -27,19 +30,25 @@ Extended with new methods:
 - `get_skill_summary()` - Get skill statistics (total, avg, levels)
 - `get_skills()` now supports `min_proficiency` parameter
 
-### Remaining Direct Supabase Calls
+**SignalRepository**:
+- Added `get_by_id(signal_id)` method for single signal lookup
 
-| Domain | File | Calls | Priority |
-|--------|------|-------|----------|
-| search | `keyword.py` | 2 | Medium |
-| search | `unified.py` | 5 | Medium |
-| career | `projects.py` | 2 | Low (tickets table - need TicketRepository) |
+### Remaining Direct Supabase Calls (20 total)
+
+| Domain | File | Table | Calls | Notes |
+|--------|------|-------|-------|-------|
+| career | `projects.py` | tickets, ticket_files | 2 | Need TicketRepository |
+| search | `keyword.py` | documents, meetings | 2 | ILIKE search - may stay |
+| search | `unified.py` | tickets | 1 | Need TicketRepository |
+| assistant | `arjuna.py` | various | 12 | Need multiple repositories |
+| assistant | `mcp.py` | meetings | 1 | Can migrate to MeetingRepository |
+| signals | `extraction.py` | meetings | 1 | Edge case for source_document_id |
 
 ### Next Steps
-1. Create SearchRepository for search domain queries
-2. Migrate search/keyword.py to use repositories
-3. Migrate search/unified.py to use repositories
-4. Consider TicketRepository for remaining ticket table calls
+1. Create TicketRepository for ticket-related operations
+2. Migrate assistant/arjuna.py helper functions  
+3. Consider new repositories: SettingsRepository, SprintRepository
+4. Phase 2.10: Continue domain refactoring
 
 ---
 
