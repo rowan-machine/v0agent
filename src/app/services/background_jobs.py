@@ -20,6 +20,7 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 
 from ..infrastructure.supabase_client import get_supabase_client
+from ..repositories import get_settings_repository, get_notifications_repository
 from . import tickets_supabase, meetings_supabase
 from .notification_queue import (
     NotificationQueue,
@@ -33,6 +34,20 @@ logger = logging.getLogger(__name__)
 def get_supabase():
     """Get Supabase client."""
     return get_supabase_client()
+
+def _get_settings_repo():
+    """Get settings repository (lazy load)."""
+    try:
+        return get_settings_repository()
+    except Exception:
+        return None
+
+def _get_notifications_repo():
+    """Get notifications repository (lazy load)."""
+    try:
+        return get_notifications_repository()
+    except Exception:
+        return None
 
 logger = logging.getLogger(__name__)
 
@@ -541,14 +556,9 @@ class SprintModeDetectJob:
     
     def get_current_mode(self) -> Optional[str]:
         """Get the currently set mode from settings."""
-        supabase = get_supabase()
-        if supabase:
-            result = supabase.table("settings")\
-                .select("value")\
-                .eq("key", "workflow_mode")\
-                .execute()
-            if result.data:
-                return result.data[0].get("value")
+        repo = _get_settings_repo()
+        if repo:
+            return repo.get_setting("workflow_mode")
         return None
     
     def run(self) -> Dict[str, Any]:
@@ -898,21 +908,13 @@ class GroomingMatchJob:
         
         all_meetings = meetings_supabase.get_all_meetings()
         
-        # Get processed meeting IDs from notifications table
+        # Get processed meeting IDs from notifications table using repository
         processed_ids = set()
-        supabase = get_supabase()
-        if supabase:
-            result = supabase.table("notifications")\
-                .select("metadata")\
-                .eq("type", "transcript_match")\
-                .execute()
-            for row in (result.data or []):
-                metadata = row.get("metadata") or {}
-                if isinstance(metadata, str):
-                    try:
-                        metadata = json.loads(metadata)
-                    except:
-                        metadata = {}
+        notifications_repo = _get_notifications_repo()
+        if notifications_repo:
+            notifications = notifications_repo.get_by_type("transcript_match", limit=500)
+            for notification in notifications:
+                metadata = notification.data or {}
                 if metadata.get("meeting_id"):
                     processed_ids.add(metadata["meeting_id"])
         
@@ -1199,49 +1201,39 @@ class OverdueEncouragementJob:
             "progress": [],
         }
         
-        supabase = get_supabase()
-        if not supabase:
+        settings_repo = _get_settings_repo()
+        if not settings_repo:
             return info
         
         # Get current mode from settings
-        result = supabase.table("settings")\
-            .select("value")\
-            .eq("key", "current_mode")\
-            .execute()
-        
-        if result.data:
-            info["mode"] = result.data[0].get("value")
+        mode = settings_repo.get_setting("current_mode")
+        if mode:
+            info["mode"] = mode
         
         # Get active tracking session
         if info["mode"]:
-            session_result = supabase.table("mode_sessions")\
-                .select("started_at")\
-                .eq("mode", info["mode"])\
-                .is_("ended_at", "null")\
-                .order("started_at", desc=True)\
-                .limit(1)\
-                .execute()
+            active_sessions = settings_repo.get_active_sessions()
+            # Find active session for current mode
+            mode_session = next(
+                (s for s in active_sessions if s.get("mode") == info["mode"]),
+                None
+            )
             
-            if session_result.data:
-                session = session_result.data[0]
-                info["started_at"] = session["started_at"]
+            if mode_session:
+                info["started_at"] = mode_session.get("started_at")
                 # Calculate current elapsed time from started_at
-                if session["started_at"]:
+                if mode_session.get("started_at"):
                     try:
-                        started = datetime.fromisoformat(session["started_at"])
+                        started = datetime.fromisoformat(mode_session["started_at"])
                         info["elapsed_seconds"] = int((datetime.now() - started).total_seconds())
                     except:
                         info["elapsed_seconds"] = 0
             
             # Get workflow progress
-            progress_result = supabase.table("settings")\
-                .select("value")\
-                .eq("key", f"workflow_progress_{info['mode']}")\
-                .execute()
-            
-            if progress_result.data:
+            progress_value = settings_repo.get_setting(f"workflow_progress_{info['mode']}")
+            if progress_value:
                 try:
-                    info["progress"] = json.loads(progress_result.data[0]["value"])
+                    info["progress"] = json.loads(progress_value)
                 except:
                     pass
         

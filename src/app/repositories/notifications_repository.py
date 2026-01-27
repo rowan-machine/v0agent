@@ -126,6 +126,24 @@ class NotificationsRepository(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_by_type(
+        self,
+        notification_type: str,
+        limit: int = 100
+    ) -> List[NotificationEntity]:
+        """
+        Get all notifications of a specific type.
+        
+        Args:
+            notification_type: The notification type to filter by
+            limit: Maximum number of results
+            
+        Returns:
+            List of notification entities
+        """
+        pass
+
     # --- Update ---
 
     @abstractmethod
@@ -305,6 +323,18 @@ class SupabaseNotificationsRepository(NotificationsRepository):
             "id", count="exact"
         ).is_("actioned_at", "null").execute()
         return result.count or 0
+
+    def get_by_type(
+        self,
+        notification_type: str,
+        limit: int = 100
+    ) -> List[NotificationEntity]:
+        """Get all notifications of a specific type."""
+        result = self._client.table("notifications").select("*").eq(
+            "type", notification_type
+        ).order("created_at", desc=True).limit(limit).execute()
+        
+        return [self._parse_notification(row) for row in (result.data or [])]
 
     def mark_read(self, notification_id: str) -> bool:
         """Mark a notification as read."""

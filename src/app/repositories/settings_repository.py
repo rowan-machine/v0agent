@@ -148,6 +148,35 @@ class SettingsRepository(ABC):
         """Set new user status and mark previous as not current."""
         pass
 
+    # --- Key-Value Settings ---
+    
+    @abstractmethod
+    def get_setting(self, key: str) -> Optional[str]:
+        """
+        Get a setting value by key from the settings table.
+        
+        Args:
+            key: The setting key (e.g., 'workflow_mode', 'current_mode')
+            
+        Returns:
+            The setting value or None if not found
+        """
+        pass
+
+    @abstractmethod
+    def set_setting(self, key: str, value: str) -> bool:
+        """
+        Set a setting value by key in the settings table.
+        
+        Args:
+            key: The setting key
+            value: The setting value
+            
+        Returns:
+            True if successful
+        """
+        pass
+
 
 class SupabaseSettingsRepository(SettingsRepository):
     """
@@ -312,6 +341,31 @@ class SupabaseSettingsRepository(SettingsRepository):
                 "interpreted_context": interpreted_context,
                 "is_current": True,
             }).execute()
+            return True
+        except Exception:
+            return False
+
+    # --- Key-Value Settings ---
+    
+    def get_setting(self, key: str) -> Optional[str]:
+        """Get a setting value by key from the settings table."""
+        try:
+            result = self._supabase.table("settings").select(
+                "value"
+            ).eq("key", key).execute()
+            if result.data:
+                return result.data[0].get("value")
+            return None
+        except Exception:
+            return None
+    
+    def set_setting(self, key: str, value: str) -> bool:
+        """Set a setting value by key in the settings table."""
+        try:
+            self._supabase.table("settings").upsert(
+                {"key": key, "value": value},
+                on_conflict="key"
+            ).execute()
             return True
         except Exception:
             return False
