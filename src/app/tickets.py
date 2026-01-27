@@ -25,7 +25,7 @@ import os
 import uuid
 
 from .infrastructure.supabase_client import get_supabase_client
-from .services import tickets_supabase  # Supabase-first reads
+from .services import ticket_service  # Supabase service
 # llm.ask removed - AI features now use TicketAgent adapters (Checkpoint 2.7)
 from .memory.embed import embed_text, EMBED_MODEL
 from .memory.vector_store import upsert_embedding
@@ -127,9 +127,9 @@ def save_sprint_settings(
 def list_tickets(request: Request, status: str = None):
     """List all tickets from Supabase."""
     if status:
-        tickets = tickets_supabase.get_tickets_by_status(status, limit=100)
+        tickets = ticket_service.get_tickets_by_status(status, limit=100)
     else:
-        tickets = tickets_supabase.get_all_tickets(limit=100)
+        tickets = ticket_service.get_all_tickets(limit=100)
     
     sprint_day, sprint_length, _ = get_sprint_day()
     
@@ -230,7 +230,7 @@ def create_ticket(
 def view_ticket(request: Request, ticket_pk: str):
     """View a ticket."""
     # Read from Supabase
-    ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
+    ticket = ticket_service.get_ticket_by_id(ticket_pk)
     
     if not ticket:
         return RedirectResponse(url="/tickets", status_code=303)
@@ -254,7 +254,7 @@ def view_ticket(request: Request, ticket_pk: str):
 def edit_ticket_page(request: Request, ticket_pk: str):
     """Edit ticket form."""
     # Read from Supabase
-    ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
+    ticket = ticket_service.get_ticket_by_id(ticket_pk)
     
     # Get attachments from Supabase
     attachments = []
@@ -290,7 +290,7 @@ def update_ticket(
 ):
     """Update a ticket."""
     # Update in Supabase
-    tickets_supabase.update_ticket(ticket_pk, {
+    ticket_service.update_ticket(ticket_pk, {
         "ticket_id": ticket_id,
         "title": title,
         "description": description,
@@ -321,7 +321,7 @@ def delete_ticket(ticket_pk: str):
     supabase = get_supabase_client()
     
     # Delete from Supabase (source of truth)
-    tickets_supabase.delete_ticket(ticket_pk)
+    ticket_service.delete_ticket(ticket_pk)
     
     # Also clean up related records in Supabase
     supabase.table("embeddings").delete().eq("ref_type", "ticket").eq("ref_id", ticket_pk).execute()
@@ -453,7 +453,7 @@ async def generate_tasks_from_test_plan(ticket_pk: str):
     
     try:
         # Read ticket from Supabase
-        ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
+        ticket = ticket_service.get_ticket_by_id(ticket_pk)
         
         if not ticket:
             return JSONResponse({"error": "Ticket not found"}, status_code=404)
@@ -528,7 +528,7 @@ async def update_task_status(ticket_pk: str, request: Request):
             return JSONResponse({"error": "task_index required"}, status_code=400)
         
         # Read from Supabase
-        ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
+        ticket = ticket_service.get_ticket_by_id(ticket_pk)
         
         if not ticket:
             return JSONResponse({"error": "Ticket not found"}, status_code=404)
@@ -549,7 +549,7 @@ async def update_task_status(ticket_pk: str, request: Request):
             tasks[task_index] = {"text": str(tasks[task_index]), "status": status}
         
         # Save to Supabase
-        tickets_supabase.update_ticket(ticket_pk, {
+        ticket_service.update_ticket(ticket_pk, {
             "task_decomposition": json.dumps(tasks),
             "updated_at": datetime.now().isoformat()
         })
@@ -563,7 +563,7 @@ async def get_deployable_tickets():
     """Get all tickets in the current sprint that require deployment (for Mode F)."""
     try:
         # Get deployment tickets from Supabase
-        all_sprint_tickets = tickets_supabase.get_sprint_tickets()
+        all_sprint_tickets = ticket_service.get_sprint_tickets()
         tickets = [t for t in all_sprint_tickets if t.get("in_sprint")]
         
         result = []
@@ -610,7 +610,7 @@ async def update_deployment_status(ticket_pk: str, request: Request):
         status = data.get("status", False)
         
         # Read from Supabase
-        ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
+        ticket = ticket_service.get_ticket_by_id(ticket_pk)
         
         if not ticket:
             return JSONResponse({"error": "Ticket not found"}, status_code=404)
@@ -639,7 +639,7 @@ async def update_deployment_status(ticket_pk: str, request: Request):
         decomp['deployment_status'][step] = status
         
         # Save to Supabase
-        tickets_supabase.update_ticket(ticket_pk, {
+        ticket_service.update_ticket(ticket_pk, {
             "task_decomposition": json.dumps(decomp),
             "updated_at": datetime.now().isoformat()
         })

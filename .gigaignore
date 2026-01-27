@@ -1,5 +1,6 @@
 # .gigaignore - Optimize Giga AI context analysis
 # See: https://docs.gigamind.dev/giga-context/gigaignore
+# Last updated: 2026-01-27
 
 # ==========================================
 # Build Outputs & Generated Files
@@ -38,6 +39,8 @@ env/
 # ==========================================
 .idea/
 .vscode/
+.cursor/
+.cursorrules
 *.swp
 *.swo
 *~
@@ -51,6 +54,8 @@ env/
 htmlcov/
 .tox/
 .nox/
+tests/
+test_*.sh
 
 # ==========================================
 # Database Files (Local Dev)
@@ -61,6 +66,7 @@ htmlcov/
 *.sqlite
 *.sqlite3
 agent.db*
+agent_temporary_rename_test.db*
 data/*.db
 
 # ==========================================
@@ -70,14 +76,9 @@ logs/
 *.log
 
 # ==========================================
-# Mobile Build Artifacts
+# Mobile Build Artifacts & Full Mobile Dir
 # ==========================================
-mobile/node_modules/
-mobile/.expo/
-mobile/android/app/build/
-mobile/android/.gradle/
-mobile/ios/Pods/
-mobile/ios/build/
+mobile/
 
 # ==========================================
 # Uploads & User Data
@@ -96,30 +97,60 @@ data/uploads/
 *.key
 
 # ==========================================
-# Documentation (Heavy Files)
+# Documentation - Exclude Heavy/Old Docs
 # ==========================================
-# Keep ADRs and important docs, skip generated
+# Keep: docs/GIGA_PLAN.md, docs/REFACTORING_TRACKER.md
+# Exclude everything else in docs/
+docs/adr/
+docs/architecture/
+docs/guides/
+docs/migration/
+docs/reference/
+docs/session-notes/
 docs/generated/
+docs/*.md
+!docs/GIGA_PLAN.md
+!docs/REFACTORING_TRACKER.md
+!docs/REPOSITORY_PATTERN_REFACTOR.md
 *.pdf
+
+# Root-level completion/summary docs (old)
+MIGRATION_MANIFEST.md
+MINDMAP_RAG_*.md
+PHASE_*.md
+ORGANIZATION_*.md
+*_COMPLETE.md
+*_SUMMARY.md
+CUTOVER_CHECKLIST.md
+DEPLOYMENT_GUIDE.md
+INFRASTRUCTURE_SUMMARY.md
+INTEGRATION_QUICK_START.md
+JSON_UI_BEST_PRACTICES.md
+MULTI_AGENT_ARCHITECTURE.md
+NEXT_PHASE_PLAN.md
+PHASED_MIGRATION_ROLLOUT.md
+POCKET_EDIT_MEETING_IMPLEMENTATION.md
+QUICK_REFERENCE.md
+TESTING_STRATEGY.md
 
 # ==========================================
 # Git & CI/CD
 # ==========================================
 .git/
 .github/workflows/
+.claude/
 
 # ==========================================
 # Backup Files
 # ==========================================
 *.backup
 *.bak
-agent.db.backup
 
 # ==========================================
 # Notebook Checkpoints
 # ==========================================
 .ipynb_checkpoints/
-notebooks/*.ipynb
+notebooks/
 
 # ==========================================
 # Third Party & Large Dependencies
@@ -131,41 +162,70 @@ bower_components/
 # Docker
 # ==========================================
 .docker/
+Dockerfile*
+docker-compose.yaml
 
 # ==========================================
-# Mobile
+# SDK (separate package)
 # ==========================================
-mobile/
+sdk/
 
 # ==========================================
-# Project-Specific Exclusions
+# Scripts & Sandbox (experimental)
 # ==========================================
-#  scripts (rarely need full context)
 scripts/
-
-# Sandbox experiments
-sandbox/langchain_evaluation/
-
-# Old migration manifests & completion docs
-MIGRATION_MANIFEST.md
-MINDMAP_RAG_*.md
-PHASE_*.md
-ORGANIZATION_*.md
-REFACTORING_*.md
-*_COMPLETE.md
-*_SUMMARY.md
-CUTOVER_CHECKLIST.md
+sandbox/
 
 # ==========================================
-# Optimized for AI Context
+# Prompts (templates, not code)
 # ==========================================
-# These are valuable for context (NOT ignored):
-# - GIGA_PLAN.md (roadmap & backlog)
-# - docs/architecture/*.md (core specs)
-# - docs/adr/*.md (decision records)
-# - src/app/**/*.py (application code)
-# - tests/*.py (test patterns)
+prompts/
+
+# ==========================================
+# Static Assets & Templates (HTML/CSS)
+# ==========================================
+src/app/static/
+src/app/templates/
+
+# ==========================================
+# Less Critical Source Files
+# ==========================================
+# Old database files (use repositories instead)
+src/app/db.py
+src/app/db_migrations.py
+
+# Adapters (infrastructure, low churn)
+src/app/adapters/
+
+# MCP server (separate concern)
+src/app/mcp/
+
+# UI components (frontend, low priority)
+src/app/ui/
+
+# ==========================================
+# Config files (reference only)
+# ==========================================
+config/guardrails.yaml
+config/model_routing.yaml
+railway.toml
+pytest.ini
+requirements*.txt
+Makefile
+
+# ==========================================
+# Files to KEEP in context (NOT ignored):
+# ==========================================
+# - docs/GIGA_PLAN.md (roadmap)
+# - docs/REFACTORING_TRACKER.md (progress)
+# - docs/REPOSITORY_PATTERN_REFACTOR.md (patterns)
 # - .github/copilot-instructions.md (AI context)
-# - config/*.yaml (configuration)
+# - src/app/main.py (entry point)
+# - src/app/api/**/*.py (API routes)
+# - src/app/services/**/*.py (business logic)
+# - src/app/repositories/**/*.py (data access)
+# - src/app/domains/**/*.py (new domain structure)
+# - src/app/core/**/*.py (domain models)
+# - src/app/agents/**/*.py (AI agents)
+# - config/default.yaml, config/ui.json (active config)
 
-# Keep context window focused on active development

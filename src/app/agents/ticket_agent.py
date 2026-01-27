@@ -434,10 +434,10 @@ async def summarize_ticket_adapter(
     
     Maintains backward compatibility with existing API.
     """
-    from ..services import tickets_supabase
+    from ..services import ticket_service
     
     # Fetch ticket from Supabase
-    ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
+    ticket = ticket_service.get_ticket_by_id(ticket_pk)
     
     if not ticket:
         return {"success": False, "error": "Ticket not found"}
@@ -449,7 +449,7 @@ async def summarize_ticket_adapter(
     # Auto-save the generated summary if successful
     if result.get("success") and result.get("summary"):
         try:
-            tickets_supabase.update_ticket(ticket_pk, {
+            ticket_service.update_ticket(ticket_pk, {
                 "ai_summary": result["summary"]
             })
             result["saved"] = True
@@ -466,10 +466,10 @@ async def generate_plan_adapter(ticket_pk: str) -> Dict[str, Any]:
     
     Maintains backward compatibility with existing API.
     """
-    from ..services import tickets_supabase
+    from ..services import ticket_service
     
     # Fetch ticket from Supabase
-    ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
+    ticket = ticket_service.get_ticket_by_id(ticket_pk)
     
     if not ticket:
         return {"success": False, "error": "Ticket not found"}
@@ -487,10 +487,10 @@ async def decompose_ticket_adapter(ticket_pk: str) -> Dict[str, Any]:
     
     Maintains backward compatibility with existing API.
     """
-    from ..services import tickets_supabase
+    from ..services import ticket_service
     
     # Fetch ticket from Supabase
-    ticket = tickets_supabase.get_ticket_by_id(ticket_pk)
+    ticket = ticket_service.get_ticket_by_id(ticket_pk)
     
     if not ticket:
         return {"success": False, "error": "Ticket not found"}

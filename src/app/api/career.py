@@ -2,6 +2,13 @@
 """
 Career API Routes - FastAPI endpoints for career development features.
 
+⚠️  DEPRECATED: This file is being replaced by the domain-driven structure.
+    New implementation: src/app/domains/career/api/
+    New routes available at: /api/domains/career/*
+    
+    This file will be removed in a future release.
+    Please migrate to the new domain-based routes.
+
 This module delegates to CareerCoachAgent (Checkpoint 2.3) for AI-powered features,
 maintaining backward compatibility through adapter functions.
 
@@ -9,7 +16,15 @@ Migration Status:
 - CareerCoachAgent: src/app/agents/career_coach.py (new agent implementation)
 - This file: Adapters + FastAPI routes (will be slimmed down over time)
 - FULLY MIGRATED TO SUPABASE (January 2026)
+- DOMAIN DECOMPOSITION: See src/app/domains/career/ (January 2026)
 """
+import warnings
+warnings.warn(
+    "career.py is deprecated. Use domains/career/api instead. "
+    "Routes available at /api/domains/career/*",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 # Imports and router definition moved to top
 from fastapi import APIRouter, Request, Query

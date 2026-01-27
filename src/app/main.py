@@ -40,6 +40,9 @@ from .api.workflow import router as workflow_router  # Workflow modes & timer (R
 from .api.reports import router as reports_router  # Reports & analytics (Refactor Phase 2)
 from .api.evaluations import router as evaluations_router  # LangSmith evaluations (Refactor Phase 2)
 from .api.pocket import router as pocket_router  # Pocket integration (Refactor Phase 2)
+# New domain-driven routers (Phase 3 - Domain Decomposition)
+from .domains.career.api import router as career_domain_router
+from .domains.dikw.api import router as dikw_domain_router
 from .mcp.registry import TOOL_REGISTRY
 from .llm import ask as ask_llm
 from .auth import (
@@ -1520,10 +1523,19 @@ app.include_router(admin_router)  # Admin endpoints (Phase 4.1)
 app.include_router(api_search_router)  # Semantic/Hybrid search (Phase 5.2)
 app.include_router(knowledge_graph_router)  # Knowledge graph links (Phase 5.10)
 app.include_router(shortcuts_router)  # Arjuna shortcuts (Technical Debt)
-app.include_router(dikw_router)  # DIKW pyramid (Refactor Phase 2)
+app.include_router(dikw_router)  # DIKW pyramid (Refactor Phase 2) - DEPRECATED: use dikw_domain_router
 app.include_router(mindmap_router)  # Mindmap visualization (Refactor Phase 2)
 app.include_router(notifications_router)  # Notifications (Refactor Phase 2)
 app.include_router(workflow_router)  # Workflow modes & timer (Refactor Phase 2)
 app.include_router(reports_router)  # Reports & analytics (Refactor Phase 2)
 app.include_router(evaluations_router)  # LangSmith evaluations (Refactor Phase 2)
 app.include_router(pocket_router)  # Pocket integration (Refactor Phase 2)
+
+# =============================================================================
+# New Domain-Driven Routers (Phase 3 - Domain Decomposition)
+# =============================================================================
+# These are the refactored routers using the repository pattern.
+# They will eventually replace the legacy routers above.
+# Mounted at /api/domains/* to avoid conflicts during migration.
+app.include_router(career_domain_router, prefix="/api/domains")  # Career domain
+app.include_router(dikw_domain_router, prefix="/api/domains")  # DIKW domain

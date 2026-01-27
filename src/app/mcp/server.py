@@ -45,14 +45,14 @@ MCP_SERVER_VERSION = "1.0.0"
 
 def _get_meetings_service():
     """Get meetings service module (lazy import)."""
-    from ..services import meetings_supabase
-    return meetings_supabase
+    from ..services import meeting_service
+    return meeting_service
 
 
 def _get_tickets_service():
     """Get tickets service module (lazy import)."""
-    from ..services import tickets_supabase
-    return tickets_supabase
+    from ..services import ticket_service
+    return ticket_service
 
 
 def _get_db_adapter():

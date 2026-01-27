@@ -2,13 +2,31 @@
 """
 DIKW (Data-Information-Knowledge-Wisdom) API Routes
 
+⚠️  DEPRECATED: This file is being replaced by the domain-driven structure.
+    New implementation: src/app/domains/dikw/api/
+    New routes available at: /api/domains/dikw/*
+    
+    This file will be removed in a future release.
+    Please migrate to the new domain-based routes.
+
 Handles knowledge pyramid operations:
 - CRUD for DIKW items
 - Promotion between levels
 - Merge and synthesis
 - AI-assisted refinement
 - Mindmap visualization
+
+Migration Status:
+- DOMAIN DECOMPOSITION: See src/app/domains/dikw/ (January 2026)
+- Repository: src/app/repositories/dikw_repository.py
 """
+import warnings
+warnings.warn(
+    "dikw.py is deprecated. Use domains/dikw/api instead. "
+    "Routes available at /api/domains/dikw/*",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse

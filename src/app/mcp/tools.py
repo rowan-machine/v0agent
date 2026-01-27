@@ -163,11 +163,11 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
     # -----------------------------
     
     # Check Supabase first (primary)
-    from ..services import meetings_supabase
+    from ..services import meeting_service
     
     if pocket_recording_id:
         # Check by unique Pocket recording ID first
-        existing_by_pocket = meetings_supabase.get_meeting_by_pocket_recording_id(pocket_recording_id)
+        existing_by_pocket = meeting_service.get_meeting_by_pocket_recording_id(pocket_recording_id)
         if existing_by_pocket:
             return {
                 "status": "skipped",
@@ -229,7 +229,7 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
         pocket_template = _detect_pocket_template(pocket_ai_summary)
     
     # ----- 5a. Insert into Supabase (primary) -----
-    from ..services import meetings_supabase, documents_supabase
+    from ..services import meeting_service, document_service
     
     supabase_meeting_data = {
         "meeting_name": str(meeting_name).strip(),  # Ensure it's a string
@@ -244,13 +244,13 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
         "import_source": "pocket" if pocket_recording_id else "manual",
     }
     
-    supabase_meeting = meetings_supabase.create_meeting(supabase_meeting_data)
+    supabase_meeting = meeting_service.create_meeting(supabase_meeting_data)
     supabase_meeting_id = supabase_meeting.get("id") if supabase_meeting else None
     
     # Insert transcript document into Supabase
     supabase_transcript_id = None
     if supabase_meeting_id and transcript_text:
-        transcript_doc = documents_supabase.create_document({
+        transcript_doc = document_service.create_document({
             "meeting_id": supabase_meeting_id,
             "source": f"Transcript: {meeting_name}",
             "content": transcript_text,
@@ -262,7 +262,7 @@ def load_meeting_bundle(args: Dict[str, Any]) -> Dict[str, Any]:
     supabase_pocket_id = None
     if supabase_meeting_id and pocket_ai_summary and pocket_ai_summary.strip():
         pocket_source = f"Pocket Summary ({pocket_template}): {meeting_name}"
-        pocket_doc = documents_supabase.create_document({
+        pocket_doc = document_service.create_document({
             "meeting_id": supabase_meeting_id,
             "source": pocket_source,
             "content": pocket_ai_summary.strip(),

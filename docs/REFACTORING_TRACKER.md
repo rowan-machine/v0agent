@@ -1,49 +1,46 @@
 # V0Agent Refactoring Tracker
 
-> **Last Updated**: 2026-01-27 (Phase 2.5 - Cleanup & Tests)
-> **Status**: Phase 2.5 - Codebase Cleanup & Test Structure
+> **Last Updated**: 2026-01-27 (Phase 2.6 - Domain Decomposition)
+> **Status**: Phase 2.6 - Career & DIKW Domain Refactoring
 
 ## Current Focus
 
-1. **Enforce DDD in MCP Server** ✅ - Refactored to use service layer instead of direct Supabase calls
-2. **Remove pgAdmin from Docker** ✅ - Using Supabase Studio instead
-3. **Consolidate Domain Models** ✅ - Single canonical source in `core/domain/models.py`
-4. **Extract Analyst SDK** ✅ - Created sdk/signalflow/ with typed client
-5. **Backend/Frontend Separation** ✅ - Uploads migrated to Supabase Storage
-6. **Cleanup Scripts Folder** ✅ - Removed 31+ obsolete scripts
-7. **Restructure Tests** ✅ - unit/integration/e2e folder structure
+1. **Repository Pattern Implementation** ✅ - 11 repositories created (CareerRepository, DIKWRepository, etc.)
+2. **Backward Compatibility Removed** ✅ - meetings_supabase, documents_supabase, tickets_supabase removed
+3. **Shared Infrastructure Layer** ✅ - Created shared/ folder for cross-cutting concerns
+4. **Career Domain Decomposition** ✅ - Split into 7 API modules + services
+5. **DIKW Domain Decomposition** ✅ - Split into 4 API modules + services
 
 ---
 
 ## Recent Accomplishments (2026-01-27)
 
-### Cleanup Tasks Completed
+### Domain-Driven Design Progress
 | Task | Status | Details |
 |------|--------|---------|
-| Remove llm_new.py | ✅ DONE | Was unused (0 imports found) |
-| Clean /scripts folder | ✅ DONE | Removed 31+ fix_*, check_*, sync_* scripts |
-| Remove /src/app/scripts | ✅ DONE | Deleted entire folder (completed migrations) |
-| Migrate uploads to Supabase | ✅ DONE | Updated tickets.py to use storage_supabase |
-| Update templates for Supabase URLs | ✅ DONE | edit_meeting.html, edit_doc.html |
-| Remove UPLOAD_DIR from main.py | ✅ DONE | No longer mounting local uploads |
-| Add uploads/ to .gitignore | ✅ DONE | Local-only, not tracked |
+| Create shared/ folder | ✅ DONE | repositories/, infrastructure/, services/, config/, utils/ |
+| Remove backward compat | ✅ DONE | Removed _supabase naming convention aliases |
+| Career domain structure | ✅ DONE | domains/career/ with api/, services/, constants.py |
+| DIKW domain structure | ✅ DONE | domains/dikw/ with api/, services/, constants.py |
+| Career API modules | ✅ DONE | profile, skills, standups, suggestions, memories, code_locker, chat |
+| DIKW API modules | ✅ DONE | items, relationships (placeholder), synthesis, promotion |
+| Career services | ✅ DONE | standup_service, suggestion_service |
+| DIKW services | ✅ DONE | synthesis_service, promotion_service |
 
-### SDK & API Progress
-| Component | Status | Details |
-|-----------|--------|---------|
-| SDK Package (sdk/signalflow/) | ✅ DONE | client.py, analyst.py, models.py |
-| API v1 DIKW Endpoints | ✅ DONE | /api/v1/dikw with full CRUD |
-| MCP Server | ✅ DONE | src/app/mcp/server.py with DDD patterns |
-| Domain Models | ✅ DONE | core/domain/models.py with all entities |
-| Protocol Interfaces | ✅ DONE | core/ports/protocols.py |
-
-### Test Structure
-| Folder | Status | Tests |
-|--------|--------|-------|
-| tests/unit/ | ✅ DONE | 27 tests passing |
-| tests/integration/ | ✅ DONE | Structure created |
-| tests/fixtures/ | ✅ DONE | data.py with factories |
-| tests/e2e/ | ✅ DONE | Structure created |
+### Repository Pattern Status
+| Repository | Status | Table Coverage |
+|------------|--------|----------------|
+| MeetingRepository | ✅ DONE | meetings |
+| DocumentRepository | ✅ DONE | documents |
+| TicketRepository | ✅ DONE | tickets |
+| SignalRepository | ✅ DONE | signal_status |
+| SettingsRepository | ✅ DONE | settings, shortcuts |
+| AIMemoryRepository | ✅ DONE | ai_memory |
+| AgentMessagesRepository | ✅ DONE | agent_messages |
+| MindmapRepository | ✅ DONE | conversation_mindmaps |
+| NotificationsRepository | ✅ DONE | notifications |
+| CareerRepository | ✅ DONE | career_*, skills, standups |
+| DIKWRepository | ✅ DONE | dikw_items, dikw_evolution |
 
 ---
 
@@ -170,12 +167,39 @@ src/
 ### 2.2 career.py (2947 lines) → Career Domain
 | Extract To | Status | Lines | Description |
 |------------|--------|-------|-------------|
-| `application/career/profile.py` | ⬜ TODO | ~400 | Profile management |
-| `application/career/suggestions.py` | ⬜ TODO | ~500 | AI suggestions |
-| `application/career/standup.py` | ⬜ TODO | ~400 | Standup analysis |
-| `application/career/skills.py` | ⬜ TODO | ~400 | Skill tracking |
-| `application/career/coaching.py` | ⬜ TODO | ~500 | Coaching features |
-| `api/routes/career/` | ⬜ TODO | ~700 | HTTP handlers only |
+| `domains/career/api/profile.py` | ✅ DONE | ~80 | Profile management |
+| `domains/career/api/skills.py` | ✅ DONE | ~60 | Skill tracking |
+| `domains/career/api/standups.py` | ✅ DONE | ~110 | Standup updates |
+| `domains/career/api/suggestions.py` | ✅ DONE | ~80 | AI suggestions |
+| `domains/career/api/memories.py` | ✅ DONE | ~90 | Career memories |
+| `domains/career/api/code_locker.py` | ✅ DONE | ~80 | Code storage |
+| `domains/career/api/chat.py` | ✅ DONE | ~70 | Chat/tweaks |
+| `domains/career/services/standup_service.py` | ✅ DONE | ~50 | Standup analysis |
+| `domains/career/services/suggestion_service.py` | ✅ DONE | ~80 | Suggestion generation |
+
+**Note**: New domain structure uses CareerRepository. Original career.py is deprecated - new domains wired to main.py at `/api/domains/career/*`.
+
+### 2.2b dikw.py (644 lines) → DIKW Domain  
+| Extract To | Status | Lines | Description |
+|------------|--------|-------|-------------|
+| `domains/dikw/api/items.py` | ✅ DONE | ~170 | CRUD operations |
+| `domains/dikw/api/relationships.py` | ✅ DONE | ~55 | Placeholder (needs repo support) |
+| `domains/dikw/api/synthesis.py` | ✅ DONE | ~150 | AI synthesis operations |
+| `domains/dikw/api/promotion.py` | ✅ DONE | ~290 | Level promotion, merge, validate |
+| `domains/dikw/services/synthesis_service.py` | ✅ DONE | ~100 | Knowledge synthesis logic |
+| `domains/dikw/services/promotion_service.py` | ✅ DONE | ~120 | Promotion readiness calculation |
+| `domains/dikw/constants.py` | ✅ DONE | ~40 | Tiers, thresholds, types |
+
+**Note**: Uses DIKWRepository. Original dikw.py is deprecated - new domains wired to main.py at `/api/domains/dikw/*`.
+
+### 2.2c Domain Router Wiring ✅ COMPLETE
+| Task | Status | Details |
+|------|--------|---------|
+| Career domain aggregator | ✅ DONE | `domains/career/api/__init__.py` combines all sub-routers |
+| DIKW domain aggregator | ✅ DONE | `domains/dikw/api/__init__.py` combines all sub-routers |
+| Import to main.py | ✅ DONE | `career_domain_router`, `dikw_domain_router` imported |
+| Mount domain routers | ✅ DONE | Mounted at `/api/domains/career/*` and `/api/domains/dikw/*` |
+| Deprecate legacy files | ✅ DONE | Warnings added to `api/career.py` and `api/dikw.py` |
 
 ### 2.3 arjuna.py (2573 lines) → Agent System
 | Extract To | Status | Lines | Description |

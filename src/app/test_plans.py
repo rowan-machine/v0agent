@@ -17,7 +17,7 @@ import os
 import logging
 
 from .llm import ask
-from .services import tickets_supabase
+from .services import ticket_service
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ def list_test_plans(request: Request, status: str = None):
 def new_test_plan_page(request: Request):
     """New test plan form."""
     # Get tickets from Supabase
-    tickets = tickets_supabase.get_sprint_tickets() or []
+    tickets = ticket_service.get_sprint_tickets() or []
     
     return templates.TemplateResponse(
         "edit_test_plan.html",
@@ -164,7 +164,7 @@ def view_test_plan(request: Request, test_plan_pk: int):
         # Get linked ticket if any
         linked_ticket = None
         if test_plan.get('linked_ticket_id'):
-            linked_ticket = tickets_supabase.get_ticket_by_id(test_plan['linked_ticket_id'])
+            linked_ticket = ticket_service.get_ticket_by_id(test_plan['linked_ticket_id'])
         
         return templates.TemplateResponse(
             "view_test_plan.html",
@@ -189,7 +189,7 @@ def edit_test_plan_page(request: Request, test_plan_pk: int):
         test_plan = result.data
         
         # Get tickets from Supabase
-        tickets = tickets_supabase.get_sprint_tickets() or []
+        tickets = ticket_service.get_sprint_tickets() or []
         
         return templates.TemplateResponse(
             "edit_test_plan.html",

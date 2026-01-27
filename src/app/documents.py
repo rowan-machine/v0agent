@@ -8,7 +8,7 @@ import logging
 from .infrastructure.supabase_client import get_supabase_client
 from .memory.embed import embed_text, EMBED_MODEL
 from .memory.vector_store import upsert_embedding
-from .services import documents_supabase  # Supabase-first reads
+from .services import document_service  # Supabase service
 
 # NOTE: Neo4j removed - using Supabase knowledge graph instead (Phase 5.10)
 
@@ -143,7 +143,7 @@ def store_doc(
 @router.get("/documents")
 def list_documents(request: Request, success: str = Query(default=None)):
     # Read from Supabase directly
-    rows = documents_supabase.get_all_documents(limit=500)
+    rows = document_service.get_all_documents(limit=500)
 
     formatted_docs = []
     for row in rows:
@@ -179,7 +179,7 @@ def list_documents(request: Request, success: str = Query(default=None)):
 @router.get("/documents/{doc_id}")
 def view_document(doc_id: str, request: Request, highlight: str = None):
     # Read from Supabase directly
-    doc = documents_supabase.get_document_by_id(doc_id)
+    doc = document_service.get_document_by_id(doc_id)
 
     return templates.TemplateResponse(
         "view_doc.html",
@@ -190,7 +190,7 @@ def view_document(doc_id: str, request: Request, highlight: str = None):
 @router.get("/documents/{doc_id}/edit")
 def edit_document(doc_id: str, request: Request):
     # Read from Supabase directly
-    doc = documents_supabase.get_document_by_id(doc_id)
+    doc = document_service.get_document_by_id(doc_id)
     
     if doc and doc.get('source') and doc.get('source').startswith('Transcript: '):
         meeting_name = doc['source'].replace('Transcript: ', '').split(' (')[0]
@@ -218,7 +218,7 @@ def update_document(
     document_date: str = Form(...)
 ):
     # Update in Supabase
-    documents_supabase.update_document(doc_id, {
+    document_service.update_document(doc_id, {
         "source": source,
         "content": content,
         "document_date": document_date
@@ -241,7 +241,7 @@ def update_document(
 @router.post("/documents/{doc_id}/delete")
 def delete_document(doc_id: str):
     # Delete from Supabase (source of truth)
-    documents_supabase.delete_document(doc_id)
+    document_service.delete_document(doc_id)
     
     # Also clean up embeddings in Supabase
     supabase = get_supabase_client()
