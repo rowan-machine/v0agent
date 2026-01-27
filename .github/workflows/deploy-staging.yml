@@ -1,14 +1,28 @@
 name: Deploy to Staging
 
+# DISABLED during Phase 2.8+ refactoring - re-enable when ready for production
+# on:
+#   push:
+#     branches: [dev]
+#   workflow_dispatch:  # Allow manual trigger
+
 on:
-  push:
-    branches: [dev]
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:  # Manual trigger only during refactoring
+    inputs:
+      confirm_deploy:
+        description: 'Confirm deployment during refactoring phase'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm_deploy == 'true' }}
     environment:
       name: staging
       url: https://v0agent-staging.up.railway.app

@@ -1,14 +1,28 @@
 name: Deploy to Production
 
+# DISABLED during Phase 2.8+ refactoring - re-enable when ready for production
+# on:
+#   push:
+#     branches: [main]
+#   workflow_dispatch:  # Allow manual trigger
+
 on:
-  push:
-    branches: [main]
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:  # Manual trigger only during refactoring
+    inputs:
+      confirm_deploy:
+        description: 'Confirm deployment during refactoring phase'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 jobs:
   # First, run all CI checks
   ci-checks:
     name: Run CI Checks
+    if: ${{ github.event.inputs.confirm_deploy == 'true' }}
     uses: ./.github/workflows/ci.yml
     secrets: inherit
 
