@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, Form, BackgroundTasks
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from datetime import datetime, timedelta
+from datetime import datetime
 import json
 import logging
 import os
@@ -43,6 +43,8 @@ from .api.pocket import router as pocket_router  # Pocket integration (Refactor 
 from .api.auth import router as auth_router  # Authentication (Refactor Phase 2.9)
 from .api.pages import router as pages_router  # Page renders (Refactor Phase 2.9)
 from .api.ai_endpoints import router as ai_endpoints_router  # AI endpoints (Refactor Phase 2.9)
+from .api.dashboard_page import router as dashboard_page_router  # Dashboard page (Refactor Phase 2.9)
+from .services.startup import initialize_app  # Startup logic (Refactor Phase 2.9)
 # New domain-driven routers (Phase 3 - Domain Decomposition)
 from .domains.career.api import router as career_domain_router
 from .domains.dikw.api import router as dikw_domain_router
@@ -56,15 +58,8 @@ from .llm import ask as ask_llm
 from .auth import AuthMiddleware
 from .integrations.pocket import PocketClient, extract_latest_summary, extract_transcript_text, extract_mind_map, extract_action_items, get_all_summary_versions, get_all_mind_map_versions
 from .services import meeting_service, document_service, ticket_service
-from .repositories import get_signal_repository
 from .infrastructure.supabase_client import get_supabase_client
 from typing import Optional
-
-# Get supabase client for direct table access (legacy - being phased out)
-supabase = get_supabase_client()
-
-# Repository instances
-signal_repo = get_signal_repository()
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -158,323 +153,15 @@ templates.env.globals['env'] = os.environ
 @app.on_event("startup")
 def startup():
     """Initialize the application on startup."""
-    print("ℹ️ Starting application with Supabase-only mode")
-    
-    # Initialize background job scheduler (production only)
-    try:
-        from .services.scheduler import init_scheduler
-        scheduler = init_scheduler()
-        if scheduler:
-            print("✅ Background job scheduler initialized")
-    except Exception as e:
-        print(f"⚠️ Scheduler init failed (non-fatal): {e}")
+    initialize_app()
 
 
-# -------------------------
-# Root + Dashboard
-# -------------------------
-
-def get_sprint_info():
-    """Get current sprint day and info, with working days calculation."""
-    # Try Supabase first
-    try:
-        from .infrastructure.supabase_client import get_supabase_client
-        client = get_supabase_client()
-        if client:
-            result = client.table('sprint_settings').select('*').limit(1).execute()
-            if result.data:
-                row_dict = result.data[0]
-                start_str = row_dict.get("sprint_start_date")
-                if start_str:
-                    # Handle both date formats
-                    if 'T' in str(start_str):
-                        start = datetime.fromisoformat(str(start_str).replace('Z', '+00:00')).replace(tzinfo=None)
-                    else:
-                        start = datetime.strptime(str(start_str), "%Y-%m-%d")
-                    
-                    today = datetime.now()
-                    delta = (today - start).days + 1
-                    sprint_length = row_dict.get("sprint_length_days", 14) or 14
-                    
-                    if delta < 1:
-                        day = 0
-                    elif delta > sprint_length:
-                        day = sprint_length
-                    else:
-                        day = delta
-                    
-                    # Calculate total working days in sprint
-                    total_working_days = 0
-                    for i in range(sprint_length):
-                        check_date = start + timedelta(days=i)
-                        if check_date.weekday() < 5:  # Mon-Fri
-                            total_working_days += 1
-                    
-                    # Calculate working days elapsed
-                    working_days_elapsed = 0
-                    for i in range(min(day, sprint_length)):
-                        check_date = start + timedelta(days=i)
-                        if check_date.weekday() < 5:  # Mon-Fri
-                            working_days_elapsed += 1
-                    
-                    working_days_remaining = max(0, total_working_days - working_days_elapsed)
-                    remaining_total = max(0, sprint_length - day)
-                    progress = int((working_days_elapsed / total_working_days) * 100) if total_working_days > 0 else 0
-                    
-                    return {
-                        "day": day,
-                        "length": sprint_length,
-                        "name": row_dict.get("sprint_name"),
-                        "remaining": remaining_total,
-                        "working_days_remaining": working_days_remaining,
-                        "working_days_elapsed": working_days_elapsed,
-                        "total_working_days": total_working_days,
-                        "progress": progress,
-                    }
-    except Exception as e:
-        logger.warning(f"Supabase sprint_settings read failed: {e}")
-    
-    # Return default if no sprint settings found
-    return None
-
-@app.get("/")
-def dashboard(request: Request):
-    """Dashboard home page with today's summary."""
-    # Get time of day greeting
-    hour = datetime.now().hour
-    if hour < 12:
-        time_of_day = "morning"
-    elif hour < 17:
-        time_of_day = "afternoon"
-    else:
-        time_of_day = "evening"
-    
-    today_formatted = datetime.now().strftime("%A, %B %d, %Y")
-    
-    # Get sprint info
-    sprint = get_sprint_info()
-    
-    # Generate dynamic greeting based on sprint cadence
-    greeting_context = ""
-    if sprint:
-        days_remaining = sprint.get("working_days_remaining", 0)
-        progress = sprint.get("progress", 0)
-        day_of_week = datetime.now().weekday()
-        
-        if day_of_week == 0:  # Monday
-            greeting_context = "fresh start to the week"
-        elif day_of_week == 4:  # Friday
-            greeting_context = "let's close out strong"
-        elif days_remaining <= 2 and days_remaining > 0:
-            greeting_context = "sprint finish line ahead"
-        elif progress < 15:
-            greeting_context = "new sprint energy"
-        elif progress >= 80:
-            greeting_context = "home stretch"
-        elif progress >= 50:
-            greeting_context = "past the halfway point"
-        else:
-            greeting_context = "ready to dive in"
-    else:
-        greeting_context = "ready to dive in"
-    
-    # Get stats - from Supabase first
-    meeting_stats = meeting_service.get_dashboard_stats()
-    meetings_count = meeting_stats["meetings_count"]
-    meetings_with_signals = meeting_stats["meetings_with_signals"]
-    signals_count = meeting_stats["signals_count"]
-    
-    # Get docs and tickets count from Supabase
-    docs_count = document_service.get_documents_count()
-    tickets_count = ticket_service.get_tickets_count(statuses=["todo", "in_progress", "in_review"])
-    
-    # Conversations count from Supabase
-    conversations_count = 0
-    try:
-        conv_result = supabase.table("conversations").select("id", count="exact").execute()
-        conversations_count = conv_result.count or 0
-    except:
-        pass
-    
-    # Get feedback for signals using signal repository
-    feedback_map = {}
-    try:
-        feedback_rows = signal_repo.get_all_feedback()
-        for f in feedback_rows:
-            key = f"{f['meeting_id']}:{f['signal_type']}:{f['signal_text']}"
-            feedback_map[key] = f['feedback']
-    except:
-        pass
-
-    # Get status for recent signals using signal repository
-    status_map = {}
-    try:
-        meeting_ids = [m["id"] for m in meetings_with_signals[:10]]
-        if meeting_ids:
-            status_result = signal_repo.get_status_for_meetings(meeting_ids)
-            for key, s in status_result.items():
-                status_map[key] = s.get("status")
-    except:
-        pass
-    
-    # Build recent_signals from Supabase data
-    recent_signals = []
-    for m in meetings_with_signals[:10]:
-        try:
-            signals = m.get("signals", {})
-            for stype, icon_type in [("blockers", "blocker"), ("action_items", "action"), ("decisions", "decision"), ("ideas", "idea"), ("risks", "risk")]:
-                items = signals.get(stype, [])
-                if isinstance(items, list):
-                    for item in items[:2]:
-                        if item and len(recent_signals) < 8:
-                            feedback_key = f"{m['id']}:{icon_type}:{item}"
-                            status_key = f"{m['id']}:{icon_type}:{item}"
-                            recent_signals.append({
-                                "text": item,
-                                "type": icon_type,
-                                "source": m["meeting_name"],
-                                "meeting_id": m["id"],
-                                "feedback": feedback_map.get(feedback_key),
-                                "status": status_map.get(status_key)
-                            })
-        except:
-            pass
-    
-    # Build highlights section from Supabase data
-    highlights = []
-    for m in meetings_with_signals[:5]:
-        try:
-            signals = m.get("signals", {})
-            # Add blockers to highlights (highest priority)
-            for blocker in signals.get("blockers", [])[:2]:
-                if blocker:
-                    highlights.append({
-                        "type": "blocker",
-                        "label": "🚧 Blocker",
-                        "text": blocker,
-                        "source": m["meeting_name"],
-                        "meeting_id": m["id"],
-                    })
-            # Add action items
-            for action in signals.get("action_items", [])[:2]:
-                if action:
-                    highlights.append({
-                        "type": "action",
-                        "label": "📋 Action Item",
-                        "text": action,
-                        "source": m["meeting_name"],
-                        "meeting_id": m["id"],
-                    })
-            # Add decisions
-            for decision in signals.get("decisions", [])[:1]:
-                if decision:
-                    highlights.append({
-                        "type": "decision",
-                        "label": "✅ Decision",
-                        "text": decision,
-                        "source": m["meeting_name"],
-                        "meeting_id": m["id"],
-                    })
-            # Add risks
-            for risk in signals.get("risks", [])[:1]:
-                if risk:
-                    highlights.append({
-                        "type": "risk",
-                        "label": "⚠️ Risk",
-                        "text": risk,
-                        "source": m["meeting_name"],
-                        "meeting_id": m["id"],
-                    })
-        except:
-            pass
-    
-    # Limit highlights (prioritize blockers first)
-    blockers_first = [h for h in highlights if h["type"] == "blocker"]
-    actions = [h for h in highlights if h["type"] == "action"]
-    others = [h for h in highlights if h["type"] not in ("blocker", "action")]
-    highlights = (blockers_first + actions + others)[:6]
-    
-    # Recent items (meetings and docs from Supabase)
-    recent_items = []
-    recent_mtgs = meeting_service.get_recent_meetings(limit=5)
-    for m in recent_mtgs:
-        recent_items.append({
-            "type": "meeting",
-            "title": m["meeting_name"],
-            "date": m["meeting_date"],
-            "url": f"/meetings/{m['id']}"
-        })
-    
-    # Get recent docs from Supabase
-    recent_docs = document_service.get_recent_documents(limit=5)
-    for d in recent_docs:
-        recent_items.append({
-            "type": "doc",
-            "title": d.get("source", "Untitled"),
-            "date": d.get("document_date"),
-            "url": f"/documents/{d['id']}"
-        })
-    
-    # Sort by date and take top 5
-    recent_items.sort(key=lambda x: x["date"] or "", reverse=True)
-    recent_items = recent_items[:5]
-    
-    # Get active tickets from Supabase
-    active_tickets = ticket_service.get_active_tickets(limit=5)
-
-    execution_ticket = None
-    execution_tasks = []
-    for ticket in active_tickets:
-        raw_tasks = ticket["task_decomposition"] if "task_decomposition" in ticket.keys() else None
-        if raw_tasks:
-            try:
-                parsed = json.loads(raw_tasks) if isinstance(raw_tasks, str) else raw_tasks
-            except Exception:
-                parsed = []
-            if isinstance(parsed, list) and parsed:
-                normalized = []
-                for idx, item in enumerate(parsed):
-                    if isinstance(item, dict):
-                        title = item.get("title") or item.get("text") or item.get("task") or item.get("name") or "Task"
-                        description = item.get("description") or item.get("details") or item.get("estimate")
-                        status = item.get("status", "pending")
-                    else:
-                        title = str(item)
-                        description = None
-                        status = "pending"
-                    normalized.append({"index": idx, "title": title, "description": description, "status": status})
-                execution_ticket = {
-                    "id": ticket["id"],
-                    "ticket_id": ticket.get("ticket_id"),
-                    "title": ticket.get("title"),
-                }
-                execution_tasks = normalized
-                break
-    
-    return templates.TemplateResponse(
-        "dashboard.html",
-        {
-            "request": request,
-            "time_of_day": time_of_day,
-            "greeting_context": greeting_context,
-            "today_formatted": today_formatted,
-            "sprint": sprint,
-            "stats": {
-                "meetings": meetings_count,
-                "documents": docs_count,
-                "signals": signals_count,
-                "conversations": conversations_count,
-                "tickets": tickets_count,
-            },
-            "recent_signals": recent_signals[:5],
-            "recent_items": recent_items,
-            "active_tickets": active_tickets,
-            "execution_ticket": execution_ticket,
-            "execution_tasks": execution_tasks,
-            "highlights": highlights,
-            "layout": "wide",  # Default to wide for 34" monitor
-        },
-    )
+# =============================================================================
+# DASHBOARD PAGE - MIGRATED TO ROUTER
+# =============================================================================
+# The dashboard page route (GET /) has been moved to api/dashboard_page.py
+# The dashboard_page_router handles the / path.
+# =============================================================================
 
 
 # =============================================================================
@@ -748,6 +435,7 @@ app.include_router(pocket_router)  # Pocket integration (Refactor Phase 2)
 app.include_router(auth_router)  # Authentication (Refactor Phase 2.9)
 app.include_router(pages_router)  # Page renders (Refactor Phase 2.9)
 app.include_router(ai_endpoints_router)  # AI endpoints (Refactor Phase 2.9)
+app.include_router(dashboard_page_router)  # Dashboard page (Refactor Phase 2.9)
 
 # =============================================================================
 # New Domain-Driven Routers (Phase 3 - Domain Decomposition)
