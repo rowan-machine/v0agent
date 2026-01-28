@@ -11,6 +11,7 @@ from .crud import router as crud_router
 from .search import router as search_router
 from .signals import router as signals_router
 from .transcripts import router as transcripts_router
+from .load_bundle import router as load_bundle_router
 
 # Create the aggregated meetings router
 router = APIRouter(prefix="/meetings", tags=["meetings"])
@@ -22,4 +23,9 @@ router.include_router(search_router)
 router.include_router(signals_router)
 router.include_router(transcripts_router)
 
-__all__ = ["router"]
+# Load bundle router - mounted at root level (not under /meetings prefix)
+# because the route is /meetings/load, not /meetings/meetings/load
+load_bundle_router_root = APIRouter()
+load_bundle_router_root.include_router(load_bundle_router)
+
+__all__ = ["router", "load_bundle_router_root"]
