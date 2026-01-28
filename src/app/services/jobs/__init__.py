@@ -1,44 +1,36 @@
 # src/app/services/jobs/__init__.py
 """
-Background Jobs Package
+Background Jobs Module - Phase F4
 
-Organized job modules for different notification types.
+Scheduled jobs that generate proactive notifications:
+- F4a: 1:1 Prep Digest (biweekly Tuesday 7 AM)
+- F4b: Stale Ticket/Blocker Alert (daily 9 AM weekdays)
+- F4c: Grooming-to-Ticket Match (hourly)
+- F4d: Sprint Mode Auto-Detect (daily)
+- F4f: Overdue Task Encouragement (weekdays 2 PM, 5 PM)
 
-MIGRATION STATUS:
-- base.py: Job configuration and base utilities ✅
-- one_on_one.py: 1:1 prep digest job
-- stale_tickets.py: Stale ticket/blocker alerts
-- grooming_match.py: Grooming-to-ticket matching
-- sprint_mode.py: Sprint mode auto-detection
-- overdue.py: Overdue task encouragement
-
-For now, re-exports from the original background_jobs.py for compatibility.
+Jobs create notifications via NotificationQueue service.
+Can be triggered manually via CLI or scheduled via cron/APScheduler.
 """
 
-from dataclasses import dataclass
-from typing import Dict, Any, List
-
-# Re-export from original module
-from ..background_jobs import (
-    JOB_CONFIGS,
-    JobConfig,
-    OneOnOnePrepJob,
-    StaleTicketAlertJob,
-    GroomingMatchJob,
-    SprintModeDetectJob,
-    OverdueEncouragementJob,
-    run_job,
-    run_all_due_jobs,
-)
+from .base import JobConfig, JOB_CONFIGS, run_job, run_all_due_jobs
+from .one_on_one_prep import OneOnOnePrepJob
+from .sprint_mode import SprintModeDetectJob
+from .stale_alerts import StaleTicketAlertJob
+from .grooming_match import GroomingMatchJob
+from .overdue_encouragement import OverdueEncouragementJob
 
 __all__ = [
-    "JOB_CONFIGS",
+    # Configuration
     "JobConfig",
+    "JOB_CONFIGS",
+    # Job classes
     "OneOnOnePrepJob",
+    "SprintModeDetectJob",
     "StaleTicketAlertJob",
     "GroomingMatchJob",
-    "SprintModeDetectJob",
     "OverdueEncouragementJob",
+    # Runner functions
     "run_job",
     "run_all_due_jobs",
 ]
