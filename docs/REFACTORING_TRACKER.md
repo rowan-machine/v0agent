@@ -1,9 +1,77 @@
 # V0Agent Refactoring Tracker
 
-> **Last Updated**: 2026-01-27 (Phase 2.11 main.py Best Practices)
+> **Last Updated**: 2026-01-27 (Phase 2.11 Complete - Identifying Next 5 Priorities)
 > **Status**: 12 Domains with 457 routes - main.py now 117 lines (best practice)
 
-## Current Focus
+## 🎯 Next 5 Priority Items (Phase 3)
+
+### Priority 1: Delete Deprecated Legacy Files (~5,550 lines)
+**Impact**: High | **Risk**: Low | **Estimated Effort**: 30 mins
+
+The following files have complete domain replacements and emit deprecation warnings:
+
+| File | Lines | Domain Replacement | Routes |
+|------|-------|-------------------|--------|
+| `api/career.py` | 2,779 | domains/career/api/* | 68 |
+| `api/search.py` | 1,299 | domains/search/api/* | 10 |
+| `api/knowledge_graph.py` | 811 | domains/knowledge_graph/api/* | 7 |
+| `api/dikw.py` | 661 | domains/dikw/api/* | 20 |
+| **Total** | **5,550** | | |
+
+**Action**: Delete files and remove from routers.py
+
+---
+
+### Priority 2: Complete tickets.py Domain Migration (~903 lines)
+**Impact**: Medium | **Risk**: Low | **Estimated Effort**: 1 hour
+
+Legacy `tickets.py` has 24 routes but domain only has 12. Remaining routes:
+- AI features: generate-summary, generate-plan, generate-decomposition, generate-tasks-from-testplan
+- Sprint features: clear-sprint, archive-time, archived-time
+- Attachments: upload, delete, list
+- Deployment: deployable, deployment-status
+
+**Action**: 
+1. Create `domains/tickets/api/ai_features.py` (~6 routes)
+2. Create `domains/tickets/api/attachments.py` (~3 routes)
+3. Migrate remaining sprint routes to sprints.py
+4. Deprecate legacy `tickets.py`
+
+---
+
+### Priority 3: Remove Legacy SQLite db.py (~961 lines)
+**Impact**: High | **Risk**: Medium | **Estimated Effort**: 45 mins
+
+Legacy `db.py` (961 lines) still exists but application uses Supabase. Need to:
+1. Verify all usages now use Supabase (`from ..db import connect` → repository)
+2. Audit files with SQLite imports (see Phase 2 in ARCHITECTURE_REFACTORING_PLAN.md)
+3. Remove db.py after confirming no direct usages
+4. Remove db_migrations.py (37 lines, already deprecated)
+
+---
+
+### Priority 4: Decompose agents/_arjuna_core.py (~2,466 lines)
+**Impact**: Medium | **Risk**: Medium | **Estimated Effort**: 2 hours
+
+The arjuna package exists with 12 modules, but `_arjuna_core.py` remains as a monolith.
+Should be split into:
+- `agents/arjuna/prompts.py` - System prompts and templates
+- `agents/arjuna/tools/` - Tool implementations (create_meeting, update_ticket, etc.)
+- `agents/arjuna/handlers.py` - Response handlers and formatters
+
+---
+
+### Priority 5: Decompose agents/dikw_synthesizer.py (~1,201 lines)
+**Impact**: Medium | **Risk**: Low | **Estimated Effort**: 1.5 hours
+
+The dikw_synthesizer package exists but monolith remains. Should follow the meeting_analyzer pattern:
+- `agents/dikw_synthesizer/prompts.py`
+- `agents/dikw_synthesizer/synthesizer.py`
+- `agents/dikw_synthesizer/validators.py`
+
+---
+
+## ✅ Completed Items (Phase 2)
 
 1. **Repository Pattern Implementation** ✅ - 11 repositories created
 2. **Backward Compatibility Removed** ✅ - meetings_supabase, documents_supabase, tickets_supabase aliases removed
