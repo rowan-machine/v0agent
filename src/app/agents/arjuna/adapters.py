@@ -237,6 +237,129 @@ def execute_intent(intent_data: dict) -> dict:
         return {"success": False, "error": str(e)}
 
 
+# ============================================================================
+# ASYNC ADAPTER FUNCTIONS
+# These are for use in FastAPI async routes (e.g., api/assistant.py)
+# ============================================================================
+
+async def parse_assistant_intent_async(
+    message: str,
+    context: dict,
+    history: list,
+    thread_id: str = None,
+) -> dict:
+    """
+    Async adapter: Parse assistant intent (delegates to ArjunaAgent).
+    
+    Use this version in async FastAPI routes instead of the sync parse_assistant_intent.
+    
+    Args:
+        message: User's message
+        context: System context
+        history: Conversation history
+        thread_id: Optional thread ID for LangSmith tracing
+    
+    Returns:
+        Dict with intent, entities, response_text, and run_id for feedback
+    """
+    agent = get_arjuna_agent()
+    
+    # Set thread_id on agent for LangSmith tracing
+    if thread_id:
+        agent._thread_id = thread_id
+    
+    # Check for focus queries (can be done synchronously)
+    if agent._is_focus_query(message):
+        focus_data = agent._get_focus_recommendations()
+        recs = focus_data.get("recommendations", [])
+        
+        if recs:
+            response_text = agent._format_focus_response(recs, focus_data)
+            return {
+                "intent": "focus_recommendations",
+                "confidence": 1.0,
+                "entities": {},
+                "clarifications": [],
+                "response_text": response_text,
+                "suggested_page": "/tickets" if any(
+                    r["type"] in ["blocker", "active", "todo"] for r in recs
+                ) else None,
+                "focus_data": focus_data,
+                "run_id": getattr(agent, "last_run_id", None),
+            }
+        else:
+            return {
+                "intent": "focus_recommendations",
+                "confidence": 1.0,
+                "entities": {},
+                "clarifications": [],
+                "response_text": (
+                    "Hare Krishna! 🙏 You're all caught up! No urgent items need attention right now.\n\n"
+                    "Consider:\n"
+                    "• Reviewing signals to build your knowledge base\n"
+                    "• Planning ahead for upcoming work\n"
+                    "• Taking a well-deserved break!"
+                ),
+                "suggested_page": None,
+                "run_id": getattr(agent, "last_run_id", None),
+            }
+    
+    # Check for 1-on-1 prep queries
+    oneone_keywords = ['1-on-1', '1:1', 'one-on-one', 'one on one', '1 on 1', 
+                       'working on', 'top 3', 'need help', 'blockers', 'blocked',
+                       'observations', 'feedback', 'discuss', 'prepare for']
+    if any(kw in message.lower() for kw in oneone_keywords):
+        try:
+            result = await agent.quick_ask(query=message)
+            if result.get("success"):
+                return {
+                    "intent": "ask_question",
+                    "confidence": 1.0,
+                    "entities": {},
+                    "clarifications": [],
+                    "response_text": result.get("response", ""),
+                    "suggested_page": None,
+                    "run_id": getattr(agent, "last_run_id", None),
+                }
+        except Exception as e:
+            logger.error(f"ArjunaAgent quick_ask failed: {e}")
+            # Fall through to normal parsing
+    
+    # For other intents, use the agent's async _parse_intent method
+    try:
+        return await agent._parse_intent(message, context, history)
+    except Exception as e:
+        logger.error(f"Intent parsing failed: {e}")
+        return {
+            "intent": "ask_question",
+            "confidence": 0.5,
+            "entities": {},
+            "clarifications": [],
+            "response_text": "I had trouble understanding that. Could you rephrase?",
+        }
+
+
+async def execute_intent_async(intent_data: dict) -> dict:
+    """
+    Async adapter: Execute intent (delegates to ArjunaAgent).
+    
+    Use this version in async FastAPI routes instead of the sync execute_intent.
+    
+    Args:
+        intent_data: Parsed intent data from parse_assistant_intent
+    
+    Returns:
+        Dict with success, action, result, error
+    """
+    agent = get_arjuna_agent()
+    
+    try:
+        return await agent._execute_intent(intent_data)
+    except Exception as e:
+        logger.error(f"Intent execution failed: {e}")
+        return {"success": False, "error": str(e)}
+
+
 async def quick_ask(
     topic: Optional[str] = None,
     query: Optional[str] = None,
@@ -352,11 +475,15 @@ Return only valid JSON, no markdown or explanation."""
 __all__ = [
     "SimpleLLMClient",
     "get_arjuna_agent",
+    # Sync adapters (for backward compatibility)
     "get_follow_up_suggestions",
     "get_focus_recommendations",
     "get_system_context",
     "parse_assistant_intent",
     "execute_intent",
+    # Async adapters (for FastAPI routes)
+    "parse_assistant_intent_async",
+    "execute_intent_async",
     "quick_ask",
     "quick_ask_sync",
     "interpret_user_status_adapter",

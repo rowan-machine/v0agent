@@ -18,50 +18,54 @@
 - Explain your OBSERVATIONS clearly, then provide REASONING to identify the exact issue. Add console logs when needed to gather more information.
 
 
-The system implements an AI-powered knowledge management platform with five core business components:
+Core Business Logic Architecture:
 
-1. DIKW (Data-Information-Knowledge-Wisdom) Pyramid
-Importance Score: 90
-- Hierarchical knowledge progression system
-- Promotion workflows with confidence scoring
-- Multi-stage validation requirements
-- Knowledge synthesis and relationship mapping
-- Automatic tag generation and categorization
-Location: src/app/api/v1/dikw.py
+1. Knowledge Management Core (90/100)
+Path: src/app/api/v1/dikw.py
+- DIKW pyramid implementation for knowledge evolution
+- Promotion workflows between Data → Information → Knowledge → Wisdom levels
+- Confidence scoring system for knowledge items
+- Custom validation rules for level transitions
 
-2. AI Memory Management
-Importance Score: 85
-- Contextual learning system with semantic search
-- Importance-based memory retrieval (1-10 scoring)
-- Memory deduplication with confidence tracking
-- Holistic context injection for LLMs
-Location: src/app/api/v1/ai_memory.py
+2. AI Memory System (85/100)
+Path: src/app/api/v1/ai_memory.py
+- Contextual memory storage with importance scoring
+- Memory lifecycle management (approval/archive/rejection)
+- Semantic search over memory items
+- Context-aware memory retrieval for AI systems
 
-3. Intelligent Signal Processing
-Importance Score: 85
-- Visual mindmap analysis using GPT-4 Vision
-- Structured knowledge extraction from mindmaps
-- Meeting bundle processing with signal extraction
-- Pattern recognition for DIKW item generation
-Location: src/app/api/v1/imports.py
+3. Signal Intelligence Pipeline (85/100)
+Path: src/app/domains/signals/api/extraction.py
+- Extracts structured signals from meetings/documents
+- Categorizes into decisions/actions/blockers/risks
+- Implements deduplication with semantic similarity
+- Manages signal feedback and learning loops
 
-4. Feedback Loop System
-Importance Score: 80
-- Signal-based AI learning mechanisms
-- Confidence boosting based on feedback patterns
-- DIKW item confidence updates
-- Holistic signal merging and deduplication
-Location: src/app/api/v1/feedback.py
+4. Career Development Intelligence (80/100)
+Path: src/app/agents/career_coach.py
+- Career growth recommendations engine
+- Skill tracking and proficiency scoring
+- Standup analysis with sentiment detection
+- AI-driven development suggestions
 
-5. Domain Notifications
-Importance Score: 75
-- Knowledge management specific notification types
-- Priority-based queueing system
-- Contextual notification grouping
-- Workflow-integrated actions
-Location: src/app/api/v1/notifications.py
+5. Sprint Context Management (80/100)
+Path: src/app/agents/context.py
+- Sprint phase detection and mode switching
+- Progress tracking with checklist analysis
+- Action item consolidation
+- Test plan monitoring
 
-The platform centers around transforming unstructured information into hierarchical knowledge through AI-assisted analysis and human feedback loops. The DIKW pyramid serves as the core organizational structure, while intelligent signal processing and memory management enable contextual learning and knowledge synthesis.
+Integration Architecture:
+- Signals flow through extraction → validation → DIKW promotion
+- Memory system provides context to AI interactions
+- Career tracking integrates with sprint management
+- Knowledge synthesis occurs across all components
+
+Key Business Patterns:
+1. Knowledge Evolution: Data items progress through DIKW hierarchy
+2. Signal Processing: Unstructured content → Structured signals → Actionable items
+3. Context Preservation: Memory system maintains relevance across interactions
+4. Feedback Loops: User feedback drives system learning and confidence scoring
 
 $END$
 

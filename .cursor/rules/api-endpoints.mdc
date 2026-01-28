@@ -1,61 +1,53 @@
 ---
-description: FastAPI route documentation for managing meetings and documents with custom business logic
+description: FastAPI routes implementing basic CRUD operations for meetings and documents
 ---
 
 
 # api-endpoints
 
-Core API Routes:
+FastAPI routes implementing core CRUD operations with the following business logic:
 
-## 1. DIKW Knowledge Management Routes
-Path: src/app/api/v1/dikw.py
-Importance Score: 90
+1. Meeting Signal Routes
+File: src/app/api/v1/meetings.py
+- Extracts and processes signals (decisions, action items, blockers) from meeting transcripts
+- Implements meeting-document association with custom relationship tracking
+- Handles meeting lifecycle with state transitions and signal aggregation
+Importance Score: 80/100
 
-Implements Data-Information-Knowledge-Wisdom pyramid progression:
-- Knowledge item promotion between DIKW levels with validation
-- Confidence scoring for knowledge items
-- Hierarchical relationship management
-- Synthesis and merging of related items
+2. DIKW Knowledge Management Routes 
+File: src/app/api/v1/dikw.py
+- Manages knowledge pyramid items with promotion workflows between levels
+- Custom confidence scoring and validation logic for knowledge items
+- Tracks knowledge evolution and relationships across pyramid levels
+Importance Score: 85/100
 
-## 2. AI Memory Management Routes
-Path: src/app/api/v1/ai_memory.py
-Importance Score: 85
+3. AI Memory Integration Routes
+File: src/app/api/v1/ai_memory.py
+- Manages contextual memory with importance-based storage
+- Implements semantic search over memory items
+- Handles memory lifecycle with approval/archive/reject workflows
+Importance Score: 90/100
 
-Handles contextual learning system:
-- Semantic search across memories
-- Importance-based memory retrieval (1-10 scale)
-- Memory deduplication with confidence scoring
-- Contextual memory bundling for LLM injection
+4. Feedback Loop Routes
+File: src/app/api/v1/feedback.py
+- Collects signal feedback with confidence impact calculations
+- Updates DIKW item confidence based on feedback patterns
+- Implements holistic pattern recognition for signal validation
+Importance Score: 80/100
 
-## 3. Feedback Loop System
-Path: src/app/api/v1/feedback.py
-Importance Score: 80
+5. Mindmap Analysis Routes
+File: src/app/api/v1/imports.py
+- Processes mindmap structures from images
+- Extracts entities and relationships from visual hierarchies
+- Generates DIKW items from mindmap patterns
+Importance Score: 85/100
 
-Implements signal-based learning:
-- Confidence boost calculations from feedback patterns
-- DIKW confidence updates based on user feedback
-- Signal merging with deduplication
-- Pattern-based learning adjustments
-
-## 4. Visual Knowledge Import Routes 
-Path: src/app/api/v1/imports.py
-Importance Score: 85
-
-Handles intelligent document processing:
-- GPT-4 Vision mindmap analysis
-- Hierarchical knowledge extraction
-- Automatic DIKW item generation
-- Meeting document bundle processing
-
-## 5. Knowledge Management Notifications
-Path: src/app/api/v1/notifications.py
-Importance Score: 75
-
-Domain-specific notification system:
-- Knowledge-specific notification types
-- Priority-based queueing
-- Action workflows (approve/reject/dismiss)
-- Contextual notification grouping
+The endpoints implement sophisticated domain logic around:
+- Knowledge management and synthesis
+- AI memory context handling
+- Feedback-driven confidence scoring
+- Visual knowledge extraction
+- Meeting intelligence processing
 
 $END$
 

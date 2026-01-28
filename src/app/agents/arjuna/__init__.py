@@ -48,11 +48,15 @@ from .core import ArjunaAgentCore, ArjunaAgentComposed
 from .adapters import (
     SimpleLLMClient,
     get_arjuna_agent,
+    # Sync adapters
     get_follow_up_suggestions,
     get_focus_recommendations,
     get_system_context,
     parse_assistant_intent,
     execute_intent,
+    # Async adapters (for FastAPI routes)
+    parse_assistant_intent_async,
+    execute_intent_async,
     quick_ask,
     quick_ask_sync,
     interpret_user_status_adapter,
@@ -90,12 +94,15 @@ __all__ = [
     "ArjunaAgentComposed",  # Alias for ArjunaAgentCore
     "SimpleLLMClient",
     "get_arjuna_agent",
-    # Adapter functions
+    # Sync adapter functions
     "get_follow_up_suggestions",
     "get_focus_recommendations",
     "get_system_context",
     "parse_assistant_intent",
     "execute_intent",
+    # Async adapter functions (for FastAPI routes)
+    "parse_assistant_intent_async",
+    "execute_intent_async",
     "quick_ask",
     "quick_ask_sync",
     "interpret_user_status_adapter",

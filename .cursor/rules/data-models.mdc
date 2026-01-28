@@ -1,54 +1,36 @@
 ---
-description: Used for analyzing and documenting core data models and their relationships in meeting and document management systems
+description: Documents the core data models for meetings and documents, their relationships, and business logic for signal intelligence.
 ---
 
 
 # data-models
 
-Two primary data models form the core of the system:
+Two primary data models with associated business logic:
 
-## Meetings Model
-Importance Score: 90
+## Meetings Model (Importance: 90/100)
+Core entity for managing meeting intelligence and signal extraction:
+- Meeting transcripts and summaries
+- Extracted signals (decisions, actions, blockers, risks, ideas)
+- Participant tracking and contributions 
+- Meeting type classification
+- Custom lifecycle states (scheduled, in-progress, completed, archived)
 
-Core structure and relationships:
-- Meeting bundles that aggregate related content:
-  - Transcripts (from multiple sources)
-  - Mindmaps 
-  - Generated summaries
-  - Action items
-  - Signals
+## Documents Model (Importance: 85/100)
+Knowledge artifact storage with domain-specific processing:
+- Document classification system
+- Version control with change tracking
+- Relationship mapping between documents
+- Tag generation and categorization
+- Custom entity extraction
 
-- Signal relationships:
-  - Each signal links to source meeting
-  - Signal type classification
-  - Optional ticket conversion tracking
-  - Signal validation status
-  - Signal importance scoring
+## Relationships and Integration
+- Meetings can generate multiple signals
+- Signals can be converted to tickets or DIKW items
+- Documents can be linked to meetings as references
+- Signals can reference multiple documents
+- Knowledge synthesis combines meeting and document signals
 
-## Documents Model 
-Importance Score: 85
-
-Document hierarchy and associations:
-- Multi-level document organization:
-  - Root documents
-  - Child documents 
-  - Document versions
-  - Related mindmaps
-
-- Document relationships:
-  - Meeting associations
-  - Signal mappings
-  - Knowledge item references
-  - Version history tracking
-  - Parent-child hierarchies
-
-Relationship Structure:
-- One meeting can have multiple documents
-- Documents can be associated with multiple meetings
-- Signals can reference both meetings and documents
-- Documents maintain hierarchical relationships
-- Version control tracks document evolution
-- Mindmaps can link to both meetings and documents
+The data model implementation focuses on maintaining relationships between knowledge artifacts while supporting the signal intelligence workflow from extraction through synthesis.
 
 $END$
 
