@@ -11,8 +11,8 @@ from datetime import datetime, date, timedelta
 import json
 import logging
 
-from src.app.infrastructure.supabase_client import get_supabase_client
-from src.app.agents.arjuna import (
+from ....infrastructure.supabase_client import get_supabase_client
+from ....agents.arjuna import (
     ArjunaAgent,
     get_arjuna_agent,
     AVAILABLE_MODELS,

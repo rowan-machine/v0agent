@@ -67,8 +67,8 @@ def get_signals_by_type(signal_type: str, days: int = None, limit: int = 100):
     if not supabase:
         return [], 0
 
-    # Build query
-    query = supabase.table("meetings").select("id, meeting_name, meeting_date, signals").neq("signals", None).neq("signals", "{}")
+    # Build query - use is_not for null check (neq with None causes JSON parse errors)
+    query = supabase.table("meetings").select("id, meeting_name, meeting_date, signals").not_.is_("signals", "null").neq("signals", "{}")
 
     if days:
         cutoff_date = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")

@@ -4,7 +4,7 @@ SignalFlow SDK
 
 A Python client library for the SignalFlow meeting intelligence platform.
 
-Quick Start:
+Quick Start (Sync):
     ```python
     from signalflow import SignalFlowClient
     
@@ -18,6 +18,16 @@ Quick Start:
     
     # Get DIKW pyramid
     pyramid = client.knowledge.get_pyramid()
+    ```
+
+Quick Start (Async):
+    ```python
+    from signalflow import AsyncSignalFlowClient
+    
+    async with AsyncSignalFlowClient(api_url="http://localhost:8001") as client:
+        meetings = await client.meetings.list(limit=10)
+        signals = await client.signals.search("action items")
+        pyramid = await client.knowledge.get_pyramid()
     ```
 
 For analytics and tracing:
@@ -37,6 +47,7 @@ For analytics and tracing:
 __version__ = "0.1.0"
 
 from .client import SignalFlowClient
+from .async_client import AsyncSignalFlowClient
 from .analyst import AnalystClient
 from .models import (
     Meeting,
@@ -45,15 +56,40 @@ from .models import (
     DIKWItem,
     CareerProfile,
     CareerSuggestion,
+    # Enums
+    DIKWLevel,
+    SignalType,
+    TicketStatus,
+    TicketPriority,
+    # Response models
+    MeetingListResponse,
+    SignalListResponse,
+    TicketListResponse,
+    DIKWPyramidResponse,
+    SearchResponse,
 )
 
 __all__ = [
+    # Clients
     "SignalFlowClient",
+    "AsyncSignalFlowClient",
     "AnalystClient",
+    # Domain models
     "Meeting",
     "Signal",
     "Ticket",
     "DIKWItem",
     "CareerProfile",
     "CareerSuggestion",
+    # Enums
+    "DIKWLevel",
+    "SignalType",
+    "TicketStatus",
+    "TicketPriority",
+    # Response models
+    "MeetingListResponse",
+    "SignalListResponse",
+    "TicketListResponse",
+    "DIKWPyramidResponse",
+    "SearchResponse",
 ]

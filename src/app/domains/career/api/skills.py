@@ -22,25 +22,41 @@ async def get_skills(
     category: Optional[str] = Query(None),
     limit: int = Query(100),
 ):
-    """Get skills with optional filtering by category."""
+    """Get skills with optional filtering by category.
+    
+    Returns skills both as flat list and grouped by_category for the skills graph.
+    """
     repo = get_career_repository()
     skills = repo.get_skills(category=category, limit=limit)
     
+    # Build flat list
+    skills_list = [
+        {
+            "id": s.id,
+            "skill_name": s.skill_name,
+            "category": s.category,
+            "proficiency": s.proficiency,
+            "proficiency_level": s.proficiency_level if hasattr(s, 'proficiency_level') else s.proficiency,
+            "last_used": s.last_used,
+            "context": s.context,
+            "created_at": s.created_at,
+            "updated_at": s.updated_at,
+        }
+        for s in skills
+    ]
+    
+    # Group by category for skills graph
+    by_category = {}
+    for skill in skills_list:
+        cat = skill.get("category") or "other"
+        if cat not in by_category:
+            by_category[cat] = []
+        by_category[cat].append(skill)
+    
     return JSONResponse({
-        "skills": [
-            {
-                "id": s.id,
-                "skill_name": s.skill_name,
-                "category": s.category,
-                "proficiency": s.proficiency,
-                "last_used": s.last_used,
-                "context": s.context,
-                "created_at": s.created_at,
-                "updated_at": s.updated_at,
-            }
-            for s in skills
-        ],
-        "count": len(skills),
+        "skills": skills_list,
+        "by_category": by_category,
+        "count": len(skills_list),
     })
 
 

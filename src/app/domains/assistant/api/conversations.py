@@ -14,8 +14,8 @@ import os
 import logging
 from urllib.parse import urlencode
 
-from src.app.infrastructure.supabase_client import get_supabase_client
-from src.app.chat.models import (
+from ....infrastructure.supabase_client import get_supabase_client
+from ....chat.models import (
     create_conversation,
     get_recent_messages,
     get_all_conversations,
@@ -26,7 +26,7 @@ from src.app.chat.models import (
     unarchive_conversation,
     update_conversation_context,
 )
-from src.app.chat.turn import run_chat_turn, run_chat_turn_with_context
+from ....chat.turn import run_chat_turn, run_chat_turn_with_context
 
 logger = logging.getLogger(__name__)
 

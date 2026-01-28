@@ -14,14 +14,14 @@ import logging
 import asyncio
 import time
 
-from src.app.infrastructure.supabase_client import get_supabase_client
-from src.app.repositories import (
+from ....infrastructure.supabase_client import get_supabase_client
+from ....repositories import (
     get_meeting_repository,
     get_document_repository,
     get_dikw_repository,
     get_signal_repository,
 )
-from src.app.api.models import (
+from ....api.models import (
     UnifiedSearchRequest,
     UnifiedSearchResultItem,
     UnifiedSearchResponse,

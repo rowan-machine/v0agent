@@ -20,12 +20,13 @@ async def get_highlights(request: Request):
     """Get smart coaching highlights based on app state and user activity."""
     from ....services.meeting_service import meeting_service
     from ....services.ticket_service import ticket_service
-    from ....repositories import get_settings_repository, get_signal_repository
-    from ....database import get_connection
+    from ....repositories import get_settings_repository, get_signal_repository, get_dikw_repository
+    from ....infrastructure.supabase_client import get_supabase_client
     
     settings_repo = get_settings_repository()
     signal_repo = get_signal_repository()
-    conn = get_connection()
+    dikw_repo = get_dikw_repository()
+    supabase = get_supabase_client()
     
     # Get dismissed IDs from query param (passed from frontend localStorage)
     dismissed_ids = request.query_params.get('dismissed', '').split(',')
@@ -166,30 +167,34 @@ async def get_highlights(request: Request):
     
     # 6. Accountability items (waiting for others)
     try:
-        waiting = conn.execute(
-            """SELECT id, description, responsible_party FROM accountability_items
-               WHERE status = 'waiting'
-               ORDER BY created_at DESC LIMIT 2"""
-        ).fetchall()
-        for w in waiting:
-            highlight_id = f"waiting-{w['id']}"
-            if highlight_id not in dismissed_ids:
-                highlights.append({
-                    "id": highlight_id,
-                    "type": "waiting",
-                    "label": "⏳ Waiting On",
-                    "text": f"{w['responsible_party']}: {w['description'][:80]}",
-                    "action": "Follow up if this is blocking you",
-                    "link": "/accountability",
-                    "link_text": "Waiting-For List"
-                })
+        if supabase:
+            result = supabase.table("accountability_items")\
+                .select("id, description, responsible_party")\
+                .eq("status", "waiting")\
+                .order("created_at", desc=True)\
+                .limit(2)\
+                .execute()
+            waiting = result.data or []
+            for w in waiting:
+                highlight_id = f"waiting-{w['id']}"
+                if highlight_id not in dismissed_ids:
+                    highlights.append({
+                        "id": highlight_id,
+                        "type": "waiting",
+                        "label": "⏳ Waiting On",
+                        "text": f"{w['responsible_party']}: {w['description'][:80]}",
+                        "action": "Follow up if this is blocking you",
+                        "link": "/accountability",
+                        "link_text": "Waiting-For List"
+                    })
     except Exception:
         pass
     
     # 7. Check for empty DIKW (encourage knowledge building)
     try:
-        dikw_count = conn.execute("SELECT COUNT(*) as c FROM dikw_items").fetchone()
-        if dikw_count and dikw_count['c'] == 0 and "dikw-empty" not in dismissed_ids:
+        pyramid = dikw_repo.get_pyramid()
+        dikw_count = sum(pyramid.counts.values()) if pyramid else 0
+        if dikw_count == 0 and "dikw-empty" not in dismissed_ids:
             highlights.append({
                 "id": "dikw-empty",
                 "type": "idea",

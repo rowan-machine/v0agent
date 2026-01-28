@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from typing import Optional, List
 import logging
 
-from src.app.infrastructure.supabase_client import get_supabase_client
+from ....infrastructure.supabase_client import get_supabase_client
 
 logger = logging.getLogger(__name__)
 

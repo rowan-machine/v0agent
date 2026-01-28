@@ -143,52 +143,47 @@ Created the foundational ports and adapters:
 - [x] `adapters/storage/local.py` - Local filesystem implementation
 - [x] `core/container.py` - Dependency injection container
 
-## Phase 2: Convert Remaining SQLite Files (IN PROGRESS)
+## Phase 2: Convert Remaining SQLite Files - COMPLETE ✅
 
-Files with `from ..db import connect` to convert:
+**Status**: All SQLite code has been removed. `db.py` (998 lines) deleted in Phase 3.3.
 
-### Services
-- [ ] `services/agent_bus.py` (8 occurrences)
-- [ ] `services/storage_supabase.py` (1 occurrence)
-- [ ] `services/coach_recommendations.py` (1 occurrence)
-- [ ] `services/mindmap_synthesis.py` (1 occurrence)
-- [ ] `services/signal_learning.py` (1 occurrence)
-- [ ] `services/background_jobs.py` (1 occurrence)
+### Services - MIGRATED
+- ✅ `services/agent_bus.py` - Uses repositories
+- ✅ `services/storage_supabase.py` - Supabase only
+- ✅ `services/coach_recommendations.py` - Uses repositories
+- ✅ `services/mindmap_synthesis.py` - Uses repositories
+- ✅ `services/signal_learning.py` - Uses repositories
+- ✅ `services/background_jobs.py` - Uses NotificationsRepository
 
-### API Modules
-- [ ] `api/settings.py` (1 occurrence)
-- [ ] `api/mcp.py` (1 occurrence)
-- [ ] `api/search.py` (2 occurrences)
-- [ ] `api/admin.py` (2 occurrences)
-- [ ] `api/accountability.py` (1 occurrence)
-- [ ] `api/shortcuts.py` (1 occurrence)
-- [ ] `api/career.py` (1 occurrence)
-- [ ] `api/assistant.py` (1 occurrence)
-- [ ] `api/knowledge_graph.py` (1 occurrence)
-- [ ] `api/mobile/device.py` (1 occurrence)
-- [ ] `api/mobile/sync.py` (1 occurrence)
-- [ ] `api/v1/ai_memory.py` (1 occurrence)
-- [ ] `api/v1/imports.py` (1 occurrence)
+### API Modules - MIGRATED OR DELETED
+- ✅ `api/career.py` - **DELETED** (replaced by domains/career/)
+- ✅ `api/search.py` - **DELETED** (replaced by domains/search/)
+- ✅ `api/knowledge_graph.py` - **DELETED** (replaced by domains/knowledge_graph/)
+- ✅ `api/dikw.py` - **DELETED** (replaced by domains/dikw/)
+- ✅ `api/assistant.py` - Uses Arjuna adapters
+- ✅ `api/settings.py` - Uses SettingsRepository
+- ✅ `api/v1/imports.py` - Package structure, Supabase only
 
-### Root Level
-- [ ] `search.py` (1 occurrence)
-- [ ] `db_adapter.py` (can be removed after migration)
-- [ ] `db_migrations.py` (needs review)
+### Root Level - REMOVED
+- ✅ `db.py` - **DELETED** (998 lines)
+- ✅ `db_migrations.py` - **DELETED**
+- ✅ `db_adapter.py` - **DELETED**
 
-## Phase 3: Refactor main.py
+## Phase 3: Refactor main.py - COMPLETE ✅
 
-Split ~5000 line main.py into modular packages:
+main.py reduced from ~5000 lines to **117 lines** (97.6% reduction):
 
-1. **Extract API Routers**
-   - Move each domain's endpoints to `api/{domain}/router.py`
-   - Keep main.py minimal (~100 lines)
+1. **Extract API Routers** ✅
+   - All domain endpoints moved to `domains/{domain}/api/`
+   - 12 domains with 457 routes total
+   - `routers.py` centralizes registration
 
-2. **Extract Services**
-   - Business logic from endpoints → `services/{domain}_service.py`
-   - Services use container for dependencies
+2. **Extract Services** ✅
+   - Business logic in `services/` and `domains/*/services/`
+   - `services/startup.py` handles initialization
 
-3. **Extract Pydantic Models**
-   - Request/response schemas → `api/{domain}/schemas.py`
+3. **Extract Pydantic Models** ✅
+   - Models in `api/models.py` and `domains/*/api/models.py`
 
 ## Phase 4: Documentation Updates
 

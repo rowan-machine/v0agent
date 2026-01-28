@@ -1,73 +1,115 @@
 # V0Agent Refactoring Tracker
 
-> **Last Updated**: 2026-01-27 (Phase 2.11 Complete - Identifying Next 5 Priorities)
-> **Status**: 12 Domains with 457 routes - main.py now 117 lines (best practice)
+> **Last Updated**: 2026-01-28 (Phase 5.1 & 5.2 Complete - SDK & API Contracts)
+> **Status**: 12 Domains with 457 routes - main.py 117 lines - **Phase 1-3, 5.1, 5.2 COMPLETE**
 
-## 🎯 Next 5 Priority Items (Phase 3)
+## ✅ Phase 5.1 & 5.2 Complete - SDK & API Contracts
 
-### Priority 1: Delete Deprecated Legacy Files (~5,550 lines)
-**Impact**: High | **Risk**: Low | **Estimated Effort**: 30 mins
+### Phase 5.1: ✅ Python SDK Extraction - COMPLETE
+**Impact**: Medium | **Risk**: Low | **Completed**: 2026-01-28
 
-The following files have complete domain replacements and emit deprecation warnings:
+Created standalone Python SDK at `sdk/signalflow/`:
+- **Sync client**: `SignalFlowClient` with 5 domain clients (meetings, signals, tickets, knowledge, career)
+- **Async client**: `AsyncSignalFlowClient` using httpx for concurrent operations
+- **Models**: Full Pydantic models with type hints (`models.py`)
+- **Unit tests**: `test_client.py` and `test_async_client.py`
+- **PyPI packaging**: `pyproject.toml`, `README.md`, `py.typed`
 
-| File | Lines | Domain Replacement | Routes |
-|------|-------|-------------------|--------|
-| `api/career.py` | 2,779 | domains/career/api/* | 68 |
-| `api/search.py` | 1,299 | domains/search/api/* | 10 |
-| `api/knowledge_graph.py` | 811 | domains/knowledge_graph/api/* | 7 |
-| `api/dikw.py` | 661 | domains/dikw/api/* | 20 |
-| **Total** | **5,550** | | |
+### Phase 5.2: ✅ API Contracts Definition - COMPLETE
+**Impact**: Medium | **Risk**: Low | **Completed**: 2026-01-28
 
-**Action**: Delete files and remove from routers.py
-
----
-
-### Priority 2: Complete tickets.py Domain Migration (~903 lines)
-**Impact**: Medium | **Risk**: Low | **Estimated Effort**: 1 hour
-
-Legacy `tickets.py` has 24 routes but domain only has 12. Remaining routes:
-- AI features: generate-summary, generate-plan, generate-decomposition, generate-tasks-from-testplan
-- Sprint features: clear-sprint, archive-time, archived-time
-- Attachments: upload, delete, list
-- Deployment: deployable, deployment-status
-
-**Action**: 
-1. Create `domains/tickets/api/ai_features.py` (~6 routes)
-2. Create `domains/tickets/api/attachments.py` (~3 routes)
-3. Migrate remaining sprint routes to sprints.py
-4. Deprecate legacy `tickets.py`
+Created standardized API contracts:
+- **OpenAPI spec**: `scripts/generate_openapi.py` → `docs/api/openapi.json` (363 endpoints, 93 schemas)
+- **Response models**: `api/responses.py` with APIResponse, APIListResponse, APIErrorResponse
+- **Error codes**: ErrorCode enum with HTTP status mappings
+- **Versioning**: `api/versioning.py` with X-API-Version middleware
 
 ---
 
-### Priority 3: Remove Legacy SQLite db.py (~961 lines)
-**Impact**: High | **Risk**: Medium | **Estimated Effort**: 45 mins
+## ✅ Phase 3 Complete - All 5 Priorities Done
 
-Legacy `db.py` (961 lines) still exists but application uses Supabase. Need to:
-1. Verify all usages now use Supabase (`from ..db import connect` → repository)
-2. Audit files with SQLite imports (see Phase 2 in ARCHITECTURE_REFACTORING_PLAN.md)
-3. Remove db.py after confirming no direct usages
-4. Remove db_migrations.py (37 lines, already deprecated)
+### Priority 1: ✅ Delete Deprecated Legacy Files (~5,550 lines) - COMPLETE
+**Impact**: High | **Risk**: Low | **Completed**: 2026-01-27
 
----
+The following files had complete domain replacements and have been deleted:
 
-### Priority 4: Decompose agents/_arjuna_core.py (~2,466 lines)
-**Impact**: Medium | **Risk**: Medium | **Estimated Effort**: 2 hours
+| File | Lines | Domain Replacement | Routes | Status |
+|------|-------|-------------------|--------|--------|
+| `api/career.py` | 2,779 | domains/career/api/* | 68 | ✅ Deleted |
+| `api/search.py` | 1,299 | domains/search/api/* | 10 | ✅ Deleted |
+| `api/knowledge_graph.py` | 811 | domains/knowledge_graph/api/* | 7 | ✅ Deleted |
+| `api/dikw.py` | 661 | domains/dikw/api/* | 20 | ✅ Deleted |
+| **Total** | **5,550** | | | **COMPLETE** |
 
-The arjuna package exists with 12 modules, but `_arjuna_core.py` remains as a monolith.
-Should be split into:
-- `agents/arjuna/prompts.py` - System prompts and templates
-- `agents/arjuna/tools/` - Tool implementations (create_meeting, update_ticket, etc.)
-- `agents/arjuna/handlers.py` - Response handlers and formatters
+**Commit**: cab7a55
 
 ---
 
-### Priority 5: Decompose agents/dikw_synthesizer.py (~1,201 lines)
-**Impact**: Medium | **Risk**: Low | **Estimated Effort**: 1.5 hours
+### Priority 2: ✅ Complete tickets.py Domain Migration - COMPLETE
+**Impact**: Medium | **Risk**: Low | **Completed**: 2026-01-27
 
-The dikw_synthesizer package exists but monolith remains. Should follow the meeting_analyzer pattern:
-- `agents/dikw_synthesizer/prompts.py`
-- `agents/dikw_synthesizer/synthesizer.py`
-- `agents/dikw_synthesizer/validators.py`
+The tickets domain now has full coverage with 27 routes:
+- `domains/tickets/api/items.py` - CRUD operations (12 routes)
+- `domains/tickets/api/sprints.py` - Sprint management (6 routes)
+- `domains/tickets/api/ai_features.py` - AI features (6 routes)
+- `domains/tickets/api/attachments.py` - File attachments (3 routes)
+
+Legacy `tickets.py` deprecated with domain replacement notice.
+
+**Commit**: 30a24bb
+
+---
+
+### Priority 3: ✅ Remove Legacy SQLite db.py - COMPLETE
+**Impact**: High | **Risk**: Medium | **Completed**: 2026-01-27
+
+Legacy SQLite infrastructure removed:
+- `db.py` (998 lines) - Deleted
+- `db_migrations.py` - Deleted
+- All `from ..db import connect` imports - Removed or converted to Supabase
+
+Application now uses Supabase exclusively via repository pattern.
+
+**Commit**: dba2305
+
+---
+
+### Priority 4: ✅ Decompose agents/_arjuna_core.py - COMPLETE
+**Impact**: Medium | **Risk**: Medium | **Completed**: 2026-01-27
+
+The arjuna package is now fully self-contained with 12 modules (3,138 lines total):
+- `constants.py` - Knowledge bases and configuration
+- `tools.py` - Intent execution tools
+- `context.py` - System context gathering
+- `standup.py` - Standup-related methods
+- `focus.py` - Focus recommendations
+- `mcp_handler.py` - MCP command handling
+- `chain_executor.py` - Chain command execution
+- `intents.py` - Intent parsing/execution
+- `tickets.py` - Ticket CRUD operations
+- `core.py` - ArjunaAgentCore class (main entry point)
+- `adapters.py` - Module-level adapter functions
+- `__init__.py` - Package exports and aliases
+
+Legacy `_arjuna_core.py` (2,466 lines) - **DELETED**
+
+**Commit**: 16cb355
+
+---
+
+### Priority 5: ✅ Decompose agents/dikw_synthesizer.py - COMPLETE
+**Impact**: Medium | **Risk**: Low | **Completed**: 2026-01-27
+
+The dikw_synthesizer package was already complete with 5 modules:
+- `constants.py` - DIKW_LEVELS, prompts, level descriptions
+- `agent.py` - DIKWSynthesizerAgent class
+- `visualization.py` - Mindmap, graph, tag cluster builders
+- `adapters.py` - Backward-compatible adapter functions
+- `__init__.py` - Package exports
+
+Legacy `dikw_synthesizer.py` (1,201 lines) - **DELETED**
+
+**Commit**: 16cb355
 
 ---
 
@@ -460,24 +502,32 @@ src/
 ### 1.2 Create Protocol-based Interfaces
 | File | Status | Notes |
 |------|--------|-------|
-| `core/ports/protocols.py` | ✅ DONE | All protocols: Database, Repositories, Services |
+| `core/ports/protocols.py` | ✅ DONE | All 15 protocols: Database, Repositories, Services, External |
 | `core/ports/__init__.py` | ✅ DONE | Exports both new Protocols and legacy ABC (deprecated) |
-| `core/ports/external.py` | ⬜ TODO | PocketClient, StorageProvider |
+| `PocketClientProtocol` | ✅ DONE | In protocols.py - get_recordings, get_transcript, get_mindmap |
+| `StorageProtocol` | ✅ DONE | In protocols.py - upload, download, delete, list |
+| `LLMProtocol` | ✅ DONE | In protocols.py - complete, chat, stream_chat |
+| `EmbeddingProtocol` | ✅ DONE | In protocols.py - embed, embed_batch |
+
+**Status: COMPLETE** - No separate external.py needed; all protocols in protocols.py
 
 ### 1.3 Update Existing Adapters
 | File | Status | Notes |
 |------|--------|-------|
-| `adapters/database/supabase.py` | ⬜ TODO | Implement repository protocols |
-| `adapters/embedding/openai.py` | ⬜ TODO | Implement embedding protocol |
-| `adapters/storage/supabase.py` | ⬜ TODO | Implement storage protocol |
+| `adapters/database/supabase.py` | ✅ DONE | SupabaseDatabaseAdapter + 5 repository classes (576 lines) |
+| `adapters/database/sqlite.py` | ✅ DONE | SQLiteDatabaseAdapter for local development |
+| `adapters/embedding/openai.py` | ✅ DONE | OpenAI embedding implementation |
+| `adapters/embedding/local.py` | ✅ DONE | Local sentence-transformers implementation |
+| `adapters/storage/supabase.py` | ✅ DONE | Supabase Storage implementation |
+| `adapters/storage/local.py` | ✅ DONE | Local filesystem implementation |
 
-**Note**: Phase 1.3 was skipped during initial development. The repository pattern was implemented directly in `repositories/` without the formal adapter layer. Consider consolidating infrastructure code into adapters/ folder in a future cleanup phase.
+**Status: COMPLETE** - All adapters implement their respective protocols.
 
 ---
 
 ## Phase 2: Decompose Large Files
 
-### 2.1 main.py (4858 lines) → Application Layer
+### 2.1 main.py (4858→117 lines) → Application Layer - COMPLETE
 | Extract To | Status | Lines | Description |
 |------------|--------|-------|-------------|
 | `api/dikw.py` | ✅ DONE | ~400 | DIKW CRUD, promotion, merge, validation |
@@ -487,10 +537,11 @@ src/
 | `api/reports.py` | ✅ DONE | ~550 | Reports, analytics, burndown |
 | `api/evaluations.py` | ✅ DONE | ~250 | LangSmith evaluations |
 | `api/pocket.py` | ✅ DONE | ~400 | Pocket integration routes |
-| `api/routes/dashboard.py` | ⬜ TODO | ~300 | Dashboard routes |
-| `application/startup.py` | ⬜ TODO | ~100 | App initialization |
+| `domains/dashboard/api/*` | ✅ DONE | ~300 | Dashboard routes (quick_ask, highlights, context) |
+| `services/startup.py` | ✅ DONE | ~40 | App initialization |
+| `routers.py` | ✅ DONE | ~115 | Centralized router registration |
 
-**Progress: ~2700 lines extracted (~55% of main.py)**
+**Status: COMPLETE** - main.py reduced from 4,858 to **117 lines** (97.6% reduction)
 
 ### 2.2 career.py (2947 lines) → Career Domain
 | Extract To | Status | Lines | Description |
@@ -558,20 +609,25 @@ src/
 
 **Architecture**: Uses mixin composition pattern. ArjunaAgentCore inherits from all mixins for clean separation of concerns while maintaining a unified agent interface.
 
-### 2.4 Other Large Files
+### 2.4 Other Large Files - COMPLETE
 | File | Lines | Target | Status | Notes |
 |------|-------|--------|--------|-------|
-| `api/career.py` | 2779 | domains/career/api/ | ✅ 100%+ Complete | 68 domain routes (exceeds 64 legacy) |
-| `services/background_jobs.py` | 1417→40 | Split by job type | ✅ DONE | cf009ec - 97% reduction via package extraction |
-| `api/search.py` | 1285 | domains/search/api/ | 🟡 Partial | Some routes migrated |
-| `agents/dikw_synthesizer.py` | 1201 | agents/dikw_synthesizer/ | ✅ DONE | Package extracted |
-| `main.py` | 1235 | Acceptable | ✅ OK | Application setup |
-| `career_repository.py` | 1133 | Acceptable | ✅ OK | Repository pattern |
+| `api/career.py` | 2779 | domains/career/api/ | ✅ DELETED | 68 domain routes - Phase 3.1 |
+| `api/search.py` | 1299 | domains/search/api/ | ✅ DELETED | 10 domain routes - Phase 3.1 |
+| `api/knowledge_graph.py` | 811 | domains/knowledge_graph/api/ | ✅ DELETED | 7 domain routes - Phase 3.1 |
+| `api/dikw.py` | 661 | domains/dikw/api/ | ✅ DELETED | 20 domain routes - Phase 3.1 |
+| `services/background_jobs.py` | 1417→40 | Split by job type | ✅ DONE | cf009ec - 97% reduction |
+| `agents/dikw_synthesizer.py` | 1201 | agents/dikw_synthesizer/ | ✅ DELETED | Package complete - Phase 3.5 |
+| `agents/_arjuna_core.py` | 2466 | agents/arjuna/ | ✅ DELETED | Package complete - Phase 3.4 |
+| `main.py` | 4858→117 | Decomposed | ✅ DONE | 97.6% reduction |
+| `career_repository.py` | 1133 | Acceptable | ✅ OK | Repository pattern (acceptable size) |
 | `meetings.py` | 1102 | domains/meetings/api/ | ✅ DONE | 17 routes extracted |
-| `api/assistant.py` | 987→345 | Slim via adapters | ✅ DONE | 9e4da24 - 65% reduction via async adapters |
-| `db.py` | 961 | DEPRECATED | ✅ SKIPPED | Legacy SQLite - documented migration path exists |
-| `api/v1/imports.py` | 961→pkg | Split by import type | ✅ DONE | 3440d9f - Package with 6 modules (<270 lines each) |
-| `tickets.py` | 888 | domains/tickets/api/ | ✅ DONE | 12 routes extracted |
+| `api/assistant.py` | 987→345 | Slim via adapters | ✅ DONE | 9e4da24 - 65% reduction |
+| `db.py` | 998 | DEPRECATED | ✅ DELETED | Phase 3.3 - SQLite removed |
+| `api/v1/imports.py` | 961→pkg | Split by import type | ✅ DONE | 3440d9f - 6 modules |
+| `tickets.py` | 911 | domains/tickets/api/ | ✅ DEPRECATED | 27 domain routes |
+
+**Status: COMPLETE** - All files >900 lines addressed. Largest remaining is career_repository.py (1133 lines) which is acceptable for a repository.
 
 ### 2.4a Career Domain Migration Detail (Completed 2026-01-27)
 | Domain File | Routes | Notes |
@@ -662,6 +718,8 @@ v0agent/
 │   └── app/                    # BACKEND (Python FastAPI)
 │       ├── api/                # HTTP handlers (versioned)
 │       │   ├── v1/             # Stable public API
+│       │   ├── responses.py    # ✅ Standardized response models
+│       │   ├── versioning.py   # ✅ API version middleware
 │       │   └── internal/       # Admin/internal endpoints
 │       ├── core/               # Domain layer (business logic)
 │       ├── adapters/           # Infrastructure adapters
@@ -670,15 +728,20 @@ v0agent/
 │
 ├── sdk/                        # CLIENT SDK (Python)
 │   ├── signalflow/             # Package name
-│   │   ├── __init__.py
-│   │   ├── client.py           # Main client class
-│   │   ├── analyst.py          # Analyst SDK (LangSmith, reports)
-│   │   ├── meetings.py         # Meeting operations
-│   │   ├── tickets.py          # Ticket operations
-│   │   ├── career.py           # Career operations
-│   │   └── models.py           # Shared Pydantic models
-│   ├── setup.py                # Package setup
-│   └── README.md               # SDK documentation
+│   │   ├── __init__.py         # ✅ Package exports
+│   │   ├── client.py           # ✅ Sync client (5 domain clients)
+│   │   ├── async_client.py     # ✅ Async client (httpx-based)
+│   │   ├── analyst.py          # ✅ Analyst SDK (LangSmith)
+│   │   ├── models.py           # ✅ Pydantic models
+│   │   ├── pyproject.toml      # ✅ PyPI packaging
+│   │   ├── README.md           # ✅ SDK documentation
+│   │   └── tests/              # ✅ Unit tests
+│   │       ├── test_client.py
+│   │       └── test_async_client.py
+│
+├── docs/
+│   └── api/
+│       └── openapi.json        # ✅ Auto-generated (363 endpoints)
 │
 ├── mobile/                     # MOBILE CLIENT (React Native)
 │   └── src/
@@ -690,22 +753,57 @@ v0agent/
     └── src/
 ```
 
-### 5.1 Extract Python SDK
+### 5.1 Extract Python SDK ✅ COMPLETE
 | Task | Status | Notes |
 |------|--------|-------|
-| Move `src/app/sdk/` to `sdk/signalflow/` | ⬜ TODO | Standalone package |
-| Extract LangSmith client wrapper | ⬜ TODO | `sdk/signalflow/analyst.py` |
-| Create typed models with Pydantic | ⬜ TODO | `sdk/signalflow/models.py` |
-| Add async support | ⬜ TODO | Both sync and async clients |
-| Package for PyPI | ⬜ TODO | `pip install signalflow-sdk` |
+| Move SDK to `sdk/signalflow/` | ✅ DONE | Standalone package |
+| Add async support | ✅ DONE | `async_client.py` with httpx |
+| Create typed models with Pydantic | ✅ DONE | `models.py` with full types |
+| Add SDK unit tests | ✅ DONE | `tests/test_client.py`, `test_async_client.py` |
+| Package for PyPI | ✅ DONE | `pyproject.toml`, `README.md`, `py.typed` |
 
-### 5.2 Define API Contracts
+**SDK Features:**
+- Sync client: `SignalFlowClient` with 5 domain clients
+- Async client: `AsyncSignalFlowClient` for concurrent operations
+- Domain clients: meetings, signals, tickets, knowledge (DIKW), career
+- Full type hints with Pydantic models
+- Optional dependencies: `[async]`, `[analyst]`, `[all]`, `[dev]`
+
+### 5.2 Define API Contracts ✅ COMPLETE
 | Task | Status | Notes |
 |------|--------|-------|
-| OpenAPI spec generation | ⬜ TODO | Auto-generate from FastAPI |
-| Response model validation | ⬜ TODO | Consistent API responses |
-| Error standardization | ⬜ TODO | Error codes and messages |
-| Version headers | ⬜ TODO | API versioning support |
+| OpenAPI spec generation | ✅ DONE | `scripts/generate_openapi.py` → 363 endpoints |
+| Response model validation | ✅ DONE | `api/responses.py` with APIResponse, APIListResponse |
+| Error standardization | ✅ DONE | ErrorCode enum, ErrorDetail, APIException |
+| Version headers | ✅ DONE | `api/versioning.py` with X-API-Version middleware |
+
+**API Response Structure:**
+```python
+# Success response
+{
+    "success": true,
+    "data": {...},
+    "meta": {"timestamp": "...", "version": "1.0"}
+}
+
+# List response
+{
+    "success": true,
+    "data": [...],
+    "pagination": {"page": 1, "total_items": 100, ...},
+    "meta": {...}
+}
+
+# Error response
+{
+    "success": false,
+    "error": {
+        "code": "NOT_FOUND",
+        "message": "Meeting not found",
+        "detail": "No meeting with id=123"
+    }
+}
+```
 
 ### 5.3 Mobile Client Updates
 | Task | Status | Notes |

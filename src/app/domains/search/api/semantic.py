@@ -12,8 +12,8 @@ from typing import Optional, List, Dict, Any
 import os
 import logging
 
-from src.app.infrastructure.supabase_client import get_supabase_client
-from src.app.api.models import (
+from ....infrastructure.supabase_client import get_supabase_client
+from ....api.models import (
     SemanticSearchRequest,
     SearchResultItem,
     SearchResponse,

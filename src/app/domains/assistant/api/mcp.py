@@ -12,9 +12,9 @@ from typing import Optional
 import json
 import logging
 
-from src.app.infrastructure.supabase_client import get_supabase_client
-from src.app.mcp.registry import TOOL_REGISTRY
-from src.app.mcp.schemas import MCPCall
+from ....infrastructure.supabase_client import get_supabase_client
+from ....mcp.registry import TOOL_REGISTRY
+from ....mcp.schemas import MCPCall
 
 logger = logging.getLogger(__name__)
 

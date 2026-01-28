@@ -37,6 +37,7 @@ def register_routers(app: FastAPI) -> None:
     from .domains.dashboard import router as dashboard_domain_router
     from .domains.signals import signals_router as signals_domain_router
     from .domains.search.api import router as search_domain_router
+    from .domains.search.api import fulltext_router as search_fulltext_router
     from .domains.knowledge_graph import router as knowledge_graph_domain_router
     
     app.include_router(career_domain_router, prefix="/api/domains")
@@ -68,6 +69,7 @@ def register_routers(app: FastAPI) -> None:
     from .api.workflow import router as workflow_router
     from .api.notifications import router as notifications_router
     from .api.shortcuts import router as shortcuts_router
+    from .api.versioning import version_router
     
     app.include_router(v1_router)
     app.include_router(mobile_router)
@@ -82,6 +84,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(workflow_router)
     app.include_router(notifications_router)
     app.include_router(shortcuts_router)
+    app.include_router(version_router)
     
     # =========================================================================
     # LEGACY ROUTERS (Being Migrated to Domain Architecture)
@@ -91,7 +94,7 @@ def register_routers(app: FastAPI) -> None:
     
     from .meetings import router as meetings_router
     from .documents import router as documents_router
-    from .search import router as search_router
+    # Legacy search.py moved to domains/search/api/fulltext.py
     from .query import router as query_router
     from .signals import router as signals_router
     from .tickets import router as tickets_router
@@ -105,7 +108,7 @@ def register_routers(app: FastAPI) -> None:
     
     app.include_router(meetings_router)
     app.include_router(documents_router)
-    app.include_router(search_router)
+    app.include_router(search_fulltext_router)  # Legacy /search HTML template route
     app.include_router(query_router)
     app.include_router(signals_router)
     app.include_router(tickets_router)

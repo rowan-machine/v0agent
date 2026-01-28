@@ -6,10 +6,10 @@ Provides unified search across all entity types:
 - Keyword search
 - Semantic (vector) search  
 - Hybrid search (RRF fusion)
-- Mindmap search
+- Full-text search with HTML templates
 - Smart suggestions
 """
 
-from .api import router
+from .api import router, fulltext_router
 
-__all__ = ["router"]
+__all__ = ["router", "fulltext_router"]

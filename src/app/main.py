@@ -25,6 +25,7 @@ load_dotenv()
 from .auth import AuthMiddleware
 from .routers import register_routers
 from .services.startup import initialize_app
+from .api.versioning import APIVersionMiddleware, version_router, API_VERSION
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -33,7 +34,8 @@ logger = logging.getLogger(__name__)
 # API CONFIGURATION
 # =============================================================================
 
-API_VERSION = "1.0.0"
+# Use version from centralized versioning module
+# API_VERSION imported from .api.versioning
 API_DESCRIPTION = """
 # SignalFlow API
 
@@ -81,6 +83,7 @@ app = FastAPI(
 # MIDDLEWARE & STATIC FILES
 # =============================================================================
 
+app.add_middleware(APIVersionMiddleware)
 app.add_middleware(AuthMiddleware)
 
 STATIC_DIR = "src/app/static"

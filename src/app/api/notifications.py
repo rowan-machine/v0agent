@@ -41,9 +41,12 @@ async def get_notifications(limit: int = 10):
         result = []
         for n in notifications:
             n_dict = n.to_dict()
-            # Parse action_url from data if available
+            # Parse action_url and link from data if available
+            # Bell dropdown uses 'link', notifications page uses 'action_url'
             if n.data and isinstance(n.data, dict):
-                n_dict['action_url'] = n.data.get('action_url', '')
+                action_url = n.data.get('action_url', '') or n.data.get('link', '')
+                n_dict['action_url'] = action_url
+                n_dict['link'] = action_url  # Bell dropdown expects 'link'
             result.append(n_dict)
         
         return JSONResponse({"notifications": result})
