@@ -84,11 +84,10 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(shortcuts_router)
     
     # =========================================================================
-    # LEGACY ROUTERS (Deprecated - Being Migrated)
+    # LEGACY ROUTERS (Being Migrated to Domain Architecture)
     # =========================================================================
-    # These routers are being replaced by domain routers above.
-    # They emit DeprecationWarning when imported.
-    # TODO: Remove these once all clients migrate to /api/domains/* endpoints.
+    # These routers will be migrated to domain routers above.
+    # Removed in Phase 3: api/search.py, api/knowledge_graph.py, api/dikw.py, api/career.py
     
     from .meetings import router as meetings_router
     from .documents import router as documents_router
@@ -102,9 +101,6 @@ def register_routers(app: FastAPI) -> None:
     from .api.accountability import router as accountability_router
     from .api.settings import router as settings_router
     from .api.assistant import router as assistant_router
-    from .api.search import router as api_search_router
-    from .api.knowledge_graph import router as knowledge_graph_router
-    from .api.dikw import router as dikw_router
     from .api.mindmap import router as mindmap_router
     
     app.include_router(meetings_router)
@@ -119,7 +115,4 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(accountability_router)
     app.include_router(settings_router)
     app.include_router(assistant_router)
-    app.include_router(api_search_router)
-    app.include_router(knowledge_graph_router)
-    app.include_router(dikw_router)
     app.include_router(mindmap_router)
