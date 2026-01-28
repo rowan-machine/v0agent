@@ -12,6 +12,7 @@ from .progress import router as progress_router
 from .timer import router as timer_router
 from .jobs import router as jobs_router
 from .tracing import router as tracing_router
+from .user_status import router as user_status_router
 
 router = APIRouter(tags=["workflow"])
 
@@ -21,5 +22,6 @@ router.include_router(progress_router)
 router.include_router(timer_router)
 router.include_router(jobs_router)
 router.include_router(tracing_router)
+router.include_router(user_status_router)
 
 __all__ = ["router"]

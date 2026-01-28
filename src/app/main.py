@@ -40,6 +40,9 @@ from .api.workflow import router as workflow_router  # Workflow modes & timer (R
 from .api.reports import router as reports_router  # Reports & analytics (Refactor Phase 2)
 from .api.evaluations import router as evaluations_router  # LangSmith evaluations (Refactor Phase 2)
 from .api.pocket import router as pocket_router  # Pocket integration (Refactor Phase 2)
+from .api.auth import router as auth_router  # Authentication (Refactor Phase 2.9)
+from .api.pages import router as pages_router  # Page renders (Refactor Phase 2.9)
+from .api.ai_endpoints import router as ai_endpoints_router  # AI endpoints (Refactor Phase 2.9)
 # New domain-driven routers (Phase 3 - Domain Decomposition)
 from .domains.career.api import router as career_domain_router
 from .domains.dikw.api import router as dikw_domain_router
@@ -50,13 +53,10 @@ from .domains.dashboard import router as dashboard_domain_router  # Dashboard (R
 from .domains.signals import signals_router as signals_domain_router  # Signals (Refactor Phase 2.8)
 from .mcp.registry import TOOL_REGISTRY
 from .llm import ask as ask_llm
-from .auth import (
-    AuthMiddleware, get_login_page, create_session, 
-    destroy_session, get_auth_password, hash_password
-)
+from .auth import AuthMiddleware
 from .integrations.pocket import PocketClient, extract_latest_summary, extract_transcript_text, extract_mind_map, extract_action_items, get_all_summary_versions, get_all_mind_map_versions
 from .services import meeting_service, document_service, ticket_service
-from .repositories import get_signal_repository, get_settings_repository
+from .repositories import get_signal_repository
 from .infrastructure.supabase_client import get_supabase_client
 from typing import Optional
 
@@ -65,7 +65,6 @@ supabase = get_supabase_client()
 
 # Repository instances
 signal_repo = get_signal_repository()
-settings_repo = get_settings_repository()
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -169,52 +168,6 @@ def startup():
             print("✅ Background job scheduler initialized")
     except Exception as e:
         print(f"⚠️ Scheduler init failed (non-fatal): {e}")
-
-
-# -------------------------
-# Authentication Routes
-# -------------------------
-
-@app.get("/login")
-def login_page(request: Request, error: str = None, next: str = "/"):
-    """Show login page."""
-    return HTMLResponse(get_login_page(error=error, next_url=next))
-
-
-@app.post("/auth/login")
-async def do_login(request: Request, password: str = Form(...), next: str = Form("/")):
-    """Process login."""
-    expected_hash = hash_password(get_auth_password())
-    provided_hash = hash_password(password)
-    
-    if provided_hash != expected_hash:
-        return HTMLResponse(get_login_page(error="Invalid access code", next_url=next))
-    
-    # Create session
-    user_agent = request.headers.get("user-agent", "")
-    token = create_session(user_agent)
-    
-    response = RedirectResponse(url=next, status_code=302)
-    response.set_cookie(
-        key="signalflow_session",
-        value=token,
-        httponly=True,
-        max_age=60 * 60 * 24 * 7,  # 1 week
-        samesite="lax",
-    )
-    return response
-
-
-@app.get("/logout")
-def logout(request: Request):
-    """Logout and destroy session."""
-    token = request.cookies.get("signalflow_session")
-    if token:
-        destroy_session(token)
-    
-    response = RedirectResponse(url="/login", status_code=302)
-    response.delete_cookie("signalflow_session")
-    return response
 
 
 # -------------------------
@@ -524,67 +477,17 @@ def dashboard(request: Request):
     )
 
 
-@app.get("/profile")
-def profile_page(request: Request):
-    """Profile router page with links to settings, career, and account."""
-    user_name = os.getenv("USER_NAME", "Rowan")
-    return templates.TemplateResponse("profile.html", {"request": request, "user_name": user_name})
-
-
-@app.get("/settings")
-def settings_page(request: Request):
-    """Settings page."""
-    return templates.TemplateResponse("settings.html", {"request": request})
-
-
-@app.get("/career")
-def career_page(request: Request):
-    """Career development page."""
-    return templates.TemplateResponse("career.html", {"request": request})
-
-
-@app.get("/notifications")
-def notifications_page(request: Request):
-    """Notifications inbox page."""
-    return templates.TemplateResponse("notifications.html", {"request": request})
-
-
-@app.get("/account")
-def account_page(request: Request):
-    """Account page."""
-    user_name = os.getenv("USER_NAME", "Rowan")
-    return templates.TemplateResponse("account.html", {"request": request, "user_name": user_name})
-
-
-@app.get("/dikw")
-def dikw_page(request: Request):
-    """DIKW Pyramid page for knowledge management."""
-    return templates.TemplateResponse("dikw.html", {"request": request})
-
-
-@app.get("/knowledge-graph")
-def knowledge_graph_page(request: Request):
-    """Knowledge Synthesis page - AI-generated synthesis from mindmaps."""
-    return templates.TemplateResponse("knowledge_synthesis.html", {"request": request})
-
-
-@app.post("/api/signals/feedback")
-async def signal_feedback(request: Request):
-    """Store thumbs up/down feedback for signals."""
-    data = await request.json()
-    meeting_id = data.get("meeting_id")
-    signal_type = data.get("signal_type")
-    signal_text = data.get("signal_text")
-    feedback = data.get("feedback")  # 'up', 'down', or None to remove
-    
-    if feedback is None:
-        # Remove feedback using repository
-        signal_repo.delete_feedback(meeting_id, signal_type, signal_text)
-    else:
-        # Upsert feedback using repository
-        signal_repo.upsert_feedback(meeting_id, signal_type, signal_text, feedback)
-    
-    return JSONResponse({"status": "ok"})
+# =============================================================================
+# SIGNAL ROUTES - MIGRATED TO DOMAIN
+# =============================================================================
+# The following signal routes have been moved to domains/signals/api/status.py:
+# - POST /api/signals/feedback
+# - POST /api/signals/status
+# - POST /api/signals/convert-to-ticket
+# - GET /api/signals/unprocessed
+#
+# The signals_domain_router handles these paths.
+# =============================================================================
 
 
 # =============================================================================
@@ -615,345 +518,29 @@ async def signal_feedback(request: Request):
 #     pass
 
 
-# -------------------------
-# Signal Feedback API
-# -------------------------
+# =============================================================================
+# AI ROUTES - MIGRATED TO ROUTER
+# =============================================================================
+# The following routes have been moved to api/ai_endpoints.py:
+# - POST /api/ai/draft-summary
+# - POST /api/ai-memory/save
+# - POST /api/ai-memory/reject
+# - POST /api/ai-memory/to-action
+#
+# The ai_endpoints_router handles these paths.
+# =============================================================================
 
 
-# -------------------------
-# Signal Status API
-# -------------------------
-
-@app.post("/api/signals/status")
-async def update_signal_status(request: Request):
-    """Update signal status (approve/reject/archive/complete)."""
-    data = await request.json()
-    meeting_id = data.get("meeting_id")
-    signal_type = data.get("signal_type")
-    signal_text = data.get("signal_text")
-    status = data.get("status")  # pending, approved, rejected, archived, completed
-    notes = data.get("notes", "")
-    
-    if not all([meeting_id, signal_type, signal_text, status]):
-        return JSONResponse({"error": "Missing required fields"}, status_code=400)
-    
-    # Use signal repository for status update
-    signal_repo.upsert_status(meeting_id, signal_type, signal_text, status, notes)
-    
-    return JSONResponse({"status": "ok", "new_status": status})
-
-
-@app.post("/api/signals/convert-to-ticket")
-async def convert_signal_to_ticket(request: Request):
-    """Convert a signal item into a ticket/action item."""
-    data = await request.json()
-    meeting_id = data.get("meeting_id")
-    signal_type = data.get("signal_type")
-    signal_text = data.get("signal_text")
-    
-    if not all([meeting_id, signal_type, signal_text]):
-        return JSONResponse({"error": "Missing required fields"}, status_code=400)
-    
-    # Get meeting name from Supabase for context
-    meeting_name = meeting_service.get_meeting_name(meeting_id) or "Unknown Meeting"
-    
-    # Generate ticket ID from Supabase
-    next_num = ticket_service.get_next_ticket_number()
-    ticket_id = f"SIG-{next_num}"
-    
-    # Determine priority based on signal type
-    priority_map = {"blocker": "high", "risk": "high", "action_item": "medium", "decision": "low", "idea": "low"}
-    priority = priority_map.get(signal_type, "medium")
-    
-    # Create ticket in Supabase (still using direct access - TODO: add to ticket_repository)
-    ticket_result = supabase.table("tickets").insert({
-        "ticket_id": ticket_id,
-        "title": signal_text[:100],
-        "description": f"Signal from: {meeting_name}\n\nOriginal Signal ({signal_type}):\n{signal_text}",
-        "status": "backlog",
-        "priority": priority,
-        "ai_summary": f"Converted from {signal_type} signal: {signal_text[:150]}..."
-    }).execute()
-    
-    ticket_db_id = ticket_result.data[0]["id"] if ticket_result.data else None
-    
-    # Update signal status using repository
-    signal_repo.upsert_status(
-        meeting_id, signal_type, signal_text, "completed",
-        converted_to="ticket", converted_ref_id=ticket_db_id
-    )
-    
-    return JSONResponse({"status": "ok", "ticket_id": ticket_id, "ticket_db_id": ticket_db_id})
-
-
-# -------------------------
-# AI Transcript Summarization API
-# -------------------------
-
-@app.post("/api/ai/draft-summary")
-async def draft_summary_from_transcript_api(request: Request):
-    """
-    Generate a structured meeting summary from a transcript using GPT-4o.
-    
-    This endpoint does not require a meeting ID - useful for Load Bundle flow
-    where the meeting doesn't exist yet.
-    
-    Model: gpt-4o (configured in model_routing.yaml task_type: transcript_summarization)
-    
-    Body:
-        - transcript: The meeting transcript text (required)
-        - meeting_name: Name of the meeting (optional, default: "Meeting")
-        - focus_areas: List of areas to emphasize (optional)
-    
-    Returns:
-        - status: "draft_generated" or "error"
-        - draft_summary: Structured summary in template format
-        - model_used: "gpt-4o"
-    """
-    from .mcp.tools import draft_summary_from_transcript
-    
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-    
-    transcript = body.get("transcript", "")
-    meeting_name = body.get("meeting_name", "Meeting")
-    focus_areas = body.get("focus_areas", [])
-    
-    if not transcript or len(transcript) < 100:
-        return JSONResponse({
-            "status": "error",
-            "error": "Transcript too short. Provide at least 100 characters."
-        }, status_code=400)
-    
-    # Call the MCP tool which uses GPT-4o
-    result = draft_summary_from_transcript({
-        "transcript": transcript,
-        "meeting_name": meeting_name,
-        "focus_areas": focus_areas
-    })
-    
-    if result.get("status") == "error" or result.get("error"):
-        return JSONResponse({
-            "status": "error",
-            "error": result.get("error", "Unknown error during summarization")
-        }, status_code=500)
-    
-    return JSONResponse({
-        "status": "draft_generated",
-        "draft_summary": result.get("draft_summary"),
-        "model_used": result.get("model_used", "gpt-4o"),
-        "meeting_name": meeting_name,
-        "instructions": "Review and edit this summary, then save with your meeting."
-    })
-
-
-# -------------------------
-# AI Memory API
-# -------------------------
-
-@app.post("/api/ai-memory/save")
-async def save_ai_memory(request: Request):
-    """Save an AI response to memory (approve)."""
-    data = await request.json()
-    source_type = data.get("source_type", "quick_ask")
-    source_query = data.get("query", "")
-    content = data.get("content", "")
-    tags = data.get("tags", "")
-    importance = data.get("importance", 5)
-    
-    if not content:
-        return JSONResponse({"error": "Content is required"}, status_code=400)
-    
-    result = supabase.table("ai_memory").insert({
-        "source_type": source_type,
-        "source_query": source_query,
-        "content": content,
-        "status": "approved",
-        "tags": tags,
-        "importance": importance
-    }).execute()
-    
-    memory_id = result.data[0]["id"] if result.data else None
-    
-    return JSONResponse({"status": "ok", "memory_id": memory_id})
-
-
-@app.post("/api/ai-memory/reject")
-async def reject_ai_response(request: Request):
-    """Mark an AI response as rejected (don't save to memory)."""
-    data = await request.json()
-    source_query = data.get("query", "")
-    content = data.get("content", "")
-    
-    # We can optionally log rejected responses for ML training
-    supabase.table("ai_memory").insert({
-        "source_type": "quick_ask",
-        "source_query": source_query,
-        "content": content[:500],  # Store truncated for training feedback
-        "status": "rejected",
-        "importance": 0
-    }).execute()
-    
-    return JSONResponse({"status": "ok"})
-
-
-@app.post("/api/ai-memory/to-action")
-async def convert_ai_to_action(request: Request):
-    """Convert an AI response into a ticket/action item."""
-    data = await request.json()
-    content = data.get("content", "")
-    query = data.get("query", "")
-    
-    if not content:
-        return JSONResponse({"error": "Content is required"}, status_code=400)
-    
-    # Generate ticket ID from Supabase
-    next_num = ticket_service.get_next_ticket_number()
-    ticket_id = f"AI-{next_num}"
-    
-    # Extract first line as title
-    title = content.split('\n')[0][:100].strip('*#- ')
-    if not title:
-        title = query[:100] if query else "AI Generated Action Item"
-    
-    # Create ticket in Supabase
-    result = supabase.table("tickets").insert({
-        "ticket_id": ticket_id,
-        "title": title,
-        "description": f"From AI Query: {query}\n\nAI Response:\n{content}",
-        "status": "backlog",
-        "priority": "medium",
-        "ai_summary": f"AI insight: {content[:150]}..."
-    }).execute()
-    
-    ticket_db_id = result.data[0]["id"] if result.data else None
-    
-    return JSONResponse({"status": "ok", "ticket_id": ticket_id, "ticket_db_id": ticket_db_id})
-
-
-# ============================================
-# Reports Page (HTML template only - API routes in api/reports.py)
-# ============================================
-
-@app.get("/reports")
-async def reports_page(request: Request):
-    """Render the sprint reports page."""
-    return templates.TemplateResponse("reports.html", {"request": request})
-
-
-@app.post("/api/mode-timer/calculate-stats")
-async def calculate_mode_statistics():
-    """Calculate and store mode statistics for analytics."""
-    today = datetime.now().strftime("%Y-%m-%d")
-    week_start = (datetime.now() - timedelta(days=datetime.now().weekday())).strftime("%Y-%m-%d")
-    
-    # Calculate daily and weekly stats for each mode using settings repository
-    for mode in ['grooming', 'planning', 'standup', 'implementation']:
-        # Get daily sessions
-        daily_sessions = settings_repo.get_sessions_for_date(mode, today)
-        
-        if daily_sessions:
-            daily_total = sum(s["duration_seconds"] for s in daily_sessions)
-            daily_count = len(daily_sessions)
-            daily_avg = int(daily_total / daily_count) if daily_count > 0 else 0
-            
-            settings_repo.upsert_statistics(
-                mode, "daily", today, daily_total, daily_count, daily_avg
-            )
-        
-        # Get weekly sessions
-        weekly_sessions = settings_repo.get_sessions_since_date(mode, week_start)
-        
-        if weekly_sessions:
-            weekly_total = sum(s["duration_seconds"] for s in weekly_sessions)
-            weekly_count = len(weekly_sessions)
-            weekly_avg = int(weekly_total / weekly_count) if weekly_count > 0 else 0
-            
-            settings_repo.upsert_statistics(
-                mode, "weekly", week_start, weekly_total, weekly_count, weekly_avg
-            )
-    
-    return JSONResponse({"status": "ok", "calculated_at": datetime.now().isoformat()})
-
-
-# ============================================
-# User Status API Endpoints (AI-Interpreted)
-# ============================================
-
-@app.post("/api/user-status/update")
-async def update_user_status(request: Request):
-    """
-    AI-interpret user status and auto-start timer.
-    
-    Migration Note (P1.8): Uses ArjunaAgent adapter for status interpretation.
-    Lazy imports ensure backward compatibility.
-    """
-    # Lazy import for backward compatibility
-    from .agents.arjuna import interpret_user_status_adapter
-    
-    data = await request.json()
-    status_text = data.get("status", "").strip()
-    
-    if not status_text:
-        return JSONResponse({"error": "Status text required"}, status_code=400)
-    
-    # Use ArjunaAgent adapter for AI interpretation
-    interpreted = await interpret_user_status_adapter(status_text)
-    mode = interpreted.get("mode", "implementation")
-    activity = interpreted.get("activity", status_text)
-    context_str = interpreted.get("context", "")
-    
-    # Save status using settings repository
-    settings_repo.set_user_status(status_text, mode, activity, context_str)
-    
-    # Auto-start timer for the interpreted mode
-    # First stop any active timers
-    active_sessions = settings_repo.get_active_sessions()
-    
-    ended_at = datetime.now().isoformat()
-    for session in active_sessions:
-        try:
-            start_time = datetime.fromisoformat(session["started_at"].replace("Z", "+00:00").replace("+00:00", ""))
-            duration = int((datetime.now() - start_time).total_seconds())
-            settings_repo.end_session(session["id"], ended_at, duration)
-        except:
-            pass
-    
-    # Start new timer
-    today = datetime.now().strftime("%Y-%m-%d")
-    started_at = datetime.now().isoformat()
-    
-    settings_repo.start_session(mode, started_at, today, activity)
-    
-    return JSONResponse({
-        "status": "ok",
-        "interpreted": {
-            "mode": mode,
-            "activity": activity,
-            "context": context_str
-        }
-    })
-
-
-@app.get("/api/user-status/current")
-async def get_current_status():
-    """Get current user status."""
-    status = settings_repo.get_current_user_status()
-    
-    if not status:
-        return JSONResponse({"status": None})
-    
-    return JSONResponse({
-        "status": {
-            "text": status.get("status_text"),
-            "mode": status.get("interpreted_mode"),
-            "activity": status.get("interpreted_activity"),
-            "context": status.get("interpreted_context"),
-            "created_at": status.get("created_at")
-        }
-    })
+# =============================================================================
+# USER STATUS & MODE TIMER ROUTES - MIGRATED TO DOMAIN
+# =============================================================================
+# The following routes have been moved to domains/workflow/api/user_status.py:
+# - POST /api/user-status/update
+# - GET /api/user-status/current
+# - POST /api/mode-timer/calculate-stats
+#
+# The workflow_router handles these paths.
+# =============================================================================
 
 
 # NOTE: DIKW Pyramid API endpoints moved to api/dikw.py router (Refactor Phase 2)
@@ -969,68 +556,6 @@ async def get_current_status():
 # NOTE: Additional DIKW endpoints (backfill-tags, compress-dedupe, history, 
 # normalize-categories, auto-process) moved to api/dikw.py router (Refactor Phase 2)
 
-
-@app.get("/api/signals/unprocessed")
-async def get_unprocessed_signals():
-    """Get signals that haven't been promoted to DIKW yet."""
-    # Get meetings with signals from Supabase
-    meetings = meeting_service.get_meetings_with_signals(limit=20)
-    
-    # Get already processed signals using signal repository
-    processed = signal_repo.get_converted_signals("dikw")
-    
-    processed_set = set(
-        (p['meeting_id'], p['signal_type'], p['signal_text']) 
-        for p in processed
-    )
-    
-    unprocessed = []
-    for meeting in meetings:
-        try:
-            signals = meeting.get('signals', {})
-            for signal_type in ['decisions', 'action_items', 'blockers', 'risks', 'ideas']:
-                items = signals.get(signal_type, [])
-                if isinstance(items, list):
-                    for item in items:
-                        text = item if isinstance(item, str) else item.get('text', str(item))
-                        normalized_type = signal_type.rstrip('s')  # decisions -> decision
-                        if normalized_type == 'action_item':
-                            normalized_type = 'action_item'
-                        
-                        if (meeting['id'], normalized_type, text) not in processed_set:
-                            unprocessed.append({
-                                'meeting_id': meeting['id'],
-                                'meeting_name': meeting['meeting_name'],
-                                'signal_type': normalized_type,
-                                'text': text
-                            })
-        except:
-            pass
-    
-    return JSONResponse(unprocessed)
-
-
-@app.get("/meetings/new")
-def new_meeting(request: Request):
-    return templates.TemplateResponse(
-        "paste_meeting.html",
-        {"request": request},
-    )
-
-
-@app.get("/documents/new")
-def new_document(request: Request):
-    return templates.TemplateResponse(
-        "paste_doc.html",
-        {"request": request},
-    )
-
-@app.get("/meetings/load")
-def load_meeting_bundle_page(request: Request):
-    return templates.TemplateResponse(
-        "load_meeting_bundle.html",
-        {"request": request},
-    )
 
 @app.post("/meetings/load")
 async def load_meeting_bundle_ui(
@@ -1220,6 +745,9 @@ app.include_router(workflow_router)  # Workflow modes & timer (Refactor Phase 2)
 app.include_router(reports_router)  # Reports & analytics (Refactor Phase 2)
 app.include_router(evaluations_router)  # LangSmith evaluations (Refactor Phase 2)
 app.include_router(pocket_router)  # Pocket integration (Refactor Phase 2)
+app.include_router(auth_router)  # Authentication (Refactor Phase 2.9)
+app.include_router(pages_router)  # Page renders (Refactor Phase 2.9)
+app.include_router(ai_endpoints_router)  # AI endpoints (Refactor Phase 2.9)
 
 # =============================================================================
 # New Domain-Driven Routers (Phase 3 - Domain Decomposition)
