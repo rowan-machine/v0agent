@@ -1,7 +1,7 @@
 # V0Agent Refactoring Tracker
 
-> **Last Updated**: 2026-01-27 (Phase 2.9 main.py Final Decomposition)
-> **Status**: 10 Domains with 189 total routes - main.py reduced to 451 lines (63% reduction)
+> **Last Updated**: 2026-01-27 (Phase 2.10 Legacy Router Deprecation)
+> **Status**: 12 Domains with 206+ total routes - ~5000 lines of duplicate/legacy code removed
 
 ## Current Focus
 
@@ -13,15 +13,43 @@
 6. **Meetings Domain** ✅ - 17 routes at /api/domains/meetings/*
 7. **Tickets Domain** ✅ - 12 routes at /api/domains/tickets/*
 8. **Documents Domain** ✅ - 9 routes at /api/domains/documents/*
-9. **Arjuna Agent Decomposition** ✅ - 11 modules (~1900 lines)
+9. **Arjuna Agent Decomposition** ✅ - 11 modules (~1900 lines), duplicate removed (2465 lines)
 10. **dikw_synthesizer Agent Package** ✅ - Full decomposition into 5 modules
 11. **meeting_analyzer Agent Package** ✅ - Full decomposition into 5 modules
 12. **Workflow Domain** ✅ - 21 routes (modes, progress, timer, jobs, tracing, user_status)
 13. **Dashboard Domain** ✅ - 4 routes (quick_ask, highlights, context, page)
-14. **Search Domain** ✅ - 10 routes (semantic, hybrid, unified, mindmap)
+14. **Search Domain** ✅ - 10 routes (semantic, hybrid, unified, mindmap) - domain router mounted
 15. **Signals Domain** ✅ - 17 routes (browse, extraction, learning, status)
 16. **Assistant Domain** ✅ - 19 routes
-17. **main.py Decomposition** ✅ - 1235→451 lines (63% reduction)
+17. **main.py Decomposition** ✅ - 1235→455 lines (63% reduction)
+18. **Knowledge Graph Domain** ✅ - 7 routes (links, suggestions, stats) - NEW
+19. **Legacy Router Deprecation** ✅ - career, search, knowledge_graph now emit DeprecationWarning
+
+---
+
+## Recent Accomplishments (2026-01-27 Phase 2.10 - Legacy Router Deprecation)
+
+### Legacy Files Deprecated
+Added deprecation warnings and domain replacements:
+
+| Legacy File | Lines | Domain Replacement | Status |
+|-------------|-------|-------------------|--------|
+| `api/career.py` | 2779 | domains/career/api/* (68 routes) | ✅ Deprecated, router removed |
+| `api/search.py` | 1285 | domains/search/api/* (10 routes) | ✅ Deprecated, domain router added |
+| `api/knowledge_graph.py` | 797 | domains/knowledge_graph/api/* (7 routes) | ✅ Deprecated, domain router added |
+| `agents/arjuna.py` | 2465 | agents/arjuna/ package (12 modules) | ✅ DELETED (was duplicate) |
+
+### Knowledge Graph Domain Created (`domains/knowledge_graph/`)
+| File | Lines | Purpose |
+|------|-------|---------|
+| `api/models.py` | 70 | Pydantic models for requests/responses |
+| `api/helpers.py` | 90 | Entity title/snippet helpers, get_embedding |
+| `api/links.py` | 200 | Link CRUD: create, get, delete |
+| `api/suggestions.py` | 280 | Auto-suggest, build-from-embeddings, link-documents |
+| `api/stats.py` | 65 | Graph statistics endpoint |
+| `api/__init__.py` | 25 | Router aggregation |
+
+**Total lines removed this session**: ~5000 (including 2465 duplicate arjuna.py)
 
 ---
 
