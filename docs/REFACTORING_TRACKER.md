@@ -1,7 +1,7 @@
 # V0Agent Refactoring Tracker
 
-> **Last Updated**: 2026-01-27 (Phase 2.9 main.py Decomposition Complete)
-> **Status**: 10 Domains with 189 total routes - main.py reduced to 763 lines
+> **Last Updated**: 2026-01-27 (Phase 2.9 main.py Final Decomposition)
+> **Status**: 10 Domains with 189 total routes - main.py reduced to 451 lines (63% reduction)
 
 ## Current Focus
 
@@ -16,35 +16,45 @@
 9. **Arjuna Agent Decomposition** ✅ - 11 modules (~1900 lines)
 10. **dikw_synthesizer Agent Package** ✅ - Full decomposition into 5 modules
 11. **meeting_analyzer Agent Package** ✅ - Full decomposition into 5 modules
-12. **Workflow Domain** ✅ - 18 routes (modes, progress, timer, jobs, tracing)
-13. **Dashboard Domain** ✅ - 3 routes (quick_ask, highlights, context)
+12. **Workflow Domain** ✅ - 21 routes (modes, progress, timer, jobs, tracing, user_status)
+13. **Dashboard Domain** ✅ - 4 routes (quick_ask, highlights, context, page)
 14. **Search Domain** ✅ - 10 routes (semantic, hybrid, unified, mindmap)
 15. **Signals Domain** ✅ - 17 routes (browse, extraction, learning, status)
 16. **Assistant Domain** ✅ - 19 routes
-17. **main.py Decomposition** ✅ - 1235→763 lines (38% reduction)
+17. **main.py Decomposition** ✅ - 1235→451 lines (63% reduction)
 
 ---
 
 ## Recent Accomplishments (2026-01-27 Phase 2.9 - main.py Decomposition)
 
-### main.py Decomposition - Completed
-Extracted 25 routes from main.py to dedicated routers:
+### main.py Decomposition - Complete
+Extracted 26 routes from main.py to dedicated routers:
 
 | New File | Routes | Purpose |
 |----------|--------|---------|
 | `api/auth.py` | 3 | Login, logout, session management |
 | `api/pages.py` | 11 | Page render routes (profile, settings, etc.) |
 | `api/ai_endpoints.py` | 4 | AI memory and draft summary |
+| `api/dashboard_page.py` | 1 | Dashboard page with sprint/stats aggregation |
 | `domains/signals/api/status.py` | 4 | Signal feedback, status, conversion |
 | `domains/workflow/api/user_status.py` | 3 | User status, mode timer stats |
+| `services/startup.py` | - | Application initialization logic |
 
-**main.py remaining routes** (4):
-- `/health`, `/healthz` - Health checks (standard to keep in main)
-- `/` - Dashboard (complex data aggregation)
+**main.py remaining** (3 routes):
+- `/health`, `/healthz` - Health checks
 - `POST /meetings/load` - Meeting bundle form (complex file uploads)
 
-**Stats**: 1235→763 lines (38% reduction, 472 lines extracted)
-**Commit**: 4bbbc28
+**main.py now contains**:
+- FastAPI app configuration and OpenAPI docs
+- Health checks
+- Static file mounting  
+- Router includes (~30 routers)
+- Meeting bundle form handler
+
+**Stats**: 
+- First pass: 1235→763 lines (38% reduction) - Commit 4bbbc28
+- Second pass: 763→451 lines (41% reduction) - Commit 5a960c1
+- **Total**: 1235→451 lines (**63% reduction**, 784 lines extracted)
 
 ---
 
