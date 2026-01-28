@@ -2,19 +2,27 @@
 """
 Ticket Management - Sprint planning and tracking.
 
-This module handles ticket CRUD operations and delegates to TicketAgent
-(Checkpoint 2.7) for AI-powered features like summary generation,
-implementation planning, and task decomposition.
+⚠️  DEPRECATED: This file is being replaced by the domain-driven structure.
+New location: src/app/domains/tickets/api/
 
-Migration Status:
-- TicketAgent: src/app/agents/ticket_agent.py (new agent implementation)
-- This file: FastAPI routes + adapters (backward compatible)
+The domain provides:
+- /api/domains/tickets/items/* - CRUD operations
+- /api/domains/tickets/sprints/* - Sprint management  
+- /api/domains/tickets/ai/* - AI features (summary, plan, decomposition)
+- /api/domains/tickets/deployment/* - Deployment tracking
+- /api/domains/tickets/attachments/* - File attachments
 
-AI Features (delegated to TicketAgent):
-- generate-summary: Tag-aware ticket summaries
-- generate-plan: Claude Opus implementation planning  
-- generate-decomposition: Atomic task breakdown with estimates
+This file remains for backward compatibility with existing UI templates.
 """
+
+import warnings
+
+warnings.warn(
+    "tickets.py is deprecated. Use domains/tickets/api instead. "
+    "Template routes will be migrated in a future update.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 from fastapi import APIRouter, Request, Form, UploadFile, File
 from fastapi.responses import RedirectResponse, JSONResponse

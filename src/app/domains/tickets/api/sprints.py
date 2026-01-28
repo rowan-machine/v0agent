@@ -148,3 +148,166 @@ async def get_sprint_burndown(sprint_id: str):
             "percent_complete": round(completed_points / total_points * 100, 1) if total_points > 0 else 0
         }
     })
+
+
+@router.post("/clear")
+async def clear_sprint_tickets():
+    """Move all tickets out of the current sprint (to backlog)."""
+    from ....infrastructure.supabase_client import get_supabase_client
+    
+    try:
+        supabase = get_supabase_client()
+        
+        # Get count of tickets in sprint before update
+        count_result = supabase.table("tickets").select("id", count="exact").eq("in_sprint", True).execute()
+        updated_count = count_result.count or 0
+        
+        # Update all tickets in sprint to be out of sprint
+        supabase.table("tickets").update({
+            "in_sprint": False,
+            "updated_at": datetime.now().isoformat()
+        }).eq("in_sprint", True).execute()
+        
+        return JSONResponse({"status": "ok", "updated_count": updated_count})
+    except Exception as e:
+        logger.exception("Error clearing sprint tickets")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.post("/archive-time")
+async def archive_sprint_time():
+    """Archive all time tracked during the current sprint before starting a new one."""
+    from ....infrastructure.supabase_client import get_supabase_client
+    from datetime import timedelta
+    
+    try:
+        supabase = get_supabase_client()
+        
+        # Get current sprint settings
+        sprint_result = supabase.table("sprint_settings").select("*").eq("id", 1).single().execute()
+        sprint = sprint_result.data
+        
+        if not sprint:
+            return JSONResponse({"error": "No sprint settings found"}, status_code=400)
+        
+        sprint_name = sprint.get("sprint_name") or "Unnamed Sprint"
+        sprint_start = sprint["sprint_start_date"]
+        sprint_length = sprint.get("sprint_length_days") or 14
+        
+        # Calculate sprint end date
+        start_date = datetime.strptime(sprint_start, "%Y-%m-%d")
+        end_date = start_date + timedelta(days=sprint_length - 1)
+        sprint_end = end_date.strftime("%Y-%m-%d")
+        
+        # Get all completed sessions within the sprint date range
+        sessions_result = supabase.table("mode_sessions").select(
+            "id, mode, started_at, ended_at, duration_seconds, date, notes"
+        ).gte("date", sprint_start).lte("date", sprint_end).neq("ended_at", None).execute()
+        sessions = sessions_result.data or []
+        
+        if not sessions:
+            return JSONResponse({
+                "status": "ok", 
+                "archived_count": 0, 
+                "message": "No completed sessions found for this sprint period"
+            })
+        
+        # Archive the sessions
+        archived_count = 0
+        session_ids = []
+        for session in sessions:
+            supabase.table("archived_mode_sessions").insert({
+                "original_id": session["id"],
+                "mode": session["mode"],
+                "started_at": session["started_at"],
+                "ended_at": session["ended_at"],
+                "duration_seconds": session["duration_seconds"],
+                "date": session["date"],
+                "notes": session.get("notes"),
+                "sprint_name": sprint_name,
+                "sprint_start_date": sprint_start,
+                "sprint_end_date": sprint_end
+            }).execute()
+            archived_count += 1
+            session_ids.append(session["id"])
+        
+        # Delete the archived sessions from active table
+        if session_ids:
+            supabase.table("mode_sessions").delete().in_("id", session_ids).execute()
+        
+        # Calculate total time archived
+        total_seconds = sum(s.get("duration_seconds") or 0 for s in sessions)
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        
+        return JSONResponse({
+            "status": "ok",
+            "archived_count": archived_count,
+            "sprint_name": sprint_name,
+            "total_time": f"{hours}h {minutes}m",
+            "message": f"Archived {archived_count} sessions ({hours}h {minutes}m) from {sprint_name}"
+        })
+        
+    except Exception as e:
+        logger.exception("Error archiving sprint time")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@router.get("/archived-time")
+async def get_archived_sprint_time(sprint_name: str = None):
+    """Get archived time tracking data, optionally filtered by sprint name."""
+    from ....infrastructure.supabase_client import get_supabase_client
+    
+    try:
+        supabase = get_supabase_client()
+        
+        if sprint_name:
+            # Get sessions for a specific sprint - need to aggregate manually
+            sessions_result = supabase.table("archived_mode_sessions").select(
+                "mode, duration_seconds"
+            ).eq("sprint_name", sprint_name).execute()
+            
+            # Aggregate by mode
+            mode_stats = {}
+            for s in (sessions_result.data or []):
+                mode = s["mode"]
+                if mode not in mode_stats:
+                    mode_stats[mode] = {"mode": mode, "total_seconds": 0, "session_count": 0}
+                mode_stats[mode]["total_seconds"] += s.get("duration_seconds") or 0
+                mode_stats[mode]["session_count"] += 1
+            
+            sessions = list(mode_stats.values())
+            sprints = [{"sprint_name": sprint_name}]
+        else:
+            # Get all archived sprints summary - need to aggregate manually
+            all_sessions = supabase.table("archived_mode_sessions").select(
+                "sprint_name, sprint_start_date, sprint_end_date, duration_seconds"
+            ).order("sprint_start_date", desc=True).execute()
+            
+            # Aggregate by sprint
+            sprint_stats = {}
+            for s in (all_sessions.data or []):
+                name = s["sprint_name"]
+                if name not in sprint_stats:
+                    sprint_stats[name] = {
+                        "sprint_name": name,
+                        "sprint_start_date": s["sprint_start_date"],
+                        "sprint_end_date": s["sprint_end_date"],
+                        "total_seconds": 0,
+                        "session_count": 0
+                    }
+                sprint_stats[name]["total_seconds"] += s.get("duration_seconds") or 0
+                sprint_stats[name]["session_count"] += 1
+            
+            sprints = list(sprint_stats.values())
+            sessions = []
+        
+        return JSONResponse({
+            "status": "ok",
+            "sprints": sprints,
+            "sessions": sessions
+        })
+        
+    except Exception as e:
+        logger.exception("Error getting archived sprint time")
+        return JSONResponse({"error": str(e)}, status_code=500)
