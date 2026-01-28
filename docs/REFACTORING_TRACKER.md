@@ -1,7 +1,7 @@
 # V0Agent Refactoring Tracker
 
-> **Last Updated**: 2026-01-27 (Phase 2.4 Large Files Complete)
-> **Status**: 10 Domains with 189 total routes - Large file decomposition complete
+> **Last Updated**: 2026-01-27 (Phase 2.9 main.py Decomposition Complete)
+> **Status**: 10 Domains with 189 total routes - main.py reduced to 763 lines
 
 ## Current Focus
 
@@ -19,12 +19,36 @@
 12. **Workflow Domain** ✅ - 18 routes (modes, progress, timer, jobs, tracing)
 13. **Dashboard Domain** ✅ - 3 routes (quick_ask, highlights, context)
 14. **Search Domain** ✅ - 10 routes (semantic, hybrid, unified, mindmap)
-15. **Signals Domain** ✅ - 13 routes (browse, extraction, learning)
+15. **Signals Domain** ✅ - 17 routes (browse, extraction, learning, status)
 16. **Assistant Domain** ✅ - 19 routes
+17. **main.py Decomposition** ✅ - 1235→763 lines (38% reduction)
 
 ---
 
-## Recent Accomplishments (2026-01-27 Phase 2.9 - Large File Decomposition)
+## Recent Accomplishments (2026-01-27 Phase 2.9 - main.py Decomposition)
+
+### main.py Decomposition - Completed
+Extracted 25 routes from main.py to dedicated routers:
+
+| New File | Routes | Purpose |
+|----------|--------|---------|
+| `api/auth.py` | 3 | Login, logout, session management |
+| `api/pages.py` | 11 | Page render routes (profile, settings, etc.) |
+| `api/ai_endpoints.py` | 4 | AI memory and draft summary |
+| `domains/signals/api/status.py` | 4 | Signal feedback, status, conversion |
+| `domains/workflow/api/user_status.py` | 3 | User status, mode timer stats |
+
+**main.py remaining routes** (4):
+- `/health`, `/healthz` - Health checks (standard to keep in main)
+- `/` - Dashboard (complex data aggregation)
+- `POST /meetings/load` - Meeting bundle form (complex file uploads)
+
+**Stats**: 1235→763 lines (38% reduction, 472 lines extracted)
+**Commit**: 4bbbc28
+
+---
+
+## Recent Accomplishments (2026-01-27 Phase 2.4 - Large File Decomposition)
 
 ### Phase 2.4 Large Files - Completed
 All files >900 lines have been addressed:
