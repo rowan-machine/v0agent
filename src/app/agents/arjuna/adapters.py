@@ -55,13 +55,13 @@ def get_arjuna_agent():
     Get or create the global Arjuna agent instance.
     
     Returns:
-        ArjunaAgent instance (from _arjuna_core for now, will use core.py later)
+        ArjunaAgentCore instance (using decomposed mixin-based implementation)
     """
     global _arjuna_instance
     
     if _arjuna_instance is None:
-        # Import here to avoid circular imports
-        from .._arjuna_core import ArjunaAgent
+        # Use the new mixin-based ArjunaAgentCore from core.py
+        from .core import ArjunaAgentCore
         
         config = AgentConfig(
             name="arjuna",
@@ -73,7 +73,7 @@ def get_arjuna_agent():
             system_prompt_file="prompts/agents/arjuna/system.jinja2",
             tools=["create_ticket", "update_ticket", "navigate", "search"],
         )
-        _arjuna_instance = ArjunaAgent(
+        _arjuna_instance = ArjunaAgentCore(
             config=config,
             llm_client=SimpleLLMClient(),
         )

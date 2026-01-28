@@ -110,7 +110,7 @@ class ArjunaAgentCore(
         )
         self.db_connection = db_connection
         self._thread_id = None
-        self.last_run_id = None
+        # Note: last_run_id is managed by BaseAgent as a property
         
         # Initialize Jinja2 environment for prompt templates
         prompts_dir = Path(__file__).parent.parent.parent.parent / "prompts" / "agents" / "arjuna"

@@ -3,7 +3,7 @@ Arjuna Agent Package - SignalFlow Smart Assistant
 
 This package provides the Arjuna conversational AI agent.
 
-MIGRATION STATUS: 95% Complete ✅
+MIGRATION STATUS: 100% Complete ✅
 The agent has been decomposed from a single 2500+ line file into:
 - constants.py - Knowledge bases and configuration ✅
 - tools.py - Intent execution tools (ticket CRUD, etc.) ✅
@@ -17,8 +17,7 @@ The agent has been decomposed from a single 2500+ line file into:
 - core.py - ArjunaAgentCore class (new composition-based) ✅
 - adapters.py - Module-level adapter functions ✅
 
-For backward compatibility, we still re-export from _arjuna_core.py.
-New code should import from this package directly.
+The legacy _arjuna_core.py can now be safely deleted.
 """
 
 # Import constants from the new location
@@ -41,10 +40,13 @@ from .chain_executor import ArjunaChainMixin, CHAIN_DEFINITIONS
 from .intents import ArjunaIntentMixin
 from .tickets import ArjunaTicketMixin
 
-# Import new core class (Phase 2.3)
+# Import new core class - now the primary implementation
 from .core import ArjunaAgentCore, ArjunaAgentComposed
 
-# Import adapter functions (Phase 2.3)
+# Alias for backward compatibility - ArjunaAgent now points to ArjunaAgentCore
+ArjunaAgent = ArjunaAgentCore
+
+# Import adapter functions
 from .adapters import (
     SimpleLLMClient,
     get_arjuna_agent,
@@ -60,12 +62,6 @@ from .adapters import (
     quick_ask,
     quick_ask_sync,
     interpret_user_status_adapter,
-)
-
-# Import everything else from the original arjuna module (for backward compatibility)
-# This will be removed once all code migrates to using this package directly
-from .._arjuna_core import (
-    ArjunaAgent,  # Original class - use ArjunaAgentCore for new code
 )
 
 # MCP commands (already extracted)
