@@ -1,7 +1,7 @@
 # V0Agent Refactoring Tracker
 
-> **Last Updated**: 2026-01-27 (Phase 2.10 Legacy Router Deprecation)
-> **Status**: 12 Domains with 206+ total routes - ~5000 lines of duplicate/legacy code removed
+> **Last Updated**: 2026-01-27 (Phase 2.11 main.py Best Practices)
+> **Status**: 12 Domains with 457 routes - main.py now 117 lines (best practice)
 
 ## Current Focus
 
@@ -21,9 +21,44 @@
 14. **Search Domain** ✅ - 10 routes (semantic, hybrid, unified, mindmap) - domain router mounted
 15. **Signals Domain** ✅ - 17 routes (browse, extraction, learning, status)
 16. **Assistant Domain** ✅ - 19 routes
-17. **main.py Decomposition** ✅ - 1235→455 lines (63% reduction)
-18. **Knowledge Graph Domain** ✅ - 7 routes (links, suggestions, stats) - NEW
+17. **main.py Best Practices** ✅ - 456→117 lines (74% reduction)
+18. **Knowledge Graph Domain** ✅ - 7 routes (links, suggestions, stats)
 19. **Legacy Router Deprecation** ✅ - career, search, knowledge_graph now emit DeprecationWarning
+20. **Router Registry** ✅ - routers.py centralizes all router registration
+
+---
+
+## Recent Accomplishments (2026-01-27 Phase 2.11 - main.py Best Practices)
+
+### main.py Architecture Refactor
+Implemented best-practice main.py structure for full-stack FastAPI development:
+
+| Component | Lines | Purpose |
+|-----------|-------|---------|
+| `main.py` | 117 | App config, middleware, health check, startup |
+| `routers.py` | 115 | Centralized router registration |
+| `services/startup.py` | 40 | Application initialization |
+| `domains/meetings/api/load_bundle.py` | 195 | Meeting bundle form handler |
+
+**Best Practice Structure:**
+```python
+# main.py - BEFORE (456 lines, 57 imports)
+from .meetings import router...  # 30+ imports
+from .api.xyz import router...   # 20+ imports
+# ... 80 lines of legacy comments
+# ... business logic mixed in
+
+# main.py - AFTER (117 lines, 6 imports)
+from .auth import AuthMiddleware
+from .routers import register_routers
+from .services.startup import initialize_app
+
+app = FastAPI(...)
+app.add_middleware(AuthMiddleware)
+register_routers(app)
+```
+
+**Reduction: 456 → 117 lines (74%)**
 
 ---
 
