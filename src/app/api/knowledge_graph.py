@@ -2,6 +2,13 @@
 """
 Knowledge Graph API - P5.10
 
+⚠️  DEPRECATED: This file is being replaced by the domain-driven structure.
+    New implementation: src/app/domains/knowledge_graph/api/
+    New routes available at: /api/domains/graph/*
+    
+    This file will be removed in a future release.
+    Please migrate to the new domain-based routes.
+
 Manages entity links between meetings, documents, tickets, DIKW items, and signals.
 Uses SQLite/Supabase for storage instead of requiring Neo4j.
 
@@ -11,6 +18,13 @@ Graph Features:
 - Auto-suggest links based on semantic similarity
 - Track link provenance (system/user/ai created)
 """
+import warnings
+warnings.warn(
+    "api/knowledge_graph.py is deprecated. Use domains/knowledge_graph/api instead. "
+    "Routes available at /api/domains/graph/*",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 import json
 import logging

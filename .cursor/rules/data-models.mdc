@@ -1,36 +1,54 @@
 ---
-description: Documents the core data models for meetings and documents, their relationships, and business logic for signal intelligence.
+description: Defines core data models for meetings and documents, including their relationship structure and metadata management
 ---
 
 
 # data-models
 
-Two primary data models with associated business logic:
+The system implements two primary data models with sophisticated relationship tracking:
 
-## Meetings Model (Importance: 90/100)
-Core entity for managing meeting intelligence and signal extraction:
-- Meeting transcripts and summaries
-- Extracted signals (decisions, actions, blockers, risks, ideas)
-- Participant tracking and contributions 
-- Meeting type classification
-- Custom lifecycle states (scheduled, in-progress, completed, archived)
+## Meeting Model
+Importance Score: 85/100
 
-## Documents Model (Importance: 85/100)
-Knowledge artifact storage with domain-specific processing:
-- Document classification system
+Key attributes:
+- Hierarchical signal storage (decisions, actions, blockers, risks)
+- Time-series metadata tracking with version history
+- Multiple linked transcript versions with confidence scores
+- Relationship tracking to Documents and DIKW items
+- Custom mindmap synthesis status tracking
+- Multi-participant context preservation
+
+## Document Model 
+Importance Score: 90/100
+
+Key attributes:
+- Semantic vector storage for similarity matching
+- Hierarchical knowledge structure with parent/child tracking
+- Signal extraction results with confidence scores
+- Multi-stage processing status tracking
+- Custom relationship types to Meetings and DIKW items
 - Version control with change tracking
-- Relationship mapping between documents
-- Tag generation and categorization
-- Custom entity extraction
 
-## Relationships and Integration
-- Meetings can generate multiple signals
-- Signals can be converted to tickets or DIKW items
-- Documents can be linked to meetings as references
-- Signals can reference multiple documents
-- Knowledge synthesis combines meeting and document signals
+## Relationship Structure
+- Bidirectional linking between Meetings and Documents
+- Confidence scoring for relationship strength (0.0-1.0)
+- Relationship type classification:
+  - REFERENCE (direct mentions)
+  - SEMANTIC (content similarity)
+  - TEMPORAL (time-based connections)
+  - CONTEXTUAL (shared participants/topics)
+- Automatic relationship inference based on content analysis
+- Chain detection for meeting series tracking
 
-The data model implementation focuses on maintaining relationships between knowledge artifacts while supporting the signal intelligence workflow from extraction through synthesis.
+## Metadata Management
+- Custom status lifecycle tracking
+- Processing stage indicators
+- AI confidence scores for extracted content
+- Participant context preservation
+- Time-series version tracking
+- Change detection and diffing support
+
+The models implement sophisticated relationship tracking with semantic similarity matching and hierarchical knowledge organization capabilities.
 
 $END$
 

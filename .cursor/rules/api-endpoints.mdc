@@ -1,53 +1,56 @@
 ---
-description: FastAPI routes implementing basic CRUD operations for meetings and documents
+description: Documents FastAPI route implementations for core business operations around meetings and document management
 ---
 
 
 # api-endpoints
 
-FastAPI routes implementing core CRUD operations with the following business logic:
+API routes implementing the core meeting and document management functionality:
 
-1. Meeting Signal Routes
-File: src/app/api/v1/meetings.py
-- Extracts and processes signals (decisions, action items, blockers) from meeting transcripts
-- Implements meeting-document association with custom relationship tracking
-- Handles meeting lifecycle with state transitions and signal aggregation
-Importance Score: 80/100
+1. Meeting Signal Management Routes
+Path: /api/v1/meetings/signals.py
+- Custom signal extraction workflow for meeting transcripts
+- Categorizes and tags extracted signals as:
+  * Decisions
+  * Action Items  
+  * Blockers
+  * Risks
+  * Ideas
+- Handles signal deduplication with semantic similarity matching
+- Routes for signal validation and feedback collection
+Importance Score: 85
 
-2. DIKW Knowledge Management Routes 
-File: src/app/api/v1/dikw.py
-- Manages knowledge pyramid items with promotion workflows between levels
-- Custom confidence scoring and validation logic for knowledge items
-- Tracks knowledge evolution and relationships across pyramid levels
-Importance Score: 85/100
+2. Meeting Intelligence Routes
+Path: /api/v1/meetings/intelligence.py
+- Auto-synthesis of meeting discussions into mindmap format
+- Topic clustering and relationship mapping
+- Attendance and participation tracking
+- Integration with DIKW hierarchy promotion system
+Importance Score: 80
 
-3. AI Memory Integration Routes
-File: src/app/api/v1/ai_memory.py
-- Manages contextual memory with importance-based storage
-- Implements semantic search over memory items
-- Handles memory lifecycle with approval/archive/reject workflows
-Importance Score: 90/100
+3. Document Processing Routes 
+Path: /api/v1/documents/process.py
+- Multi-stage document analysis pipeline
+- Entity extraction and relationship mapping
+- Cross-reference detection between related documents
+- Auto-linking to relevant meetings and tickets
+Importance Score: 75
 
-4. Feedback Loop Routes
-File: src/app/api/v1/feedback.py
-- Collects signal feedback with confidence impact calculations
-- Updates DIKW item confidence based on feedback patterns
-- Implements holistic pattern recognition for signal validation
-Importance Score: 80/100
+4. Meeting Context Management
+Path: /api/v1/meetings/context.py
+- Sprint context preservation across meetings
+- Historical context retrieval for ongoing discussions
+- Smart summarization of previous relevant meetings
+- Context-aware participant suggestion system
+Importance Score: 70
 
-5. Mindmap Analysis Routes
-File: src/app/api/v1/imports.py
-- Processes mindmap structures from images
-- Extracts entities and relationships from visual hierarchies
-- Generates DIKW items from mindmap patterns
-Importance Score: 85/100
+The API routes demonstrate sophisticated business logic around:
+- Meeting intelligence extraction
+- Signal categorization and processing
+- Document relationship mapping
+- Context preservation and retrieval
 
-The endpoints implement sophisticated domain logic around:
-- Knowledge management and synthesis
-- AI memory context handling
-- Feedback-driven confidence scoring
-- Visual knowledge extraction
-- Meeting intelligence processing
+Key functionality focuses on transforming unstructured meeting and document content into structured, actionable knowledge items within the system.
 
 $END$
 

@@ -26,7 +26,7 @@ from .api.mcp import router as mcp_router
 from .api.accountability import router as accountability_router
 from .api.settings import router as settings_router
 from .api.assistant import router as assistant_router
-from .api.career import router as career_router
+# REMOVED: from .api.career import router as career_router (DEPRECATED - use domains/career/api)
 from .api.v1 import router as v1_router  # API v1 (Phase 3.1)
 from .api.mobile import router as mobile_router  # Mobile sync (Phase 3.2)
 from .api.admin import router as admin_router  # Admin endpoints (Phase 4.1)
@@ -53,6 +53,8 @@ from .domains.tickets.api import router as tickets_domain_router
 from .domains.documents.api import router as documents_domain_router
 from .domains.dashboard import router as dashboard_domain_router  # Dashboard (Refactor Phase 2)
 from .domains.signals import signals_router as signals_domain_router  # Signals (Refactor Phase 2.8)
+from .domains.search.api import router as search_domain_router  # Search domain (Refactor Phase 2.10)
+from .domains.knowledge_graph import router as knowledge_graph_domain_router  # Knowledge graph domain (Refactor Phase 2.10)
 from .mcp.registry import TOOL_REGISTRY
 from .llm import ask as ask_llm
 from .auth import AuthMiddleware
@@ -418,7 +420,7 @@ app.include_router(mcp_router)
 app.include_router(accountability_router)
 app.include_router(settings_router)
 app.include_router(assistant_router)
-app.include_router(career_router)
+# REMOVED: app.include_router(career_router) - migrated to career_domain_router
 app.include_router(v1_router)  # API v1 versioned endpoints (Phase 3.1)
 app.include_router(mobile_router)  # Mobile sync endpoints (Phase 3.2)
 app.include_router(admin_router)  # Admin endpoints (Phase 4.1)
@@ -450,3 +452,5 @@ app.include_router(tickets_domain_router, prefix="/api/domains")  # Tickets doma
 app.include_router(documents_domain_router, prefix="/api/domains")  # Documents domain
 app.include_router(signals_domain_router)  # Signals domain (already has /api/signals prefix)
 app.include_router(dashboard_domain_router)  # Dashboard (already has /api/dashboard prefix)
+app.include_router(search_domain_router, prefix="/api/domains")  # Search domain (Refactor Phase 2.10)
+app.include_router(knowledge_graph_domain_router, prefix="/api/domains")  # Knowledge graph domain (Refactor Phase 2.10)

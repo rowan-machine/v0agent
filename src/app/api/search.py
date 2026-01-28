@@ -2,11 +2,25 @@
 """
 Search API Routes - Keyword, Semantic, Hybrid, and Unified Search
 
+⚠️  DEPRECATED: This file is being replaced by the domain-driven structure.
+    New implementation: src/app/domains/search/api/
+    New routes available at: /api/domains/search/*
+    
+    This file will be removed in a future release.
+    Please migrate to the new domain-based routes.
+
 P5.2: Implements hybrid search combining pgvector semantic search
 with PostgreSQL full-text search using Reciprocal Rank Fusion (RRF).
 
 F5: Unified Semantic Search across all entity types.
 """
+import warnings
+warnings.warn(
+    "api/search.py is deprecated. Use domains/search/api instead. "
+    "Routes available at /api/domains/search/*",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 from fastapi import APIRouter, Query, HTTPException, status
 from fastapi.responses import JSONResponse
