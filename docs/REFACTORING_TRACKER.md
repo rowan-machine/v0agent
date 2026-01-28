@@ -1,7 +1,7 @@
 # V0Agent Refactoring Tracker
 
-> **Last Updated**: 2026-01-27 (Phase 2.4 Complete + Signals Domain)
-> **Status**: 10 Domains with 189 total routes - Career, Signals fully migrated
+> **Last Updated**: 2026-01-27 (Phase 2.4 Large Files Complete)
+> **Status**: 10 Domains with 189 total routes - Large file decomposition complete
 
 ## Current Focus
 
@@ -21,6 +21,49 @@
 14. **Search Domain** ✅ - 10 routes (semantic, hybrid, unified, mindmap)
 15. **Signals Domain** ✅ - 13 routes (browse, extraction, learning)
 16. **Assistant Domain** ✅ - 19 routes
+
+---
+
+## Recent Accomplishments (2026-01-27 Phase 2.9 - Large File Decomposition)
+
+### Phase 2.4 Large Files - Completed
+All files >900 lines have been addressed:
+
+| File | Before | After | Reduction | Commit |
+|------|--------|-------|-----------|--------|
+| `background_jobs.py` | 1417 | 40 (wrapper) | 97% | cf009ec |
+| `api/assistant.py` | 987 | 345 | 65% | 9e4da24 |
+| `api/v1/imports.py` | 961 | Package (6 modules) | n/a | 3440d9f |
+| `db.py` | 961 | SKIPPED | - | Deprecated with migration path |
+
+### background_jobs Package (`services/background_jobs/`)
+| File | Lines | Purpose |
+|------|-------|---------|
+| `constants.py` | 50 | MESSAGE_TEMPLATES, NOTIFICATION_TEMPLATES |
+| `mode_completion.py` | 185 | ModeCompletionCelebrator class |
+| `sprint_reminders.py` | 160 | SprintDeadlineReminder class |
+| `signal_learning.py` | 152 | SignalLearningEngine class |
+| `standup_coach.py` | 135 | StandupCoach class |
+| `background_executor.py` | 155 | BackgroundJobExecutor class |
+| `adapters.py` | 355 | Adapter functions for backward compatibility |
+| `__init__.py` | 84 | Re-exports all public API |
+
+### api/assistant.py Slim-down
+- Removed duplicate function definitions that shadowed imports
+- Created async adapters in `agents/arjuna/adapters.py`
+- Routes now use `parse_assistant_intent_async()` and `execute_intent_async()`
+
+### api/v1/imports Package (`api/v1/imports/`)
+| File | Lines | Purpose |
+|------|-------|---------|
+| `upload.py` | 207 | File upload and transcript import |
+| `amend.py` | 249 | Meeting document amendments |
+| `mindmap.py` | 269 | Vision AI mindmap analysis |
+| `models.py` | 87 | Pydantic models |
+| `helpers.py` | 200 | Shared utility functions |
+| `__init__.py` | 70 | Re-exports all public API |
+
+**Bug Fix**: Fixed undefined `ALLOWED_EXTENSIONS` constant in amend endpoint.
 
 ---
 
@@ -354,15 +397,15 @@ src/
 | File | Lines | Target | Status | Notes |
 |------|-------|--------|--------|-------|
 | `api/career.py` | 2779 | domains/career/api/ | ✅ 100%+ Complete | 68 domain routes (exceeds 64 legacy) |
-| `services/background_jobs.py` | 1417 | Split by job type | ⬜ TODO | |
+| `services/background_jobs.py` | 1417→40 | Split by job type | ✅ DONE | cf009ec - 97% reduction via package extraction |
 | `api/search.py` | 1285 | domains/search/api/ | 🟡 Partial | Some routes migrated |
 | `agents/dikw_synthesizer.py` | 1201 | agents/dikw_synthesizer/ | ✅ DONE | Package extracted |
 | `main.py` | 1235 | Acceptable | ✅ OK | Application setup |
 | `career_repository.py` | 1133 | Acceptable | ✅ OK | Repository pattern |
 | `meetings.py` | 1102 | domains/meetings/api/ | ✅ DONE | 17 routes extracted |
-| `api/assistant.py` | 987 | Split by feature | ⬜ TODO | |
-| `db.py` | 961 | Remove (use adapters) | ⬜ TODO | Legacy, migrate to repositories |
-| `api/v1/imports.py` | 960 | Split by import type | ⬜ TODO | |
+| `api/assistant.py` | 987→345 | Slim via adapters | ✅ DONE | 9e4da24 - 65% reduction via async adapters |
+| `db.py` | 961 | DEPRECATED | ✅ SKIPPED | Legacy SQLite - documented migration path exists |
+| `api/v1/imports.py` | 961→pkg | Split by import type | ✅ DONE | 3440d9f - Package with 6 modules (<270 lines each) |
 | `tickets.py` | 888 | domains/tickets/api/ | ✅ DONE | 12 routes extracted |
 
 ### 2.4a Career Domain Migration Detail (Completed 2026-01-27)
