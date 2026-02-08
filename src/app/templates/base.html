@@ -3238,9 +3238,9 @@
 
         list.innerHTML = notifications.map(n => renderNotificationItem(n)).join('');
         
-        // Update badge with unread count
-        const unreadCount = notifications.filter(n => !n.read).length;
-        updateNotificationBadge(unreadCount);
+        // Update badge with notification count
+        // The dropdown shows unactioned notifications, so badge = length of list
+        updateNotificationBadge(notifications.length);
         
         notificationsLoaded = true;
       } catch (error) {
@@ -3356,10 +3356,11 @@
 
     // Load notification count on page load
     document.addEventListener('DOMContentLoaded', function() {
-      // Fetch just the unread count for the badge
+      // Fetch notification count for the badge
+      // Use 'total' (unactioned) to match dropdown which shows unactioned notifications
       fetch('/api/notifications/count')
         .then(r => r.json())
-        .then(data => updateNotificationBadge(data.unread || 0))
+        .then(data => updateNotificationBadge(data.total || 0))
         .catch(() => {});
     });
 

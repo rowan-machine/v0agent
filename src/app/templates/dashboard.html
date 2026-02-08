@@ -3836,7 +3836,7 @@ function updateTicketProgress(ticketId) {
 // Refresh burndown stats from server
 async function refreshBurndownStats() {
   try {
-    const res = await fetch('/api/reports/sprint-burndown');
+    const res = await fetch('/api/reports/sprint-burndown', { credentials: 'same-origin' });
     const data = await res.json();
     
     document.getElementById('burndownTotal').textContent = data.total_points || 0;
@@ -3970,7 +3970,7 @@ async function loadModeGSprintTickets() {
   if (!container) return;
   
   try {
-    const res = await fetch('/api/reports/sprint-burndown');
+    const res = await fetch('/api/reports/sprint-burndown', { credentials: 'same-origin' });
     const data = await res.json();
     
     // Update burndown summary
@@ -4083,7 +4083,7 @@ async function loadModeFDeployableTickets() {
   if (!container) return;
   
   try {
-    const res = await fetch('/api/tickets/deployable');
+    const res = await fetch('/api/tickets/deployable', { credentials: 'same-origin' });
     const data = await res.json();
     
     // Calculate stats
@@ -4209,7 +4209,7 @@ async function loadModeHTestPlans() {
   if (!container) return;
   
   try {
-    const res = await fetch('/api/test-plans/sprint');
+    const res = await fetch('/api/test-plans/sprint', { credentials: 'same-origin' });
     const data = await res.json();
     
     // Update test summary stats
@@ -5506,7 +5506,7 @@ function setStandupDateToday() {
 async function loadStandups() {
   try {
     // Load today's standup
-    const todayRes = await fetch('/api/career/standups/today');
+    const todayRes = await fetch('/api/career/standups/today', { credentials: 'same-origin' });
     const todayData = await todayRes.json();
     
     const display = document.getElementById('standupDisplay');
@@ -5535,7 +5535,7 @@ async function loadStandups() {
     }
     
     // Load recent standups
-    const recentRes = await fetch('/api/career/standups?limit=5');
+    const recentRes = await fetch('/api/career/standups?limit=5', { credentials: 'same-origin' });
     const standups = await recentRes.json();
     
     const recentSection = document.getElementById('recentStandups');
@@ -5659,7 +5659,7 @@ function toggleCodeLockerForm() {
 async function showCodeLockerSelector() {
   // Load tickets with their files
   try {
-    const res = await fetch('/api/career/tickets-with-files');
+    const res = await fetch('/api/career/tickets-with-files', { credentials: 'same-origin' });
     ticketsWithFiles = await res.json();
     
     const select = document.getElementById('selectorTicket');
@@ -5768,7 +5768,7 @@ async function proceedToCodeEntry() {
     const params = new URLSearchParams({ filename });
     if (ticketId) params.append('ticket_id', ticketId);
     
-    const res = await fetch(`/api/career/code-locker/next-version?${params}`);
+    const res = await fetch(`/api/career/code-locker/next-version?${params}`, { credentials: 'same-origin' });
     const data = await res.json();
     
     document.getElementById('versionSuggestion').textContent = 
@@ -5791,7 +5791,7 @@ function backToSelector() {
 
 async function loadCodeLocker() {
   try {
-    const res = await fetch('/api/career/code-locker/files');
+    const res = await fetch('/api/career/code-locker/files', { credentials: 'same-origin' });
     const files = await res.json();
     
     const container = document.getElementById('codeLockerFiles');

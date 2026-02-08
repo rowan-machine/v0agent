@@ -41,6 +41,10 @@ def register_routers(app: FastAPI) -> None:
     from .domains.knowledge_graph import router as knowledge_graph_domain_router
     
     app.include_router(career_domain_router, prefix="/api/domains")
+    
+    # Also mount career at /api/career for backwards compatibility with templates
+    # TODO: Update all templates to use /api/domains/career/* and remove this
+    app.include_router(career_domain_router, prefix="/api")
     app.include_router(dikw_domain_router, prefix="/api/domains")
     app.include_router(meetings_domain_router, prefix="/api/domains")
     app.include_router(meetings_load_router)  # /meetings/load at root level
